@@ -1,0 +1,34 @@
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = [
+  "B",
+  "C4",
+  "PT",
+  "RET",
+  "SIM",
+  "ARG",
+  "PTH",
+  "RUF",
+  "PLE",
+  "ANN",
+  "RUF",
+]
+extend-ignore = [
+  "E402"
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"*.ipynb" = [
+  "PLE1142", # await-outside-async: Jupyter Notebooks support top level await
+  "E501", # line-too-long: Let black handle this
+]
+
+[tool.pytest.ini_options]
+console_output_style = "count"
+addopts = "--strict-markers"
+testpaths = ["scenarios"]

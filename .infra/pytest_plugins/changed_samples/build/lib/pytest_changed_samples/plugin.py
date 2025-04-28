@@ -12,8 +12,10 @@ DIFF_PATH_TRIE_KEY = pytest.StashKey[Trie]()
 WORKING_TREE_CHANGES_OPTION = "--changed-samples-only"
 PR_CHANGES_OPTION = "--changed-samples-only-from"
 
+
 def is_plugin_active(config: pytest.Config) -> bool:
     return get_diff_paths_function(config) is not None
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
@@ -80,6 +82,7 @@ def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> Optio
     # Either definitely ignore this path, or defer decision to other plugins
     return (not diff_path_trie.is_prefix(ignore_dir.resolve().parts)) or None
 
+
 @pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     if not is_plugin_active(session.config):
@@ -87,6 +90,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
     if exitstatus == pytest.ExitCode.NO_TESTS_COLLECTED:
         session.exitstatus = pytest.ExitCode.OK
+
 
 def get_diff_paths_function(config: pytest.Config) -> Optional[Callable[[], Iterable[Path]]]:
     """Get the function that returns paths present in a diff specfied by cmdline arguments

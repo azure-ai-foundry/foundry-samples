@@ -24,10 +24,9 @@ USAGE:
     
 """
 # <create a project client>
-import os
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects.onedp import AIProjectClient
-from azure.ai.agents.models import MessageRole, BingGroundingTool
+from azure.ai.agents.models import BingGroundingTool
 
 
 # Create an Azure AI Client from a connection string, copied from your AI Studio project.
@@ -92,9 +91,9 @@ with project_client:
 
     if run.status == "failed":
         print(f"Run failed: {run.last_error}")
-    
+
     run_steps = agents_client.list_run_steps(run_id=run.id, thread_id=thread.id)
-    run_steps_data = run_steps['data']
+    run_steps_data = run_steps["data"]
     # print(f"Last run step detail: {run_steps_data[-1]}")
     print(f"Last run step detail: {run_steps_data}")
 
