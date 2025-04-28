@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+
 load_dotenv()
 
 ## - pre-reqs: install openai and azure-ai-projects packages
@@ -28,16 +29,10 @@ print(response.choices[0].message.content)
 # </chat_completion>
 
 # <create_and_run_agent>
-agent = project.agents.create_agent(
-    model="gpt-4o",
-    name="my-agent",
-    instructions="You are a helpful writing assistant")
+agent = project.agents.create_agent(model="gpt-4o", name="my-agent", instructions="You are a helpful writing assistant")
 
 thread = project.agents.create_thread()
-message = agents_client.create_message(
-    thread_id=thread.id, 
-    role="user", 
-    content="Write me a poem about flowers")
+message = agents_client.create_message(thread_id=thread.id, role="user", content="Write me a poem about flowers")
 
 run = project.agents.create_and_process_run(thread_id=thread.id, agent_id=agent.id)
 if run.status == "failed":
@@ -96,9 +91,8 @@ for message in project.agents.list_messages(thread_id=thread.id).text_messages:
 from azure.ai.projects import EvaluatorIds
 
 result = project.evaluation.create_agent_evaluation(
-    thread=thread.id,
-    run=run.id, 
-    evaluators=[EvaluatorIds.AGENT_QUALITY_EVALUATOR])
+    thread=thread.id, run=run.id, evaluators=[EvaluatorIds.AGENT_QUALITY_EVALUATOR]
+)
 
 # wait for evaluation to complete
 result.wait_for_completion()

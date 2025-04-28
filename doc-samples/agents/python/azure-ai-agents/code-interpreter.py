@@ -29,6 +29,7 @@ from azure.ai.agents.models import FilePurpose, MessageRole
 from azure.identity import DefaultAzureCredential
 from pathlib import Path
 from dotenv import load_dotenv
+
 load_dotenv()
 
 agents_client = AgentsClient(
@@ -37,10 +38,12 @@ agents_client = AgentsClient(
 )
 
 with agents_client:
-
     # Upload a file and wait for it to be processed
     # [START upload_file_and_create_agent_with_code_interpreter]
-    file = agents_client.upload_file_and_poll(file_path="/workspaces/foundry-samples/doc-samples/agents/data/nifty_500_quarterly_results.csv", purpose=FilePurpose.AGENTS)
+    file = agents_client.upload_file_and_poll(
+        file_path="/workspaces/foundry-samples/doc-samples/agents/data/nifty_500_quarterly_results.csv",
+        purpose=FilePurpose.AGENTS,
+    )
     print(f"Uploaded file, file ID: {file.id}")
 
     code_interpreter = CodeInterpreterTool(file_ids=[file.id])
@@ -89,7 +92,7 @@ with agents_client:
         print(f"Saved image file to: {Path.cwd() / file_name}")
 
     for file_path_annotation in messages.file_path_annotations:
-        print(f"File Paths:")
+        print("File Paths:")
         print(f"Type: {file_path_annotation.type}")
         print(f"Text: {file_path_annotation.text}")
         print(f"File ID: {file_path_annotation.file_path.file_id}")

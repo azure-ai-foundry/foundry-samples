@@ -92,9 +92,9 @@ with project_client:
 
     if run.status == "failed":
         print(f"Run failed: {run.last_error}")
-    
+
     run_steps = agents_client.list_run_steps(run_id=run.id, thread_id=thread.id)
-    run_steps_data = run_steps['data']
+    run_steps_data = run_steps["data"]
     # print(f"Last run step detail: {run_steps_data[-1]}")
     print(f"Last run step detail: {run_steps_data}")
 
