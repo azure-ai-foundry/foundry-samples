@@ -32,7 +32,7 @@ print(response.choices[0].message.content)
 agent = project.agents.create_agent(model="gpt-4o", name="my-agent", instructions="You are a helpful writing assistant")
 
 thread = project.agents.create_thread()
-message = agents_client.create_message(thread_id=thread.id, role="user", content="Write me a poem about flowers")
+message = project.agents.create_message(thread_id=thread.id, role="user", content="Write me a poem about flowers")
 
 run = project.agents.create_and_process_run(thread_id=thread.id, agent_id=agent.id)
 if run.status == "failed":
