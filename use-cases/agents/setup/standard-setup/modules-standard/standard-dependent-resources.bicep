@@ -29,9 +29,6 @@ param aiSearchExists bool
 param azureStorageExists bool
 param cosmosDBExists bool
 
-@description('Name of the new virtual network')
-param vnetName string
-param networkInjection string
 
 var cosmosParts = split(cosmosDBResourceId, '/')
 
@@ -191,44 +188,6 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = if(!azureStora
   }
 }
 
-resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = if (networkInjection == 'true'){
-  name: vnetName
-  location: location
-  properties: {
-    addressSpace: {
-      addressPrefixes: [
-        '192.168.0.0/16'
-      ]
-    }
-    subnets: [
-      {
-        name: 'default'
-        properties: {
-          addressPrefix: '192.168.0.0/24'
-        }
-      }
-    ]
-  }
-}
-
-resource subnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = if (networkInjection == 'true'){
-  parent: virtualNetwork
-  name: 'default'
-  properties: {
-    addressPrefix: '192.168.0.0/24'
-	delegations: [
-      {
-        id: '${virtualNetwork.id}/subnets/default"'
-        name: 'Microsoft.App/environments'
-        properties: {
-          serviceName: 'Microsoft.App/environments'
-        }
-        type: 'Microsoft.Network/virtualNetworks/subnets/delegations'
-      }
-    ]
-  }
-}
-
 // output aiServicesName string =  aiServiceExists ? existingAIServiceAccount.name : aiServicesName
 // output aiservicesID string = aiServiceExists ? existingAIServiceAccount.id : aiServices.id
 // output aiservicesTarget string = aiServiceExists ? existingAIServiceAccount.properties.endpoint : aiServices.properties.endpoint
@@ -250,5 +209,4 @@ output cosmosDBId string = cosmosDBExists ? existingCosmosDB.id : cosmosDB.id
 output cosmosDBResourceGroupName string = cosmosDBExists ? cosmosParts[4] : resourceGroup().name
 output cosmosDBSubscriptionId string = cosmosDBExists ? cosmosParts[2] : subscription().subscriptionId
 
-output subnetId string = subnet.id
 // output keyvaultId string = keyVault.id

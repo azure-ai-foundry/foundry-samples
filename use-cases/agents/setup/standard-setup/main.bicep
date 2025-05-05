@@ -39,12 +39,6 @@ param azureCosmosDBAccountResourceId string = ''
 param projectCapHost string = 'caphostproj'
 param accountCapHost string = 'caphostacc'
 
-@allowed([
-  'false'
-  'true'
-])
-param enableNetworkInjection string = 'false'
-
 // Create a short, unique suffix, that will be unique to each resource group
 param deploymentTimestamp string = utcNow('yyyyMMddHHmmss')
 var uniqueSuffix = substring(uniqueString('${resourceGroup().id}-${deploymentTimestamp}'), 0, 4)
@@ -73,7 +67,6 @@ var storageParts = split(azureStorageAccountResourceId, '/')
 var azureStorageSubscriptionId = storagePassedIn ? storageParts[2] : subscription().subscriptionId
 var azureStorageResourceGroupName = storagePassedIn ? storageParts[4] : resourceGroup().name
 
-var virtualNetwork = toLower('${aiServices}${uniqueSuffix}vnet')
 /*
   Validate existing resources
   This module will check if the AI Search Service, Storage Account, and Cosmos DB Account already exist.
@@ -115,10 +108,6 @@ module aiDependencies 'modules-standard/standard-dependent-resources.bicep' = {
     // Cosmos DB Account
     cosmosDBResourceId: azureCosmosDBAccountResourceId
     cosmosDBExists: validateExistingResources.outputs.cosmosDBExists
-	
-	// vnet injection
-    vnetName: virtualNetwork
-    networkInjection: enableNetworkInjection
     }
 }
 
@@ -137,9 +126,6 @@ module aiAccount 'modules-standard/ai-account-identity.bicep' = {
     modelVersion: modelVersion
     modelSkuName: modelSkuName
     modelCapacity: modelCapacity
-	
-    subnetId: aiDependencies.outputs.subnetId
-    networkInjection: enableNetworkInjection
   }
   dependsOn: [
     validateExistingResources, aiDependencies
@@ -225,10 +211,9 @@ module addProjectCapabilityHost 'modules-standard/add-project-capability-host.bi
     cosmosDBConnection: aiProject.outputs.cosmosDBConnection 
     azureStorageConnection: aiProject.outputs.azureStorageConnection
     aiSearchConnection: aiProject.outputs.aiSearchConnection
+
     projectCapHost: projectCapHost
     accountCapHost: accountCapHost
-    subnetId: aiDependencies.outputs.subnetId
-    networkInjection: enableNetworkInjection
   }
   dependsOn: [
     aiSearchRoleAssignments, cosmosAccountRoleAssignments, storageAccountRoleAssignment

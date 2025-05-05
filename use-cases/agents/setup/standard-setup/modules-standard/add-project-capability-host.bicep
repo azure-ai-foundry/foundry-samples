@@ -5,8 +5,6 @@ param projectName string
 param accountName string
 param projectCapHost string
 param accountCapHost string
-param subnetId string
-param networkInjection string
 
 var threadConnections = ['${cosmosDBConnection}']
 var storageConnections = ['${azureStorageConnection}']
@@ -17,7 +15,6 @@ var vectorStoreConnections = ['${aiSearchConnection}']
 resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
    name: accountName
 }
-
 #disable-next-line BCP081
 resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' existing = {
   name: projectName
@@ -26,7 +23,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
 
 
 #disable-next-line BCP081
- resource accountCapabilityHost 'Microsoft.CognitiveServices/accounts/capabilityHosts@2025-04-01-preview' = if (networkInjection == 'false') {
+ resource accountCapabilityHost 'Microsoft.CognitiveServices/accounts/capabilityHosts@2025-04-01-preview' = {
    name: accountCapHost
    parent: account
    properties: {
@@ -34,6 +31,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
    
    }
 }
+
 
 #disable-next-line BCP081
 resource projectCapabilityHost 'Microsoft.CognitiveServices/accounts/projects/capabilityHosts@2025-04-01-preview' = {
