@@ -35,7 +35,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
       subnetArmId: subnetId
       useMicrosoftManagedNetwork: false
     }
-    ] : [])
+    ] : null)
     // true is not supported today
     disableLocalAuth: false
   }
