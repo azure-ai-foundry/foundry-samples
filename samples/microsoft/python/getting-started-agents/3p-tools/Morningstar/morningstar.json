@@ -1,0 +1,103 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Morningstar Agent API",
+    "description": "The Morningstar Agent API makes it easy to retrieve answers from our content, without the need to build your own sync and ingestion pipelines. By connecting your generative AI application to the Morningstar Agent, you’ll be tapping into the same engine that powers Morningstar’s in-product generative AI capabilities to benefit from continuous enhancements implemented by our domain experts..",
+    "version": "0.0.1"
+  },
+  "servers": [
+    {
+      "url": "https://www.us-api.morningstar.com/casper-ingn/ingn-api-prod"
+    }
+  ],
+  "paths": {
+    "/v2/apps/morningstar-agent/chat": {
+      "post": {
+        "tags": [
+          "App Chat"
+        ],
+        "description": "Submit a question and get an answer in the response. A list of sources cited to create the answer are also returned.",
+        "operationId": "submitQuestion",
+        "security": [
+          {
+            "apiKeyHeader": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ChatRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "ChatRequest"
+      },
+      "ChatResponse": {
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chat Id",
+            "description": "Unique ID for the chat request"
+          },
+          "response": {
+            "type": "string",
+            "title": "Response",
+            "description": "Chat response"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question",
+            "description": "Original input question"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chat_id",
+          "response",
+          "question"
+        ],
+        "title": "ChatResponse",
+        "description": "Args:\n    chat_id (uuid): Unique ID for the chat request\n    response (str): The final response string provided by the tool.\n    question (str): The original question string provided by the user.\n    tools (list): The list of tools used.\n    debug_info (dict): Chat request debug information, including agent info and detected question language."
+      }
+    },
+    "securitySchemes": {
+      "apiKeyHeader": {
+        "type": "apiKey",
+        "name": "authorization",
+        "in": "header"
+      }
+    }
+  }
+}
