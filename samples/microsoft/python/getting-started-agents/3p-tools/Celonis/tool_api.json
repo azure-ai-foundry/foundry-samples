@@ -1,0 +1,547 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Tool API for Agents",
+    "description": "Tool API for AI agents powered by Celonis Process Intelligence",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "<Replace with tools API URL of your tenant; get started: https://docs.celonis.com/en/process-copilot.html>",
+      "description": "Copilot Tool Server"
+    }
+  ],
+  "paths": {
+    "/search-data": {
+      "post": {
+        "summary": "Searchs for the relevant columns from the knowledge model. This tool will just show you which fields are available to query.",
+        "operationId": "endpoint_search_data_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchDataArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalSearchResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get-data": {
+      "post": {
+        "summary": "Retrieves data based on IDs from the database and returns a pandas dataframe. This tool will retrieve all rows associated with these IDs. Only KPI and Record Attribute IDs are allowed.",
+        "operationId": "endpoint_get_data_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/get-data-args"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get-insights": {
+      "post": {
+        "summary": "Finds recommended insights and improvement potentials in the user's data given a KPI and a list of Record Attributes.",
+        "operationId": "endpoint_get_insights_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/get-insights-args"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalInsightResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "api_key": {
+        "type": "apiKey",
+        "name": "Authorization",
+        "in": "header"
+      }
+    },
+    "schemas": {
+      "ColumnSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Row ID"
+          },
+          "displayName": {
+            "type": "string",
+            "title": "Displayname",
+            "description": "Display name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ColumnSchema"
+      },
+      "DateFilter": {
+        "properties": {
+          "column_id": {
+            "type": "string",
+            "title": "Column Id",
+            "description": "The record attribute ID to filter by. It must be of the form XXX.YYY. This must not be a KPI ID. Do not guess."
+          },
+          "start_date": {
+            "type": "string",
+            "title": "Start Date",
+            "description": "The start date for date filtering. Must be in the format YYYY-MM-DD for year, month and date respectively. Note this INCLUDES this date from the returned values."
+          },
+          "end_date": {
+            "type": "string",
+            "title": "End Date",
+            "description": "The end date for date filtering. Must be in the format YYYY-MM-DD for year, month and date respectively. Note this INCLUDES this date from the returned values."
+          },
+          "negation": {
+            "type": "boolean",
+            "title": "Negation",
+            "description": "True if we want to add NOT to the filter query expression, False if we do not want to add NOT to the filter query expression.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "column_id",
+          "start_date",
+          "end_date"
+        ],
+        "title": "DateFilter"
+      },
+      "ExternalInsightResult": {
+        "properties": {
+          "insights": {
+            "type": "string",
+            "title": "Insights"
+          }
+        },
+        "type": "object",
+        "required": [
+          "insights"
+        ],
+        "title": "ExternalInsightResult"
+      },
+      "ExternalSearchResult": {
+        "properties": {
+          "search_result": {
+            "type": "string",
+            "title": "Search Result"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_result"
+        ],
+        "title": "ExternalSearchResult"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "NullFilter": {
+        "properties": {
+          "column_id": {
+            "type": "string",
+            "title": "Column Id",
+            "description": "The record attribute ID to filter by. It must be of the form XXX.YYY. This must not be a KPI ID. Do not guess."
+          },
+          "is_null": {
+            "type": "boolean",
+            "title": "Is Null",
+            "description": "True if the user asks to keep null values, False if the user asks remove the null values."
+          }
+        },
+        "type": "object",
+        "required": [
+          "column_id",
+          "is_null"
+        ],
+        "title": "NullFilter"
+      },
+      "NumericFilter": {
+        "properties": {
+          "column_id": {
+            "type": "string",
+            "title": "Column Id",
+            "description": "The record attribute ID to filter by. It must be of the form XXX.YYY. This must not be a KPI ID. Do not guess."
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Value",
+            "description": "The numeric value to compare the record attribute by. Must be a float or int."
+          },
+          "comparator": {
+            "type": "string",
+            "title": "Comparator",
+            "description": "The numeric comparison operator used for filtering based on the user's question. YOU MUST CHOOSE BETWEEN '=', '!=', '>', '>=', '<', '<='"
+          }
+        },
+        "type": "object",
+        "required": [
+          "column_id",
+          "value",
+          "comparator"
+        ],
+        "title": "NumericFilter"
+      },
+      "PaginationResponse": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "title": "Page",
+            "description": "The target page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size",
+            "description": "The size of the page"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total number of elements"
+          },
+          "content": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Content",
+            "description": "Results"
+          },
+          "schema": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnSchema"
+            },
+            "type": "array",
+            "title": "Schema",
+            "description": "Schema of results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page",
+          "page_size",
+          "total",
+          "content"
+        ],
+        "title": "PaginationResponse"
+      },
+      "SearchDataArgs": {
+        "properties": {
+          "search_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Search Terms",
+            "description": "terms to search for in the KPIs and attributes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_terms"
+        ],
+        "title": "SearchDataArgs"
+      },
+      "StringFilter": {
+        "properties": {
+          "column_id": {
+            "type": "string",
+            "title": "Column Id",
+            "description": "The record attribute ID to filter by. It must be of the form XXX.YYY. This must not be a KPI ID. Do not guess."
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Values",
+            "description": "The values we want to filter the column attribute by using a LIKE or equality filter. Must be of type string. This could be a company, supplier, IDs, etc.\nWhen applying the same filter to multiple values, you must include all of them here instead of creating multiple string filters."
+          },
+          "add_wildcard_before": {
+            "type": "boolean",
+            "title": "Add Wildcard Before",
+            "description": "Always add wildcard and set True by default. False only when the user explicitly specifies 'start with' the filter value or 'exact match' in their previous one question.",
+            "default": true
+          },
+          "add_wildcard_after": {
+            "type": "boolean",
+            "title": "Add Wildcard After",
+            "description": "Always add wildcard and set True by default. False only when the user explicitly specifies 'end with' the filter value or 'exact match' in their previous one question.",
+            "default": true
+          },
+          "case_sensitive": {
+            "type": "boolean",
+            "title": "Case Sensitive",
+            "description": "False by default (case-insensitive), unless the user asks for case sensitivity explicitly. Also true when the user explicitly asks for uppercase or lowercase in their question.",
+            "default": false
+          },
+          "negation": {
+            "type": "boolean",
+            "title": "Negation",
+            "description": "True if we want to add NOT to the filter query expression, False if we do not want to add NOT to the filter query expression. This is used to answer questions like 'Show me my on time payment rate for vendors other than company ABC'",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "column_id",
+          "values"
+        ],
+        "title": "StringFilter"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "get-data-args": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "title": "Page",
+            "description": "The target page that starts from 0",
+            "default": 0
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size",
+            "description": "The size of the page",
+            "default": 50
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns",
+            "description": "List of fields to query to create a table with. Only KPI and Record Attribute IDs are allowed."
+          }
+        },
+        "type": "object",
+        "required": [
+          "columns"
+        ],
+        "title": "get-data-args"
+      },
+      "get-insights-args": {
+        "properties": {
+          "string_filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/StringFilter"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "String Filters",
+            "description": "List of pql filters on strings, e.g. vendor name.\nAlways use LIKE with wildcards (add wildcards both before and after the value) and case-insensitive, unless the user specifies otherwise.\nBy default set add_wildcard_before=True, set add_wildcard_after=True, set case_sensitive=False."
+          },
+          "null_filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NullFilter"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Null Filters",
+            "description": "List of pql filters on null values."
+          },
+          "date_filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DateFilter"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Filters",
+            "description": "List of pql filters on date values. Used for filtering data between select dates."
+          },
+          "numeric_filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NumericFilter"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numeric Filters",
+            "description": "List of pql filters on integers and floats. Used for greater/less than (and/or equal to) filtering record attributes of integer or float types."
+          },
+          "kpi": {
+            "type": "string",
+            "title": "Kpi",
+            "description": "KPI ID to find insights for. Must be KPI ID."
+          },
+          "field_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Field Ids",
+            "description": "List of record attributes that is related to the KPI. It must be of the form XXX.YYY. If the user specifies a list of fields deliberately, fill this field. Otherwise, leave it empty."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kpi",
+          "field_ids"
+        ],
+        "title": "get-insights-args"
+      }
+    }
+  },
+  "security": [
+    {
+      "api_key": []
+    }
+  ]
+}
+
