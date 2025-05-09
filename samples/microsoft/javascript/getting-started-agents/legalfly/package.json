@@ -1,0 +1,21 @@
+{
+  "name": "legalfly",
+  "version": "1.0.0",
+  "description": "LEGALFLY AI Foundry Agent",
+  "license": "MIT",
+  "author": "Sander Goossens",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@azure/ai-projects": "1.0.0-beta.5",
+    "@azure/identity": "4.9.1",
+    "dotenv": "16.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.17",
+    "ts-node": "10.9.2",
+    "typescript": "5.8.3"
+  }
+}
