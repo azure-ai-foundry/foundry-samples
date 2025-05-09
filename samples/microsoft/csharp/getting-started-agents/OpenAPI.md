@@ -1,107 +1,66 @@
-# Sample file search on agent with message attachment and code interpreter in Azure.AI.Agents
+# How to use the OpenAPI spec tool
 
-In this example we demonstrate, how to use file search with `MessageAttachment`.
+In this example we will demonstrate the possibility to use services with [OpenAPI Specification](https://en.wikipedia.org/wiki/OpenAPI_Specification) with the agent. We will use [wttr.in](https://wttr.in) service to get weather and its specification file [weather_openapi.json](https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/ai/Azure.AI.Projects/tests/Samples/Agent/weather_openapi.json).
 
-1. First, we set up the configuration, create the `PersistentAgentsClient`, define a local file, create an agent, and upload the local file for the agent to use. The necessary `using` directives from the source files are included in the common setup.
+1. First get `ProjectEndpoint` and `ModelDeploymentName` from config and create a `PersistentAgentsClient`. Also, create an `OpenApiAnonymousAuthDetails` and `OpenApiToolDefinition` from config. 
 
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step1_CommonSetup
-using Azure;
-using Azure.AI.Agents.Persistent;
-using Azure.Identity;
-using Microsoft.Extensions.Configuration;
-using System.IO;
-
-IConfigurationRoot configuration = new ConfigurationBuilder()
-    .SetBasePath(AppContext.BaseDirectory)
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .Build();
-
+```C# Snippet:AgentsOpenAPICallingExample_CreateClient
 var projectEndpoint = configuration["ProjectEndpoint"];
 var modelDeploymentName = configuration["ModelDeploymentName"];
+var openApiSpec = configuration["OpenApiSpec"];
+PersistentAgentsClient client = new(new Uri(projectEndpoint), new DefaultAzureCredential());
 
-PersistentAgentsClient client = new(projectEndpoint, new DefaultAzureCredential());
-
-string fileName = "sample_file_for_upload.txt";
-string fullPath = Path.Combine(AppContext.BaseDirectory, fileName);
-
-File.WriteAllText(
-    path: fullPath,
-    contents: "The word 'apple' uses the code 442345, while the word 'banana' uses the code 673457.");
+var spec = BinaryData.FromBytes(File.ReadAllBytes(openApiSpec));
+OpenApiAnonymousAuthDetails openApiAnonAuth = new();
+OpenApiToolDefinition openApiTool = new(
+    name: "get_weather",
+    description: "Retrieve weather information for a location",
+    spec: spec,
+    auth: openApiAnonAuth,
+    defaultParams: ["format"]
+);
 ```
+
+2. Next we will need to create an agent.
 
 Synchronous sample:
 
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step1_CreateAgentAndUploadFile_Sync
-PersistentAgent agent = client.Administration.CreateAgent(
+```C# Snippet:AgentsOverviewCreateAgentSync
+PersistentAgent agent = client.CreateAgent(
     model: modelDeploymentName,
-    name: "my-agent",
-    instructions: "You are a helpful agent that can help fetch data from files you know about.",
-    tools: [new CodeInterpreterToolDefinition()]);
-
-PersistentAgentFileInfo uploadedAgentFile = client.Files.UploadFile(
-    filePath: fullPath,
-    purpose: PersistentAgentFilePurpose.Agents);
+    name: "Open API Tool Calling Agent",
+    instructions: "You are a helpful agent.",
+    tools: [openApiTool]
+);
 ```
 
 Asynchronous sample:
 
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step1_CreateAgentAndUploadFile_Async
-PersistentAgent agent = await client.Administration.CreateAgentAsync(
+```C# Snippet:AgentsOverviewCreateAgent
+PersistentAgent agent = await client.CreateAgentAsync(
     model: modelDeploymentName,
-    name: "my-agent",
-    instructions: "You are a helpful agent that can help fetch data from files you know about.",
-    tools: [new CodeInterpreterToolDefinition()]);
-
-PersistentAgentFileInfo uploadedAgentFile = await client.Files.UploadFileAsync(
-    filePath: "sample_file_for_upload.txt",
-    purpose: PersistentAgentFilePurpose.Agents);
+    name: "Open API Tool Calling Agent",
+    instructions: "You are a helpful agent.",
+    tools: [openApiTool]
+);
 ```
 
-2. Next, we create a message attachment using the `PersistentAgentFileInfo.Id` from the uploaded file, create a new agent thread, and add a user message to this thread, including the attachment.
-
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step2_CommonMessageAttachment
-MessageAttachment attachment = new(
-    fileId: uploadedAgentFile.Id,
-    tools: [new CodeInterpreterToolDefinition()]);
-```
+3. Now we will create a `ThreadRun` and wait until it is complete. If the run will not be successful, we will print the last error.
 
 Synchronous sample:
-
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step2_CreateThreadAndMessage_Sync
-PersistentAgentThread thread = client.Threads.CreateThread();
-
-client.Messages.CreateMessage(
-    threadId: thread.Id,
-    role: MessageRole.User,
-    content: "Can you give me the documented codes for 'banana' and 'orange'?",
-    attachments: [attachment]);
-```
-
-Asynchronous sample:
-
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step2_CreateThreadAndMessage_Async
-PersistentAgentThread thread = await client.Threads.CreateThreadAsync();
-
-await client.Messages.CreateMessageAsync(
-    threadId: thread.Id,
-    role: MessageRole.User,
-    content: "Can you give me the documented codes for 'banana' and 'orange'?",
-    attachments: [attachment]);
-```
-
-3. Then, we create a `ThreadRun` to process the message with the agent and poll its status until it is no longer queued, in progress, or requires action.
-
-Synchronous sample:
-
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step3_CreateAndPollRun_Sync
-ThreadRun run = client.Runs.CreateRun(
+```C# Snippet:AgentsOpenAPISyncHandlePollingWithRequiredAction
+PersistentAgentThread thread = client.CreateThread();
+ThreadMessage message = client.CreateMessage(
     thread.Id,
-    agent.Id);
+    MessageRole.User,
+    "What's the weather in Seattle?");
+
+ThreadRun run = client.CreateRun(thread, agent);
 
 do
 {
     Thread.Sleep(TimeSpan.FromMilliseconds(500));
-    run = client.Runs.GetRun(thread.Id, run.Id);
+    run = client.GetRun(thread.Id, run.Id);
 }
 while (run.Status == RunStatus.Queued
     || run.Status == RunStatus.InProgress
@@ -110,79 +69,81 @@ while (run.Status == RunStatus.Queued
 
 Asynchronous sample:
 
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step3_CreateAndPollRun_Async
-ThreadRun run = await client.Runs.CreateRunAsync(
+```C# Snippet:AgentsOpenAPIHandlePollingWithRequiredAction
+PersistentAgentThread thread = await client.CreateThreadAsync();
+ThreadMessage message = await client.CreateMessageAsync(
     thread.Id,
-    agent.Id);
+    MessageRole.User,
+    "What's the weather in Seattle?");
+
+ThreadRun run = await client.CreateRunAsync(thread, agent);
 
 do
 {
     await Task.Delay(TimeSpan.FromMilliseconds(500));
-    run = await client.Runs.GetRunAsync(thread.Id, run.Id);
+    run = await client.GetRunAsync(thread.Id, run.Id);
 }
 while (run.Status == RunStatus.Queued
     || run.Status == RunStatus.InProgress
     || run.Status == RunStatus.RequiresAction);
 ```
 
-4. After the run completes, we retrieve all messages from the thread in ascending order and print their content to the console.
+4. Print the messages to the console in chronological order.
 
 Synchronous sample:
 
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step4_PrintMessages_Sync
-Pageable<ThreadMessage> messages = client.Messages.GetMessages(
+```C# Snippet:AgentsOpenAPISync_Print
+PageableList<ThreadMessage> messages = client.GetMessages(
     threadId: thread.Id,
-    order: ListSortOrder.Ascending);
+    order: ListSortOrder.Ascending
+);
 
 foreach (ThreadMessage threadMessage in messages)
 {
-    foreach (MessageContent content in threadMessage.ContentItems)
+    foreach (MessageContent contentItem in threadMessage.ContentItems)
     {
-        switch (content)
+        if (contentItem is MessageTextContent textItem)
         {
-            case MessageTextContent textItem:
-                Console.WriteLine($"[{threadMessage.Role}]: {textItem.Text}");
-                break;
+            Console.Write($"{threadMessage.Role}: {textItem.Text}");
         }
+        Console.WriteLine();
     }
 }
 ```
 
 Asynchronous sample:
 
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step4_PrintMessages_Async
-AsyncPageable<ThreadMessage> messages = client.Messages.GetMessagesAsync(
+```C# Snippet:AgentsOpenAPI_Print
+PageableList<ThreadMessage> messages = await client.GetMessagesAsync(
     threadId: thread.Id,
-    order: ListSortOrder.Ascending);
+    order: ListSortOrder.Ascending
+);
 
-await foreach (ThreadMessage threadMessage in messages)
+foreach (ThreadMessage threadMessage in messages)
 {
-    foreach (MessageContent content in threadMessage.ContentItems)
+    foreach (MessageContent contentItem in threadMessage.ContentItems)
     {
-        switch (content)
+        if (contentItem is MessageTextContent textItem)
         {
-            case MessageTextContent textItem:
-                Console.WriteLine($"[{threadMessage.Role}]: {textItem.Text}");
-                break;
+            Console.Write($"{threadMessage.Role}: {textItem.Text}");
         }
+        Console.WriteLine();
     }
 }
 ```
 
-5. Finally, we clean up the resources created during this sample, including the uploaded file, the agent thread, and the agent itself.
+5. Finally, we delete all the resources, we have created in this sample.
 
 Synchronous sample:
 
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step5_Cleanup_Sync
-client.Files.DeleteFile(uploadedAgentFile.Id);
-client.Threads.DeleteThread(threadId: thread.Id);
-client.Administration.DeleteAgent(agentId: agent.Id);
+```C# Snippet:AgentsOpenAPISync_Cleanup
+client.DeleteThread(thread.Id);
+client.DeleteAgent(agent.Id);
 ```
 
 Asynchronous sample:
 
-```C# Snippet:AgentsCodeInterpreterFileAttachment_Step5_Cleanup_Async
-await client.Files.DeleteFileAsync(uploadedAgentFile.Id);
-await client.Threads.DeleteThreadAsync(threadId: thread.Id);
-await client.Administration.DeleteAgentAsync(agentId: agent.Id);
+```C# Snippet:AgentsOpenAPI_Cleanup
+await client.DeleteThreadAsync(thread.Id);
+await client.DeleteAgentAsync(agent.Id);
 ```

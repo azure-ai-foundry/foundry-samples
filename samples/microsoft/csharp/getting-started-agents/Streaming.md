@@ -1,6 +1,6 @@
 # Sample using agents with streaming in Azure.AI.Agents
 
-In this example we will demonstrate the agent streaming support.
+In this example we will demonstrate the Agent streaming support, code interpreter creating an image and downloading and viewing the image.
 
 1. First, we set up configuration using `appsettings.json`, create a `PersistentAgentsClient`, and then create a `PersistentAgent` with the Code Interpreter tool.
 
