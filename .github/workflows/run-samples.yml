@@ -195,7 +195,7 @@ jobs:
       - name: Install local azure-ai-projects wheel
         run: |
           pip install libs/azure_ai_projects-1.0.0b10-py3-none-any.whl 
-          pip install libs/azure_ai_agents-1.0.0a20250430003-py3-none-any.whl
+          pip install libs/azure_ai_agents-1.0.0a20250423001-py3-none-any.whl
 
       # ── Install Python requirements
       # Installs packages listed in the specified requirements.txt file (excluding azure-ai-projects)
