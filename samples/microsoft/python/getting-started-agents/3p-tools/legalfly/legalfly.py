@@ -109,7 +109,7 @@ with AIProjectClient.from_connection_string(
     run_steps = project_client.agents.list_run_steps(thread_id=thread.id, run_id=run.id)
 
     # Loop through each step to display information
-    for step in run_steps.data:
+    for step in run_steps:
         print(f"Step {step['id']} status: {step['status']}")
 
         # Check if there are tool calls recorded in the step details
