@@ -65,6 +65,10 @@ CommsPilot Agent uses Azure AI Agent Service and is equipped with two main knowl
 
 ### Prerequisites
 - Python 3.8+
+- Required Dependencies (install via requirements.txt)
+```bash
+pip install -r requirements.txt
+```
 - Azure CLI
 - Azure subscription
 - Agent setup: deploy the latest agent setup using ([this custom deployment](https://github.com/azure-ai-foundry/foundry-samples/tree/main/use-cases/agents/setup/basic-setup)).
@@ -175,6 +179,21 @@ Contoso AI Support Team
 - **Never commit your `.env` or any file containing real secrets to the repository.**
 - Use [Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/general/basic-concepts) for production secrets management.
 - Review and follow [Azure best practices](https://learn.microsoft.com/en-us/azure/architecture/best-practices/).
+
+## Troubleshooting Guide
+
+**Issue: Authentication Error in Logic Apps**
+
+- Ensure that Azure credentials are correctly configured. 
+- Run the following to refresh credentials:
+```bash
+az login --tenant <your-tenant-id>
+```
+
+**Issue: Bing Search Not Returning Results**
+
+- Check your `BING_CONNECTION_ID` in environment variables. 
+- Verify Bing API rate limits in Azure Monitor.
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
