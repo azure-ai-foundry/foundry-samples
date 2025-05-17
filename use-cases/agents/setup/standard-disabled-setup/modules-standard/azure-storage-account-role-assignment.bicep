@@ -1,3 +1,4 @@
+param accountPrincipalId string 
 param azureStorageName string
 param projectPrincipalId string
 
@@ -13,6 +14,15 @@ resource storageBlobDataContributor 'Microsoft.Authorization/roleDefinitions@202
   scope: resourceGroup()
 }
 
+// resource storageBlobDataContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+//   scope: storageAccount
+//   name: guid(accountPrincipalId, storageBlobDataContributor.id, storageAccount.id)
+//   properties: {
+//     principalId: accountPrincipalId
+//     roleDefinitionId: storageBlobDataContributor.id
+//     principalType: 'ServicePrincipal'
+//   }
+// }
 resource storageBlobDataContributorRoleAssignmentProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
   name: guid(projectPrincipalId, storageBlobDataContributor.id, storageAccount.id)

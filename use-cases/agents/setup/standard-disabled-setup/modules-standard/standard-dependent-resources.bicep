@@ -29,14 +29,18 @@ param aiSearchExists bool
 param azureStorageExists bool
 param cosmosDBExists bool
 
+@description('Name of the new virtual network')
+param vnetName string
+param networkInjection string
+@description('The name of Hub subnet')
+param peSubnetName string = 'pe-subnet'
+
 var cosmosParts = split(cosmosDBResourceId, '/')
 
 resource existingCosmosDB 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' existing = if (cosmosDBExists) {
   name: cosmosParts[8]
   scope: resourceGroup(cosmosParts[2], cosmosParts[4])
 }
-
-// CosmosDB creation
 
 var canaryRegions = ['eastus2euap', 'centraluseuap']
 var cosmosDbRegion = contains(canaryRegions, location) ? 'westus' : location
@@ -70,9 +74,6 @@ resource existingSearchService 'Microsoft.Search/searchServices@2024-06-01-previ
   name: acsParts[8]
   scope: resourceGroup(acsParts[2], acsParts[4])
 }
-
-// AI Search creation
-
 resource aiSearch 'Microsoft.Search/searchServices@2024-06-01-preview' = if(!aiSearchExists) {
   name: aiSearchName
   location: location
@@ -90,10 +91,6 @@ resource aiSearch 'Microsoft.Search/searchServices@2024-06-01-preview' = if(!aiS
     publicNetworkAccess: 'disabled'
     replicaCount: 1
     semanticSearch: 'disabled'
-    networkRuleSet: {
-      bypass: 'None'
-      ipRules: []
-    }
   }
   sku: {
     name: 'standard'
@@ -111,8 +108,6 @@ resource existingAzureStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-
 param noZRSRegions array = ['southindia', 'westus']
 param sku object = contains(noZRSRegions, location) ? { name: 'Standard_GRS' } : { name: 'Standard_ZRS' }
 
-// Storage creation
-
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = if(!azureStorageExists) {
   name: azureStorageName
   location: location
@@ -124,12 +119,62 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = if(!azureStora
     publicNetworkAccess: 'Disabled'
     networkAcls: {
       bypass: 'AzureServices'
-      defaultAction: 'Deny'
+      defaultAction: 'Allow'
       virtualNetworkRules: []
     }
     allowSharedKeyAccess: false
   }
 }
+
+resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
+  name: vnetName
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: [
+        '192.168.0.0/16'
+      ]
+    }
+    subnets: [
+      {
+        name: 'default'
+        properties: {
+          addressPrefix: '192.168.0.0/24'
+        }
+      }
+      {
+        name: peSubnetName
+        properties: {
+          addressPrefix: '192.168.1.0/24'
+        }
+      }
+    ]
+  }
+}
+
+resource subnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
+  parent: virtualNetwork
+  name: 'default'
+  properties: {
+    addressPrefix: '192.168.0.0/24'
+	delegations: [
+      {
+        id: '${virtualNetwork.id}/subnets/default"'
+        name: 'Microsoft.App/environments'
+        properties: {
+          serviceName: 'Microsoft.App/environments'
+        }
+        type: 'Microsoft.Network/virtualNetworks/subnets/delegations'
+      }
+    ]
+  }
+}
+
+// output aiServicesName string =  aiServiceExists ? existingAIServiceAccount.name : aiServicesName
+// output aiservicesID string = aiServiceExists ? existingAIServiceAccount.id : aiServices.id
+// output aiservicesTarget string = aiServiceExists ? existingAIServiceAccount.properties.endpoint : aiServices.properties.endpoint
+// output aiServiceAccountResourceGroupName string = aiServiceExists ? aiServiceParts[4] : resourceGroup().name
+// output aiServiceAccountSubscriptionId string = aiServiceExists ? aiServiceParts[2] : subscription().subscriptionId
 
 output aiSearchName string = aiSearchExists ? existingSearchService.name : aiSearch.name
 output aiSearchID string = aiSearchExists ? existingSearchService.id : aiSearch.id
@@ -145,4 +190,8 @@ output cosmosDBName string = cosmosDBExists ? existingCosmosDB.name : cosmosDB.n
 output cosmosDBId string = cosmosDBExists ? existingCosmosDB.id : cosmosDB.id
 output cosmosDBResourceGroupName string = cosmosDBExists ? cosmosParts[4] : resourceGroup().name
 output cosmosDBSubscriptionId string = cosmosDBExists ? cosmosParts[2] : subscription().subscriptionId
+
+output subnetId string = subnet.id
+output virtualNetworkName string = virtualNetwork.name
+output peSubnetName string = peSubnetName
 // output keyvaultId string = keyVault.id

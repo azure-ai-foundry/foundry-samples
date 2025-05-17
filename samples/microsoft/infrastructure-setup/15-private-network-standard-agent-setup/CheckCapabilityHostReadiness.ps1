@@ -18,7 +18,7 @@ if ($provisioningState -eq "Succeeded") {
  }
 
 if ($provisioningState -eq "Failed" -or $provisioningState -eq "Canceled") {
- Write-Output "Provisioning State: $provisioningState, project provisionig will not work."
+ Write-Output "Provisioning State: $provisioningState, project provisioning will not work."
  break;
  }
 
