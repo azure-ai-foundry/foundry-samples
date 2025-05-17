@@ -15,9 +15,9 @@ var projectEndpoint = configuration["ProjectEndpoint"];
 var modelDeploymentName = configuration["ModelDeploymentName"];
 var azureAiSearchConnectionId = configuration["AzureAiSearchConnectionId"];
 
-AzureAISearchResource searchResource = new(
+AzureAISearchToolResource searchResource = new(
     indexConnectionId: azureAiSearchConnectionId,
-    indexName: "sample_index",
+    indexName: "camping-index",
     topK: 5,
     filter: "category eq 'sleeping bag'",
     queryType: AzureAISearchQueryType.Simple
@@ -26,26 +26,22 @@ AzureAISearchResource searchResource = new(
 ToolResources toolResource = new() { AzureAISearch = searchResource };
 
 // Create the Agent Client
-PersistentAgentsClient agentClient = new(
-    projectEndpoint,
-    new DefaultAzureCredential(),
-    new PersistentAgentsAdministrationClientOptions(
-        PersistentAgentsAdministrationClientOptions.ServiceVersion.V2025_05_01
-    ));
+PersistentAgentsClient agentClient = new(projectEndpoint, new DefaultAzureCredential());
 
 // Create an agent with Tools and Tool Resources
 PersistentAgent agent = agentClient.Administration.CreateAgent(
     model: modelDeploymentName,
     name: "my-agent",
-    instructions: "You are a helpful agent.",
+    instructions: "Use the index provided to answer questions.",
     tools: [new AzureAISearchToolDefinition()],
-    toolResources: toolResource);
+    toolResources: toolResource
+);
 
 // Create thread for communication
 PersistentAgentThread thread = agentClient.Threads.CreateThread();
 
 // Create message and run the agent
-ThreadMessage message = agentClient.Messages.CreateMessage(
+PersistentThreadMessage message = agentClient.Messages.CreateMessage(
     thread.Id,
     MessageRole.User,
     "What is the temperature rating of the cozynights sleeping bag?");
@@ -67,13 +63,13 @@ if (run.Status != RunStatus.Completed)
 }
 
 // Retrieve the messages from the agent client
-Pageable<ThreadMessage> messages = agentClient.Messages.GetMessages(
+Pageable<PersistentThreadMessage> messages = agentClient.Messages.GetMessages(
     threadId: thread.Id,
     order: ListSortOrder.Ascending
 );
 
 // Process messages in order
-foreach (ThreadMessage threadMessage in messages)
+foreach (PersistentThreadMessage threadMessage in messages)
 {
     Console.Write($"{threadMessage.CreatedAt:yyyy-MM-dd HH:mm:ss} - {threadMessage.Role,10}: ");
     foreach (MessageContent contentItem in threadMessage.ContentItems)
@@ -88,11 +84,11 @@ foreach (ThreadMessage threadMessage in messages)
                 // If we have Text URL citation annotations, reformat the response to show title & URL for citations
                 foreach (MessageTextAnnotation annotation in textItem.Annotations)
                 {
-                    if (annotation is MessageTextUrlCitationAnnotation urlAnnotation)
+                    if (annotation is MessageTextUriCitationAnnotation urlAnnotation)
                     {
                         annotatedText = annotatedText.Replace(
                             urlAnnotation.Text,
-                            $" [see {urlAnnotation.UrlCitation.Title}] ({urlAnnotation.UrlCitation.Url})");
+                            $" [see {urlAnnotation.UriCitation.Title}] ({urlAnnotation.UriCitation.Uri})");
                     }
                 }
                 Console.Write(annotatedText);
@@ -110,6 +106,34 @@ foreach (ThreadMessage threadMessage in messages)
     }
 }
 
+// Retrieve the run steps used by the agent and print those to the console
+Console.WriteLine("Run Steps used by Agent:");
+Pageable<RunStep> runSteps = agentClient.Runs.GetRunSteps(run);
+
+foreach (var step in runSteps)
+{
+    Console.WriteLine($"Step ID: {step.Id}, Total Tokens: {step.Usage.TotalTokens}, Status: {step.Status}, Type: {step.Type}");
+
+    if (step.StepDetails is RunStepMessageCreationDetails messageCreationDetails)
+    {
+        Console.WriteLine($"   Message Creation Id: {messageCreationDetails.MessageCreation.MessageId}");
+    }
+    else if (step.StepDetails is RunStepToolCallDetails toolCallDetails)
+    {
+        // We know this agent only has the AI Search tool, so we can cast it directly
+        foreach (RunStepAzureAISearchToolCall toolCall in toolCallDetails.ToolCalls)
+        {
+            Console.WriteLine($"   Tool Call Details: {toolCall.GetType()}");
+
+            foreach (var result in toolCall.AzureAISearch)
+            { 
+                Console.WriteLine($"      {result.Key}: {result.Value}");
+            }
+        }
+    }
+}
+
 // Clean up resources
 agentClient.Threads.DeleteThread(thread.Id);
 agentClient.Administration.DeleteAgent(agent.Id);
+

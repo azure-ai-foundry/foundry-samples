@@ -16,12 +16,7 @@ var modelDeploymentName = configuration["ModelDeploymentName"];
 var fabricConnectionId = configuration["FabricConnectionId"];
 
 // Create the Agent Client
-PersistentAgentsClient agentClient = new(
-    projectEndpoint,
-    new DefaultAzureCredential(),
-    new PersistentAgentsAdministrationClientOptions(
-        PersistentAgentsAdministrationClientOptions.ServiceVersion.V2025_05_01
-    ));
+PersistentAgentsClient agentClient = new(projectEndpoint, new DefaultAzureCredential());
 
 // Create the MicrosoftFabricToolDefinition object needed when creating the agent
 ToolConnectionList connectionList = new()
