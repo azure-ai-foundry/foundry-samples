@@ -40,10 +40,8 @@ AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
 AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
 AZURE_OPENAI_API_KEY=your-api-key
 
-# Azure AI Project Configuration
-AZURE_SUBSCRIPTION_ID=your-subscription-id
-AZURE_RESOURCE_GROUP=your-resource-group
-AZURE_PROJECT_NAME=your-project-name
+# Azure AI Project Endpoint, get it on Azure AI Froundry UI project home page
+AZURE_AI_PROJECT_ENDPOINT=https://your-resource-name.services.ai.azure.com/api/projects/your-project-name
 ```
 
 ### 3. Configure Target Model
@@ -86,9 +84,7 @@ Then, update the `main` function to use your new target function:
 ```python
 # Initialize the RedTeamPlugin with the target function
 red_team_plugin = RedTeamPlugin(
-    subscription_id=subscription_id,
-    resource_group=resource_group,
-    project_name=project_name,
+    azure_ai_project_endpoint=ai_project_endpoint,
     target_func=call_custom_api  # Use your new function here
 )
 ```
