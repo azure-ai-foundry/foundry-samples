@@ -20,8 +20,5 @@ See Instructions: https://microsoft-my.sharepoint.com/:w:/p/fosteramanda/ES-0A2W
     az deployment group create --resource-group <new-rg-name> --template-file main.bicep
 ```
 
-## Use exitsing resources
-
-**Azure Cosmos DB**
-- Ensure your exitsing Cosmos DB resource has a total Total throughput limit of at least 60000 RU/s
-    - 3 containers will be provisioned in your existing Cosmos DB account and each need 20,000 RU/s
+**Azure Cosmos DB provisioning notes**
+When using the above template to create a new Azure Cosmos DB for NoSQL account, or if you use an existing account, note that 3 containers will be created and have an initial setup of 20,000 RU/s each. This is designed to handle very large agentic workflows, however, when just starting out we strongly recommend reducing this down to 2,000 RU/s on each container and using the Autoscale capability. [Learn more here](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-provision-autoscale-throughput?tabs=api-async).
