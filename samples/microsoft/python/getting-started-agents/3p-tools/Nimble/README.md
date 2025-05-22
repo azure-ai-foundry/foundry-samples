@@ -6,7 +6,13 @@
 # Nimble
 
 ## Description
-The Nimble Action Tools provide real-time, structured web data that transforms how agents interact with the digital world. With tools for web search, location data, and business intelligence, it turns chaotic web information into signals your agents can actually use.
+
+Nimble Web Agents automatically browses and navigate the web, grabs the important data, and hands you clear answers instead of a list of links. They:
+* **Continuously navigate** the live web like a human researcher—navigating within sites, following links, and harvesting structured data at scale.
+* **Normalize and enrich** HTML into clean JSON or SQL tables, ready for immediate analysis.
+* **Orchestrate multi-step tasks** — from gathering hundreds of pages to validating, ranking, and summarizing insights.
+
+Web Agents run live on the web for instant answers, and you can optionally layer an asynchronous background pipeline that crawls thousands of pages, extracts prices, reviews, events, and feeds that high-scale data back to the agent for even deeper insight—no manual clicks or cleanup needed.
 
 ## Prerequisites
 
