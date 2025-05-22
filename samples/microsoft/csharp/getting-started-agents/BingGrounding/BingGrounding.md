@@ -18,7 +18,7 @@ PersistentAgentsClient agentClient = new(projectEndpoint, new DefaultAzureCreden
 ```C# Snippet:AgentsBingGrounding_GetConnection
 // Create the BingGroundingToolDefinition object used when creating the agent
 BingGroundingToolDefinition bingGroundingTool = new BingGroundingToolDefinition(
-    new BingGroundingSearchConfigurationList(
+    new BingGroundingSearchToolParameters(
         [
             new BingGroundingSearchConfiguration(bingConnectionId)
         ]
@@ -34,7 +34,7 @@ Synchronous sample:
 PersistentAgent agent = agentClient.Administration.CreateAgent(
     model: modelDeploymentName,
     name: "my-agent",
-    instructions: "You are a helpful agent.",
+    instructions: "Use the bing grounding tool to answer questions.",
     tools: [bingGroundingTool]
 );
 ```
@@ -45,7 +45,7 @@ Asynchronous sample:
 PersistentAgent agent = await agentClient.Administration.CreateAgentAsync(
     model: modelDeploymentName,
     name: "my-agent",
-    instructions: "You are a helpful agent.",
+    instructions: "Use the bing grounding tool to answer questions.",
     tools: [bingGroundingTool]
 );
 ```
@@ -57,7 +57,7 @@ Synchronous sample:
 PersistentAgentThread thread = agentClient.Threads.CreateThread();
 
 // Create message and run the agent
-ThreadMessage message = agentClient.Messages.CreateMessage(
+PersistentThreadMessage message = agentClient.Messages.CreateMessage(
     thread.Id,
     MessageRole.User,
     "How does wikipedia explain Euler's Identity?");
@@ -85,7 +85,7 @@ Asynchronous sample:
 PersistentAgentThread thread = await agentClient.Threads.CreateThreadAsync();
 
 // Create message and run the agent
-ThreadMessage message = await agentClient.Messages.CreateMessageAsync(
+PersistentThreadMessage message = await agentClient.Messages.CreateMessageAsync(
     thread.Id,
     MessageRole.User,
     "How does wikipedia explain Euler's Identity?");
@@ -112,13 +112,13 @@ if (run.Status != RunStatus.Completed)
 Synchronous sample:
 ```C# Snippet:AgentsBingGrounding_Print
 // Retrieve all messages from the agent client
-Pageable<ThreadMessage> messages = agentClient.Messages.GetMessages(
+Pageable<PersistentThreadMessage> messages = agentClient.Messages.GetMessages(
     threadId: thread.Id,
     order: ListSortOrder.Ascending
 );
 
 // Process messages in order
-foreach (ThreadMessage threadMessage in messages)
+foreach (PersistentThreadMessage threadMessage in messages)
 {
     Console.Write($"{threadMessage.CreatedAt:yyyy-MM-dd HH:mm:ss} - {threadMessage.Role,10}: ");
     foreach (MessageContent contentItem in threadMessage.ContentItems)
@@ -132,9 +132,9 @@ foreach (ThreadMessage threadMessage in messages)
             {
                 foreach (MessageTextAnnotation annotation in textItem.Annotations)
                 {
-                    if (annotation is MessageTextUrlCitationAnnotation urlAnnotation)
+                    if (annotation is MessageTextUriCitationAnnotation urlAnnotation)
                     {
-                        response = response.Replace(urlAnnotation.Text, $" [{urlAnnotation.UrlCitation.Title}]({urlAnnotation.UrlCitation.Url})");
+                        response = response.Replace(urlAnnotation.Text, $" [{urlAnnotation.UriCitation.Title}]({urlAnnotation.UriCitation.Uri})");
                     }
                 }
             }
@@ -147,18 +147,45 @@ foreach (ThreadMessage threadMessage in messages)
         Console.WriteLine();
     }
 }
+
+// Retrieve the run steps used by the agent and print those to the console
+Console.WriteLine("Run Steps used by Agent:");
+Pageable<RunStep> runSteps = agentClient.Runs.GetRunSteps(run);
+
+foreach (var step in runSteps)
+{
+    Console.WriteLine($"Step ID: {step.Id}, Total Tokens: {step.Usage.TotalTokens}, Status: {step.Status}, Type: {step.Type}");
+
+    if (step.StepDetails is RunStepMessageCreationDetails messageCreationDetails)
+    {
+        Console.WriteLine($"   Message Creation Id: {messageCreationDetails.MessageCreation.MessageId}");
+    }
+    else if (step.StepDetails is RunStepToolCallDetails toolCallDetails)
+    {
+        // We know this agent only has the Bing Grounding tool, so we can cast it directly
+        foreach (RunStepBingGroundingToolCall toolCall in toolCallDetails.ToolCalls)
+        {
+            Console.WriteLine($"   Tool Call Details: {toolCall.GetType()}");
+
+            foreach (var result in toolCall.BingGrounding)
+            {
+                Console.WriteLine($"      {result.Key}: {result.Value}");
+            }
+        }
+    }
+}
 ```
 
 Asynchronous sample:
 ```C# Snippet:AgentsBingGroundingAsync_Print
 // Retrieve all messages from the agent client
-AsyncPageable<ThreadMessage> messages = agentClient.Messages.GetMessagesAsync(
+AsyncPageable<PersistentThreadMessage> messages = agentClient.Messages.GetMessagesAsync(
     threadId: thread.Id,
     order: ListSortOrder.Ascending
 );
 
 // Process messages in order
-await foreach (ThreadMessage threadMessage in messages)
+await foreach (PersistentThreadMessage threadMessage in messages)
 {
     Console.Write($"{threadMessage.CreatedAt:yyyy-MM-dd HH:mm:ss} - {threadMessage.Role,10}: ");
     foreach (MessageContent contentItem in threadMessage.ContentItems)
@@ -172,9 +199,9 @@ await foreach (ThreadMessage threadMessage in messages)
             {
                 foreach (MessageTextAnnotation annotation in textItem.Annotations)
                 {
-                    if (annotation is MessageTextUrlCitationAnnotation urlAnnotation)
+                    if (annotation is MessageTextUriCitationAnnotation urlAnnotation)
                     {
-                        response = response.Replace(urlAnnotation.Text, $" [{urlAnnotation.UrlCitation.Title}]({urlAnnotation.UrlCitation.Url})");
+                        response = response.Replace(urlAnnotation.Text, $" [{urlAnnotation.UriCitation.Title}] ({urlAnnotation.UriCitation.Uri})");
                     }
                 }
             }
@@ -185,6 +212,33 @@ await foreach (ThreadMessage threadMessage in messages)
             Console.Write($"<image from ID: {imageFileItem.FileId}");
         }
         Console.WriteLine();
+    }
+}
+
+// Retrieve the run steps used by the agent and print those to the console
+Console.WriteLine("Run Steps used by Agent:");
+AsyncPageable<RunStep> runSteps = agentClient.Runs.GetRunStepsAsync(run);
+
+await foreach (var step in runSteps)
+{
+    Console.WriteLine($"Step ID: {step.Id}, Total Tokens: {step.Usage.TotalTokens}, Status: {step.Status}, Type: {step.Type}");
+
+    if (step.StepDetails is RunStepMessageCreationDetails messageCreationDetails)
+    {
+        Console.WriteLine($"   Message Creation Id: {messageCreationDetails.MessageCreation.MessageId}");
+    }
+    else if (step.StepDetails is RunStepToolCallDetails toolCallDetails)
+    {
+        // We know this agent only has the Bing Grounding tool, so we can cast it directly
+        foreach (RunStepBingGroundingToolCall toolCall in toolCallDetails.ToolCalls)
+        {
+            Console.WriteLine($"   Tool Call Details: {toolCall.GetType()}");
+
+            foreach (var result in toolCall.BingGrounding)
+            {
+                Console.WriteLine($"      {result.Key}: {result.Value}");
+            }
+        }
     }
 }
 ```
