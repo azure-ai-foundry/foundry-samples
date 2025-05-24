@@ -1,0 +1,13 @@
+using OpenAI.Chat;
+<% if (useEnvVars) { %>
+    var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+<% } else { %>
+    var apiKey = "<%= apiKey %>";
+<% } %>
+ChatClient client = new(model: "<%= model %>", apiKey: apiKey);
+
+ChatCompletion completion = await client.CompleteChatAsync([
+    new UserChatMessage("What is the capital of France?"),
+]);
+
+Console.WriteLine(completion.Content[0].Text);

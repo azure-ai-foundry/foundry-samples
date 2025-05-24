@@ -1,0 +1,28 @@
+template: sample.template
+type: csharp
+dependencies:
+  - name: OpenAI
+    version: 2.1.0
+input:
+  - name: apiKey
+    type: string
+    required: false
+    description: "API key for authentication"
+  - name: model
+    type: string
+    required: true
+    description: "Model to use for chat completion"
+  - name: useEnvVars
+    type: boolean
+    required: false
+    default: false
+    description: "Use environment variables for configuration"
+  - name: temperature
+    type: number
+    required: false
+    description: "Sampling temperature to use"
+  - name: maxTokens
+    type: number
+    required: false
+    description: "Maximum number of tokens to generate"
+  - name: topP
