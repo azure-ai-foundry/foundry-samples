@@ -3,12 +3,24 @@ type: csharp
 dependencies:
   - name: OpenAI
     version: 2.1.0
+  - name: Azure.AI.OpenAI
+    version: 2.1.0
+  - name: Azure.Identity
+    version: 1.14.0
 input:
+  - name: useTokenCredentials
+    type: boolean
+    default: true
+    description: "Use token credentials for authentication"
+  - name: endpoint
+    type: string
+    required: false
+    description: "Endpoint URL for the OpenAI API"
   - name: apiKey
     type: string
     required: false
     description: "API key for authentication"
-  - name: model
+  - name: deploymentName
     type: string
     required: true
     description: "Model to use for chat completion"
@@ -17,12 +29,7 @@ input:
     required: false
     default: false
     description: "Use environment variables for configuration"
-  - name: temperature
-    type: number
+  - name: extraParams
+    type: object
     required: false
-    description: "Sampling temperature to use"
-  - name: maxTokens
-    type: number
-    required: false
-    description: "Maximum number of tokens to generate"
-  - name: topP
+    description: "Additional parameters for the request"

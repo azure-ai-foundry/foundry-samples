@@ -3,9 +3,11 @@ import fs from "fs";
 import { parse } from "yaml";
 import path from "path";
 import { Sample } from "./interfaces";
+import { usings, valueOrEnvironment } from "./csharp";
 
 
-function parseData(dataContent: string) {
+function parseData(dataPath: string) {
+  const dataContent = fs.readFileSync(dataPath, "utf-8");
   try {
     return JSON.parse(dataContent);
   } catch {
@@ -44,6 +46,7 @@ function createOutputDirectory(outputPath: string) {
 }
 
 function isObject(value: any): value is Record<string, any> {
+  console.log(value, typeof value);
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -125,6 +128,8 @@ function getSampleTemplate(samplePath: string, sample: Sample): {targetFileName:
   }
 }
 
+const templateControlLine = /\n^\s*<%.*%>\s*$/;
+
 export function compileSample(
   samplePath: string,
   dataPath: string,
@@ -146,7 +151,11 @@ export function compileSample(
 
   const {targetFileName, template}  = getSampleTemplate(samplePath, sample);
   const outputFilePath = path.join(outputPath, targetFileName);
-  const compiledTemplate = _.template(template);
+   const processedTemplate = template.replace(/\n(\s*(?:<%(?!=).*?%>\s*)+)/g, '$1');
+  const compiledTemplate = _.template(processedTemplate, { imports: { "csharp": {
+    valueOrEnvironment,
+    usings,
+  }}});
   fs.writeFileSync(outputFilePath, compiledTemplate(inputObject));
   console.log(`Generated sample file: ${outputFilePath}`);
 }
