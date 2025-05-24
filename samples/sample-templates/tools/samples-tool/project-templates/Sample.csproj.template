@@ -7,10 +7,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-  <%  _.forEach(dependencies, function(dependency) { %>
+  <ItemGroup><%  _.forEach(dependencies, function(dependency) { %>
     <PackageReference Include="<%= dependency.name %>" Version="<%= dependency.version  %>" />
-  <% }); %>
-  </ItemGroup>
+  <% }); %></ItemGroup>
 
 </Project>
