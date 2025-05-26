@@ -13,7 +13,7 @@ export function valueOrEnvironment(
   value?: string,
 ): string {
   if (useEnvironmentVariable && environmentVariable) {
-    return `Environment.GetEnvironmentVariable("${environmentVariable}")`;
+    return `Environment.GetEnvironmentVariable("${environmentVariable}") ?? throw new InvalidOperationException("${environmentVariable} environment variable is not set.")`;
   } else if (value) {
     return `"${value}"`;
   } else {
