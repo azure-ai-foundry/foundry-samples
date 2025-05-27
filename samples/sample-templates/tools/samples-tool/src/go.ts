@@ -17,18 +17,18 @@ export function includes(...items: Include[]): string {
     .map((i) => `\t"${i}"`)
     .join("\n");
 
-  imports += [system, nonSystem].filter(i => i !== null && i.length > 0).join("\n");
+  imports += [system, nonSystem].filter(i => i !== null && i.length > 0).join("\n\n");
 
   imports += "\n)";
   return imports;
 }
 
 export function valueOrEnvironment(
-  indentationLevel: number,
   useEnvironmentVariable: boolean,
   variableName: string,
   environmentVariable: string,
   value?: string,
+  indentationLevel: number = 1
 ): string {
     if (!variableName) {
         console.error("Variable name must be provided.");
@@ -37,12 +37,13 @@ export function valueOrEnvironment(
     const indent = "\t".repeat(indentationLevel);
 
     if (useEnvironmentVariable && environmentVariable) {
-      return `if ${variableName} := os.Getenv("${environmentVariable}"); len(${variableName}) == 0 {\n` +
+      return `${variableName} := os.Getenv("${environmentVariable}")\n` +
+        `${indent}if len(${variableName}) == 0 {\n` +
         `${indent}\tfmt.Println("Please set the ${environmentVariable} environment variable.")\n` +
         `${indent}\tos.Exit(1)\n` +
-        `${indent}}\n`;
+        `${indent}}`;
   } else if (value) {
-    return `"${value}"`;
+    return `const ${variableName} = "${value}"`;
   } else {
     console.error("No value provided for variable or environment variable.");
     process.exit(1);

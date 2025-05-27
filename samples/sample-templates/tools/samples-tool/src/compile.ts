@@ -4,6 +4,7 @@ import { parse } from "yaml";
 import path from "path";
 import { Sample } from "./interfaces";
 import * as csharp from "./csharp";
+import * as go from "./go";
 
 function parseData(dataPath: string) {
   const dataContent = fs.readFileSync(dataPath, "utf-8");
@@ -229,6 +230,7 @@ export function compileSample(
   const compiledTemplate = _.template(template, {
     imports: {
       csharp: csharp,
+      go: go,
     },
   });
   fs.writeFileSync(outputFilePath, compiledTemplate(inputObject));
