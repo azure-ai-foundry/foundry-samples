@@ -1,0 +1,46 @@
+package main
+
+<%= go.imports(
+	"context"
+	"fmt"
+	"os"
+
+	{ module: "github.com/Azure/azure-sdk-for-go/sdk/azidentity", condition: useTokenCredentials },
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/azure"
+
+) %>
+
+func main() {
+
+	<%= go.valueOrEnvironment(1, useEnvVars, "endpoint", "AZURE_OPENAI_ENDPOINT", endpoint) %>
+
+	const api_version = "2024-04-01"
+	const api_key = "<some-api-key>"
+
+	token_credential, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		fmt.Println("Error creating credential:", err)
+		os.Exit(1)
+	}
+
+	client := openai.NewClient(
+		azure.WithEndpoint(endpoint, api_version),
+		azure.WithTokenCredential(token_credential),
+		// azure.WithAPIKey(api_key),
+	)
+
+	response, err := client.Chat.Completions.New(context.TODO(), openai.ChatCompletionNewParams{
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.UserMessage("Hello, how are you?"),
+		},
+		Temperature: openai.Float(0.7),
+	})
+
+	if err != nil {
+		fmt.Println("Error creating chat completion:", err)
+		os.Exit(1)
+	}
+
+	println("Response:", response.Choices[0].Message.Content)
+}
