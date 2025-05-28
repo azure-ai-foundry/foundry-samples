@@ -146,9 +146,9 @@ function getProjectFileTemplate(
         };
       }
       return {
-        targetFileName: `setup.py`,
+        targetFileName: `requirements.txt`,
         template: readTemplateFile(
-          path.join(__dirname, "../project-templates", `setup.py.template`),
+          path.join(__dirname, "../project-templates", `requirements.txt.template`),
         ),
       };
     default:
