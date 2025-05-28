@@ -5,6 +5,7 @@ import path from "path";
 import { Sample } from "./interfaces";
 import * as csharp from "./csharp";
 import * as go from "./go";
+import * as python from "./python";
 
 function parseData(dataPath: string) {
   const dataContent = fs.readFileSync(dataPath, "utf-8");
@@ -75,7 +76,7 @@ function fillInputObject(
   return inputObject;
 }
 
-const regex = /\n[ \t]*(<%(?!=)[^%]+%>)/g;
+const regex = /[ \t]*(<%(?!=)[^%]+%>)\n/g;
 
 function readTemplateFile(templatePath: string): string {
   const template = fs.readFileSync(templatePath, "utf-8");
@@ -148,7 +149,11 @@ function getProjectFileTemplate(
       return {
         targetFileName: `requirements.txt`,
         template: readTemplateFile(
-          path.join(__dirname, "../project-templates", `requirements.txt.template`),
+          path.join(
+            __dirname,
+            "../project-templates",
+            `requirements.txt.template`,
+          ),
         ),
       };
     default:
@@ -233,6 +238,7 @@ export function compileSample(
     imports: {
       csharp: csharp,
       go: go,
+      python: python,
     },
   });
   fs.writeFileSync(outputFilePath, compiledTemplate(inputObject));
