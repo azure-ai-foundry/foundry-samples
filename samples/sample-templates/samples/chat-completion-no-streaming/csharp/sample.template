@@ -5,11 +5,11 @@
     "OpenAI.Chat",
 ) %>
 
-string endpoint = <%= csharp.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_ENDPOINT", endpoint) %>;
+<%= csharp.valueOrEnvironment(useEnvVars, "endpoint", "AZURE_OPENAI_ENDPOINT", endpoint) %>;
 <% if (!useTokenCredentials) { %>
-string apiKey = <%= csharp.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_API_KEY", apiKey) %>;
+<%= csharp.valueOrEnvironment(useEnvVars, "apiKey", "AZURE_OPENAI_API_KEY", apiKey) %>;
 <% } %>
-string deploymentName = <%= csharp.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_DEPLOYMENT", deploymentName) %>;
+<%= csharp.valueOrEnvironment(useEnvVars, "deploymentName", "AZURE_OPENAI_DEPLOYMENT", deploymentName) %>;
 
 <% if (useTokenCredentials) { %>
 AzureOpenAIClient client = new(new(endpoint), new DefaultAzureCredential());
@@ -19,16 +19,19 @@ AzureOpenAIClient client = new(new Uri(endpoint), new ApiKeyCredential(apiKey));
 
 ChatClient chatClient = client.GetChatClient(deploymentName);
 
-ChatCompletion completion = await chatClient.CompleteChatAsync([
-    new UserChatMessage("What is the capital of France?"),
-<% if (extraParams) { %>
-], new ChatCompletionOptions
-{<% if (extraParams.temperature) { %>
-  Temperature = <%= extraParams.temperature %>f,<% }
-%>
-});
-<% } else { %>
-]);
-<% } %>
+ChatCompletion completion = await chatClient.CompleteChatAsync(
+    [
+        new UserChatMessage("What is the capital of France?"),
+    <% if (extraParams) { %>
+    ],
+    new ChatCompletionOptions
+    {
+      <% if (extraParams.temperature) { %>
+      Temperature = <%= extraParams.temperature %>f,
+      <% } %>
+    });
+    <% } else { %>
+    ]);
+    <% } %>
 
 Console.WriteLine(completion.Content[0].Text);

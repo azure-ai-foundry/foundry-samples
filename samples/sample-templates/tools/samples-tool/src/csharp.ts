@@ -9,13 +9,14 @@ export function usings(...items: Using[]): string {
 
 export function valueOrEnvironment(
   useEnvironmentVariable: boolean,
+  variableName: string,
   environmentVariable: string,
   value?: string,
 ): string {
   if (useEnvironmentVariable && environmentVariable) {
-    return `Environment.GetEnvironmentVariable("${environmentVariable}") ?? throw new InvalidOperationException("${environmentVariable} environment variable is not set.")`;
+    return `var ${variableName} = Environment.GetEnvironmentVariable("${environmentVariable}") ?? throw new InvalidOperationException("${environmentVariable} environment variable is not set.")`;
   } else if (value) {
-    return `"${value}"`;
+    return `const string ${variableName} = "${value}";`;
   } else {
     console.error("No value provided for variable or environment variable.");
     process.exit(1);
