@@ -76,7 +76,7 @@ function fillInputObject(
   return inputObject;
 }
 
-const regex = /[ \t]*(<%(?!=)[^%]+%>)\n/g;
+const regex = /[ \t]*(<%(?!=)[^%]+%>)\r?\n/g;
 
 function readTemplateFile(templatePath: string): string {
   const template = fs.readFileSync(templatePath, "utf-8");
