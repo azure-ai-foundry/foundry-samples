@@ -1,0 +1,32 @@
+<% if (useTokenCredentials) { %>using Azure.Identity; <% 
+} else { %>using Azure; <% } %>
+using Azure.AI.OpenAI;
+using OpenAI.Chat;
+
+Uri endpoint = new Uri(<%= 
+csharp.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_ENDPOINT", endpoint) %>); <%
+if (useTokenCredentials) { %><% } else { %>
+AzureKeyCredential credential = new AzureKeyCredential(<%= csharp.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_API_KEY", apiKey)%>);<% } %>
+string deploymentName = <%= csharp.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_DEPLOYMENT", deploymentName) %>;
+<% if (useTokenCredentials) { %>
+AzureOpenAIClient azureClient = new(endpoint, new DefaultAzureCredential());<%
+ } else { %> 
+AzureOpenAIClient azureClient = new(endpoint, credential);<% } %>
+ChatClient chatClient = azureClient.GetChatClient(deploymentName);
+
+ ChatCompletion completion = chatClient.CompleteChat(
+     [
+         new SystemChatMessage("You are a helpful assistant that talks like a pirate."),
+         new UserChatMessage("Hi, can you help me?"),
+         new AssistantChatMessage("Arrr! Of course, me hearty! What can I do for ye?"),
+         new UserChatMessage("What's the best way to train a parrot?"),
+     ]);
+
+Console.WriteLine($"Model={completion.Model}");
+foreach (var choice in completion.Content)
+{
+    var message = choice.Text;
+    Console.WriteLine($"Chat Role: {completion.Role}");
+    Console.WriteLine("Message:");
+    Console.WriteLine(message);
+} 
