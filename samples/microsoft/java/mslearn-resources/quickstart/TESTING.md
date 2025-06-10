@@ -56,7 +56,7 @@ The scripts will execute each sample and display the results. They include error
 
 Before testing, make sure you have:
 
-1. Java 11 or later installed
+1. Java 21 or later installed
 2. Maven installed
 3. An Azure account with access to Azure AI Services
 4. Microsoft Entra ID application (service principal) with appropriate permissions

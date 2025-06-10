@@ -45,7 +45,9 @@ public class ConfigLoader {
     public static String getVariable(String key, String defaultValue) {
         String value = dotenv.get(key);
         return value != null ? value : defaultValue;
-    }    /**
+    }
+
+    /**
      * Get the Azure Tenant ID
      * 
      * @return The Azure Tenant ID
@@ -79,14 +81,18 @@ public class ConfigLoader {
      */
     public static String getAzureEndpoint() {
         return getVariable("AZURE_ENDPOINT");
-    }    /**
+    }
+
+    /**
      * Get the Azure Deployment Name
      * 
      * @return The Azure Deployment Name
      */
     public static String getAzureDeployment() {
         return getVariable("AZURE_DEPLOYMENT");
-    }    /**
+    }
+
+    /**
      * Get the Project ID (optional)
      * 
      * @return The Project ID
