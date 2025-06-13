@@ -1,142 +1,132 @@
 package com.azure.ai.foundry.samples;
 
 import com.azure.ai.foundry.samples.utils.ConfigLoader;
-import com.azure.ai.projects.ProjectsClient;
-import com.azure.ai.projects.ProjectsClientBuilder;
-import com.azure.ai.projects.models.agent.Agent;
-import com.azure.ai.projects.models.agent.AgentClient;
-import com.azure.ai.projects.models.agent.AgentMessage;
-import com.azure.ai.projects.models.agent.AgentOptions;
-import com.azure.ai.projects.models.agent.AgentRole;
-import com.azure.ai.projects.models.agent.AgentRun;
-import com.azure.ai.projects.models.agent.AgentRunStatus;
-import com.azure.ai.projects.models.agent.AgentThread;
-import com.azure.ai.projects.models.evaluation.AgentEvaluation;
-import com.azure.ai.projects.models.evaluation.EvaluationClient;
-import com.azure.ai.projects.models.evaluation.EvaluationMetric;
-import com.azure.ai.projects.models.evaluation.EvaluationOptions;
+import com.azure.ai.agents.persistent.PersistentAgentsAdministrationClient;
+import com.azure.ai.agents.persistent.PersistentAgentsAdministrationClientBuilder;
+import com.azure.ai.agents.persistent.models.CreateAgentOptions;
+import com.azure.ai.agents.persistent.models.CreateThreadAndRunOptions;
+import com.azure.ai.agents.persistent.models.PersistentAgent;
+import com.azure.ai.agents.persistent.models.ThreadRun;
 import com.azure.identity.DefaultAzureCredential;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 
-import java.util.Map;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * This sample demonstrates how to evaluate an agent run using the Azure AI Foundry SDK.
- * 
- * Evaluation in Azure AI Foundry allows you to assess the performance and quality of AI agents
- * using standardized metrics. This helps identify areas for improvement and ensures the agent
- * meets specific quality standards before deployment.
- * 
- * This sample shows:
- * 1. How to authenticate with Azure AI Foundry using DefaultAzureCredential
- * 2. How to create an agent and generate a run for evaluation
- * 3. How to use the evaluation client to assess the agent's performance
- * 4. How to select and apply appropriate evaluation metrics
- * 5. How to interpret evaluation results and scores
- * 
- * Key evaluation metrics include:
- * - Helpfulness: Measures how well the agent assists users with their requests
- * - Accuracy: Assesses the factual correctness of the agent's responses
- * - Safety: Evaluates if the agent follows appropriate content guidelines
- * - Quality: Measures overall response quality and relevance
- *  
- * Prerequisites:
- * - An Azure account with access to Azure AI Foundry
- * - Azure CLI installed and logged in ('az login')
- * - Environment variables set in .env file (AZURE_ENDPOINT, AZURE_DEPLOYMENT)
+ * Example demonstrating agent creation and run.
+ * This class also explores the available API surface to identify evaluation capabilities.
  */
 public class EvaluateAgentSample {
     public static void main(String[] args) {
-        // Load configuration values from the .env file
-        // These include the service endpoint and the deployment name of the model to use
+        // Load environment variables
         String endpoint = ConfigLoader.getAzureEndpoint();
-        String deploymentName = ConfigLoader.getAzureDeployment();
+        String projectEndpoint = System.getenv("PROJECT_ENDPOINT");
+        String modelName = System.getenv("MODEL_DEPLOYMENT_NAME");
         
-        // Get DefaultAzureCredential for authentication
-        // This uses the most appropriate authentication method based on the environment
-        // For local development, it will use your Azure CLI login credentials
-        DefaultAzureCredential credential = ConfigLoader.getDefaultCredential();
-        
-        // Create a projects client to interact with Azure AI Foundry services
-        // The client requires an authentication credential and an endpoint
-        ProjectsClient client = new ProjectsClientBuilder()
+        // Validate required environment variables
+        if (projectEndpoint == null) {
+            System.err.println("ERROR: Set PROJECT_ENDPOINT environment variable");
+            return;
+        }
+        if (modelName == null) {
+            modelName = "gpt4o";  // Default if not provided
+            System.out.println("MODEL_DEPLOYMENT_NAME not set, using default: " + modelName);
+        }
+
+        DefaultAzureCredential credential = new DefaultAzureCredentialBuilder().build();
+
+        // Create agent administration client
+        System.out.println("Creating agent administration client...");
+        PersistentAgentsAdministrationClient agentClient = new PersistentAgentsAdministrationClientBuilder()
+            .endpoint(projectEndpoint)
             .credential(credential)
-            .endpoint(endpoint)
             .buildClient();
+
+        // Create an agent
+        System.out.println("\nCreating weather assistant agent...");
+        PersistentAgent agent = agentClient.createAgent(new CreateAgentOptions(modelName)
+            .setName("Weather Assistant")
+            .setInstructions("You are a weather assistant. Provide accurate information about weather conditions.")
+        );
+        System.out.println("Agent created with ID: " + agent.getId());
+
+        // Create thread and run
+        System.out.println("\nCreating thread and run...");
+        ThreadRun threadRun = agentClient.createThreadAndRun(new CreateThreadAndRunOptions(agent.getId()));
+        String threadId = threadRun.getThreadId();
+        System.out.println("Thread created with ID: " + threadId);
         
-        // Get an agent client to work with AI agents
-        // This will be used to create and run the agent we're going to evaluate
-        AgentClient agentClient = client.getAgentClient();
+        // Use reflection to explore API surface for evaluation capabilities
+        System.out.println("\n=== API EXPLORATION ===");
         
-        // First, create and run an agent to generate a run for evaluation
-        // We need an agent run to evaluate, so we'll create one as part of this sample
-        System.out.println("Creating and running an agent to generate a run for evaluation...");
-        
-        // Create an agent with a specific purpose and capabilities
-        // For evaluation, it's important to create an agent with clear instructions
-        // that align with the metrics you'll be evaluating
-        Agent agent = agentClient.createAgent(new AgentOptions()
-            .setName("Weather Assistant")                     // Descriptive name
-            .setDescription("An agent that provides weather information")  // Brief description
-            .setInstructions("You are a weather assistant. Provide accurate and helpful information about weather conditions.")  // Detailed instructions
-            .setModel(deploymentName));                       // The underlying AI model
-        
-        // Create a thread
-        AgentThread thread = agentClient.createThread();
-        
-        // Create a user message with a specific task to evaluate
-        AgentMessage userMessage = new AgentMessage()
-            .setRole(AgentRole.USER)
-            .setContent("What should I wear if it's going to be rainy and cold tomorrow?");
-        
-        // Run the agent
-        AgentRun run = agentClient.createRun(thread.getId(), agent.getId(), userMessage);
-        System.out.println("Run created with ID: " + run.getId());
-        
-        // Wait for the run to complete
-        AgentRun completedRun = waitForRunCompletion(agentClient, thread.getId(), run.getId());
-        System.out.println("Run completed with status: " + completedRun.getStatus());
-        
-        // Get the evaluation client
-        EvaluationClient evaluationClient = client.getEvaluationClient();
-        
-        // Create an evaluation for the agent run
-        System.out.println("Evaluating agent run...");
-        EvaluationOptions options = new EvaluationOptions()
-            .addMetric(EvaluationMetric.HELPFULNESS)
-            .addMetric(EvaluationMetric.ACCURACY)
-            .addMetric(EvaluationMetric.QUALITY);
-        
-        AgentEvaluation evaluation = evaluationClient.evaluateAgentRun(completedRun.getId(), options);
-        
-        // Display the evaluation results
-        System.out.println("\nEvaluation Results:");
-        System.out.println("Evaluation ID: " + evaluation.getId());
-        System.out.println("Created At: " + evaluation.getCreatedAt());
-        
-        Map<EvaluationMetric, Double> scores = evaluation.getScores();
-        for (Map.Entry<EvaluationMetric, Double> score : scores.entrySet()) {
-            System.out.printf("%s Score: %.2f/10\n", score.getKey(), score.getValue());
+        // Check for evaluation methods in PersistentAgentsAdministrationClient
+        List<String> evaluationMethods = findEvaluationMethods(PersistentAgentsAdministrationClient.class);
+        System.out.println("\nPersistentAgentsAdministrationClient evaluation methods:");
+        if (evaluationMethods.isEmpty()) {
+            System.out.println("No evaluation-related methods found.");
+        } else {
+            evaluationMethods.forEach(method -> System.out.println("- " + method));
         }
         
-        // Display feedback
-        System.out.println("\nFeedback:");
-        System.out.println(evaluation.getFeedback());
-    }
-    
-    private static AgentRun waitForRunCompletion(AgentClient agentClient, String threadId, String runId) {
-        AgentRun run = agentClient.getRun(threadId, runId);
+        // Check for evaluation classes
+        System.out.println("\nLooking for evaluation-related model classes:");
+        List<Class<?>> evaluationClasses = findEvaluationClasses("com.azure.ai.agents.persistent.models");
+        if (evaluationClasses.isEmpty()) {
+            System.out.println("No evaluation-related model classes found.");
+        } else {
+            evaluationClasses.forEach(cls -> System.out.println("- " + cls.getName()));
+        }
         
-        while (run.getStatus() == AgentRunStatus.QUEUED || run.getStatus() == AgentRunStatus.IN_PROGRESS) {
-            try {
-                System.out.println("Run status: " + run.getStatus() + " - waiting...");
-                Thread.sleep(1000); // Wait for 1 second before checking again
-                run = agentClient.getRun(threadId, runId);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Thread was interrupted", e);
+        // Print ThreadRun methods
+        System.out.println("\nAll methods on ThreadRun class:");
+        for (Method method : ThreadRun.class.getMethods()) {
+            if (method.getDeclaringClass() != Object.class) {
+                System.out.println("- " + method.getName() +
+                        "(" + getParameterTypes(method) + ")");
             }
         }
         
-        return run;
+        System.out.println("\nDemo completed!");
+        System.out.println("Note: For evaluation capabilities, please contact the SDK developers.");
+    }
+    
+    // Helper method to find evaluation-related methods in a class
+    private static List<String> findEvaluationMethods(Class<?> cls) {
+        List<String> methods = new ArrayList<>();
+        for (Method method : cls.getMethods()) {
+            String name = method.getName().toLowerCase();
+            if (name.contains("evaluat") || name.contains("score") || name.contains("assess") ||
+                    name.contains("metric") || name.contains("measure")) {
+                methods.add(method.getName() + "(" + getParameterTypes(method) + ")");
+            }
+        }
+        return methods;
+    }
+    
+    // Helper method to find evaluation-related classes in a package
+    private static List<Class<?>> findEvaluationClasses(String packageName) {
+        List<Class<?>> classes = new ArrayList<>();
+        
+        // This is just a template - actual implementation would require
+        // scanning the classpath, which is complex. Instead, we'll
+        // mention what to look for.
+        
+        System.out.println("  (Note: This method would need classpath scanning, but you should look for classes with 'Evaluat'");
+        System.out.println("   in their names in the " + packageName + " package.)");
+        
+        return classes;
+    }
+    
+    // Helper method to get parameter types as a readable string
+    private static String getParameterTypes(Method method) {
+        StringBuilder sb = new StringBuilder();
+        Class<?>[] types = method.getParameterTypes();
+        for (int i = 0; i < types.length; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(types[i].getSimpleName());
+        }
+        return sb.toString();
     }
 }

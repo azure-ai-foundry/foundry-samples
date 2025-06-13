@@ -4,9 +4,9 @@ This quickstart guide demonstrates how to use the Azure AI Foundry SDK with Java
 
 ## Prerequisites 
 
-- Java Development Kit (JDK) 17 or later
-    - We recommend the [Microsoft Build of OpenJDK](https://learn.microsoft.com/en-us/java/openjdk/download), which is a free, Long-Term Support (LTS) distribution of OpenJDK
-- Maven 3.6.0 or later
+- Java Development Kit (JDK) 21 or later
+    - We recommend the [Microsoft Build of OpenJDK](https://learn.microsoft.com/en-us/java/openjdk/download), which provides free Long-Term Support (LTS)
+- Maven 3.9.9 or later
     - Download from the [Apache Maven website](https://maven.apache.org/download.cgi)
 - An Azure subscription with access to Azure AI services
     - Free account: [Create an Azure account](https://azure.microsoft.com/free/)
