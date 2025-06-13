@@ -1,18 +1,21 @@
-<% if (useTokenCredentials) { %>using Azure.Identity; <% 
-} else { %>using Azure; <% } %>
+<% if (useTokenCredentials) { %>
+using Azure.Identity; 
+<%} else { %>using Azure; 
+<% } %>
 using Azure.AI.OpenAI;
 using OpenAI.Chat;
 
-Uri endpoint = new Uri(<%= 
-csharp.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_ENDPOINT", endpoint) %>); <%
-if (useTokenCredentials) { %><% } else { %>
-AzureKeyCredential credential = new AzureKeyCredential(<%= csharp.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_API_KEY", apiKey)%>);<% } %>
-string deploymentName = <%= csharp.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_DEPLOYMENT", deploymentName) %>;
+<%= csharp.valueOrEnvironment(useEnvVars, "endpoint", "AZURE_OPENAI_ENDPOINT", endpoint) %>;
+<%if (useTokenCredentials) { %>
+<% } else { %>
+<%= csharp.valueOrEnvironment(useEnvVars, "apiKey", "AZURE_OPENAI_API_KEY", apiKey) %>;
+<% } %>
+<%= csharp.valueOrEnvironment(useEnvVars, "deploymentName", "AZURE_OPENAI_DEPLOYMENT", deploymentName) %>;
 <% if (useTokenCredentials) { %>
-AzureOpenAIClient azureClient = new(endpoint, new DefaultAzureCredential());<%
- } else { %> 
-AzureOpenAIClient azureClient = new(endpoint, credential);<% } %>
-ChatClient chatClient = azureClient.GetChatClient(deploymentName);
+AzureOpenAIClient azureClient = new(new Uri(endpoint), new DefaultAzureCredential());
+<% } else { %> 
+AzureOpenAIClient azureClient = new(new Uri(endpoint), new AzureKeyCredential(apiKey));
+<% } %>ChatClient chatClient = azureClient.GetChatClient(deploymentName);
 
  ChatCompletion completion = chatClient.CompleteChat(
      [
