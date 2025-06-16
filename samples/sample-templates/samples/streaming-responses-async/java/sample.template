@@ -13,8 +13,8 @@ import com.openai.azure.credential.AzureApiKeyCredential;
 
 public class Main {
 public static void main(String[] args) {
-    String endpoint = <%= java.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_ENDPOINT", endpoint)%>;
-    <%if (!useTokenCredentials) { %>
+	String endpoint = <%= java.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_ENDPOINT", endpoint)%>;
+	<%if (!useTokenCredentials) { %>
     String azureOpenaiKey = <%= java.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_API_KEY", apiKey)%>;
     <%}%>
     String deploymentName = <%= java.valueOrEnvironment(useEnvVars, "AZURE_OPENAI_DEPLOYMENT", deploymentName)%>;        
@@ -34,16 +34,16 @@ public static void main(String[] args) {
     <%} %>
     OpenAIClientAsync client = clientBuilder.build();
 	
-    ResponseCreateParams createParams = ResponseCreateParams.builder()
-	    .input("Tell me a 20-word story about building the best SDK!!")
-	    .model(ChatModel.of(deploymentName))
-	    .build();
+	ResponseCreateParams createParams = ResponseCreateParams.builder()
+			.input("Tell me a 20-word story about building the best SDK!!")
+			.model(ChatModel.of(deploymentName))
+			.build();
 
-    client.responses()
-	    .createStreaming(createParams)
-	    .subscribe(event -> event.outputTextDelta().ifPresent(
+	client.responses()
+			.createStreaming(createParams)
+			.subscribe(event -> event.outputTextDelta().ifPresent(
                     textEvent -> System.out.print(textEvent.delta())))
-	    .onCompleteFuture()
-	    .join();
+			.onCompleteFuture()
+			.join();
 }
 }
