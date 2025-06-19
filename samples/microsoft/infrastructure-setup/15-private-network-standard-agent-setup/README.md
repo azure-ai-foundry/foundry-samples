@@ -5,6 +5,7 @@
 * PE's to all resources
 * Network injection enabled for Agents
 * Virtual Network Address speace support for Class B or Class C e.g. 172.16.0.0/16 or 192.168.0.0/16
+* If the provisioning of your account caphost fails, first delete the existing cap host on the account and create a new one. Run the deleteCapHost.sh file to delete your cap host. 
 
 
 ## Steps
