@@ -37,12 +37,6 @@ Built with **Azure AI Agent Service**, the Portfolio Navigator Agent uses:
 
 ---
 
-## 🧠 Architecture Overview
-
-![Architecture Diagram](assets/architecture-portfolionav.png)
-
----
-
 ## Setup Instructions
 
 ### Prerequisites

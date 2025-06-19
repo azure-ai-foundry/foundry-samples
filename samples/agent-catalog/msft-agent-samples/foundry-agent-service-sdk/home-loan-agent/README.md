@@ -27,10 +27,6 @@ This agent leverages **Azure AI Agent Service**, using the following tools:
 
 The agent is configured via a `template.py` file and deployable with Bicep for enterprise use.
 
-## Architecture Overview
-
-![Architecture Diagram](assets/architecture.png)
-
 ---
 
 

@@ -16,12 +16,7 @@ var projectEndpoint = configuration["ProjectEndpoint"];
 var modelDeploymentName = configuration["ModelDeploymentName"];
 
 // Create the Agent Client
-PersistentAgentsClient agentClient = new(
-    projectEndpoint,
-    new DefaultAzureCredential(),
-    new PersistentAgentsAdministrationClientOptions(
-        PersistentAgentsAdministrationClientOptions.ServiceVersion.V2025_05_01
-    ));
+PersistentAgentsClient agentClient = new(projectEndpoint, new DefaultAzureCredential());
 
 // Create a local sample file
 await System.IO.File.WriteAllTextAsync(
@@ -44,7 +39,7 @@ Dictionary<string, string> fileIds = new()
 // Create a vector store with the file and wait for it to be processed.
 // If you do not specify a vector store, CreateMessage will create a vector
 // store with a default expiration policy of seven days after they were last active
-VectorStore vectorStore = await agentClient.VectorStores.CreateVectorStoreAsync(
+PersistentAgentsVectorStore vectorStore = await agentClient.VectorStores.CreateVectorStoreAsync(
     fileIds: new List<string> { uploadedAgentFile.Id },
     name: "my_vector_store");
 
@@ -65,7 +60,7 @@ PersistentAgent agent = await agentClient.Administration.CreateAgentAsync(
 PersistentAgentThread thread = await agentClient.Threads.CreateThreadAsync();
 
 // Create message and run the agent
-ThreadMessage messageResponse = await agentClient.Messages.CreateMessageAsync(
+PersistentThreadMessage messageResponse = await agentClient.Messages.CreateMessageAsync(
     thread.Id,
     MessageRole.User,
     "Can you give me the documented codes for 'banana' and 'orange'?");
@@ -88,7 +83,7 @@ if (run.Status != RunStatus.Completed)
 }
 
 // Retrieve all messages from the agent client
-AsyncPageable<ThreadMessage> messages = agentClient.Messages.GetMessagesAsync(
+AsyncPageable<PersistentThreadMessage> messages = agentClient.Messages.GetMessagesAsync(
     threadId: thread.Id,
     order: ListSortOrder.Ascending
 );
@@ -103,7 +98,7 @@ static string replaceReferences(Dictionary<string, string> fileIds, string fileI
 }
 
 // Process messages in order
-await foreach (ThreadMessage threadMessage in messages)
+await foreach (PersistentThreadMessage threadMessage in messages)
 {
     Console.Write($"{threadMessage.CreatedAt:yyyy-MM-dd HH:mm:ss} - {threadMessage.Role,10}: ");
 

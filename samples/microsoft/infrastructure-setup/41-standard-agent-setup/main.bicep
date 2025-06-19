@@ -1,9 +1,31 @@
 // Standard agent setup
-@description('The region to deploy your AI Services resource and project')
+
+@allowed([
+  'australiaeast'
+  'canadaeast'
+  'eastus'
+  'eastus2'
+  'francecentral'
+  'japaneast'
+  'koreacentral'
+  'norwayeast'
+  'polandcentral'
+  'southindia'
+  'swedencentral'
+  'switzerlandnorth'
+  'uaenorth'
+  'uksouth'
+  'westus'
+  'westus3'
+  'westeurope'
+  'southeastasia'
+])
+@description('The Azure region where your AI Foundry resource and project will be created.')
 param location string = 'eastus'
 
-@description('Name for your AI Services resource.')
-param aiServices string = 'aiservices'
+@maxLength(9)
+@description('The name of the Azure AI Foundry resource.')
+param aiServices string = 'foundy'
 
 @description('Name for your project resource.')
 param firstProjectName string = 'project'

@@ -43,11 +43,6 @@ The agent can be customized via `template.py` and deployed with Azure infrastruc
 3. Python 3.8+
 4. Azure CLI
 
----
-
-## 🧠 Architecture Overview
-
-![Architecture Diagram](assets/architecture.png)
 
 ---
 
