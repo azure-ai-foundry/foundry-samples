@@ -1,12 +1,12 @@
 using './main.bicep'
 
-param location = 'eastus2'
-param aiServices = 'aiservices'
-param modelName = 'gpt-4o'
+param location = 'norwayeast'
+param aiServices = 'djetchev'
+param modelName = 'gpt-4o-mini'
 param modelFormat = 'OpenAI'
-param modelVersion = '2024-11-20'
+param modelVersion = '2024-07-18'
 param modelSkuName = 'GlobalStandard'
-param modelCapacity = 30
+param modelCapacity = 1
 param firstProjectName = 'project'
 param projectDescription = 'A project for the AI Foundry account with network secured deployed Agent'
 param displayName = 'project'
@@ -20,20 +20,15 @@ param agentSubnetName = 'agent-subnet'
 param aiSearchResourceId = ''
 param azureStorageAccountResourceId = ''
 param azureCosmosDBAccountResourceId = ''
-
-// Subscription ID where DNS zones are located (leave empty to use deployment subscription)
-// ⚠️ If set to a different subscription, ALL zones below MUST have resource groups specified
-param dnsZonesSubscriptionId = ''
-
-// DNS zone map: provide resource group name to use existing zone, or leave empty to create new
-// Note: Empty values only allowed when dnsZonesSubscriptionId is empty or matches current subscription
+// Pass the DNS zone map here
+// Leave empty to create new DNS zone, add the resource group of existing DNS zone to use it
 param existingDnsZones = {
   'privatelink.services.ai.azure.com': ''
   'privatelink.openai.azure.com': ''
-  'privatelink.cognitiveservices.azure.com': ''               
-  'privatelink.search.windows.net': ''           
-  'privatelink.blob.core.windows.net': ''                            
-  'privatelink.documents.azure.com': ''                       
+  'privatelink.cognitiveservices.azure.com': ''
+  'privatelink.search.windows.net': ''
+  'privatelink.blob.core.windows.net': ''
+  'privatelink.documents.azure.com': ''
 }
 
 //DNSZones names for validating if they exist
@@ -45,7 +40,6 @@ param dnsZoneNames = [
   'privatelink.blob.core.windows.net'
   'privatelink.documents.azure.com'
 ]
-
 
 // Network configuration (behavior depends on `existingVnetResourceId`)
 //
@@ -70,4 +64,3 @@ param dnsZoneNames = [
 param vnetAddressPrefix = ''
 param agentSubnetPrefix = ''
 param peSubnetPrefix = ''
-
