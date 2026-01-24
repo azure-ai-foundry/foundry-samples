@@ -54,14 +54,7 @@ logging.getLogger("azure.identity").setLevel(logging.WARNING)
 # ============================================================================
 
 from azure.ai.projects import AIProjectClient
-from azure.ai.projects.models import (
-    MCPTool,
-    PromptAgentDefinition,
-    AzureAISearchAgentTool,
-    AzureAISearchToolResource,
-    AISearchIndexResource,
-    AzureAISearchQueryType,
-)
+from azure.ai.agents.models import AzureAISearchTool
 from azure.identity import DefaultAzureCredential
 from openai.types.responses import ResponseInputParam
 from openai.types.responses.response_input_param import McpApprovalResponse
@@ -381,52 +374,62 @@ def test_ai_search_tool():
     agent = None
     
     try:
-        with (
-            DefaultAzureCredential() as credential,
-            AIProjectClient(
-                credential=credential,
-                endpoint=PROJECT_ENDPOINT
-            ) as project_client,
-            project_client.get_openai_client() as openai_client,
-        ):
-            print(f"✓ Connected to AI Project at {PROJECT_ENDPOINT}")
-
-            # Create AI Search tool with SIMPLE query type (our index doesn't have vector fields)
-            search_tool = AzureAISearchAgentTool(
-                azure_ai_search=AzureAISearchToolResource(indexes=[
-                    AISearchIndexResource(
-                        project_connection_id=AI_SEARCH_CONNECTION_NAME,
-                        index_name=AI_SEARCH_INDEX_NAME,
-                        query_type=AzureAISearchQueryType.SIMPLE,  # Use simple text search
-                    )
-                ])
-            )
-
-            # Create an agent with AI Search tool
-            agent = project_client.agents.create_version(
-                agent_name="search-test-agent",
-                definition=PromptAgentDefinition(
-                    model=MODEL_NAME,
-                    instructions="""You are a helpful assistant that searches for information.
-                    When asked a question, use the search tool to find relevant information.""",
-                    tools=[search_tool],
-                ),
-            )
-            print(f"✓ Created agent with AI Search tool (id: {agent.id})")
-
-            # Create a conversation thread
-            conversation = openai_client.conversations.create()
-            print(f"✓ Created conversation: {conversation.id}")
-
-            # Send a request that should trigger the search tool
-            response = openai_client.responses.create(
-                conversation=conversation.id,
-                input="Search for any documents in the index and tell me what you find.",
-                extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
-            )
-            log_response_info(response, "AI Search Response")
-
-            print(f"\n✓ Agent response: {response.output_text[:500]}...")
+        # Connect to the project using the project-scoped endpoint
+        client = AIProjectClient(
+            credential=DefaultAzureCredential(),
+            endpoint=PROJECT_ENDPOINT,
+        )
+        
+        print(f"✓ Connected to AI Project at {PROJECT_ENDPOINT}")
+        
+        # Create AI Search tool using the SDK class
+        search_tool = AzureAISearchTool(
+            index_connection_id=AI_SEARCH_CONNECTION_NAME,
+            index_name=AI_SEARCH_INDEX_NAME
+        )
+        
+        # Create an agent with AI Search tool
+        agent = client.agents.create_agent(
+            model=MODEL_NAME,
+            name="search-test-agent",
+            instructions="""You are a helpful assistant that searches for information.
+            When asked a question, use the search tool to find relevant information.""",
+            tools=search_tool.definitions,
+            tool_resources=search_tool.resources
+        )
+        print(f"✓ Created agent with AI Search tool: {agent.id}")
+        
+        # Create a thread and send a message
+        thread = client.agents.threads.create()
+        print(f"✓ Created thread: {thread.id}")
+        
+        message = client.agents.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content="Search for any documents in the index and tell me what you find."
+        )
+        print(f"✓ Created message: {message.id}")
+        
+        # Run the agent
+        run = client.agents.runs.create(thread_id=thread.id, agent_id=agent.id)
+        print(f"✓ Started run: {run.id}")
+        
+        # Wait for completion
+        print("  Waiting for agent to complete...")
+        while run.status in ["queued", "in_progress"]:
+            time.sleep(2)
+            run = client.agents.runs.get(thread_id=thread.id, run_id=run.id)
+            print(f"  Status: {run.status}")
+        
+        if run.status == "completed":
+            messages = client.agents.messages.list(thread_id=thread.id)
+            for msg in messages:
+                if msg.role == "assistant":
+                    print(f"\n✓ Agent response:")
+                    for content in msg.content:
+                        if hasattr(content, 'text'):
+                            print(f"  {content.text.value[:500]}...")
+                    break
             print("\n✓ TEST PASSED: AI Search tool successfully queried private AI Search")
             
             # Cleanup
