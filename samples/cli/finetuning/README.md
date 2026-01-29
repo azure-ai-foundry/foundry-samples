@@ -29,7 +29,7 @@ azd ai finetuning init -t <template-url>
 
 The `reinforcement` folder contains multiple sample configurations for different grader types. Each grader demonstrates a different way to evaluate model outputs during reinforcement fine-tuning:
 
-- [score-model-grader/sample_finetuning_rft.yaml](reinforcement/score-model-grader/sample_finetuning_rft.yaml) — Uses a score model grader (e.g., o3-mini) to evaluate outputs.
+- [score-model-grader/sample_finetuning_rft.yaml](reinforcement/score-model-grader/sample_finetuning_rft.yaml) — Uses a score model grader (e.g., gpt-4o) to evaluate outputs.
 - [python-grader/sample_finetuning_rft.yaml](reinforcement/python-grader/sample_finetuning_rft.yaml) — Uses a custom Python script as the grader.
 - [string-check-grader/sample_finetuning_rft.yaml](reinforcement/string-check-grader/sample_finetuning_rft.yaml) — Uses string equality for grading.
 - [text-similarity-grader/sample_finetuning_rft.yaml](reinforcement/text-similarity-grader/sample_finetuning_rft.yaml) — Uses text similarity metrics (e.g., fuzzy match, BLEU, ROUGE).
