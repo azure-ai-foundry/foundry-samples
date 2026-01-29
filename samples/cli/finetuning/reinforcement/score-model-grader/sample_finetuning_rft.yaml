@@ -22,7 +22,7 @@ method:
         temperature: 0.0
         max_completion_tokens: 100
         seed: 42
-suffix: "rft-scoremodel-grader-trained"
+suffix: "rft-score-model-grader-trained"
 seed: 42
 training_file: local:data/rft_training_set.jsonl
 validation_file: local:data/rft_validation_set.jsonl
