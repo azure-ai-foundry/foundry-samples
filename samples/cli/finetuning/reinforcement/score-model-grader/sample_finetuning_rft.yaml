@@ -1,4 +1,4 @@
-name: rft-score-model-cli-demo
+name: rft-score-model-grader-cli-demo
 description: Template to demonstrate reinforcement fine-tuning with score_model grader via CLI
 model: o4-mini-2025-04-16
 method:
@@ -22,7 +22,7 @@ method:
         temperature: 0.0
         max_completion_tokens: 100
         seed: 42
-suffix: "rft-scoremodel-trained"
+suffix: "rft-scoremodel-grader-trained"
 seed: 42
 training_file: local:data/rft_training_set.jsonl
 validation_file: local:data/rft_validation_set.jsonl
