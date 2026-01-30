@@ -33,4 +33,3 @@ The `reinforcement` folder contains multiple sample configurations for different
 - [python-grader/sample_finetuning_rft.yaml](reinforcement/python-grader/sample_finetuning_rft.yaml) — Uses a custom Python script as the grader.
 - [string-check-grader/sample_finetuning_rft.yaml](reinforcement/string-check-grader/sample_finetuning_rft.yaml) — Uses string equality for grading.
 - [text-similarity-grader/sample_finetuning_rft.yaml](reinforcement/text-similarity-grader/sample_finetuning_rft.yaml) — Uses text similarity metrics (e.g., fuzzy match, BLEU, ROUGE).
-- [multi-grader/sample_finetuning_rft.yaml](reinforcement/multi-grader/sample_finetuning_rft.yaml) — Combines multiple graders (e.g., string check + similarity) for composite scoring.
