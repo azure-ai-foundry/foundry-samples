@@ -16,8 +16,8 @@ method:
       name: Fuzzy Similarity Grader
       evaluation_metric: fuzzy_match
       input: "{{sample.output_text}}"
-      reference: "{{item.reference_answer}}"
+      reference: "{{item.extracted_text}}"
 suffix: "rft-text-similarity-trained"
 seed: 42
-training_file: local:data/rft_training_set.jsonl
-validation_file: local:data/rft_validation_set.jsonl
+training_file: local:../data/clause_matching_training.jsonl
+validation_file: local:../data/clause_matching_validation.jsonl

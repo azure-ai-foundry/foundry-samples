@@ -14,10 +14,10 @@ method:
     grader:
       type: string_check
       name: Target Match Grader
-      input: "{{sample.output_json.result}}"
-      reference: "{{item.target}}"
+      input: "{{sample.output_text}}"
+      reference: "{{item.reference_answer}}"
       operation: eq
 suffix: "rft-string-check-trained"
 seed: 42
-training_file: local:data/rft_training_set.jsonl
-validation_file: local:data/rft_validation_set.jsonl
+training_file: local:../data/medmcq_training.jsonl
+validation_file: local:../data/medmcq_validation.jsonl

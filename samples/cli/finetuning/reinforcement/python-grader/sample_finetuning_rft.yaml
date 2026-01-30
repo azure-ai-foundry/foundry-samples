@@ -39,5 +39,5 @@ method:
             except: return 0
 suffix: "rft-python-grader-trained"
 seed: 42
-training_file: local:data/rft_training_set.jsonl
-validation_file: local:data/rft_validation_set.jsonl
+training_file: local:../data/countdown_training.jsonl
+validation_file: local:../data/countdown_validation.jsonl
