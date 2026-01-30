@@ -19,6 +19,7 @@ USAGE:
     3) AZURE_AI_AGENT_NAME - (Optional) Agent name to use
 """
 
+# <imports_and_includes>
 import os
 import time
 from typing import Union
@@ -30,6 +31,7 @@ from azure.ai.projects.models import PromptAgentDefinition
 from openai.types.eval_create_params import DataSourceConfigCustom
 from openai.types.evals.run_create_response import RunCreateResponse
 from openai.types.evals.run_retrieve_response import RunRetrieveResponse
+# </imports_and_includes>
 
 # <configure_evaluation>
 load_dotenv()

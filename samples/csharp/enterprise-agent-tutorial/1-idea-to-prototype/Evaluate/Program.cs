@@ -3,6 +3,7 @@
 // Licensed under the MIT License.
 // ------------------------------------
 
+// <imports_and_includes>
 using System;
 using System.ClientModel;
 using System.Collections.Generic;
@@ -12,6 +13,7 @@ using System.Text.Json;
 using System.Threading;
 using Azure.AI.Projects;
 using Azure.Identity;
+// </imports_and_includes>
 
 namespace Evaluate;
 
