@@ -1,0 +1,28 @@
+name: rft-score-model-grader-cli-demo
+description: Template to demonstrate reinforcement fine-tuning with score_model grader via CLI
+model: o4-mini-2025-04-16
+method:
+  type: reinforcement
+  reinforcement:
+    hyperparameters:
+      epochs: 3
+      batch_size: 8
+      learning_rate_multiplier: 1.0
+      beta: 0.5
+      compute_multiplier: 1.0
+      reasoning_effort: high
+    grader:
+      type: score_model
+      name: Arithmetic Solution Grader
+      model: gpt-4o
+      input:
+        - role: user
+          content: "Evaluate if the model's arithmetic solution is correct. Check if the expression uses all given numbers exactly once and the result equals the target. Score 0 for incorrect, 1 for correct."
+      sampling_params:
+        temperature: 0.0
+        max_completion_tokens: 100
+        seed: 42
+suffix: "rft-score-model-grader-trained"
+seed: 42
+training_file: local:../data/countdown_training.jsonl
+validation_file: local:../data/countdown_validation.jsonl
