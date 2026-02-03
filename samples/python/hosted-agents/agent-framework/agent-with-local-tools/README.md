@@ -8,11 +8,11 @@ Microsoft has no responsibility to you or others with respect to any of these sa
 
 # What this sample demonstrates
 
-This sample demonstrates a **key advantage of code-based hosted agents** :
+This sample demonstrates a **key advantage of code-based hosted agents**:
 
 - **Local Python tool execution** - Run custom Python functions as agent tools
 
-Code-based agents can execute **any Python code** you write. This sample includes a `get_local_date_time` tool that returns the current date and time for any IANA timezone.
+Code-based agents can execute **any Python code** you write. This sample includes a Seattle Hotel Agent with a `get_available_hotels` tool that searches for available hotels based on check-in/check-out dates and budget preferences.
 
 The agent is hosted using the [Azure AI AgentServer SDK](https://pypi.org/project/azure-ai-agentserver-agentframework/) and can be deployed to Microsoft Foundry using the Azure Developer CLI.
 
@@ -20,7 +20,12 @@ The agent is hosted using the [Azure AI AgentServer SDK](https://pypi.org/projec
 
 ### Local Tools Integration
 
-In [main.py](main.py), the agent uses `@ai_function` to define a local Python tool (`get_local_date_time`) that returns the current date and time for any IANA timezone. This demonstrates how code-based agents can execute custom server-side logic.
+In [main.py](main.py), the agent uses a local Python function (`get_available_hotels`) that simulates a hotel availability API. This demonstrates how code-based agents can execute custom server-side logic that prompt agents cannot access.
+
+The tool accepts:
+- **check_in_date** - Check-in date in YYYY-MM-DD format
+- **check_out_date** - Check-out date in YYYY-MM-DD format  
+- **max_price** - Maximum price per night in USD (optional, defaults to $500)
 
 ### Agent Hosting
 
@@ -58,7 +63,7 @@ Before running this sample, ensure you have:
 Set the following environment variables (matching `agent.yaml`):
 
 - `PROJECT_ENDPOINT` - Your Azure AI Foundry project endpoint URL (required)
-- `MODEL_DEPLOYMENT_NAME` - The deployment name for your chat model (defaults to `gpt-4.1`)
+- `MODEL_DEPLOYMENT_NAME` - The deployment name for your chat model (defaults to `gpt-4.1-mini`)
 
 This sample loads environment variables from a local `.env` file if present.
 
@@ -66,7 +71,7 @@ Create a `.env` file in this directory with the following content:
 
 ```
 PROJECT_ENDPOINT=https://<your-resource>.services.ai.azure.com/api/projects/<your-project>
-MODEL_DEPLOYMENT_NAME=gpt-4.1
+MODEL_DEPLOYMENT_NAME=gpt-4.1-mini
 ```
 
 Or set them via PowerShell:
@@ -74,14 +79,30 @@ Or set them via PowerShell:
 ```powershell
 # Replace with your actual values
 $env:PROJECT_ENDPOINT="https://<your-resource>.services.ai.azure.com/api/projects/<your-project>"
-$env:MODEL_DEPLOYMENT_NAME="gpt-4.1"
+$env:MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+```
+
+### Setting Up a Virtual Environment
+
+It's recommended to use a virtual environment to isolate project dependencies:
+
+**macOS/Linux:**
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+**Windows (PowerShell):**
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
 ### Installing Dependencies
 
 Install the required Python dependencies using pip:
 
-```powershell
+```bash
 pip install -r requirements.txt
 ```
 
@@ -89,7 +110,8 @@ The required packages are:
 - `azure-ai-agentserver-agentframework` - Agent Framework and AgentServer SDK
 - `python-dotenv` - Load environment variables from `.env` file
 - `azure-identity` - Azure authentication
-- `tzdata` - IANA timezone database (required on Windows for timezone lookups)
+- `azure-monitor-opentelemetry-exporter` - Azure Monitor telemetry export
+- `opentelemetry-sdk` / `opentelemetry-api` - OpenTelemetry for tracing
 
 ### Running the Sample
 
@@ -106,7 +128,7 @@ This will start the hosted agent locally on `http://localhost:8088/`.
 **PowerShell (Windows):**
 ```powershell
 $body = @{
-   input = "What time is it in Tokyo?"
+   input = "I need a hotel in Seattle from 2025-03-15 to 2025-03-18, budget under $200 per night"
     stream = $false
 } | ConvertTo-Json
 
@@ -116,10 +138,10 @@ Invoke-RestMethod -Uri http://localhost:8088/responses -Method Post -Body $body 
 **Bash/curl (Linux/macOS):**
 ```bash
 curl -sS -H "Content-Type: application/json" -X POST http://localhost:8088/responses \
-   -d '{"input": "What time is it in New York?","stream":false}'
+   -d '{"input": "Find me hotels in Seattle for March 20-23, 2025 under $200 per night","stream":false}'
 ```
 
-The agent will use the `get_local_date_time` tool to retrieve the current date and time for the requested location.
+The agent will use the `get_available_hotels` tool to search for available hotels matching your criteria.
 
 ### Deploying the Agent to Microsoft Foundry
 
