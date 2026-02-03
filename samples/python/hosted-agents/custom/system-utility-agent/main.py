@@ -108,7 +108,14 @@ class SystemUtilityAgent(FoundryCBAgent):
                 sequence_number += 1
                 return current
 
-            yield ResponseCreatedEvent(sequence_number=next_sequence_number(), response=OpenAIResponse(output=[]))
+            yield ResponseCreatedEvent(
+                sequence_number=next_sequence_number(), 
+                response=OpenAIResponse(
+                    output=[], 
+                    conversation=context.get_conversation_object(), 
+                    agent=context.get_agent_id_object(), 
+                    id=context.response_id)
+            )
             item_id = context.id_generator.generate_message_id()
             yield ResponseOutputItemAddedEvent(
                 sequence_number=next_sequence_number(),
@@ -172,7 +179,13 @@ class SystemUtilityAgent(FoundryCBAgent):
             "user": "",
             "id": context.response_id,
             "created_at": int(datetime.datetime.now(datetime.timezone.utc).timestamp()),
-            "output_text": final_text,
+            "output": [
+                ResponsesAssistantMessageItemResource(
+                    id=context.id_generator.generate_message_id(),
+                    status="completed",
+                    content=[ItemContentOutputText(text=final_text, annotations=[])],
+                )
+            ],
             "status": "completed",
         })
 
