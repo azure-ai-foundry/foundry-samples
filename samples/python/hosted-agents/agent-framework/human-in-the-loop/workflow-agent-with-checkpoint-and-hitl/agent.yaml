@@ -1,9 +1,8 @@
 # Unique identifier/name for this agent
-name: af-agent-with-foundry-tools
+name: af-worfklow-agent-with-checkpoint-and-hitl
 # Brief description of what this agent does
 description: >
-  An AI agent that uses Azure OpenAI with a Hosted Model Context Protocol (MCP) server.
-  The agent answers questions by searching Microsoft Learn documentation using MCP tools.
+  A workflow agent built using the Microsoft Agent Framework that includes checkpointing and human-in-the-loop (HITL) capabilities.
 metadata:
   # Categorization tags for organizing and discovering agents
   authors:
@@ -11,21 +10,20 @@ metadata:
   tags:
     - Azure AI AgentServer
     - Microsoft Agent Framework
-    - Model Context Protocol
-    - MCP
+    - Human in the Loop
 template:
-  name: af-agent-with-foundry-tools
+  name: af-worfklow-agent-with-checkpoint-and-hitl
   kind: hosted
   protocols:
     - protocol: responses
   environment_variables:
     - name: AZURE_OPENAI_ENDPOINT
       value: ${AZURE_OPENAI_ENDPOINT}
+    - name: OPENAI_API_VERSION
+      value: 2025-03-01-preview
     - name: AZURE_OPENAI_CHAT_DEPLOYMENT_NAME
       value: "{{chat}}"
-    - name: AZURE_AI_PROJECT_TOOL_CONNECTION_ID
-      value: <CONNECTION_ID_PLACEHOLDER>
 resources:
   - kind: model
-    id: gpt-5
+    id: gpt-4o
     name: chat

@@ -1,0 +1,28 @@
+# Unique identifier/name for this agent
+name: af-agent-with-local-tools
+# Brief description of what this agent does
+description: >
+  Demonstrates local Python tool execution - a key advantage of code-based 
+  hosted agents over prompt agents.
+metadata:
+  # Categorization tags for organizing and discovering agents
+  authors:
+    - Microsoft
+  tags:
+    - Azure AI AgentServer
+    - Microsoft Agent Framework
+    - Local Tools
+template:
+  name: af-agent-with-local-tools
+  kind: hosted
+  protocols:
+    - protocol: responses
+  environment_variables:
+    - name: PROJECT_ENDPOINT
+      value: ${PROJECT_ENDPOINT}
+    - name: MODEL_DEPLOYMENT_NAME
+      value: "{{chat}}"
+resources:
+  - kind: model
+    id: gpt-4.1
+    name: chat
