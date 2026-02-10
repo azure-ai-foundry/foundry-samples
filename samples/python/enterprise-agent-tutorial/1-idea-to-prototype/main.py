@@ -43,18 +43,10 @@ load_dotenv()
 # ============================================================================
 # AUTHENTICATION SETUP
 # ============================================================================
-# <agent_authentication>
-credential = DefaultAzureCredential()
-project_client = AIProjectClient(
-    endpoint=os.environ["PROJECT_ENDPOINT"],
-    credential=credential,
-)
-openai_client = project_client.get_openai_client()
-print(f"✅ Connected to Foundry: {os.environ['PROJECT_ENDPOINT']}")
-# </agent_authentication>
+endpoint = os.environ["PROJECT_ENDPOINT"]
 
 
-def create_workplace_assistant():
+def create_workplace_assistant(project_client):
     """
     Create a Modern Workplace Assistant using the Microsoft Foundry SDK.
 
@@ -191,7 +183,7 @@ CAPABILITIES:
     # </create_agent_with_tools>
 
 
-def demonstrate_business_scenarios(agent):
+def demonstrate_business_scenarios(agent, openai_client):
     """
     Demonstrate realistic business scenarios with the Microsoft Foundry SDK.
 
@@ -245,7 +237,7 @@ def demonstrate_business_scenarios(agent):
 
         # <agent_conversation>
         print("🤖 AGENT RESPONSE:")
-        response, status = create_agent_response(agent, scenario["question"])
+        response, status = create_agent_response(agent, scenario["question"], openai_client)
         # </agent_conversation>
 
         if status == "completed" and response and len(response.strip()) > 10:
@@ -270,7 +262,7 @@ def demonstrate_business_scenarios(agent):
     return True
 
 
-def create_agent_response(agent, message):
+def create_agent_response(agent, message, openai_client):
     """
     Create a response from the workplace agent using the Responses API.
 
@@ -320,7 +312,7 @@ def create_agent_response(agent, message):
         return f"Error in conversation: {str(e)}", "failed"
 
 
-def interactive_mode(agent):
+def interactive_mode(agent, openai_client):
     """Interactive mode for testing the workplace agent."""
 
     print("\n" + "=" * 60)
@@ -342,7 +334,7 @@ def interactive_mode(agent):
                 continue
 
             print("\n🤖 Workplace Agent: ", end="", flush=True)
-            response, status = create_agent_response(agent, question)
+            response, status = create_agent_response(agent, question, openai_client)
             print(response)
 
             if status != "completed":
@@ -366,30 +358,36 @@ def main():
     print("Tutorial 1: Building Enterprise Agents with Microsoft Foundry SDK")
     print("=" * 70)
 
-    try:
-        agent = create_workplace_assistant()
-        demonstrate_business_scenarios(agent)
+    # <agent_authentication>
+    with (
+        DefaultAzureCredential() as credential,
+        AIProjectClient(endpoint=endpoint, credential=credential) as project_client,
+        project_client.get_openai_client() as openai_client,
+    ):
+        print(f"✅ Connected to Foundry: {endpoint}")
+    # </agent_authentication>
 
-        print("\n🎯 Try interactive mode? (y/n): ", end="")
         try:
-            if input().lower().startswith("y"):
-                interactive_mode(agent)
-        except EOFError:
-            print("n")
+            agent = create_workplace_assistant(project_client)
+            demonstrate_business_scenarios(agent, openai_client)
 
-        print("\n🎉 Sample completed successfully!")
-        print("📚 This foundation supports Tutorial 2 (Governance) and Tutorial 3 (Production)")
-        print("🔗 Next: Add evaluation metrics, monitoring, and production deployment")
+            print("\n🎯 Try interactive mode? (y/n): ", end="")
+            try:
+                if input().lower().startswith("y"):
+                    interactive_mode(agent, openai_client)
+            except EOFError:
+                print("n")
 
-    except Exception as e:
-        print(f"\n❌ Error: {e}")
-        print("Please check your .env configuration and ensure:")
-        print("  - PROJECT_ENDPOINT is correct")
-        print("  - MODEL_DEPLOYMENT_NAME is deployed")
-        print("  - Azure credentials are configured (az login)")
-    finally:
-        project_client.close()
-        openai_client.close()
+            print("\n🎉 Sample completed successfully!")
+            print("📚 This foundation supports Tutorial 2 (Governance) and Tutorial 3 (Production)")
+            print("🔗 Next: Add evaluation metrics, monitoring, and production deployment")
+
+        except Exception as e:
+            print(f"\n❌ Error: {e}")
+            print("Please check your .env configuration and ensure:")
+            print("  - PROJECT_ENDPOINT is correct")
+            print("  - MODEL_DEPLOYMENT_NAME is deployed")
+            print("  - Azure credentials are configured (az login)")
 
 
 if __name__ == "__main__":
