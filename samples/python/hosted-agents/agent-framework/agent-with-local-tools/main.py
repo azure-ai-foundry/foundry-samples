@@ -105,7 +105,7 @@ politely let them know you specialize in Seattle hotel recommendations.""",
         )
 
         print("Seattle Hotel Agent Server running on http://localhost:8088")
-        server = from_agent_framework(agent, credential)
+        server = from_agent_framework(agent)
         await server.run_async()
 
 
