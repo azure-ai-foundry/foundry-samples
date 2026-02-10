@@ -186,7 +186,7 @@ CAPABILITIES:
         ),
     )
 
-    print(f"✅ Agent created successfully (id: {agent.id}, version: {agent.version})")
+    print(f"✅ Agent created successfully (name: {agent.name}, version: {agent.version})")
     return agent
     # </create_agent_with_tools>
 
@@ -244,8 +244,8 @@ def demonstrate_business_scenarios(agent):
         print("-" * 50)
 
         # <agent_conversation>
-        print("🤖 ASSISTANT RESPONSE:")
-        response, status = chat_with_assistant(agent, scenario["question"])
+        print("🤖 AGENT RESPONSE:")
+        response, status = create_agent_response(agent, scenario["question"])
         # </agent_conversation>
 
         if status == "completed" and response and len(response.strip()) > 10:
@@ -270,11 +270,11 @@ def demonstrate_business_scenarios(agent):
     return True
 
 
-def chat_with_assistant(agent, message):
+def create_agent_response(agent, message):
     """
-    Execute a conversation with the workplace assistant using the Responses API.
+    Create a response from the workplace agent using the Responses API.
 
-    This function demonstrates the conversation pattern for the Microsoft Foundry SDK
+    This function demonstrates the response pattern for the Microsoft Foundry SDK
     including MCP tool approval handling.
 
     Args:
@@ -321,10 +321,10 @@ def chat_with_assistant(agent, message):
 
 
 def interactive_mode(agent):
-    """Interactive mode for testing the workplace assistant."""
+    """Interactive mode for testing the workplace agent."""
 
     print("\n" + "=" * 60)
-    print("💬 INTERACTIVE MODE - Test Your Workplace Assistant!")
+    print("💬 INTERACTIVE MODE - Test Your Workplace Agent!")
     print("=" * 60)
     print("Ask questions about Azure, M365, security, and technical implementation.")
     print("Type 'quit' to exit.")
@@ -341,8 +341,8 @@ def interactive_mode(agent):
                 print("💡 Please ask a question about Azure or M365 technical implementation.")
                 continue
 
-            print("\n🤖 Workplace Assistant: ", end="", flush=True)
-            response, status = chat_with_assistant(agent, question)
+            print("\n🤖 Workplace Agent: ", end="", flush=True)
+            response, status = create_agent_response(agent, question)
             print(response)
 
             if status != "completed":
@@ -356,7 +356,7 @@ def interactive_mode(agent):
             print(f"\n❌ Error: {e}")
             print("-" * 60)
 
-    print("\n👋 Thank you for testing the Modern Workplace Assistant!")
+    print("\n👋 Thank you for testing the Modern Workplace Agent!")
 
 
 def main():
