@@ -11,12 +11,11 @@ USAGE:
     python evaluate.py
 
     Before running:
-    pip install "azure-ai-projects>=2.0.0b1" python-dotenv
+    pip install azure-ai-projects==2.0.0b3 python-dotenv openai
 
     Set these environment variables:
-    1) AZURE_AI_PROJECT_ENDPOINT - Your Foundry project endpoint
-    2) AZURE_AI_MODEL_DEPLOYMENT_NAME - Model deployment name (e.g., gpt-4o-mini)
-    3) AZURE_AI_AGENT_NAME - (Optional) Agent name to use
+    1) PROJECT_ENDPOINT - Your Foundry project endpoint
+    2) MODEL_DEPLOYMENT_NAME - Model deployment name (e.g., gpt-4o-mini)
 """
 
 # <imports_and_includes>
@@ -35,8 +34,8 @@ from openai.types.evals.run_retrieve_response import RunRetrieveResponse
 
 # <configure_evaluation>
 load_dotenv()
-endpoint = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
-model_deployment_name = os.environ.get("AZURE_AI_MODEL_DEPLOYMENT_NAME", "gpt-4o-mini")
+endpoint = os.environ["PROJECT_ENDPOINT"]
+model_deployment_name = os.environ.get("MODEL_DEPLOYMENT_NAME", "gpt-4o-mini")
 
 with (
     DefaultAzureCredential() as credential,
@@ -45,7 +44,7 @@ with (
 ):
     # Create or retrieve the agent to evaluate
     agent = project_client.agents.create_version(
-        agent_name=os.environ.get("AZURE_AI_AGENT_NAME", "Modern Workplace Assistant"),
+        agent_name="Modern Workplace Assistant",
         definition=PromptAgentDefinition(
             model=model_deployment_name,
             instructions="You are a helpful Modern Workplace Assistant that answers questions about company policies and technical guidance.",
@@ -65,7 +64,6 @@ with (
     )
 
     # Define testing criteria with built-in evaluators
-    # data_mapping: sample.output_text = agent string response, sample.output_items = structured JSON with tool calls
     testing_criteria = [
         {
             "type": "azure_ai_evaluator",
@@ -100,7 +98,6 @@ with (
 
 # <run_cloud_evaluation>
     # Define the data source for the evaluation run
-    # This targets the agent with test queries
     data_source = {
         "type": "azure_ai_target_completions",
         "source": {
