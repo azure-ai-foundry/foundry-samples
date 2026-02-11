@@ -92,7 +92,7 @@ class Program
     /// 
     /// This demonstrates enterprise AI patterns:
     /// 1. Agent creation with PromptAgentDefinition and CreateAgentVersionAsync
-    /// 2. SharePoint integration via SharepointPreviewTool
+    /// 2. SharePoint integration via SharepointAgentTool
     /// 3. MCP integration via McpTool from the OpenAI Responses API
     /// 4. Robust error handling with graceful degradation
     /// 5. Dynamic agent capabilities based on available resources
@@ -143,7 +143,7 @@ class Program
         // SHAREPOINT INTEGRATION SETUP
         // ========================================================================
         // <sharepoint_connection_resolution>
-        SharepointPreviewTool? sharepointTool = null;
+        SharepointAgentTool? sharepointTool = null;
 
         if (!string.IsNullOrEmpty(sharePointConnectionName))
         {
@@ -155,13 +155,13 @@ class Program
                 // <sharepoint_tool_setup>
                 // Resolve connection name to connection ID via the Connections API
                 AIProjectConnection sharepointConnection = await projectClient.Connections.GetConnectionAsync(
-                    sharePointConnectionName);
+                    sharePointConnectionName, includeCredentials: false);
 
                 SharePointGroundingToolOptions sharepointToolOption = new()
                 {
                     ProjectConnections = { new ToolProjectConnection(projectConnectionId: sharepointConnection.Id) }
                 };
-                sharepointTool = new SharepointPreviewTool(sharepointToolOption);
+                sharepointTool = new SharepointAgentTool(sharepointToolOption);
                 Console.WriteLine($"✅ SharePoint tool configured successfully");
                 // </sharepoint_tool_setup>
             }
@@ -249,7 +249,7 @@ class Program
             options: new(agentDefinition));
 
         // Create a response client bound to this agent for conversations
-        responseClient = projectClient.GetProjectOpenAIClient()
+        responseClient = projectClient.OpenAI
             .GetProjectResponsesClientForAgent(agentVersion);
 
         Console.WriteLine($"✅ Agent created successfully: {agentVersion.Name} (version {agentVersion.Version})");
