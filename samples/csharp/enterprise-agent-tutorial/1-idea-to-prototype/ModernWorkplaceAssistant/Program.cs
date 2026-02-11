@@ -1,27 +1,31 @@
 // <imports_and_includes>
 using System;
+using System.ClientModel;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Azure.AI.Projects;
-using Azure.AI.Agents.Persistent;
+using Azure.AI.Projects.OpenAI;
 using Azure.Identity;
 using DotNetEnv;
+using OpenAI.Responses;
 // </imports_and_includes>
+
+#pragma warning disable OPENAI001
 
 /*
  * Azure AI Foundry Agent Sample - Tutorial 1: Modern Workplace Assistant (C#)
  * 
- * This sample demonstrates a complete business scenario using Azure AI Agents SDK:
- * - Agent creation with SharePoint and MCP tools
- * - Thread and message management
- * - MCP tool approval handling
+ * This sample demonstrates a complete business scenario using the Azure AI Projects v2 SDK:
+ * - Agent creation with PromptAgentDefinition and AgentVersion
+ * - Conversation via the Responses API (ProjectResponsesClient)
+ * - SharePoint and MCP tool integration on the agent definition
+ * - MCP tool approval handling through the Responses API approval loop
  * - Robust error handling and graceful degradation
  * 
  * Educational Focus:
- * - Enterprise AI patterns with Azure AI Agents SDK
+ * - Enterprise AI patterns with the v2 Azure AI Projects SDK
  * - Real-world business scenarios that enterprises face daily
  * - Production-ready error handling and diagnostics
  * - Foundation for governance, evaluation, and monitoring (Tutorials 2-3)
@@ -36,8 +40,8 @@ using DotNetEnv;
 class Program
 {
     private static AIProjectClient? projectClient;
-    private static PersistentAgentsClient? agentsClient;
-    private static string? mcpServerLabel;
+    private static ProjectResponsesClient? responseClient;
+    private static string agentName = "Modern_Workplace_Assistant";
 
     static async Task Main(string[] args)
     {
@@ -48,22 +52,24 @@ class Program
         try
         {
             // Create the agent with full diagnostic output
-            var agent = await CreateWorkplaceAssistantAsync();
+            var agentVersion = await CreateWorkplaceAssistantAsync();
 
             // Demonstrate business scenarios
-            await DemonstrateBusinessScenariosAsync(agent);
+            await DemonstrateBusinessScenariosAsync(agentVersion);
 
             // Offer interactive testing
             Console.Write("\n🎯 Try interactive mode? (y/n): ");
             var response = Console.ReadLine();
             if (response?.ToLower().StartsWith("y") == true)
             {
-                await InteractiveModeAsync(agent);
+                await InteractiveModeAsync(agentVersion);
             }
 
             // Cleanup
             Console.WriteLine("\n🧹 Cleaning up agent...");
-            await agentsClient!.Administration.DeleteAgentAsync(agent.Id);
+            await projectClient!.Agents.DeleteAgentVersionAsync(
+                agentName: agentVersion.Name,
+                agentVersion: agentVersion.Version);
             Console.WriteLine("✅ Agent deleted");
 
             Console.WriteLine("\n🎉 Sample completed successfully!");
@@ -85,9 +91,9 @@ class Program
     /// Create a Modern Workplace Assistant with SharePoint and MCP tools.
     /// 
     /// This demonstrates enterprise AI patterns:
-    /// 1. Agent creation with the SDK
-    /// 2. SharePoint integration for company documents
-    /// 3. MCP integration for Microsoft Learn documentation
+    /// 1. Agent creation with PromptAgentDefinition and CreateAgentVersionAsync
+    /// 2. SharePoint integration via SharepointAgentTool
+    /// 3. MCP integration via McpTool from the OpenAI Responses API
     /// 4. Robust error handling with graceful degradation
     /// 5. Dynamic agent capabilities based on available resources
     /// 
@@ -96,7 +102,7 @@ class Program
     /// - Demonstrates how to handle partial system failures
     /// - Provides patterns for agent creation with multiple tools
     /// </summary>
-    private static async Task<PersistentAgent> CreateWorkplaceAssistantAsync()
+    private static async Task<AgentVersion> CreateWorkplaceAssistantAsync()
     {
         // Load environment variables from shared .env file
         var envPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "shared", ".env");
@@ -113,7 +119,7 @@ class Program
 
         var projectEndpoint = Environment.GetEnvironmentVariable("PROJECT_ENDPOINT");
         var modelDeploymentName = Environment.GetEnvironmentVariable("MODEL_DEPLOYMENT_NAME");
-        var sharePointResourceName = Environment.GetEnvironmentVariable("SHAREPOINT_RESOURCE_NAME");
+        var sharePointConnectionName = Environment.GetEnvironmentVariable("SHAREPOINT_CONNECTION_NAME");
         var mcpServerUrl = Environment.GetEnvironmentVariable("MCP_SERVER_URL");
 
         if (string.IsNullOrEmpty(projectEndpoint))
@@ -130,7 +136,6 @@ class Program
         var credential = new DefaultAzureCredential();
 
         projectClient = new AIProjectClient(new Uri(projectEndpoint), credential);
-        agentsClient = projectClient.GetPersistentAgentsClient();
         Console.WriteLine($"✅ Connected to Azure AI Foundry: {projectEndpoint}");
         // </agent_authentication>
 
@@ -138,51 +143,33 @@ class Program
         // SHAREPOINT INTEGRATION SETUP
         // ========================================================================
         // <sharepoint_connection_resolution>
-        SharepointToolDefinition? sharepointTool = null;
+        SharepointAgentTool? sharepointTool = null;
 
-        // Support either connection name or full ARM ID
-        // Full ARM ID format: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.MachineLearningServices/workspaces/{workspace}/connections/{name}
-        var sharePointConnectionId = Environment.GetEnvironmentVariable("SHAREPOINT_CONNECTION_ID");
-
-        if (!string.IsNullOrEmpty(sharePointResourceName) || !string.IsNullOrEmpty(sharePointConnectionId))
+        if (!string.IsNullOrEmpty(sharePointConnectionName))
         {
             Console.WriteLine($"📁 Configuring SharePoint integration...");
+            Console.WriteLine($"   Connection name: {sharePointConnectionName}");
 
             try
             {
-                string? connectionId = sharePointConnectionId;
-
-                // If only a connection name is provided, user needs to provide the full ARM ID
-                if (string.IsNullOrEmpty(connectionId))
-                {
-                    Console.WriteLine($"   Connection name: {sharePointResourceName}");
-                    Console.WriteLine($"   ⚠️  Note: SharePoint tool requires the full ARM resource ID");
-                    Console.WriteLine($"   💡 Set SHAREPOINT_CONNECTION_ID to the full ARM resource ID");
-                    Console.WriteLine($"   📋 Format: /subscriptions/{{sub}}/resourceGroups/{{rg}}/providers/Microsoft.MachineLearningServices/workspaces/{{workspace}}/connections/{{name}}");
-                    throw new InvalidOperationException($"Set SHAREPOINT_CONNECTION_ID to the full ARM resource ID for connection '{sharePointResourceName}'");
-                }
-                
-                Console.WriteLine($"   Using connection ID: {connectionId}");
-
                 // <sharepoint_tool_setup>
-                // Create SharePoint tool with the full ARM resource ID
-                sharepointTool = new SharepointToolDefinition(
-                    new SharepointGroundingToolParameters(connectionId)
-                );
+                // Resolve connection name to connection ID via the Connections API
+                AIProjectConnection sharepointConnection = await projectClient.Connections.GetConnectionAsync(
+                    sharePointConnectionName, includeCredentials: false);
+
+                SharePointGroundingToolOptions sharepointToolOption = new()
+                {
+                    ProjectConnections = { new ToolProjectConnection(projectConnectionId: sharepointConnection.Id) }
+                };
+                sharepointTool = new SharepointAgentTool(sharepointToolOption);
                 Console.WriteLine($"✅ SharePoint tool configured successfully");
                 // </sharepoint_tool_setup>
-            }
-            catch (InvalidOperationException ex)
-            {
-                Console.WriteLine($"⚠️  {ex.Message}");
-                Console.WriteLine($"   Available connections can be viewed in Azure AI Foundry portal");
-                Console.WriteLine($"   Agent will operate without SharePoint access");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"⚠️  SharePoint connection unavailable: {ex.Message}");
                 Console.WriteLine($"   Possible causes:");
-                Console.WriteLine($"   - Connection '{sharePointResourceName}' doesn't exist in the project");
+                Console.WriteLine($"   - Connection '{sharePointConnectionName}' doesn't exist in the project");
                 Console.WriteLine($"   - Insufficient permissions to access the connection");
                 Console.WriteLine($"   - Connection configuration is incomplete");
                 Console.WriteLine($"   Agent will operate without SharePoint access");
@@ -190,7 +177,7 @@ class Program
         }
         else
         {
-            Console.WriteLine($"📁 SharePoint integration skipped (SHAREPOINT_RESOURCE_NAME not set)");
+            Console.WriteLine($"📁 SharePoint integration skipped (SHAREPOINT_CONNECTION_NAME not set)");
         }
         // </sharepoint_connection_resolution>
 
@@ -200,8 +187,7 @@ class Program
         // <mcp_tool_setup>
         // MCP (Model Context Protocol) enables agents to access external data sources
         // like Microsoft Learn documentation. The approval flow is handled in ChatWithAssistantAsync.
-        MCPToolDefinition? mcpTool = null;
-        mcpServerLabel = "Microsoft_Learn_Documentation";
+        McpTool? mcpTool = null;
 
         if (!string.IsNullOrEmpty(mcpServerUrl))
         {
@@ -212,7 +198,7 @@ class Program
             {
                 // Create MCP tool for Microsoft Learn documentation access
                 // server_label must match pattern: ^[a-zA-Z0-9_]+$ (alphanumeric and underscores only)
-                mcpTool = new MCPToolDefinition(mcpServerLabel, mcpServerUrl);
+                mcpTool = new McpTool("Microsoft_Learn_Documentation", new Uri(mcpServerUrl));
                 Console.WriteLine($"✅ MCP tool configured successfully");
             }
             catch (Exception ex)
@@ -234,36 +220,40 @@ class Program
         string instructions = GetAgentInstructions(sharepointTool != null, mcpTool != null);
 
         // <create_agent_with_tools>
-        // Create the agent using the SDK with available tools
+        // Create the agent using the v2 SDK with PromptAgentDefinition
         Console.WriteLine($"🛠️  Creating agent with model: {modelDeploymentName}");
 
-        // Build tools list
-        var tools = new List<ToolDefinition>();
+        var agentDefinition = new PromptAgentDefinition(modelDeploymentName)
+        {
+            Instructions = instructions
+        };
 
+        // Add tools to the agent definition
         if (sharepointTool != null)
         {
-            tools.Add(sharepointTool);
+            agentDefinition.Tools.Add(sharepointTool);
             Console.WriteLine($"   ✓ SharePoint tool added");
         }
 
         if (mcpTool != null)
         {
-            tools.Add(mcpTool);
+            agentDefinition.Tools.Add(mcpTool);
             Console.WriteLine($"   ✓ MCP tool added");
         }
 
-        Console.WriteLine($"   Total tools: {tools.Count}");
+        Console.WriteLine($"   Total tools: {agentDefinition.Tools.Count}");
 
-        // Create agent with or without tools
-        PersistentAgent agent = await agentsClient.Administration.CreateAgentAsync(
-            model: modelDeploymentName,
-            name: "Modern_Workplace_Assistant",
-            instructions: instructions,
-            tools: tools.Count > 0 ? tools : null
-        );
+        // Create agent version
+        AgentVersion agentVersion = await projectClient.Agents.CreateAgentVersionAsync(
+            agentName: agentName,
+            options: new(agentDefinition));
 
-        Console.WriteLine($"✅ Agent created successfully: {agent.Id}");
-        return agent;
+        // Create a response client bound to this agent for conversations
+        responseClient = projectClient.OpenAI
+            .GetProjectResponsesClientForAgent(agentVersion);
+
+        Console.WriteLine($"✅ Agent created successfully: {agentVersion.Name} (version {agentVersion.Version})");
+        return agentVersion;
         // </create_agent_with_tools>
     }
 
@@ -345,10 +335,10 @@ RESPONSE STRATEGY:
     /// 
     /// Educational Value:
     /// - Shows real business problems that AI agents can solve
-    /// - Demonstrates proper thread and message management
+    /// - Demonstrates the Responses API conversation pattern
     /// - Illustrates conversation patterns with tool usage
     /// </summary>
-    private static async Task DemonstrateBusinessScenariosAsync(PersistentAgent agent)
+    private static async Task DemonstrateBusinessScenariosAsync(AgentVersion agentVersion)
     {
         var scenarios = new[]
         {
@@ -379,7 +369,7 @@ RESPONSE STRATEGY:
         Console.WriteLine("🏢 MODERN WORKPLACE ASSISTANT - BUSINESS SCENARIO DEMONSTRATION");
         Console.WriteLine("".PadRight(70, '='));
         Console.WriteLine("This demonstration shows how AI agents solve real business problems");
-        Console.WriteLine("using the Azure AI Agents SDK with SharePoint and MCP tools.");
+        Console.WriteLine("using the Azure AI Projects v2 SDK with the Responses API.");
         Console.WriteLine("".PadRight(70, '='));
 
         for (int i = 0; i < scenarios.Length; i++)
@@ -394,7 +384,7 @@ RESPONSE STRATEGY:
 
             // <agent_conversation>
             Console.WriteLine("🤖 ASSISTANT RESPONSE:");
-            var (response, status) = await ChatWithAssistantAsync(agent, scenario.Question);
+            var (response, status) = await ChatWithAssistantAsync(scenario.Question);
             // </agent_conversation>
 
             // Display response with analysis
@@ -421,143 +411,86 @@ RESPONSE STRATEGY:
 
         Console.WriteLine("\n✅ DEMONSTRATION COMPLETED!");
         Console.WriteLine("🎓 Key Learning Outcomes:");
-        Console.WriteLine("   • Azure AI Agents SDK usage for enterprise AI");
-        Console.WriteLine("   • Proper thread and message management");
+        Console.WriteLine("   • Azure AI Projects v2 SDK with PromptAgentDefinition");
+        Console.WriteLine("   • Responses API for agent conversations");
         Console.WriteLine("   • SharePoint + MCP tool integration");
-        Console.WriteLine("   • MCP tool approval handling");
+        Console.WriteLine("   • MCP tool approval handling via the Responses API");
         Console.WriteLine("   • Real business value through AI assistance");
         Console.WriteLine("   • Foundation for governance and monitoring (Tutorials 2-3)");
     }
 
     /// <summary>
-    /// Execute a conversation with the workplace assistant.
+    /// Execute a conversation with the workplace assistant using the Responses API.
     /// 
-    /// This function demonstrates the conversation pattern including:
-    /// - Thread creation and message handling
-    /// - MCP tool approval handling (auto-approve pattern)
-    /// - Proper run status monitoring
+    /// This function demonstrates the v2 conversation pattern including:
+    /// - Sending a request via ProjectResponsesClient
+    /// - MCP tool approval handling through the Responses API approval loop
+    /// - Proper error and timeout management
     /// 
     /// Educational Value:
-    /// - Shows proper conversation management
-    /// - Demonstrates MCP approval with SubmitToolApprovalAction
+    /// - Shows the Responses API conversation pattern (replaces threads/runs)
+    /// - Demonstrates MCP approval via McpToolCallApprovalRequestItem
     /// - Includes timeout and error management patterns
     /// </summary>
     // <mcp_approval_handler>
-    private static async Task<(string response, string status)> ChatWithAssistantAsync(PersistentAgent agent, string message)
+    private static async Task<(string response, string status)> ChatWithAssistantAsync(string message)
     {
         try
         {
-            // Create a thread for the conversation
-            PersistentAgentThread thread = await agentsClient!.Threads.CreateThreadAsync();
-
-            // Create a message in the thread
-            await agentsClient.Messages.CreateMessageAsync(
-                thread.Id,
-                MessageRole.User,
-                message
-            );
-
-            // Setup MCP tool resources if MCP is configured
-            ToolResources? toolResources = null;
-            if (!string.IsNullOrEmpty(mcpServerLabel))
-            {
-                MCPToolResource mcpToolResource = new(mcpServerLabel);
-                toolResources = mcpToolResource.ToToolResources();
-            }
-
-            // Create and run the agent
-            ThreadRun run = await agentsClient.Runs.CreateRunAsync(
-                thread,
-                agent,
-                toolResources
-            );
+            // Send the user message via the Responses API
+            ResponseResult response = await responseClient!.CreateResponseAsync(message);
 
             // <mcp_approval_usage>
-            // Handle run execution and MCP tool approvals
-            // This loop polls the run status and automatically approves MCP tool calls
-            int maxIterations = 60; // 30 second timeout
+            // Handle MCP tool approval loop.
+            // When the agent uses MCP tools, the response may contain
+            // McpToolCallApprovalRequestItem items. We auto-approve and re-send.
+            int maxIterations = 30;
             int iteration = 0;
 
-            while ((run.Status == RunStatus.Queued || 
-                    run.Status == RunStatus.InProgress || 
-                    run.Status == RunStatus.RequiresAction) && 
-                   iteration < maxIterations)
+            while (iteration < maxIterations)
             {
-                await Task.Delay(500);
-                run = await agentsClient.Runs.GetRunAsync(thread.Id, run.Id);
-                iteration++;
+                // Check for MCP approval requests in the output items
+                var approvalRequests = response.OutputItems
+                    .OfType<McpToolCallApprovalRequestItem>()
+                    .ToList();
 
-                // Handle MCP tool approval requests
-                if (run.Status == RunStatus.RequiresAction && 
-                    run.RequiredAction is SubmitToolApprovalAction toolApprovalAction)
+                if (approvalRequests.Count == 0) break;
+
+                // Build approval response items
+                var approvalItems = new List<ResponseItem>();
+                foreach (var request in approvalRequests)
                 {
-                    var toolApprovals = new List<ToolApproval>();
+                    Console.WriteLine($"   🔧 Approving MCP tool: {request.ToolName}");
 
-                    foreach (var toolCall in toolApprovalAction.SubmitToolApproval.ToolCalls)
-                    {
-                        if (toolCall is RequiredMcpToolCall mcpToolCall)
-                        {
-                            Console.WriteLine($"   🔧 Approving MCP tool: {mcpToolCall.Name}");
-                            
-                            // Auto-approve MCP tool calls
-                            // In production, you might implement custom approval logic here:
-                            // - RBAC checks (is user authorized for this tool?)
-                            // - Cost controls (has budget limit been reached?)
-                            // - Logging and auditing
-                            // - Interactive approval prompts
-                            toolApprovals.Add(new ToolApproval(mcpToolCall.Id, approve: true));
-                        }
-                    }
-
-                    if (toolApprovals.Count > 0)
-                    {
-                        run = await agentsClient.Runs.SubmitToolOutputsToRunAsync(
-                            thread.Id,
-                            run.Id,
-                            toolApprovals: toolApprovals
-                        );
-                    }
+                    // Auto-approve MCP tool calls
+                    // In production, you might implement custom approval logic here:
+                    // - RBAC checks (is user authorized for this tool?)
+                    // - Cost controls (has budget limit been reached?)
+                    // - Logging and auditing
+                    // - Interactive approval prompts
+                    approvalItems.Add(ResponseItem.CreateMcpApprovalResponseItem(
+                        request.Id,
+                        approved: true));
                 }
+
+                // Send approval responses, chained to the previous response
+                response = await responseClient.CreateResponseAsync(
+                    approvalItems,
+                    previousResponseId: response.Id);
+                iteration++;
             }
             // </mcp_approval_usage>
 
-            // Retrieve messages if completed
-            if (run.Status == RunStatus.Completed)
-            {
-                var messages = agentsClient.Messages.GetMessages(
-                    thread.Id,
-                    order: ListSortOrder.Descending
-                );
+            // Extract the text output
+            string? outputText = response.GetOutputText();
 
-                // Get the assistant's response (most recent agent message)
-                foreach (PersistentThreadMessage threadMessage in messages)
-                {
-                    if (threadMessage.Role == MessageRole.Agent)
-                    {
-                        foreach (MessageContent contentItem in threadMessage.ContentItems)
-                        {
-                            if (contentItem is MessageTextContent textItem)
-                            {
-                                // Cleanup thread
-                                await agentsClient.Threads.DeleteThreadAsync(thread.Id);
-                                return (textItem.Text, "completed");
-                            }
-                        }
-                    }
-                }
-
-                await agentsClient.Threads.DeleteThreadAsync(thread.Id);
-                return ("No response from assistant", "completed");
-            }
-            else if (run.Status == RunStatus.Failed)
+            if (!string.IsNullOrWhiteSpace(outputText) && outputText.Length > 0)
             {
-                await agentsClient.Threads.DeleteThreadAsync(thread.Id);
-                return ($"Run failed: {run.LastError?.Message ?? "Unknown error"}", "failed");
+                return (outputText, "completed");
             }
             else
             {
-                await agentsClient.Threads.DeleteThreadAsync(thread.Id);
-                return ($"Run ended with status: {run.Status}", run.Status.ToString().ToLower());
+                return ("No response from assistant", "completed");
             }
         }
         catch (Exception ex)
@@ -577,8 +510,9 @@ RESPONSE STRATEGY:
     /// 
     /// This provides a simple interface for users to test the agent with their own questions
     /// and see how it provides comprehensive technical guidance.
+    /// Uses PreviousResponseId to maintain conversation context across turns.
     /// </summary>
-    private static async Task InteractiveModeAsync(PersistentAgent agent)
+    private static async Task InteractiveModeAsync(AgentVersion agentVersion)
     {
         Console.WriteLine("\n" + "".PadRight(60, '='));
         Console.WriteLine("💬 INTERACTIVE MODE - Test Your Workplace Assistant!");
@@ -609,7 +543,7 @@ RESPONSE STRATEGY:
                 }
 
                 Console.Write("\n🤖 Workplace Assistant: ");
-                var (response, status) = await ChatWithAssistantAsync(agent, question);
+                var (response, status) = await ChatWithAssistantAsync(question);
                 Console.WriteLine(response);
 
                 if (status != "completed")

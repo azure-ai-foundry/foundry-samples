@@ -5,12 +5,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <StartupObject>Program</StartupObject>
+    <NoWarn>OPENAI001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.AI.Projects" Version="1.0.0-beta.9" />
-    <PackageReference Include="Azure.AI.Agents.Persistent" Version="1.2.0-beta.8" />
-    <PackageReference Include="Azure.Identity" Version="1.13.1" />
+    <PackageReference Include="Azure.AI.Projects" Version="1.2.0-beta.5" />
+    <PackageReference Include="Azure.AI.Projects.OpenAI" Version="1.0.0-beta.5" />
+    <PackageReference Include="Azure.Identity" Version="1.17.1" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
   </ItemGroup>
 
