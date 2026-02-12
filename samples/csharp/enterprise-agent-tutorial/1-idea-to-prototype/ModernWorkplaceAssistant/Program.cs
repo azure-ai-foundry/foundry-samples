@@ -1,35 +1,39 @@
-#pragma warning disable OPENAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates
-
 // <imports_and_includes>
 using System;
+using System.ClientModel;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Azure.AI.Projects;
 using Azure.AI.Projects.OpenAI;
-using Azure.Core;
 using Azure.Identity;
 using DotNetEnv;
 using OpenAI.Responses;
 // </imports_and_includes>
 
+#pragma warning disable OPENAI001
+
 /*
- * Azure AI Foundry Agent Sample - Tutorial 1: Modern Workplace Assistant
- *
- * This sample demonstrates a complete business scenario using Azure AI Agents SDK v2:
- * - Agent creation with the new SDK
- * - Conversation and response management
+ * Azure AI Foundry Agent Sample - Tutorial 1: Modern Workplace Assistant (C#)
+ * 
+ * This sample demonstrates a complete business scenario using the Azure AI Projects v2 SDK:
+ * - Agent creation with PromptAgentDefinition and AgentVersion
+ * - Conversation via the Responses API (ProjectResponsesClient)
+ * - SharePoint and MCP tool integration on the agent definition
+ * - MCP tool approval handling through the Responses API approval loop
  * - Robust error handling and graceful degradation
- *
+ * 
  * Educational Focus:
- * - Enterprise AI patterns with Agent SDK v2
+ * - Enterprise AI patterns with the v2 Azure AI Projects SDK
  * - Real-world business scenarios that enterprises face daily
  * - Production-ready error handling and diagnostics
  * - Foundation for governance, evaluation, and monitoring (Tutorials 2-3)
- *
+ * 
  * Business Scenario:
  * An employee needs to implement Azure AD multi-factor authentication. They need:
- * 1. Company security policy requirements
- * 2. Technical implementation steps
+ * 1. Company security policy requirements (from SharePoint)
+ * 2. Technical implementation steps (from Microsoft Learn via MCP)
  * 3. Combined guidance showing how policy requirements map to technical implementation
  */
 
@@ -37,29 +41,36 @@ class Program
 {
     private static AIProjectClient? projectClient;
     private static ProjectResponsesClient? responseClient;
-    private static ProjectConversation? conversation;
+    private static string agentName = "Modern_Workplace_Assistant";
 
     static async Task Main(string[] args)
     {
         Console.WriteLine("🚀 Azure AI Foundry - Modern Workplace Assistant");
-        Console.WriteLine("Tutorial 1: Building Enterprise Agents with Agent SDK v2");
+        Console.WriteLine("Tutorial 1: Building Enterprise Agents with SharePoint + MCP Tools");
         Console.WriteLine("".PadRight(70, '='));
 
         try
         {
             // Create the agent with full diagnostic output
-            string agentName = await CreateWorkplaceAssistantAsync();
+            var agentVersion = await CreateWorkplaceAssistantAsync();
 
             // Demonstrate business scenarios
-            await DemonstrateBusinessScenariosAsync(agentName);
+            await DemonstrateBusinessScenariosAsync(agentVersion);
 
             // Offer interactive testing
             Console.Write("\n🎯 Try interactive mode? (y/n): ");
             var response = Console.ReadLine();
-            if (response?.StartsWith("y", StringComparison.CurrentCultureIgnoreCase) == true)
+            if (response?.ToLower().StartsWith("y") == true)
             {
-                await InteractiveModeAsync(agentName);
+                await InteractiveModeAsync(agentVersion);
             }
+
+            // Cleanup
+            Console.WriteLine("\n🧹 Cleaning up agent...");
+            await projectClient!.Agents.DeleteAgentVersionAsync(
+                agentName: agentVersion.Name,
+                agentVersion: agentVersion.Version);
+            Console.WriteLine("✅ Agent deleted");
 
             Console.WriteLine("\n🎉 Sample completed successfully!");
             Console.WriteLine("📚 This foundation supports Tutorial 2 (Governance) and Tutorial 3 (Production)");
@@ -77,29 +88,39 @@ class Program
     }
 
     /// <summary>
-    /// Create a Modern Workplace Assistant using Agent SDK v2.
-    ///
+    /// Create a Modern Workplace Assistant with SharePoint and MCP tools.
+    /// 
     /// This demonstrates enterprise AI patterns:
-    /// 1. Agent creation with the new SDK
-    /// 2. Robust error handling with graceful degradation
-    /// 3. Clear diagnostic information for troubleshooting
-    ///
+    /// 1. Agent creation with PromptAgentDefinition and CreateAgentVersionAsync
+    /// 2. SharePoint integration via SharepointAgentTool
+    /// 3. MCP integration via McpTool from the OpenAI Responses API
+    /// 4. Robust error handling with graceful degradation
+    /// 5. Dynamic agent capabilities based on available resources
+    /// 
     /// Educational Value:
     /// - Shows real-world complexity of enterprise AI systems
     /// - Demonstrates how to handle partial system failures
-    /// - Provides patterns for agent creation with Agent SDK v2
-    ///
-    /// Note: Tool integration (SharePoint, MCP) is being explored for SDK v2 beta.
-    /// This version demonstrates the core agent functionality.
+    /// - Provides patterns for agent creation with multiple tools
     /// </summary>
-    private static async Task<string> CreateWorkplaceAssistantAsync()
+    private static async Task<AgentVersion> CreateWorkplaceAssistantAsync()
     {
-        // Load environment variables
-        Env.Load(".env");
+        // Load environment variables from shared .env file
+        var envPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "shared", ".env");
+        if (File.Exists(envPath))
+        {
+            Env.Load(envPath);
+            Console.WriteLine($"📄 Loaded environment from: {envPath}");
+        }
+        else
+        {
+            // Fallback to local .env
+            Env.Load(".env");
+        }
 
         var projectEndpoint = Environment.GetEnvironmentVariable("PROJECT_ENDPOINT");
         var modelDeploymentName = Environment.GetEnvironmentVariable("MODEL_DEPLOYMENT_NAME");
-        var tenantId = Environment.GetEnvironmentVariable("AI_FOUNDRY_TENANT_ID");
+        var sharePointConnectionName = Environment.GetEnvironmentVariable("SHAREPOINT_CONNECTION_NAME");
+        var mcpServerUrl = Environment.GetEnvironmentVariable("MCP_SERVER_URL");
 
         if (string.IsNullOrEmpty(projectEndpoint))
             throw new InvalidOperationException("PROJECT_ENDPOINT environment variable not set");
@@ -112,109 +133,235 @@ class Program
         // AUTHENTICATION SETUP
         // ============================================================================
         // <agent_authentication>
-        TokenCredential credential;
-        if (!string.IsNullOrEmpty(tenantId))
-        {
-            Console.WriteLine($"🔐 Using AI Foundry tenant: {tenantId}");
-            credential = new AzureCliCredential(new AzureCliCredentialOptions { TenantId = tenantId });
-        }
-        else
-        {
-            credential = new DefaultAzureCredential();
-        }
+        var credential = new DefaultAzureCredential();
 
         projectClient = new AIProjectClient(new Uri(projectEndpoint), credential);
         Console.WriteLine($"✅ Connected to Azure AI Foundry: {projectEndpoint}");
         // </agent_authentication>
 
         // ========================================================================
-        // AGENT CREATION
+        // SHAREPOINT INTEGRATION SETUP
         // ========================================================================
-        string instructions = @"You are a Technical Assistant specializing in Azure and Microsoft 365 guidance.
+        // <sharepoint_connection_resolution>
+        SharepointAgentTool? sharepointTool = null;
 
-        CAPABILITIES:
-        - Provide detailed Azure and Microsoft 365 technical guidance
-        - Explain implementation steps and best practices
-        - Help with Azure AD, Conditional Access, MFA, and security configurations
+        if (!string.IsNullOrEmpty(sharePointConnectionName))
+        {
+            Console.WriteLine($"📁 Configuring SharePoint integration...");
+            Console.WriteLine($"   Connection name: {sharePointConnectionName}");
 
-        RESPONSE STRATEGY:
-        - Provide comprehensive technical guidance
-        - Include step-by-step implementation instructions
-        - Reference best practices and security considerations
-        - For policy questions, explain common enterprise policies and how to implement them
-        - For technical questions, provide detailed Azure/M365 implementation steps
+            try
+            {
+                // <sharepoint_tool_setup>
+                // Resolve connection name to connection ID via the Connections API
+                AIProjectConnection sharepointConnection = await projectClient.Connections.GetConnectionAsync(
+                    sharePointConnectionName, includeCredentials: false);
 
-        EXAMPLE SCENARIOS:
-        - ""What is a typical enterprise MFA policy?"" → Explain common MFA policies and their implementation
-        - ""How do I configure Azure AD Conditional Access?"" → Provide detailed technical steps
-        - ""What are the best practices for remote work security?"" → Combine policy recommendations with implementation guidance";
+                SharePointGroundingToolOptions sharepointToolOption = new()
+                {
+                    ProjectConnections = { new ToolProjectConnection(projectConnectionId: sharepointConnection.Id) }
+                };
+                sharepointTool = new SharepointAgentTool(sharepointToolOption);
+                Console.WriteLine($"✅ SharePoint tool configured successfully");
+                // </sharepoint_tool_setup>
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️  SharePoint connection unavailable: {ex.Message}");
+                Console.WriteLine($"   Possible causes:");
+                Console.WriteLine($"   - Connection '{sharePointConnectionName}' doesn't exist in the project");
+                Console.WriteLine($"   - Insufficient permissions to access the connection");
+                Console.WriteLine($"   - Connection configuration is incomplete");
+                Console.WriteLine($"   Agent will operate without SharePoint access");
+            }
+        }
+        else
+        {
+            Console.WriteLine($"📁 SharePoint integration skipped (SHAREPOINT_CONNECTION_NAME not set)");
+        }
+        // </sharepoint_connection_resolution>
 
-        // <create_agent>
+        // ========================================================================
+        // MICROSOFT LEARN MCP INTEGRATION SETUP
+        // ========================================================================
+        // <mcp_tool_setup>
+        // MCP (Model Context Protocol) enables agents to access external data sources
+        // like Microsoft Learn documentation. The approval flow is handled in ChatWithAssistantAsync.
+        McpTool? mcpTool = null;
+
+        if (!string.IsNullOrEmpty(mcpServerUrl))
+        {
+            Console.WriteLine($"📚 Configuring Microsoft Learn MCP integration...");
+            Console.WriteLine($"   Server URL: {mcpServerUrl}");
+
+            try
+            {
+                // Create MCP tool for Microsoft Learn documentation access
+                // server_label must match pattern: ^[a-zA-Z0-9_]+$ (alphanumeric and underscores only)
+                mcpTool = new McpTool("Microsoft_Learn_Documentation", new Uri(mcpServerUrl));
+                Console.WriteLine($"✅ MCP tool configured successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️  MCP tool unavailable: {ex.Message}");
+                Console.WriteLine($"   Agent will operate without Microsoft Learn access");
+            }
+        }
+        else
+        {
+            Console.WriteLine($"📚 MCP integration skipped (MCP_SERVER_URL not set)");
+        }
+        // </mcp_tool_setup>
+
+        // ========================================================================
+        // AGENT CREATION WITH DYNAMIC CAPABILITIES
+        // ========================================================================
+        // Create agent instructions based on available data sources
+        string instructions = GetAgentInstructions(sharepointTool != null, mcpTool != null);
+
+        // <create_agent_with_tools>
+        // Create the agent using the v2 SDK with PromptAgentDefinition
         Console.WriteLine($"🛠️  Creating agent with model: {modelDeploymentName}");
 
-        AgentDefinition agentDefinition = new PromptAgentDefinition(modelDeploymentName)
+        var agentDefinition = new PromptAgentDefinition(modelDeploymentName)
         {
             Instructions = instructions
         };
 
-        AgentVersion agent = await projectClient.Agents.CreateAgentVersionAsync(
-            agentName: "ModernWorkplaceAssistant",
-            options: new(agentDefinition)
-        );
+        // Add tools to the agent definition
+        if (sharepointTool != null)
+        {
+            agentDefinition.Tools.Add(sharepointTool);
+            Console.WriteLine($"   ✓ SharePoint tool added");
+        }
 
-        Console.WriteLine("✅ Agent created successfully");
-        Console.WriteLine($"   Agent Name: {agent.Name}");
-        Console.WriteLine($"   Agent Version: {agent.Version}");
+        if (mcpTool != null)
+        {
+            agentDefinition.Tools.Add(mcpTool);
+            Console.WriteLine($"   ✓ MCP tool added");
+        }
 
-        Console.WriteLine("\n⚠️  Note: SDK v2 beta status:");
-        Console.WriteLine("   - Core agent conversation functionality working");
-        Console.WriteLine("   - Tool integration patterns being finalized");
-        // </create_agent>
+        Console.WriteLine($"   Total tools: {agentDefinition.Tools.Count}");
 
-        // Create a conversation to maintain state
-        conversation = await projectClient.OpenAI.Conversations.CreateProjectConversationAsync();
+        // Create agent version
+        AgentVersion agentVersion = await projectClient.Agents.CreateAgentVersionAsync(
+            agentName: agentName,
+            options: new(agentDefinition));
 
-        // Initialize ProjectResponsesClient for conversations
-        responseClient = projectClient.OpenAI.GetProjectResponsesClientForAgent(agent, conversation.Id);
+        // Create a response client bound to this agent for conversations
+        responseClient = projectClient.OpenAI
+            .GetProjectResponsesClientForAgent(agentVersion);
 
-        return agent.Name;
+        Console.WriteLine($"✅ Agent created successfully: {agentVersion.Name} (version {agentVersion.Version})");
+        return agentVersion;
+        // </create_agent_with_tools>
     }
 
     /// <summary>
-    /// Demonstrate realistic business scenarios with Agent SDK v2.
-    ///
+    /// Generate agent instructions based on available tools.
+    /// </summary>
+    private static string GetAgentInstructions(bool hasSharePoint, bool hasMcp)
+    {
+        if (hasSharePoint && hasMcp)
+        {
+            return @"You are a Modern Workplace Assistant for Contoso Corporation.
+
+CAPABILITIES:
+- Search SharePoint for company policies, procedures, and internal documentation
+- Access Microsoft Learn for current Azure and Microsoft 365 technical guidance
+- Provide comprehensive solutions combining internal requirements with external implementation
+
+RESPONSE STRATEGY:
+- For policy questions: Search SharePoint for company-specific requirements and guidelines
+- For technical questions: Use Microsoft Learn for current Azure/M365 documentation and best practices
+- For implementation questions: Combine both sources to show how company policies map to technical implementation
+- Always cite your sources and provide step-by-step guidance
+- Explain how internal requirements connect to external implementation steps
+
+EXAMPLE SCENARIOS:
+- ""What is our MFA policy?"" → Search SharePoint for security policies
+- ""How do I configure Azure AD Conditional Access?"" → Use Microsoft Learn for technical steps
+- ""Our policy requires MFA - how do I implement this?"" → Combine policy requirements with implementation guidance";
+        }
+        else if (hasSharePoint)
+        {
+            return @"You are a Modern Workplace Assistant with access to Contoso Corporation's SharePoint.
+
+CAPABILITIES:
+- Search SharePoint for company policies, procedures, and internal documentation
+- Provide detailed technical guidance based on your knowledge
+- Combine company policies with general best practices
+
+RESPONSE STRATEGY:
+- Search SharePoint for company-specific requirements
+- Provide technical guidance based on Azure and M365 best practices
+- Explain how to align implementations with company policies";
+        }
+        else if (hasMcp)
+        {
+            return @"You are a Technical Assistant with access to Microsoft Learn documentation.
+
+CAPABILITIES:
+- Access Microsoft Learn for current Azure and Microsoft 365 technical guidance
+- Provide detailed implementation steps and best practices
+- Explain Azure services, features, and configuration options
+
+RESPONSE STRATEGY:
+- Use Microsoft Learn for technical documentation
+- Provide comprehensive implementation guidance
+- Reference official documentation and best practices";
+        }
+        else
+        {
+            return @"You are a Technical Assistant specializing in Azure and Microsoft 365 guidance.
+
+CAPABILITIES:
+- Provide detailed Azure and Microsoft 365 technical guidance
+- Explain implementation steps and best practices
+- Help with Azure AD, Conditional Access, MFA, and security configurations
+
+RESPONSE STRATEGY:
+- Provide comprehensive technical guidance
+- Include step-by-step implementation instructions
+- Reference best practices and security considerations";
+        }
+    }
+
+    /// <summary>
+    /// Demonstrate realistic business scenarios.
+    /// 
     /// This function showcases the practical value of the Modern Workplace Assistant
     /// by walking through scenarios that enterprise employees face regularly.
-    ///
+    /// 
     /// Educational Value:
     /// - Shows real business problems that AI agents can solve
-    /// - Demonstrates proper conversation and response management
-    /// - Illustrates Agent SDK v2 conversation patterns
+    /// - Demonstrates the Responses API conversation pattern
+    /// - Illustrates conversation patterns with tool usage
     /// </summary>
-    private static async Task DemonstrateBusinessScenariosAsync(string agentName)
+    private static async Task DemonstrateBusinessScenariosAsync(AgentVersion agentVersion)
     {
         var scenarios = new[]
         {
             new
             {
-                Title = "📋 Enterprise Policy Question",
-                Question = "What is a typical enterprise remote work policy for security?",
-                Context = "Employee needs to understand common enterprise remote work requirements",
-                LearningPoint = "Agent provides general guidance on enterprise policies"
+                Title = "📋 Company Policy Question (SharePoint Only)",
+                Question = "What is Contoso's remote work policy?",
+                Context = "Employee needs to understand company-specific remote work requirements",
+                LearningPoint = "SharePoint tool retrieves internal company policies"
             },
             new
             {
-                Title = "📚 Technical Documentation Question",
-                Question = "What is the correct way to implement Azure AD Conditional Access policies?",
-                Context = "IT administrator needs technical implementation guidance",
-                LearningPoint = "Agent provides detailed Azure technical implementation steps"
+                Title = "📚 Technical Documentation Question (MCP Only)",
+                Question = "According to Microsoft Learn, what is the correct way to implement Azure AD Conditional Access policies? Please include reference links to the official documentation.",
+                Context = "IT administrator needs authoritative Microsoft technical guidance",
+                LearningPoint = "MCP tool accesses Microsoft Learn for official documentation with links"
             },
             new
             {
-                Title = "🔄 Combined Implementation Question",
-                Question = "How should I configure my Azure environment for secure remote work with MFA?",
-                Context = "Need practical implementation combining security best practices",
-                LearningPoint = "Agent combines policy guidance with technical implementation"
+                Title = "🔄 Combined Implementation Question (SharePoint + MCP)",
+                Question = "Based on our company's remote work security policy, how should I configure my Azure environment to comply? Please include links to Microsoft documentation showing how to implement each requirement.",
+                Context = "Need to map company policy to technical implementation with official guidance",
+                LearningPoint = "Both tools work together: SharePoint for policy + MCP for implementation docs"
             }
         };
 
@@ -222,7 +369,7 @@ class Program
         Console.WriteLine("🏢 MODERN WORKPLACE ASSISTANT - BUSINESS SCENARIO DEMONSTRATION");
         Console.WriteLine("".PadRight(70, '='));
         Console.WriteLine("This demonstration shows how AI agents solve real business problems");
-        Console.WriteLine("using the Azure AI Agents SDK v2.");
+        Console.WriteLine("using the Azure AI Projects v2 SDK with the Responses API.");
         Console.WriteLine("".PadRight(70, '='));
 
         for (int i = 0; i < scenarios.Length; i++)
@@ -237,15 +384,15 @@ class Program
 
             // <agent_conversation>
             Console.WriteLine("🤖 ASSISTANT RESPONSE:");
-            var (response, status) = await ChatWithAssistantAsync(agentName, scenario.Question);
+            var (response, status) = await ChatWithAssistantAsync(scenario.Question);
             // </agent_conversation>
 
             // Display response with analysis
             if (status == "completed" && !string.IsNullOrWhiteSpace(response) && response.Length > 10)
             {
-                var preview = response.Length > 300 ? response.Substring(0, 300) + "..." : response;
+                var preview = response.Length > 500 ? response.Substring(0, 500) + "..." : response;
                 Console.WriteLine($"✅ SUCCESS: {preview}");
-                if (response.Length > 300)
+                if (response.Length > 500)
                 {
                     Console.WriteLine($"   📏 Full response: {response.Length} characters");
                 }
@@ -264,38 +411,87 @@ class Program
 
         Console.WriteLine("\n✅ DEMONSTRATION COMPLETED!");
         Console.WriteLine("🎓 Key Learning Outcomes:");
-        Console.WriteLine("   • Agent SDK v2 usage for enterprise AI");
-        Console.WriteLine("   • Proper conversation and response management");
+        Console.WriteLine("   • Azure AI Projects v2 SDK with PromptAgentDefinition");
+        Console.WriteLine("   • Responses API for agent conversations");
+        Console.WriteLine("   • SharePoint + MCP tool integration");
+        Console.WriteLine("   • MCP tool approval handling via the Responses API");
         Console.WriteLine("   • Real business value through AI assistance");
         Console.WriteLine("   • Foundation for governance and monitoring (Tutorials 2-3)");
     }
 
     /// <summary>
-    /// Execute a conversation with the workplace assistant using Agent SDK v2.
-    ///
-    /// This function demonstrates the conversation pattern for Azure AI Agents SDK v2.
-    ///
+    /// Execute a conversation with the workplace assistant using the Responses API.
+    /// 
+    /// This function demonstrates the v2 conversation pattern including:
+    /// - Sending a request via ProjectResponsesClient
+    /// - MCP tool approval handling through the Responses API approval loop
+    /// - Proper error and timeout management
+    /// 
     /// Educational Value:
-    /// - Shows proper conversation management with Agent SDK v2
-    /// - Demonstrates conversation creation and message handling
-    /// - Includes error management patterns
+    /// - Shows the Responses API conversation pattern (replaces threads/runs)
+    /// - Demonstrates MCP approval via McpToolCallApprovalRequestItem
+    /// - Includes timeout and error management patterns
     /// </summary>
-    private static async Task<(string response, string status)> ChatWithAssistantAsync(string agentName, string message)
+    // <mcp_approval_handler>
+    private static async Task<(string response, string status)> ChatWithAssistantAsync(string message)
     {
         try
         {
-            // <create_response>
-            // Create the user message item
-            List<ResponseItem> items = [ResponseItem.CreateUserMessageItem(message)];
+            // Send the user message via the Responses API
+            ResponseResult response = await responseClient!.CreateResponseAsync(message);
 
-            // Create response from the agent
-            ResponseResult response = await responseClient!.CreateResponseAsync(items);
+            // <mcp_approval_usage>
+            // Handle MCP tool approval loop.
+            // When the agent uses MCP tools, the response may contain
+            // McpToolCallApprovalRequestItem items. We auto-approve and re-send.
+            int maxIterations = 30;
+            int iteration = 0;
 
-            // Extract the response text
-            string responseText = response.GetOutputText();
-            // </create_response>
+            while (iteration < maxIterations)
+            {
+                // Check for MCP approval requests in the output items
+                var approvalRequests = response.OutputItems
+                    .OfType<McpToolCallApprovalRequestItem>()
+                    .ToList();
 
-            return (responseText, "completed");
+                if (approvalRequests.Count == 0) break;
+
+                // Build approval response items
+                var approvalItems = new List<ResponseItem>();
+                foreach (var request in approvalRequests)
+                {
+                    Console.WriteLine($"   🔧 Approving MCP tool: {request.ToolName}");
+
+                    // Auto-approve MCP tool calls
+                    // In production, you might implement custom approval logic here:
+                    // - RBAC checks (is user authorized for this tool?)
+                    // - Cost controls (has budget limit been reached?)
+                    // - Logging and auditing
+                    // - Interactive approval prompts
+                    approvalItems.Add(ResponseItem.CreateMcpApprovalResponseItem(
+                        request.Id,
+                        approved: true));
+                }
+
+                // Send approval responses, chained to the previous response
+                response = await responseClient.CreateResponseAsync(
+                    approvalItems,
+                    previousResponseId: response.Id);
+                iteration++;
+            }
+            // </mcp_approval_usage>
+
+            // Extract the text output
+            string? outputText = response.GetOutputText();
+
+            if (!string.IsNullOrWhiteSpace(outputText) && outputText.Length > 0)
+            {
+                return (outputText, "completed");
+            }
+            else
+            {
+                return ("No response from assistant", "completed");
+            }
         }
         catch (Exception ex)
         {
@@ -307,14 +503,16 @@ class Program
             return ($"Error in conversation: {ex.Message}", "failed");
         }
     }
+    // </mcp_approval_handler>
 
     /// <summary>
     /// Interactive mode for testing the workplace assistant.
-    ///
+    /// 
     /// This provides a simple interface for users to test the agent with their own questions
     /// and see how it provides comprehensive technical guidance.
+    /// Uses PreviousResponseId to maintain conversation context across turns.
     /// </summary>
-    private static async Task InteractiveModeAsync(string agentName)
+    private static async Task InteractiveModeAsync(AgentVersion agentVersion)
     {
         Console.WriteLine("\n" + "".PadRight(60, '='));
         Console.WriteLine("💬 INTERACTIVE MODE - Test Your Workplace Assistant!");
@@ -345,7 +543,7 @@ class Program
                 }
 
                 Console.Write("\n🤖 Workplace Assistant: ");
-                var (response, status) = await ChatWithAssistantAsync(agentName, question);
+                var (response, status) = await ChatWithAssistantAsync(question);
                 Console.WriteLine(response);
 
                 if (status != "completed")

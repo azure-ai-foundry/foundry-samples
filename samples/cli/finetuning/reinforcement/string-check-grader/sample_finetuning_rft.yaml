@@ -1,0 +1,23 @@
+name: rft-string-check-grader-cli-demo
+description: Template to demonstrate reinforcement fine-tuning with string_check grader via CLI
+model: o4-mini-2025-04-16
+method:
+  type: reinforcement
+  reinforcement:
+    hyperparameters:
+      epochs: 3
+      batch_size: 8
+      learning_rate_multiplier: 1.0
+      beta: 0.5
+      compute_multiplier: 1.0
+      reasoning_effort: high
+    grader:
+      type: string_check
+      name: Target Match Grader
+      input: "{{sample.output_text}}"
+      reference: "{{item.reference_answer}}"
+      operation: eq
+suffix: "rft-string-check-trained"
+seed: 42
+training_file: local:../data/medmcq_training.jsonl
+validation_file: local:../data/medmcq_validation.jsonl

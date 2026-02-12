@@ -2,14 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY . user_agent/
-WORKDIR /app/user_agent
+COPY requirements.txt .
 
-RUN if [ -f requirements.txt ]; then \
-        pip install -r requirements.txt; \
-    else \
-        echo "No requirements.txt found"; \
-    fi
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY main.py .
 
 EXPOSE 8088
 

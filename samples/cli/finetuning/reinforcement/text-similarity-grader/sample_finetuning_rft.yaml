@@ -1,0 +1,23 @@
+name: rft-text-similarity-grader-cli-demo
+description: Template to demonstrate reinforcement fine-tuning with text_similarity grader via CLI
+model: o4-mini-2025-04-16
+method:
+  type: reinforcement
+  reinforcement:
+    hyperparameters:
+      epochs: 3
+      batch_size: 8
+      learning_rate_multiplier: 1.0
+      beta: 0.5
+      compute_multiplier: 1.0
+      reasoning_effort: high
+    grader:
+      type: text_similarity
+      name: Fuzzy Similarity Grader
+      evaluation_metric: fuzzy_match
+      input: "{{sample.output_text}}"
+      reference: "{{item.extracted_text}}"
+suffix: "rft-text-similarity-trained"
+seed: 42
+training_file: local:../data/clause_matching_training.jsonl
+validation_file: local:../data/clause_matching_validation.jsonl

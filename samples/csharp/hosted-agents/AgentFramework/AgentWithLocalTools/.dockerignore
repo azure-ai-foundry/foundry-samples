@@ -1,0 +1,29 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# Environment files with secrets
+.env
+.env.*
+*.local
+appsettings.*.json
+!appsettings.json
+
+# IDE and editor files
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+
+# Git
+.git/
+.gitignore
+
+# Documentation and samples (not needed in container)
+*.md
+*.http
+
+# Test results
+TestResults/

@@ -1,0 +1,43 @@
+name: rft-python-grader-cli-demo
+description: Template to demonstrate reinforcement fine-tuning with python grader via CLI
+model: o4-mini-2025-04-16
+method:
+  type: reinforcement
+  reinforcement:
+    hyperparameters:
+      epochs: 3
+      batch_size: 8
+      learning_rate_multiplier: 1.0
+      beta: 0.5
+      compute_multiplier: 1.0
+      reasoning_effort: high
+    grader:
+      type: python
+      name: Countdown Arithmetic Grader
+      source: |
+        import json,re,ast
+
+        def safe_eval(e):
+            return _eval(ast.parse(e,mode='eval').body)
+
+        def _eval(n):
+            if isinstance(n,ast.Constant):return n.value
+            if isinstance(n,ast.BinOp) and type(n.op) in {ast.Add:lambda a,b:a+b,ast.Sub:lambda a,b:a-b,ast.Mult:lambda a,b:a*b,ast.Div:lambda a,b:a/b,ast.FloorDiv:lambda a,b:a//b,ast.Mod:lambda a,b:a%b,ast.Pow:lambda a,b:a**b}:return {ast.Add:lambda a,b:a+b,ast.Sub:lambda a,b:a-b,ast.Mult:lambda a,b:a*b,ast.Div:lambda a,b:a/b,ast.FloorDiv:lambda a,b:a//b,ast.Mod:lambda a,b:a%b,ast.Pow:lambda a,b:a**b}[type(n.op)](_eval(n.left),_eval(n.right))
+            if isinstance(n,ast.UnaryOp) and type(n.op) in {ast.UAdd:lambda a:+a,ast.USub:lambda a:-a}:return {ast.UAdd:lambda a:+a,ast.USub:lambda a:-a}[type(n.op)](_eval(n.operand))
+            raise ValueError('bad expr')
+
+        def grade(sample,item)->float:
+            try:
+                expr=sample['output_json']['expression'];expr_val=safe_eval(expr)
+                if sorted(map(int,re.findall(r'-?\d+',expr)))!=sorted(map(int,json.loads(item['nums']))):return 0
+                sr,it=int(float(sample['output_json']['result'])),int(float(item['target']))
+                if expr_val!=sr:return 1
+                if sr==it:return 5
+                if abs(sr-it)<=1:return 4
+                if abs(sr-it)<=5:return 3
+                return 2
+            except: return 0
+suffix: "rft-python-grader-trained"
+seed: 42
+training_file: local:../data/countdown_training.jsonl
+validation_file: local:../data/countdown_validation.jsonl
