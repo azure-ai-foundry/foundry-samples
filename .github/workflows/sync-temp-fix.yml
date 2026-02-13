@@ -11,6 +11,7 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    environment: docs-sync-approval
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
