@@ -3,10 +3,16 @@ from dotenv import load_dotenv
 from agent_framework.azure import AzureOpenAIChatClient
 
 from azure.ai.agentserver.agentframework import from_agent_framework, FoundryToolsChatMiddleware
-from azure.identity import DefaultAzureCredential
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 # Load environment variables from .env file for local development
 # load_dotenv()
+
+# Create a token provider that refreshes tokens automatically for long-running servers
+# This avoids 401 errors when the initial token expires (typically after 1 hour)
+_credential = DefaultAzureCredential()
+_token_provider = get_bearer_token_provider(_credential, "https://cognitiveservices.azure.com/.default")
+
 
 def main():
     required_env_vars = [
@@ -23,7 +29,8 @@ def main():
     if project_tool_connection_id := os.environ.get("AZURE_AI_PROJECT_TOOL_CONNECTION_ID"):
         tools.append({"type": "mcp", "project_connection_id": project_tool_connection_id})
 
-    chat_client = AzureOpenAIChatClient(credential=DefaultAzureCredential(),
+    # Use token provider for automatic token refresh in long-running servers
+    chat_client = AzureOpenAIChatClient(ad_token_provider=_token_provider,
                                         middleware=FoundryToolsChatMiddleware(tools))
     agent = chat_client.create_agent(
         name="FoundryToolAgent",

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent_framework.azure import AzureOpenAIChatClient
-from azure.identity import AzureCliCredential
+from azure.identity import AzureCliCredential, get_bearer_token_provider
 from dotenv import load_dotenv
 
 from agent_framework import (  # noqa: E402
@@ -23,6 +23,11 @@ from workflow_as_agent_reflection_pattern import (  # noqa: E402
 
 from azure.ai.agentserver.agentframework import from_agent_framework
 from azure.ai.agentserver.agentframework.persistence import FileCheckpointRepository
+
+# Create a token provider that refreshes tokens automatically for long-running servers
+# This avoids 401 errors when the initial token expires (typically after 1 hour)
+_credential = AzureCliCredential()
+_token_provider = get_bearer_token_provider(_credential, "https://cognitiveservices.azure.com/.default")
 
 @dataclass
 class HumanReviewRequest:
@@ -84,12 +89,13 @@ class ReviewerWithHumanInTheLoop(Executor):
 def create_builder():
     # Build a workflow with bidirectional communication between Worker and Reviewer,
     # and escalation paths for human review.
+    # Use token provider for automatic token refresh in long-running servers
     builder = (
         WorkflowBuilder()
         .register_executor(
             lambda: Worker(
                 id="sub-worker",
-                chat_client=AzureOpenAIChatClient(credential=AzureCliCredential()),
+                chat_client=AzureOpenAIChatClient(ad_token_provider=_token_provider),
             ),
             name="worker",
         )

@@ -24,7 +24,7 @@ template:
     - name: AZURE_OPENAI_CHAT_DEPLOYMENT_NAME
       value: "{{chat}}"
     - name: AZURE_AI_PROJECT_TOOL_CONNECTION_ID
-      value: <CONNECTION_ID_PLACEHOLDER>
+      value: MicrosoftLearn
 resources:
   - kind: model
     id: gpt-5

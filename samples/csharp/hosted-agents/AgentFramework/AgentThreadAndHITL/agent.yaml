@@ -1,0 +1,29 @@
+﻿name: AgentThreadAndHITL
+displayName: "Weather Assistant Agent"
+description: >
+  A Weather Assistant Agent that provides weather information and forecasts. It
+  demonstrates how to use Azure AI AgentServer with Human-in-the-Loop (HITL) 
+  capabilities to get human approval for funtional calls.
+
+metadata:
+  authors:
+    - Hosted Agent Team
+  tags:
+    - Azure AI AgentServer
+    - Microsoft Agent Framework
+    - Human-in-the-Loop
+template:
+  kind: hosted
+  name: AgentThreadAndHITL
+  protocols:
+    - protocol: responses
+      version: v1
+  environment_variables:
+    - name: AZURE_OPENAI_ENDPOINT
+      value: ${AZURE_OPENAI_ENDPOINT}
+    - name: AZURE_OPENAI_DEPLOYMENT_NAME
+      value: "{{chat}}"
+resources:
+  - name: chat
+    kind: model
+    id: gpt-4o
