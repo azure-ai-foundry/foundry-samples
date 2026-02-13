@@ -15,11 +15,11 @@ Write-Host "===============OAuth2 grants for blueprint SP==============="
 
 
 Write-Host "===============Building and pushing Docker image==============="
-& "$PSScriptRoot/build-docker-image-acr.ps1"
-
+& "$PSScriptRoot/build-docker-image.ps1"
 
 Write-Host "===============Creating Foundry container agent==============="
-& "$PSScriptRoot/create-application-deployment.ps1" -AgentName $env:AGENT_NAME -AgentVersion $env:AGENT_VERSION
+& "$PSScriptRoot/create-foundry-container-agent.ps1"
+
 
 
 Write-Host ""

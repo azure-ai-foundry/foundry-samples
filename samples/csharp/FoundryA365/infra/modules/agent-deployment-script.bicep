@@ -97,16 +97,7 @@ resource psScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   Write-Host "Response:"
   $response | ConvertTo-Json -Depth 100 | Write-Host
 
-  # Output the agent version
-  $agentVersion = $response.version
-  Write-Host "Agent Version: $agentVersion"
-  $DeploymentScriptOutputs = @{
-      agentVersion = $agentVersion
-  }
-
 '''
 
   }
 }
-
-output agentVersion string = psScript.properties.outputs.agentVersion

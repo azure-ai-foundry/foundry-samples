@@ -9,12 +9,17 @@ from typing import Any
 from agent_framework import ChatMessage, Context, ContextProvider, Role
 from agent_framework.azure import AzureOpenAIChatClient
 from azure.ai.agentserver.agentframework import from_agent_framework  # pyright: ignore[reportUnknownVariableType]
-from azure.identity import DefaultAzureCredential
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 if sys.version_info >= (3, 12):
     from typing import override
 else:
     from typing_extensions import override
+
+# Create a token provider that refreshes tokens automatically for long-running servers
+# This avoids 401 errors when the initial token expires (typically after 1 hour)
+_credential = DefaultAzureCredential()
+_token_provider = get_bearer_token_provider(_credential, "https://cognitiveservices.azure.com/.default")
 
 
 @dataclass
@@ -92,8 +97,9 @@ class TextSearchContextProvider(ContextProvider):
 
 
 def create_agent():
-    # Create an Agent using the Azure OpenAI Chat Client
-    agent = AzureOpenAIChatClient(credential=DefaultAzureCredential()).create_agent(
+    # Create an Agent using the Azure OpenAI Chat Client with token provider
+    # for automatic token refresh in long-running servers
+    agent = AzureOpenAIChatClient(ad_token_provider=_token_provider).create_agent(
         name="SupportSpecialist",
         instructions=(
             "You are a helpful support specialist for Contoso Outdoors. "
