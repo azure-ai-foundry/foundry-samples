@@ -1,6 +1,6 @@
 name: "Sync temp-fix branch from main"
 
-# Manual-only trigger — Sheri (docs team) runs this when she knows
+# Manual-only trigger — docs team runs this when they know
 # it's safe to update temp-fix without breaking docs builds.
 on:
   workflow_dispatch:
