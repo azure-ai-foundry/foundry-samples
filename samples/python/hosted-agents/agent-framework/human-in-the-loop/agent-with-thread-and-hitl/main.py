@@ -8,7 +8,7 @@ from agent_framework.azure import AzureOpenAIChatClient
 
 from azure.ai.agentserver.agentframework import from_agent_framework
 from azure.ai.agentserver.agentframework.persistence.agent_thread_repository import JsonLocalFileAgentThreadRepository
-from azure.identity import DefaultAzureCredential
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 """
 Tool Approvals with Threads
@@ -17,6 +17,11 @@ This sample demonstrates using tool approvals with threads.
 With threads, you don't need to manually pass previous messages -
 the thread stores and retrieves them automatically.
 """
+
+# Create a token provider that refreshes tokens automatically for long-running servers
+# This avoids 401 errors when the initial token expires (typically after 1 hour)
+_credential = DefaultAzureCredential()
+_token_provider = get_bearer_token_provider(_credential, "https://cognitiveservices.azure.com/.default")
 
 class CustomChatMessageStore(ChatMessageStoreProtocol):
     """Implementation of custom chat message store.
@@ -63,8 +68,9 @@ def add_to_calendar(
 
 
 def build_agent():
+    # Use token provider for automatic token refresh in long-running servers
     return ChatAgent(
-        chat_client=AzureOpenAIChatClient(credential=DefaultAzureCredential()),
+        chat_client=AzureOpenAIChatClient(ad_token_provider=_token_provider),
         name="CalendarAgent",
         instructions="You are a helpful calendar assistant.",
         tools=[add_to_calendar],
