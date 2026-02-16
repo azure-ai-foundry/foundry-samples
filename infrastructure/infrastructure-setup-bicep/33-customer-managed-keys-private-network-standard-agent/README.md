@@ -22,7 +22,13 @@ This Azure AI Foundry template demonstrates how to deploy AI Foundry with Agents
 * Only RSA and RSA-HSM keys of size 2048 are supported. For more information about keys, see Key Vault keys in 
 
 ## Features
-This template provides same features in template `15-private-network-standard-agent-setup` for selecting existing resources, different subscription dns zones and all other features
+This template provides same features in template `15-private-network-standard-agent-setup` for selecting existing resources, different subscription dns zones and all other features and it combines it with the encryption configuration from template `31-customer-managed-keys-standard-agent` for the standard setup but adding over the private network setup.
+
+The current templates provides the following:
+- `30-customer-managed-keys` : provides a sample on creating CMK foundry over basic setup and system-assigned managed identity
+- `31-customer-managed-keys-standard-agent`: provides a sample on creating CMK foundry over public standard setup (where AI foundry and its dependent resource all have public network access enabled) and system-assigned managed identity
+- `32-customer-managed-keys-user-assigned-identity`: provides a sample on creating CMK foundry over basic setup and user-assigned managed identity
+- `33-customer-managed-keys-private-network-standard-agent`: provides a sample on creating CMK foundry over private network standard setup (where AI foundry has network injection on the same VNET as the dependent resources are connected to) and system-assigned managed identity
 
 ## Run the Bicep deployment commands
 
