@@ -8,7 +8,7 @@ param modelCapacity int
 param agentSubnetId string
 param networkInjection string = 'true'
 
-// Hybrid setup: Public access enabled for portal, but backend resources are private
+// Hybrid setup: Public network access disabled by default for the Foundry resource
 // The Data Proxy (networkInjections) routes tool calls to private resources
 
 #disable-next-line BCP036
@@ -26,12 +26,12 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
     allowProjectManagement: true
     customSubDomainName: accountName
     networkAcls: {
-      defaultAction: 'Allow' // Allow public access to AI Services
+      defaultAction: 'Deny'
       virtualNetworkRules: []
       ipRules: []
       bypass: 'AzureServices'
     }
-    publicNetworkAccess: 'Enabled' // Enable public access for portal
+    publicNetworkAccess: 'Disabled'
     networkInjections: ((networkInjection == 'true')
       ? [
           {

@@ -1,18 +1,18 @@
 # Hybrid Private Resources Agent Setup
 
-This template deploys an Azure AI Foundry account with **public API access** while keeping backend resources (AI Search, Cosmos DB, Storage) on **private endpoints**. This hybrid architecture enables portal-based agent testing with tools that access private resources.
+This template deploys an Azure AI Foundry account with backend resources (AI Search, Cosmos DB, Storage) on **private endpoints**. By default, the Foundry resource itself also has **public network access disabled**, but this can be switched to public access if needed (see [Switching Between Private and Public Access](#switching-between-private-and-public-access)).
 
-## Architecture
+## Architecture (Default — Private Foundry)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                              INTERNET                                │
+│  Secure Access (VPN Gateway / ExpressRoute / Azure Bastion)         │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │
                     ┌──────────────▼──────────────┐
                     │      AI Services Account     │
                     │   (publicNetworkAccess:      │
-                    │        ENABLED)              │  ◄── Portal works!
+                    │        DISABLED)             │  ◄── Private by default
                     │                              │
                     │  ┌────────────────────────┐  │
                     │  │   Data Proxy / Agent   │  │
@@ -36,28 +36,63 @@ This template deploys an Azure AI Foundry account with **public API access** whi
 
 ## Key Features
 
-| Feature | This Template (19) | Fully Private (15) |
-|---------|-------------------|-------------------|
-| AI Services public access | ✅ Enabled | ❌ Disabled |
-| Portal access | ✅ Works | ❌ Not supported |
-| Backend resources | 🔒 Private | 🔒 Private |
-| Data Proxy | ✅ Configured | ✅ Configured |
-| Jump box required | Optional | Required |
+| Feature | This Template (19) — Private (default) | This Template (19) — Public | Fully Private (15) |
+|---------|----------------------------------------|-----------------------------|-----------------------|
+| AI Services public access | ❌ Disabled | ✅ Enabled | ❌ Disabled |
+| Portal access | Via VPN/ExpressRoute/Bastion | ✅ Works directly | Via VPN/ExpressRoute/Bastion |
+| Backend resources | 🔒 Private | 🔒 Private | 🔒 Private |
+| Data Proxy | ✅ Configured | ✅ Configured | ✅ Configured |
+| Secure connection required | ✅ Yes | ❌ No | ✅ Yes |
+
+## Switching Between Private and Public Access
+
+The Foundry resource has **public network access disabled by default**. You can switch between the two modes by modifying the Bicep template.
+
+### To enable public access
+
+In [modules-network-secured/ai-account-identity.bicep](modules-network-secured/ai-account-identity.bicep), change:
+
+```bicep
+// Change from:
+publicNetworkAccess: 'Disabled'
+// To:
+publicNetworkAccess: 'Enabled'
+
+// Also change:
+defaultAction: 'Deny'
+// To:
+defaultAction: 'Allow'
+```
+
+This makes the Foundry resource accessible from the internet (e.g., for portal-based development without VPN).
+
+### To disable public access (default)
+
+Revert the changes above, setting `publicNetworkAccess: 'Disabled'` and `defaultAction: 'Deny'`.
+
+## Connecting to a Private Foundry Resource
+
+When public network access is disabled (the default), you need a secure connection to reach the Foundry resource. Azure provides three methods:
+
+1. **Azure VPN Gateway** — Connect from your local network to the Azure VNet over an encrypted tunnel.
+2. **Azure ExpressRoute** — Use a private, dedicated connection from your on-premises infrastructure to Azure.
+3. **Azure Bastion** — Use a jump box VM on the VNet, accessed securely through the Azure portal.
+
+For detailed setup instructions, see: [Securely connect to Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/configure-private-link?view=foundry#securely-connect-to-foundry).
 
 ## When to Use This Template
 
 Use this template when you want:
-- **Portal-based development** - Create and test agents in the Azure AI Foundry portal
-- **Private data resources** - Keep AI Search, Cosmos DB, and Storage behind private endpoints
-- **MCP server integration** - Deploy MCP servers on the VNet that agents can access via Data Proxy
-- **Simpler testing** - No jump box required for portal access
+- **Private backend resources** — Keep AI Search, Cosmos DB, and Storage behind private endpoints
+- **MCP server integration** — Deploy MCP servers on the VNet that agents can access via Data Proxy
+- **Private Foundry (default)** — Full network isolation with secure access via VPN/ExpressRoute/Bastion
+- **Optional public Foundry access** — Switch to public for portal-based development if allowed by your security policy
 
 ## When NOT to Use This Template
 
 Use [template 15](../15-private-network-standard-agent-setup/) instead when you need:
-- **Full network isolation** - AI Services API must not be publicly accessible
-- **Zero-trust architecture** - All access must go through VPN/ExpressRoute
-- **Compliance requirements** - Regulations require fully private endpoints
+- **Fully managed private networking** — Including managed VNet with Microsoft-managed private endpoints
+- **Compliance requirements** — Regulations that require a different private networking topology
 
 ## Deployment
 
@@ -97,16 +132,20 @@ az network private-endpoint list \
 
 ## Testing Agents with Private Resources
 
-### Option 1: Portal Testing (Recommended)
+### Option 1: Portal Testing
+
+If the Foundry resource has **public network access enabled**, you can test directly in the portal:
 
 1. Navigate to [Azure AI Foundry portal](https://ai.azure.com)
 2. Select your project
 3. Create an agent with AI Search tool
 4. Test that the agent can query the private AI Search index
 
+If the Foundry resource has **public network access disabled** (default), you need to connect via VPN Gateway, ExpressRoute, or Azure Bastion before accessing the portal. See [Connecting to a Private Foundry Resource](#connecting-to-a-private-foundry-resource).
+
 ### Option 2: SDK Testing
 
-See [TESTING-GUIDE.md](TESTING-GUIDE.md) for detailed SDK testing instructions.
+See [tests/TESTING-GUIDE.md](tests/TESTING-GUIDE.md) for detailed SDK testing instructions.
 
 ## MCP Server Deployment
 

@@ -1,22 +1,20 @@
 /*
 Hybrid Private Resources Setup for Azure AI Foundry Agents
 -----------------------------------------------------------
-This template creates an Azure AI Foundry account with PUBLIC access enabled,
+This template creates an Azure AI Foundry account with public network access DISABLED,
 while keeping backend resources (AI Search, Cosmos DB, Storage) on private endpoints.
 
 Key differences from template 15 (fully private):
-- AI Services: publicNetworkAccess = Enabled (portal accessible)
+- AI Services: publicNetworkAccess = Disabled (default)
 - Backend resources: Still private (AI Search, Cosmos DB, Storage)
 - Data Proxy: networkInjections configured to route to private VNet
 
 This enables:
-✓ Portal-based agent creation and testing
 ✓ Agents can use AI Search tool (routed via Data Proxy to private endpoint)
 ✓ Agents can use MCP servers running on the VNet
-✓ No jump box required for portal access
 
 Architecture:
-  Internet → AI Services (public) → Data Proxy → Private VNet → Backend Resources
+  Private VNet → AI Services (private) → Data Proxy → Private VNet → Backend Resources
 */
 @description('Location for all resources.')
 @allowed([

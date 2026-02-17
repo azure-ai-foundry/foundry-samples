@@ -1,19 +1,23 @@
 # Hybrid Private Resources - Testing Guide
 
-This guide covers testing Azure AI Foundry agents with tools that access private resources (AI Search, MCP servers) when the AI Services account has public access enabled.
+This guide covers testing Azure AI Foundry agents with tools that access private resources (AI Search, MCP servers). By default, the Foundry (AI Services) resource has **public network access disabled**. You can optionally [switch to public access](#switching-the-foundry-resource-to-public-access) for easier development.
+
+> **Private Foundry (default):** You need a secure connection (VPN Gateway, ExpressRoute, or Azure Bastion) to reach the Foundry resource and run SDK tests. See [Connecting to a Private Foundry Resource](#connecting-to-a-private-foundry-resource).
 
 ---
 
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [Step 1: Deploy the Template](#step-1-deploy-the-template)
-3. [Step 2: Verify Private Endpoints](#step-2-verify-private-endpoints)
-4. [Step 3: Create Test Data in AI Search](#step-3-create-test-data-in-ai-search)
-5. [Step 4: Deploy MCP Server](#step-4-deploy-mcp-server)
-6. [Step 5: Test via SDK](#step-5-test-via-sdk)
-7. [Troubleshooting](#troubleshooting)
-8. [Test Results Summary](#test-results-summary)
+2. [Connecting to a Private Foundry Resource](#connecting-to-a-private-foundry-resource)
+3. [Switching the Foundry Resource to Public Access](#switching-the-foundry-resource-to-public-access)
+4. [Step 1: Deploy the Template](#step-1-deploy-the-template)
+5. [Step 2: Verify Private Endpoints](#step-2-verify-private-endpoints)
+6. [Step 3: Create Test Data in AI Search](#step-3-create-test-data-in-ai-search)
+7. [Step 4: Deploy MCP Server](#step-4-deploy-mcp-server)
+8. [Step 5: Test via SDK](#step-5-test-via-sdk)
+9. [Troubleshooting](#troubleshooting)
+10. [Test Results Summary](#test-results-summary)
 
 ---
 
@@ -22,6 +26,48 @@ This guide covers testing Azure AI Foundry agents with tools that access private
 - Azure CLI installed and authenticated
 - Owner or Contributor role on the subscription
 - Python 3.10+ (for SDK testing)
+
+---
+
+## Connecting to a Private Foundry Resource
+
+When the Foundry resource has public network access **disabled** (the default), you must connect to the Azure VNet before you can reach the Foundry endpoint for SDK testing or portal access.
+
+Azure provides three methods:
+
+| Method | Use Case |
+|--------|----------|
+| **Azure VPN Gateway** | Connect from your local machine/network over an encrypted tunnel |
+| **Azure ExpressRoute** | Private, dedicated connection from on-premises infrastructure |
+| **Azure Bastion** | Access a jump box VM on the VNet securely through the Azure portal |
+
+For step-by-step setup instructions, see: [Securely connect to Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/configure-private-link?view=foundry#securely-connect-to-foundry).
+
+Once connected to the VNet, all SDK commands and portal interactions in this guide will work as documented.
+
+---
+
+## Switching the Foundry Resource to Public Access
+
+If your security policy permits, you can enable public network access on the Foundry resource so that SDK tests and portal access work directly from the internet without VPN/ExpressRoute/Bastion.
+
+In `modules-network-secured/ai-account-identity.bicep`, change:
+
+```bicep
+// Change from:
+publicNetworkAccess: 'Disabled'
+// To:
+publicNetworkAccess: 'Enabled'
+
+// Also change:
+defaultAction: 'Deny'
+// To:
+defaultAction: 'Allow'
+```
+
+Then redeploy the template. Backend resources (AI Search, Cosmos DB, Storage) remain on private endpoints regardless of this setting.
+
+To revert to private, set `publicNetworkAccess: 'Disabled'` and `defaultAction: 'Deny'`, then redeploy.
 
 ---
 
@@ -50,7 +96,7 @@ echo "AI Services: $AI_SERVICES_NAME"
 
 ## Step 2: Verify Private Endpoints
 
-Confirm that backend resources have private endpoints but AI Services does not:
+Confirm that backend resources have private endpoints:
 
 ```bash
 # List private endpoints
@@ -60,12 +106,16 @@ az network private-endpoint list -g $RESOURCE_GROUP -o table
 # - AI Search (*search-private-endpoint)
 # - Cosmos DB (*cosmosdb-private-endpoint)
 # - Storage (*storage-private-endpoint)
-# - AI Services (*-private-endpoint) - for internal Data Proxy access
+# - AI Services (*-private-endpoint)
 
-# Verify AI Services is publicly accessible
+# If public access is ENABLED, verify AI Services is publicly accessible:
 AI_ENDPOINT=$(az cognitiveservices account show -g $RESOURCE_GROUP -n $AI_SERVICES_NAME --query "properties.endpoint" -o tsv)
 curl -I $AI_ENDPOINT
 # Should return HTTP 200 (accessible from internet)
+
+# If public access is DISABLED (default), the curl above will fail.
+# You must connect via VPN/ExpressRoute/Bastion to reach the endpoint.
+# See: Connecting to a Private Foundry Resource
 ```
 
 ---
