@@ -32,12 +32,12 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing 
   scope: resourceGroup(azureStorageSubscriptionId, azureStorageResourceGroupName)
 }
 
-resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
+resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' existing = {
   name: accountName
   scope: resourceGroup()
 }
 
-resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' = {
+resource project 'Microsoft.CognitiveServices/accounts/projects@2025-09-01' = {
   parent: account
   name: projectName
   location: location
@@ -50,7 +50,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
   }
 
   // Use unique connection names by appending the suffix
-  resource project_connection_cosmosdb_account 'connections@2025-04-01-preview' = {
+  resource project_connection_cosmosdb_account 'connections@2025-09-01' = {
     name: '${cosmosDBName}${uniqueConnectionSuffix}'
     properties: {
       category: 'CosmosDB'
@@ -64,7 +64,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
     }
   }
 
-  resource project_connection_azure_storage 'connections@2025-04-01-preview' = {
+  resource project_connection_azure_storage 'connections@2025-09-01' = {
     name: '${azureStorageName}${uniqueConnectionSuffix}'
     properties: {
       category: 'AzureStorageAccount'
@@ -78,7 +78,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
     }
   }
 
-  resource project_connection_azureai_search 'connections@2025-04-01-preview' = {
+  resource project_connection_azureai_search 'connections@2025-09-01' = {
     name: '${aiSearchName}${uniqueConnectionSuffix}'
     properties: {
       category: 'CognitiveSearch'

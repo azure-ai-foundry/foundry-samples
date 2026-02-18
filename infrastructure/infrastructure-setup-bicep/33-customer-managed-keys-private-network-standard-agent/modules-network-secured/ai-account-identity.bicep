@@ -9,7 +9,7 @@ param agentSubnetId string
 param networkInjection string = 'true'
 
 #disable-next-line BCP036
-resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
+resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   name: accountName
   location: location
   sku: {
@@ -41,7 +41,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
 }
 
 #disable-next-line BCP081
-// resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview'=  {
+// resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-09-01'=  {
 //   parent: account
 //   name: modelName
 //   sku : {

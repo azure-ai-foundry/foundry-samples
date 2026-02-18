@@ -7,7 +7,7 @@ param keyName string
 param keyVersion string
 
 // Reference account post creation, since we must wait for managed identity to be created to give access to CMK key vault
-resource existingAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
+resource existingAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' existing = {
   name: aiFoundryName
 }
 // Reference the existing Key Vault
@@ -44,7 +44,7 @@ resource KeyVaultCryptoServiceEncryptioncosmosassignment 'Microsoft.Authorizatio
 
 
 // Set customer-managed key encryption on account
-resource accountUpdate 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
+resource accountUpdate 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   name: existingAccount.name
   location: location
   identity: {
