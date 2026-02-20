@@ -1,0 +1,697 @@
+###############################################################################
+# Enterprise Scenario Test Suite — Foundry IQ KB MCP + AI Search + Agent V2
+#
+# This file tests all 10 enterprise scenarios using pre-existing resources
+# from template 19 (Dimitar's deployment).
+#
+# Usage: Open in VS Code with REST Client extension (humao.rest-client)
+#        Click "Send Request" above each request block.
+#
+# Prerequisites:
+#   1. Azure CLI logged in: az login
+#   2. Get bearer token: az account get-access-token --resource https://cognitiveservices.azure.com
+#   3. Update @variables below with your actual values
+###############################################################################
+
+###############################################################################
+# VARIABLES — Update these for your environment
+###############################################################################
+
+# AI Foundry Project endpoint (from template 19 deployment)
+# Update this with your project endpoint:
+#   az cognitiveservices account list -g <rg> --query "[].name" -o tsv
+#   Then: https://<account>.services.ai.azure.com/api/projects/<project>
+@projectEndpoint = https://aiservicesaxy3.services.ai.azure.com/api/projects/projectaxy3
+
+# AI Search endpoint
+# TESTED WITH: fsunavala-srch-demos-prod.search.windows.net (PNA: Enabled)
+# For VNet testing, use your template 19 deployed search service
+@searchEndpoint = https://fsunavala-srch-demos-prod.search.windows.net
+
+# AI Search connection name (as configured in the Foundry project)
+@searchConnectionName = aiservicesaxy3search
+
+# AI Search index name (use an index with documents)
+@searchIndexName = zava-support-kb
+
+# AI Search KB name (for KB API — 2025-11-01-preview)
+@kbName = test-kb
+
+# AI Search admin API key
+# Get with: az search admin-key show -g <rg> --service-name <name> --query primaryKey -o tsv
+@searchApiKey = YOUR_SEARCH_API_KEY_HERE
+
+# Public MCP server (Dimitar's existing deployment)
+@mcpServerPublic = https://mcp-http-server-public.victoriousfield-89c08f4e.westus2.azurecontainerapps.io/noauth/mcp
+
+# Private MCP server (internal VNet — only reachable via Data Proxy)
+@mcpServerPrivate = https://mcp-http-server.jollydune-20a0f709.westus2.azurecontainerapps.io/noauth/mcp
+
+# Foundry IQ KB MCP server (public Vercel — for baseline testing)
+@kbMcpPublic = https://foundry-iq-mcp-apps.vercel.app/mcp
+
+# Model name
+@modelName = gpt-4o-mini
+
+# Azure AD Bearer token — get with:
+#   az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv
+@bearerToken = YOUR_BEARER_TOKEN_HERE
+
+# Azure AD token for AI Search (for disable-local-auth scenario):
+#   az account get-access-token --resource https://search.azure.com --query accessToken -o tsv
+@searchBearerToken = YOUR_SEARCH_BEARER_TOKEN_HERE
+
+# API versions
+@agentApiVersion = 2025-05-01-preview
+@searchApiVersion = 2024-07-01
+@kbApiVersion = 2025-11-01-preview
+
+
+###############################################################################
+# SCENARIO 1: PUBLIC (Basic, no enterprise settings)
+# Expected: All requests succeed from any network location
+###############################################################################
+
+### 1.1 — AI Search: Basic query (public access enabled)
+# Expected: 200 OK with search results
+GET {{searchEndpoint}}/indexes/{{searchIndexName}}/docs
+  ?api-version={{searchApiVersion}}
+  &search=*
+  &$top=3
+  &$count=true
+Content-Type: application/json
+api-key: {{searchApiKey}}
+
+### 1.2 — MCP Server: Initialize session (public endpoint)
+# Expected: 200 OK with server capabilities + mcp-session-id header
+POST {{mcpServerPublic}}
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-11-25",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "enterprise-test-client",
+      "version": "1.0.0"
+    }
+  }
+}
+
+### 1.3 — MCP Server: List tools (public endpoint)
+# Expected: 200 OK with list of available tools (add, echo, etc.)
+POST {{mcpServerPublic}}
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list",
+  "params": {}
+}
+
+### 1.4 — MCP Server: Call tool (public endpoint)
+# Expected: 200 OK with tool result (e.g., add: 2+4=6)
+POST {{mcpServerPublic}}
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "add",
+    "arguments": { "a": 2, "b": 4 }
+  }
+}
+
+### 1.5 — Foundry IQ KB MCP: Initialize session (Vercel public)
+# Expected: 200 OK with server capabilities
+POST {{kbMcpPublic}}
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-11-25",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "enterprise-test-kb",
+      "version": "1.0.0"
+    }
+  }
+}
+
+### 1.6 — Foundry IQ KB MCP: List tools (Vercel — should include knowledge_base_retrieve)
+# Expected: 200 OK with tools including knowledge_base_retrieve, read_me, etc.
+POST {{kbMcpPublic}}
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list",
+  "params": {}
+}
+
+### 1.7 — Foundry IQ KB MCP: Call knowledge_base_retrieve (stub mode — no AI Search configured)
+# Expected: 200 OK with demo/stub KB results (Vercel has no AZURE_SEARCH_ENDPOINT)
+POST {{kbMcpPublic}}
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "knowledge_base_retrieve",
+    "arguments": {
+      "query": "vendor management policy",
+      "top_k": 3
+    }
+  }
+}
+
+### 1.8 — Agent V2: Create agent with MCP tool (public)
+# Expected: 200/201 — Agent created with MCP tool
+POST {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+{
+  "name": "kb-mcp-public-test",
+  "model": "{{modelName}}",
+  "instructions": "You are a helpful assistant. Use the MCP add tool to calculate 2+3.",
+  "tools": [
+    {
+      "type": "mcp",
+      "server_label": "test-mcp-public",
+      "server_url": "{{mcpServerPublic}}",
+      "require_approval": "never"
+    }
+  ]
+}
+
+
+###############################################################################
+# SCENARIO 2: PNA DISABLED (Public Network Access disabled on AI Search)
+# Expected: Direct REST to AI Search FAILS from outside VNet
+#           Agent via Data Proxy SUCCEEDS (Data Proxy is inside VNet)
+###############################################################################
+
+### 2.1 — AI Search: Direct query should FAIL from outside VNet
+# Expected: Connection refused / timeout / 403 when PNA is disabled
+# This PROVES that PNA is working correctly
+GET {{searchEndpoint}}/indexes/{{searchIndexName}}/docs
+  ?api-version={{searchApiVersion}}
+  &search=*
+  &$top=1
+Content-Type: application/json
+api-key: {{searchApiKey}}
+
+### 2.2 — Agent V2: Create agent with AI Search tool (Data Proxy handles VNet routing)
+# Expected: 200/201 — Agent created successfully even though AI Search is private
+# The Data Proxy uses networkInjection to reach AI Search via private endpoint
+POST {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+{
+  "name": "search-pna-test",
+  "model": "{{modelName}}",
+  "instructions": "Search for documents and summarize what you find.",
+  "tools": [
+    {
+      "type": "azure_ai_search",
+      "azure_ai_search": {
+        "indexes": [
+          {
+            "project_connection_id": "{{searchConnectionName}}",
+            "index_name": "{{searchIndexName}}",
+            "query_type": "simple"
+          }
+        ]
+      }
+    }
+  ]
+}
+
+
+###############################################################################
+# SCENARIO 3: PRIVATE NETWORK VNET INJECTION
+# Expected: Agent → Data Proxy → (networkInjection into VNet) → private MCP
+#           Works because Data Proxy is injected into customer VNet
+###############################################################################
+
+### 3.1 — Agent V2: Create agent with PRIVATE MCP server (VNet-internal)
+# Expected: 200/201 — Agent created. When used, Data Proxy routes to private MCP.
+# NOTE: This agent will only work if Data Proxy can resolve private Container Apps DNS
+POST {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+{
+  "name": "mcp-vnet-injection-test",
+  "model": "{{modelName}}",
+  "instructions": "Use the MCP add tool to calculate 5+7 and tell me the result.",
+  "tools": [
+    {
+      "type": "mcp",
+      "server_label": "private-mcp",
+      "server_url": "{{mcpServerPrivate}}",
+      "require_approval": "never"
+    }
+  ]
+}
+
+### 3.2 — Private MCP: Direct request should FAIL from outside VNet
+# Expected: Connection timeout / DNS resolution failure
+# This PROVES the MCP server is truly private (internal-only ingress)
+POST {{mcpServerPrivate}}
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-11-25",
+    "capabilities": {},
+    "clientInfo": { "name": "test", "version": "1.0.0" }
+  }
+}
+
+
+###############################################################################
+# SCENARIO 4: PNA DISABLED + PLE + VPN
+# Expected: From VPN-connected client, direct REST to private AI Search works
+# These requests should be run FROM a VPN-connected machine or Bastion jump box
+###############################################################################
+
+### 4.1 — AI Search: Direct query via VPN (should succeed from inside VNet)
+# Expected: 200 OK — Private Link Endpoint resolves to private IP via VPN
+# NOTE: Run this from a VPN-connected machine or Azure Bastion jump box
+GET {{searchEndpoint}}/indexes/{{searchIndexName}}/docs
+  ?api-version={{searchApiVersion}}
+  &search=test
+  &$top=3
+Content-Type: application/json
+api-key: {{searchApiKey}}
+
+### 4.2 — AI Search: Service stats via VPN
+# Expected: 200 OK with service statistics
+GET {{searchEndpoint}}/servicestats
+  ?api-version={{searchApiVersion}}
+Content-Type: application/json
+api-key: {{searchApiKey}}
+
+### 4.3 — Private MCP: Direct request via VPN (should succeed from inside VNet)
+# Expected: 200 OK — Container App internal FQDN resolves via private DNS
+POST {{mcpServerPrivate}}
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-11-25",
+    "capabilities": {},
+    "clientInfo": { "name": "vpn-test", "version": "1.0.0" }
+  }
+}
+
+
+###############################################################################
+# SCENARIO 5: CMK (Customer Managed Keys)
+# Expected: AI Search with CMK encrypts data at rest.
+#           Queries work identically — CMK is transparent to the API layer.
+###############################################################################
+
+### 5.1 — AI Search: Query CMK-enabled index (same API, same behavior)
+# Expected: 200 OK — CMK does not change query API behavior
+# NOTE: Verify CMK is enabled: az search service show -g <rg> -n <name> --query encryptionWithCmk
+GET {{searchEndpoint}}/indexes/{{searchIndexName}}/docs
+  ?api-version={{searchApiVersion}}
+  &search=security+policy
+  &$top=3
+Content-Type: application/json
+api-key: {{searchApiKey}}
+
+### 5.2 — AI Search: Index stats (verify encryption status in portal)
+# Expected: 200 OK — index stats returned regardless of CMK
+GET {{searchEndpoint}}/indexes/{{searchIndexName}}/stats
+  ?api-version={{searchApiVersion}}
+Content-Type: application/json
+api-key: {{searchApiKey}}
+
+
+###############################################################################
+# SCENARIO 6: ALT CUSTOM SUBDOMAIN
+# Expected: AI Services account uses custom subdomain instead of auto-generated.
+#           All API calls work with the custom endpoint URL.
+###############################################################################
+
+# To test: Replace @projectEndpoint with your custom subdomain endpoint:
+# e.g., https://mycompany-ai.cognitiveservices.azure.com/api/projects/myproject
+
+### 6.1 — Agent V2: List agents via custom subdomain
+# Expected: 200 OK — custom subdomain resolves and API works
+GET {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+### 6.2 — Agent V2: Create agent via custom subdomain
+# Expected: 200/201 — Agent created successfully via custom subdomain
+POST {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+{
+  "name": "custom-subdomain-test",
+  "model": "{{modelName}}",
+  "instructions": "You are a test agent for custom subdomain validation. Say hello.",
+  "tools": []
+}
+
+
+###############################################################################
+# SCENARIO 7: DISABLE LOCAL AUTH
+# Expected: API key auth FAILS, Azure AD bearer token SUCCEEDS
+# For AI Search: disable local auth forces AAD-only access
+###############################################################################
+
+### 7.1 — AI Search: Query with API key (should FAIL when local auth disabled)
+# Expected: 401/403 Unauthorized — API key auth is disabled
+# To disable: az search service update -g <rg> -n <name> --disable-local-auth true
+GET {{searchEndpoint}}/indexes/{{searchIndexName}}/docs
+  ?api-version={{searchApiVersion}}
+  &search=*
+  &$top=1
+Content-Type: application/json
+api-key: {{searchApiKey}}
+
+### 7.2 — AI Search: Query with AAD bearer token (should SUCCEED)
+# Expected: 200 OK — AAD auth works when local auth is disabled
+# Requires: User/SPN has "Search Index Data Reader" role on the AI Search resource
+GET {{searchEndpoint}}/indexes/{{searchIndexName}}/docs
+  ?api-version={{searchApiVersion}}
+  &search=*
+  &$top=3
+Content-Type: application/json
+Authorization: Bearer {{searchBearerToken}}
+
+### 7.3 — Agent V2: Operations with AAD only (no API key fallback)
+# Expected: 200 OK — Agent API always uses AAD via DefaultAzureCredential
+GET {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+
+###############################################################################
+# SCENARIO 8: PROJECT RBAC ROLE ONLY (SPN / Managed Identity)
+# Expected: Service Principal or Managed Identity with RBAC roles can
+#           perform all agent operations without connection strings
+###############################################################################
+
+# To test with SPN:
+#   az login --service-principal -u <appId> -p <password> --tenant <tenantId>
+#   Then get token: az account get-access-token --resource https://cognitiveservices.azure.com
+
+### 8.1 — Agent V2: List agents (SPN with Cognitive Services User role)
+# Expected: 200 OK — SPN has RBAC access
+GET {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+### 8.2 — Agent V2: Create agent with AI Search tool (SPN + RBAC)
+# Expected: 200/201 — Works with RBAC roles, no connection string needed
+# Required roles:
+#   - Cognitive Services User on AI Services account
+#   - Search Index Data Reader on AI Search resource (for search tool)
+POST {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+{
+  "name": "rbac-only-test",
+  "model": "{{modelName}}",
+  "instructions": "Search for documents about policies.",
+  "tools": [
+    {
+      "type": "azure_ai_search",
+      "azure_ai_search": {
+        "indexes": [
+          {
+            "project_connection_id": "{{searchConnectionName}}",
+            "index_name": "{{searchIndexName}}",
+            "query_type": "simple"
+          }
+        ]
+      }
+    }
+  ]
+}
+
+### 8.3 — Agent V2: Create agent with MCP tool (SPN + RBAC)
+# Expected: 200/201 — Agent with MCP tool created via RBAC
+POST {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+{
+  "name": "rbac-mcp-test",
+  "model": "{{modelName}}",
+  "instructions": "Use the MCP add tool to calculate 10+20.",
+  "tools": [
+    {
+      "type": "mcp",
+      "server_label": "mcp-rbac-test",
+      "server_url": "{{mcpServerPublic}}",
+      "require_approval": "never"
+    }
+  ]
+}
+
+
+###############################################################################
+# SCENARIO 9: UAI (User Assigned Identity)
+# Expected: Resources use User Assigned Identity instead of System Assigned.
+#           Container App pulls from ACR with UAI. AI Services uses UAI.
+###############################################################################
+
+# UAI is primarily an infra/deployment concern — validated via:
+#   az containerapp show -g <rg> -n <name> --query "identity"
+#   az cognitiveservices account show -g <rg> -n <name> --query "identity"
+# The API behavior is identical; the test is that operations succeed.
+
+### 9.1 — Agent V2: List agents (validates AI Services works with UAI config)
+# Expected: 200 OK — AI Services resource with UAI still serves API requests
+GET {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+### 9.2 — Agent V2: Create + use agent (validates end-to-end with UAI)
+POST {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+{
+  "name": "uai-test-agent",
+  "model": "{{modelName}}",
+  "instructions": "You are a test agent for UAI validation. Say hello and confirm you are working.",
+  "tools": [
+    {
+      "type": "mcp",
+      "server_label": "mcp-uai-test",
+      "server_url": "{{mcpServerPublic}}",
+      "require_approval": "never"
+    }
+  ]
+}
+
+
+###############################################################################
+# SCENARIO 10: BYO STORAGE (Agent standard)
+# Expected: Agent uses customer-provided storage for threads/vector stores.
+#           MCP tool and AI Search tool still work with BYO storage configured.
+# NOTE: BYO Storage doesn't directly affect KB MCP / AI Search operations,
+#       but the agent must still function correctly with BYO storage enabled.
+###############################################################################
+
+### 10.1 — Agent V2: Create agent with MCP + AI Search tools (BYO storage env)
+# Expected: 200/201 — BYO storage is transparent to tool operations
+POST {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+{
+  "name": "byo-storage-test",
+  "model": "{{modelName}}",
+  "instructions": "Search for vendor policies and summarize.",
+  "tools": [
+    {
+      "type": "azure_ai_search",
+      "azure_ai_search": {
+        "indexes": [
+          {
+            "project_connection_id": "{{searchConnectionName}}",
+            "index_name": "{{searchIndexName}}",
+            "query_type": "simple"
+          }
+        ]
+      }
+    },
+    {
+      "type": "mcp",
+      "server_label": "mcp-byo-test",
+      "server_url": "{{mcpServerPublic}}",
+      "require_approval": "never"
+    }
+  ]
+}
+
+
+###############################################################################
+# SCENARIO 11: ACTIONABLE ERROR MESSAGING
+# Expected: Each request returns a clear, actionable error message.
+#           No generic 500s — errors should tell the user what to fix.
+###############################################################################
+
+### 11.1 — AI Search: Wrong API key → should say "invalid api-key"
+# Expected: 401/403 with clear "invalid api-key" or "unauthorized" message
+GET {{searchEndpoint}}/indexes/{{searchIndexName}}/docs
+  ?api-version={{searchApiVersion}}
+  &search=*
+  &$top=1
+Content-Type: application/json
+api-key: INVALID_KEY_12345
+
+### 11.2 — AI Search: Non-existent index → should say "index not found"
+# Expected: 404 with "index 'nonexistent-index' was not found"
+GET {{searchEndpoint}}/indexes/nonexistent-index/docs
+  ?api-version={{searchApiVersion}}
+  &search=*
+Content-Type: application/json
+api-key: {{searchApiKey}}
+
+### 11.3 — Agent V2: Wrong project endpoint → should say "not found" or "unauthorized"
+# Expected: 404 or 401 with actionable message about endpoint
+GET https://aiservicesaxy3.services.ai.azure.com/api/projects/WRONG_PROJECT/agents
+  ?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+### 11.4 — Agent V2: Invalid bearer token → should say "unauthorized"
+# Expected: 401 with clear "invalid token" or "authentication failed" message
+GET {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer INVALID_TOKEN_12345
+
+### 11.5 — Agent V2: Create agent with unreachable MCP server → should fail gracefully
+# Expected: Agent creation succeeds (MCP URL not validated at creation time)
+# But when USED, should return clear error about MCP server unreachable
+POST {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+{
+  "name": "error-test-unreachable-mcp",
+  "model": "{{modelName}}",
+  "instructions": "Use the MCP tool to calculate 1+1.",
+  "tools": [
+    {
+      "type": "mcp",
+      "server_label": "unreachable-mcp",
+      "server_url": "https://this-does-not-exist.azurecontainerapps.io/mcp",
+      "require_approval": "never"
+    }
+  ]
+}
+
+### 11.6 — Agent V2: Create agent with wrong AI Search connection → error message check
+# Expected: Error about connection not found or invalid connection name
+POST {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+{
+  "name": "error-test-wrong-connection",
+  "model": "{{modelName}}",
+  "instructions": "Search for documents.",
+  "tools": [
+    {
+      "type": "azure_ai_search",
+      "azure_ai_search": {
+        "indexes": [
+          {
+            "project_connection_id": "nonexistent-connection-name",
+            "index_name": "{{searchIndexName}}",
+            "query_type": "simple"
+          }
+        ]
+      }
+    }
+  ]
+}
+
+### 11.7 — MCP Server: Invalid JSON-RPC method → should return proper error
+# Expected: JSON-RPC error with code -32601 "Method not found"
+POST {{mcpServerPublic}}
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 99,
+  "method": "nonexistent/method",
+  "params": {}
+}
+
+### 11.8 — KB MCP: Call knowledge_base_retrieve with invalid source type
+# Expected: Clear error about invalid source type, or graceful fallback
+POST {{kbMcpPublic}}
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "knowledge_base_retrieve",
+    "arguments": {
+      "query": "test",
+      "sources": ["invalid_source_type"]
+    }
+  }
+}
+
+
+###############################################################################
+# CLEANUP — Delete test agents created above
+# Run these after testing to clean up
+###############################################################################
+
+### Cleanup: List all agents (find IDs to delete)
+GET {{projectEndpoint}}/agents?api-version={{agentApiVersion}}
+Content-Type: application/json
+Authorization: Bearer {{bearerToken}}
+
+### Cleanup: Delete a specific agent (replace AGENT_ID)
+# DELETE {{projectEndpoint}}/agents/AGENT_ID?api-version={{agentApiVersion}}
+# Content-Type: application/json
+# Authorization: Bearer {{bearerToken}}
