@@ -70,14 +70,14 @@ To run the agent, execute the following command in your terminal:
 dotnet run
 ```
 
-This will start the hosted agent workflow locally on `http://localhost:8080/`.
+This will start the hosted agent workflow locally on `http://localhost:8088/`.
 
 ### Interacting with the Agent
 
 You can interact with the agent workflow using:
 
-- The `test_requests.py` file in this directory to test and prompt the agent
-- Any OpenAI Responses compatible client by sending requests to `http://localhost:8080/`
+- The `test_requests.py` file in this directory to test and prompt the agent. It now generates a valid `conversation.id` automatically and reuses it across turns.
+- Any OpenAI Responses compatible client by sending requests to `http://localhost:8088/`. For this HITL sample, you must provide a stable `conversation.id` in every request (including the first one) to keep thread state and pending approvals.
 
 Try providing text to ask the weather assistant agent about the weather in a city.
 
