@@ -34,9 +34,9 @@
 /samples/java/quickstart/src/main/java/com/microsoft/foundry/samples/CreateResponses.java @microsoft-foundry/AI-Platform-Docs
 /samples/python/enterprise-agent-tutorial/1-idea-to-prototype/evaluate.py @microsoft-foundry/AI-Platform-Docs
 /samples/python/enterprise-agent-tutorial/1-idea-to-prototype/main.py @microsoft-foundry/AI-Platform-Docs
-/samples/python/quickstart/quickstart-chat-with-agent.py @microsoft-foundry/AI-Platform-Docs
-/samples/python/quickstart/quickstart-create-agent.py @microsoft-foundry/AI-Platform-Docs
-/samples/python/quickstart/quickstart-responses.py @microsoft-foundry/AI-Platform-Docs
+/samples/python/quickstart/chat-with-agent/quickstart-chat-with-agent.py @microsoft-foundry/AI-Platform-Docs
+/samples/python/quickstart/create-agent/quickstart-create-agent.py @microsoft-foundry/AI-Platform-Docs
+/samples/python/quickstart/responses/quickstart-responses.py @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/src/quickstart-chat-with-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/src/quickstart-create-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/src/quickstart-responses.ts @microsoft-foundry/AI-Platform-Docs
