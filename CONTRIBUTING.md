@@ -1,6 +1,6 @@
-# Contributing to Azure AI Foundry Samples
+# Contributing to Microsoft Foundry Samples
 
-This repository contains official Azure AI Foundry documentation samples. The contents are published automatically from a private staging repository and are not edited directly here.
+This repository contains official Microsoft Foundry documentation samples. The contents are published automatically from a private staging repository and are not edited directly here.
 
 ## Reporting Issues
 
@@ -8,7 +8,7 @@ If you find a bug, have a question, or want to suggest an improvement to an exis
 
 ## Contributing Changes (Microsoft Contributors)
 
-Sample contributions are currently limited to Microsoft employees and contractors. If that's you, read on.
+Sample contributions are currently limited to Microsoft Foundry teams.
 
 All changes — new samples, updates, and bug fixes — are submitted through the private staging repository [`foundry-samples-pr`](https://github.com/microsoft-foundry/foundry-samples-pr). Changes merged there are automatically synced to this public repository on a nightly basis.
 
