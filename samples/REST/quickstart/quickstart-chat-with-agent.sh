@@ -1,5 +1,5 @@
 # Optional Step: Create a conversation to use with the agent
-curl -X POST "$AZURE_AI_FOUNDRY_PROJECT_ENDPOINT/openai/v1/conversations" \
+curl -X POST https://YOUR-FOUNDRY-RESOURCE-NAME.services.ai.azure.com/api/projects/YOUR-PROJECT-NAME/openai/v1/conversations \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $AZURE_AI_AUTH_TOKEN" \
   -d '{
