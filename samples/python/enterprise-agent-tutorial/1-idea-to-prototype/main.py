@@ -281,7 +281,7 @@ def create_agent_response(agent, message, openai_client):
         response = openai_client.responses.create(
             input=message,
             extra_body={
-                "agent": {"name": agent.name, "type": "agent_reference"}
+                "agent_reference": {"name": agent.name, "type": "agent_reference"}
             },
         )
 
@@ -302,7 +302,7 @@ def create_agent_response(agent, message, openai_client):
                 input=approval_list,
                 previous_response_id=response.id,
                 extra_body={
-                    "agent": {"name": agent.name, "type": "agent_reference"}
+                    "agent_reference": {"name": agent.name, "type": "agent_reference"}
                 },
             )
 
