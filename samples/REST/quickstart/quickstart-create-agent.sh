@@ -1,6 +1,6 @@
 curl -X POST https://YOUR-FOUNDRY-RESOURCE-NAME.services.ai.azure.com/api/projects/YOUR-PROJECT-NAME/agents?api-version=v1 \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $AGENT_TOKEN" \
+  -H "Authorization: Bearer $AZURE_AI_AUTH_TOKEN" \
   -d '{
     "name": "MyAgent",
     "definition": {
