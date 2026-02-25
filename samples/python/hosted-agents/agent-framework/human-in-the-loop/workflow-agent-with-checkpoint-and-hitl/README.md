@@ -61,8 +61,7 @@ The same container image can be deployed to Microsoft Foundry with the Azure Dev
 ## Validate the deployed Agent
 ```python
 # Before running the sample:
-#    pip install --pre azure-ai-projects>=2.0.0b1
-#    pip install azure-identity
+#    pip install --pre azure-ai-projects>=2.0.0b4
 
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
@@ -89,7 +88,7 @@ conversation = openai_client.conversations.create()
 response = openai_client.responses.create(
     input="Draft a launch plan for a sustainable backpack brand",
     conversation=conversation.id,
-    extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+    extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
 )
 
 call_id = ""
@@ -120,7 +119,7 @@ else:
                 "output": json.dumps(human_response)
             }],
         conversation=conversation.id,
-        extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+        extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
     )
     print(f"Human response: {human_response['feedback']}")
     print(f"Agent response: {response.output_text}")
