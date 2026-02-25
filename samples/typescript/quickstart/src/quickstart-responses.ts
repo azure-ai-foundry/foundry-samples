@@ -7,7 +7,7 @@ const deploymentName = process.env["MODEL_DEPLOYMENT_NAME"] || "<model deploymen
 
 async function main(): Promise<void> {
     const project = new AIProjectClient(projectEndpoint, new DefaultAzureCredential());
-    const openAIClient = await project.getOpenAIClient();
+    const openAIClient = project.getOpenAIClient();
     const response = await openAIClient.responses.create({
         model: deploymentName,
         input: "What is the size of France in square miles?",

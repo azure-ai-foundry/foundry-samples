@@ -10,7 +10,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { chatWithAssistant } from "./main";
-import { AgentsClient } from "@azure/ai-agents-ii";
+import { AIProjectClient } from "@azure/ai-projects";
 import { DefaultAzureCredential } from "@azure/identity";
 import { config } from "dotenv";
 // </imports_and_includes>
@@ -18,7 +18,7 @@ import { config } from "dotenv";
 config();
 
 const credential = new DefaultAzureCredential();
-const agentsClient = new AgentsClient(
+const project = new AIProjectClient(
   process.env.PROJECT_ENDPOINT || "",
   credential
 );
@@ -135,12 +135,12 @@ function validateResponse(
 // </validation_functions>
 
 // <run_batch_evaluation>
-async function runEvaluation(agentId: string): Promise<EvaluationResult[]> {
+async function runEvaluation(agentName: string): Promise<EvaluationResult[]> {
   /**
-   * Run evaluation with test questions using Agent SDK v2.
+   * Run evaluation with test questions.
    *
    * Args:
-   *   agentId: The ID of the agent to evaluate
+   *   agentName: The name of the agent to evaluate
    *
    * Returns:
    *   Array of evaluation results for each question
@@ -167,7 +167,7 @@ async function runEvaluation(agentId: string): Promise<EvaluationResult[]> {
     console.log(`\n📝 Question ${i + 1}/${questions.length} [${testType.toUpperCase()}]`);
     console.log(`   ${q.question.substring(0, 80)}...`);
 
-    const { response, status } = await chatWithAssistant(agentId, q.question);
+    const { response, status } = await chatWithAssistant(agentName, q.question);
 
     // Validate response using source-specific checks
     const { passed, details } = validateResponse(
@@ -260,10 +260,11 @@ async function createWorkplaceAssistant() {
   const instructions = `You are a Modern Workplace Assistant specializing in Azure and Microsoft 365 guidance.
 Provide comprehensive technical guidance with step-by-step implementation instructions.`;
 
-  const agent = await agentsClient.createAgent(
-    process.env.MODEL_DEPLOYMENT_NAME || "gpt-4o",
+  const agent = await project.agents.createVersion(
+    "modern-workplace-assistant-eval",
     {
-      name: "Modern Workplace Assistant",
+      kind: "prompt",
+      model: process.env.MODEL_DEPLOYMENT_NAME || "gpt-4o",
       instructions: instructions,
     }
   );
@@ -289,7 +290,7 @@ async function main(): Promise<void> {
     console.log("=".repeat(70));
 
     // Run evaluation
-    const results = await runEvaluation(agent.id);
+    const results = await runEvaluation(agent.name!);
 
     // Calculate and save results
     calculateAndSaveResults(results);
