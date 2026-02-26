@@ -50,7 +50,7 @@ always print a data URI with the contents. NEVER provide a path to a file in the
     # Use the agent to analyze a CSV file and produce a histogram
     response = openai_client.responses.create(
         input=f"Please analyze the CSV file at {EXAMPLE_DATA_FILE_URL}. Could you please create bar chart in the TRANSPORTATION sector for the operating profit and provide a file to me?",
-        extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+        extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
     )
     print(f"[Response {response.id}]: {response.output_text}")
 

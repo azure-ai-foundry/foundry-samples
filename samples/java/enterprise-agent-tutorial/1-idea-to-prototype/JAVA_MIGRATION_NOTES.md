@@ -140,7 +140,7 @@ conversation = openai_client.conversations.create(
 
 response = openai_client.responses.create(
     conversation=conversation.id,
-    extra_body={"agent": AgentReference(name=agent_name).as_dict()}
+    extra_body={"agent_reference": {"name": agent_name, "type": "agent_reference"}},
 )
 ```
 
