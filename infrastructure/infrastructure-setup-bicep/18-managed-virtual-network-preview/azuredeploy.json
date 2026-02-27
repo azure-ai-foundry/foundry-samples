@@ -2079,7 +2079,6 @@
               ]
             },
             {
-              "comment": "dependsOn to serialize connection creation and avoid 409 conflicts",
               "type": "Microsoft.CognitiveServices/accounts/projects/connections",
               "apiVersion": "2025-04-01-preview",
               "name": "[format('{0}/{1}/{2}', parameters('accountName'), parameters('projectName'), parameters('azureStorageName'))]",
@@ -2099,7 +2098,6 @@
               ]
             },
             {
-              "comment": "dependsOn to serialize connection creation and avoid 409 conflicts",
               "type": "Microsoft.CognitiveServices/accounts/projects/connections",
               "apiVersion": "2025-04-01-preview",
               "name": "[format('{0}/{1}/{2}', parameters('accountName'), parameters('projectName'), parameters('aiSearchName'))]",
