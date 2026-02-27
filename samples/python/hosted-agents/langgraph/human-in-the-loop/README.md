@@ -35,8 +35,7 @@ The extension builds a container image into Azure Container Registry (ACR), and 
 ## Validate the deployed Agent
 ```python
 # Before running the sample:
-#    pip install --pre azure-ai-projects>=2.0.0b1
-#    pip install azure-identity
+#    pip install --pre azure-ai-projects>=2.0.0b4
 
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
@@ -63,7 +62,7 @@ conversation = openai_client.conversations.create()
 response = openai_client.responses.create(
     input=[{"role": "user", "content": "Ask the user where they are, then look up the weather there."}],
     conversation=conversation.id,
-    extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+    extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
 )
 
 call_id = ""
@@ -84,7 +83,7 @@ else:
                 "output": json.dumps(human_response)
             }],
         conversation=conversation.id,
-        extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+        extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
     )
     print(f"Human response: {human_response['resume']}")
     print(f"Agent response: {response.output_text}")

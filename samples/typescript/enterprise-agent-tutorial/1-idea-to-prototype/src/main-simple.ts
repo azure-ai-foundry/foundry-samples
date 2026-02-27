@@ -4,9 +4,8 @@
  * Simplified version for demonstration purposes
  */
 
-import { AgentsClient } from "@azure/ai-agents-ii";
-import { getBearerTokenProvider, DefaultAzureCredential } from "@azure/identity";
-import OpenAI from "openai";
+import { AIProjectClient } from "@azure/ai-projects";
+import { DefaultAzureCredential } from "@azure/identity";
 import { config } from "dotenv";
 
 config();
@@ -21,32 +20,21 @@ async function main(): Promise<void> {
   try {
     const credential = new DefaultAzureCredential();
     
-    // Create Agents client
-    const agentsClient = new AgentsClient(projectEndpoint, credential, {
-      apiVersion: "2025-05-15-preview",
-    });
+    // Create AI Project client
+    const project = new AIProjectClient(projectEndpoint, credential);
+    const openAIClient = project.getOpenAIClient();
 
     console.log("✅ Connected to Azure AI Foundry");
     console.log(`🛠️  Creating agent with model: ${modelDeploymentName}`);
 
     // Create agent
-    const agent = await agentsClient.createVersion("workplace-assistant", {
+    const agent = await project.agents.createVersion("workplace-assistant", {
       kind: "prompt",
       model: modelDeploymentName,
       instructions: "You are a helpful assistant specializing in Azure and Microsoft 365 guidance.",
     });
 
     console.log(`✅ Agent created: ${agent.name} (version ${agent.version})`);
-
-    // Create OpenAI client for conversations
-    const scope = "https://ai.azure.com/.default";
-    const azureADTokenProvider = await getBearerTokenProvider(credential, scope);
-
-    const openAIClient = new OpenAI({
-      apiKey: azureADTokenProvider,
-      baseURL: `${projectEndpoint}/openai`,
-      defaultQuery: { "api-version": "2025-05-15-preview" },
-    });
 
     // Create conversation
     console.log("\n📝 Creating conversation...");
@@ -89,7 +77,7 @@ async function main(): Promise<void> {
     // Cleanup
     console.log("\n🧹 Cleaning up...");
     await openAIClient.conversations.delete(conversation.id);
-    await agentsClient.deleteVersion(agent.name!, agent.version!);
+    await project.agents.deleteVersion(agent.name!, agent.version!);
     
     console.log("✅ Demo completed successfully!");
   } catch (error: any) {
