@@ -7,11 +7,6 @@ resource "azapi_resource" "cognitive_account" {
 
   schema_validation_enabled = false
 
-  response_export_values = [
-    "properties.endpoint",
-    "properties.endpoints"
-  ]
-
   identity {
     type = "SystemAssigned"
   }
@@ -23,6 +18,7 @@ resource "azapi_resource" "cognitive_account" {
     kind = "AIServices"
     properties = merge(
       {
+        allowProjectManagement = true
         apiProperties        = {}
         customSubDomainName  = local.foundry_name
         disableLocalAuth     = true
@@ -31,9 +27,6 @@ resource "azapi_resource" "cognitive_account" {
           virtualNetworkRules   = []
           ipRules               = []
         }
-        allowProjectManagement = true
-        defaultProject         = "firstProject"
-        associatedProjects     = ["firstProject"]
         networkInjections = [
           {
             scenario                   = "agent"
@@ -67,13 +60,17 @@ resource "azapi_resource" "cognitive_account" {
     )
   }
 
-  tags = {
-    environment = "lab"
-  }
+  tags = merge(
+    var.tags,
+    {
+      environment = "lab"
+    }
+  )
 
   lifecycle {
     ignore_changes = [
-      body["properties"]["restore"]
+      body["properties"]["restore"],
+      output
     ]
   }
 
@@ -130,6 +127,8 @@ resource "azurerm_private_endpoint" "cognitive_services" {
       private_dns_zone_ids = [
         azurerm_private_dns_zone.cognitive_services[0].id,
         azurerm_private_dns_zone.openai[0].id,
+        azurerm_private_dns_zone.aifoundry_api[0].id,
+        azurerm_private_dns_zone.aifoundry_notebooks[0].id,
         azurerm_private_dns_zone.aifoundry_services[0].id
       ]
     }
@@ -154,42 +153,42 @@ resource "azapi_resource" "managed_network" {
   }
 }
 
-# Note: Outbound rule for Storage is auto-created by Azure when the connection is established
-# The rule will be named: Connection_{storageAccountName}_blob
-
-# Wait for managed network, project, and AI Search to be fully provisioned before creating connection
-resource "time_sleep" "wait_for_aisearch_connection" {
-  count           = var.enable_aisearch ? 1 : 0
-  create_duration = "500s"
-
-  depends_on = [
-    azapi_resource.managed_network,
-    azapi_resource.ai_foundry_project,
-    azurerm_search_service.main
-  ]
-}
-
-# Wait for managed network, project, and Cosmos DB to be fully provisioned before creating connection
-resource "time_sleep" "wait_for_cosmosdb_connection" {
-  count           = var.enable_cosmos ? 1 : 0
-  create_duration = "500s"
-
-  depends_on = [
-    azapi_resource.managed_network,
-    azapi_resource.ai_foundry_project,
-    azurerm_cosmosdb_account.main
-  ]
-}
-
-# Wait for managed network, project, and Storage to be fully provisioned before creating connection
-resource "time_sleep" "wait_for_storage_connection" {
+# Wait for Storage Account to be fully created before creating outbound rule
+resource "time_sleep" "wait_storage" {
   count           = var.enable_storage ? 1 : 0
-  create_duration = "500s"
+  create_duration = "10m"
 
   depends_on = [
-    azapi_resource.managed_network,
-    azapi_resource.ai_foundry_project,
-    azurerm_storage_account.main
+    azurerm_storage_account.main,
+    azurerm_private_endpoint.storage_blob
+  ]
+}
+
+# Managed Network Outbound Rule for Storage Account
+resource "azapi_resource" "storage_outbound_rule" {
+  count     = var.enable_storage ? 1 : 0
+  type      = "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules@2025-10-01-preview"
+  name      = "storage-blob-rule"
+  parent_id = azapi_resource.managed_network.id
+
+  schema_validation_enabled = false
+
+  body = {
+    properties = {
+      type = "PrivateEndpoint"
+      destination = {
+        serviceResourceId = azurerm_storage_account.main[0].id
+        subresourceTarget = "blob"
+      }
+      category = "UserDefined"
+    }
+  }
+
+  depends_on = [
+    time_sleep.wait_storage,
+    azurerm_role_assignment.foundry_network_connection_approver,
+    azurerm_role_assignment.foundry_storage_blob,
+    azurerm_role_assignment.foundry_storage_contributor
   ]
 }
 
@@ -281,6 +280,19 @@ resource "time_sleep" "wait_project_rbac" {
   ]
 }
 
+# Wait for managed network outbound rules to fully provision
+# Outbound rules need additional time beyond creation to be in Succeeded state
+# Azure managed network provisioning can take several minutes
+resource "time_sleep" "wait_outbound_rules" {
+  create_duration = "600s"
+
+  depends_on = [
+    azapi_resource.storage_outbound_rule,
+    azapi_resource.cosmos_outbound_rule,
+    azapi_resource.aisearch_outbound_rule
+  ]
+}
+
 # AI Foundry Project Capability Host (matches Bicep implementation)
 # This configures the capability host at the project level with connection references
 resource "azapi_resource" "project_capability_host" {
@@ -314,11 +326,17 @@ resource "azapi_resource" "project_capability_host" {
     azurerm_role_assignment.project_search_index,
     azurerm_role_assignment.project_search_contributor,
     # Wait for RBAC propagation
-    time_sleep.wait_project_rbac
+    time_sleep.wait_project_rbac,
+    # CRITICAL: All outbound rules must be created AND provisioned before capability host
+    # The capability host validates that outbound rules exist and are in Succeeded state
+    azapi_resource.storage_outbound_rule,
+    azapi_resource.cosmos_outbound_rule,
+    azapi_resource.aisearch_outbound_rule,
+    time_sleep.wait_outbound_rules
   ]
 }
 
-# Connection: AI Search (created first)
+# Connection: AI Search
 resource "azapi_resource" "conn_aisearch" {
   count     = var.enable_aisearch ? 1 : 0
   type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
@@ -339,21 +357,9 @@ resource "azapi_resource" "conn_aisearch" {
       }
     }
   }
-
-  depends_on = [
-    time_sleep.wait_for_aisearch_connection
-  ]
 }
 
-# Wait 60s after AI Search connection before creating the next connection
-resource "time_sleep" "wait_after_aisearch_conn" {
-  count           = var.enable_aisearch ? 1 : 0
-  create_duration = "60s"
-
-  depends_on = [azapi_resource.conn_aisearch]
-}
-
-# Connection: Cosmos DB (created second, after AI Search completes + 60s)
+# Connection: Cosmos DB
 resource "azapi_resource" "conn_cosmosdb" {
   count     = var.enable_cosmos ? 1 : 0
   type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
@@ -374,22 +380,9 @@ resource "azapi_resource" "conn_cosmosdb" {
       }
     }
   }
-
-  depends_on = [
-    time_sleep.wait_for_cosmosdb_connection,
-    time_sleep.wait_after_aisearch_conn
-  ]
 }
 
-# Wait 60s after Cosmos DB connection before creating the next connection
-resource "time_sleep" "wait_after_cosmosdb_conn" {
-  count           = var.enable_cosmos ? 1 : 0
-  create_duration = "60s"
-
-  depends_on = [azapi_resource.conn_cosmosdb]
-}
-
-# Connection: Storage Account (created third, after Cosmos DB completes + 60s)
+# Connection: Storage Account
 resource "azapi_resource" "conn_storage" {
   count     = var.enable_storage ? 1 : 0
   type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
@@ -410,12 +403,6 @@ resource "azapi_resource" "conn_storage" {
       }
     }
   }
-
-  depends_on = [
-    time_sleep.wait_for_storage_connection,
-    time_sleep.wait_after_aisearch_conn,
-    time_sleep.wait_after_cosmosdb_conn
-  ]
 }
 
 # Local variable to format project workspace ID as GUID

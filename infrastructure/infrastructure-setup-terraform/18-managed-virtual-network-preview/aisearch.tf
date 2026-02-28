@@ -14,9 +14,12 @@ resource "azurerm_search_service" "main" {
     type = "SystemAssigned"
   }
 
-  tags = {
-    environment = "lab"
-  }
+  tags = merge(
+    var.tags,
+    {
+      environment = "lab"
+    }
+  )
 }
 
 # Private Endpoint for AI Search
@@ -39,13 +42,54 @@ resource "azurerm_private_endpoint" "aisearch" {
     private_dns_zone_ids = [azurerm_private_dns_zone.aisearch[0].id]
   }
 
-  tags = {
-    environment = "lab"
-  }
+  tags = merge(
+    var.tags,
+    {
+      environment = "lab"
+    }
+  )
 }
 
-# Note: Outbound rule for AI Search is auto-created by Azure when the connection is established
-# The rule will be named: Connection_{searchServiceName}_searchService
+# Wait for AI Search to be fully created before creating outbound rule
+
+# Wait for AI Search to be fully created before creating outbound rule
+resource "time_sleep" "wait_aisearch" {
+  count           = var.enable_aisearch ? 1 : 0
+  create_duration = "10m"
+
+  depends_on = [
+    azurerm_search_service.main,
+    azurerm_private_endpoint.aisearch
+  ]
+}
+
+# Managed Network Outbound Rule for AI Search Service
+resource "azapi_resource" "aisearch_outbound_rule" {
+  count     = var.enable_aisearch ? 1 : 0
+  type      = "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules@2025-10-01-preview"
+  name      = "aisearch-rule"
+  parent_id = azapi_resource.managed_network.id
+
+  schema_validation_enabled = false
+
+  body = {
+    properties = {
+      type = "PrivateEndpoint"
+      destination = {
+        serviceResourceId = azurerm_search_service.main[0].id
+        subresourceTarget = "searchService"
+      }
+      category = "UserDefined"
+    }
+  }
+
+  depends_on = [
+    time_sleep.wait_aisearch,
+    azurerm_role_assignment.foundry_network_connection_approver,
+    azurerm_role_assignment.project_search_index,
+    azurerm_role_assignment.project_search_contributor
+  ]
+}
 
 # Role Assignment: Current user needs Search Service Contributor
 resource "azurerm_role_assignment" "current_user_search_contributor" {

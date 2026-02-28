@@ -22,9 +22,12 @@ resource "azurerm_cosmosdb_account" "main" {
   network_acl_bypass_for_azure_services = false
   local_authentication_disabled = true
 
-  tags = {
-    environment = "lab"
-  }
+  tags = merge(
+    var.tags,
+    {
+      environment = "lab"
+    }
+  )
 }
 
 # Private Endpoint for Cosmos DB
@@ -47,9 +50,12 @@ resource "azurerm_private_endpoint" "cosmos" {
     private_dns_zone_ids = [azurerm_private_dns_zone.cosmos[0].id]
   }
 
-  tags = {
-    environment = "lab"
-  }
+  tags = merge(
+    var.tags,
+    {
+      environment = "lab"
+    }
+  )
 }
 
 # Role Assignment: AI Foundry Account Identity - Contributor on Cosmos DB
@@ -60,8 +66,45 @@ resource "azurerm_role_assignment" "foundry_cosmos_contributor" {
   principal_id         = azapi_resource.cognitive_account.identity[0].principal_id
 }
 
-# Note: Outbound rule for Cosmos DB is auto-created by Azure when the connection is established
-# The rule will be named: Connection_{cosmosDBName}_sql
+# Wait for Cosmos DB to be fully created before creating outbound rule
+resource "time_sleep" "wait_cosmos" {
+  count           = var.enable_cosmos ? 1 : 0
+  create_duration = "10m"
+
+  depends_on = [
+    azurerm_cosmosdb_account.main,
+    azurerm_private_endpoint.cosmos
+  ]
+}
+
+# Managed Network Outbound Rule for Cosmos DB Account
+resource "azapi_resource" "cosmos_outbound_rule" {
+  count     = var.enable_cosmos ? 1 : 0
+  type      = "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules@2025-10-01-preview"
+  name      = "cosmos-sql-rule"
+  parent_id = azapi_resource.managed_network.id
+
+  schema_validation_enabled = false
+
+  body = {
+    properties = {
+      type = "PrivateEndpoint"
+      destination = {
+        serviceResourceId = azurerm_cosmosdb_account.main[0].id
+        subresourceTarget = "Sql"
+      }
+      category = "UserDefined"
+    }
+  }
+
+  depends_on = [
+    time_sleep.wait_cosmos,
+    azurerm_role_assignment.foundry_network_connection_approver,
+    azurerm_role_assignment.foundry_cosmos_contributor,
+    azurerm_role_assignment.project_cosmos_reader,
+    azurerm_role_assignment.project_cosmos_operator
+  ]
+}
 
 # Role Assignment: Current user needs Cosmos DB Built-in Data Contributor
 resource "azurerm_cosmosdb_sql_role_assignment" "current_user" {

@@ -4,7 +4,7 @@
  *
  * This sample demonstrates a complete business scenario using Azure AI Agents SDK v2:
  * - Agent creation with the new SDK
- * - Thread and message management
+ * - Conversation and response management
  * - Robust error handling and graceful degradation
  *
  * Educational Focus:
@@ -21,25 +21,10 @@
  */
 
 // <imports_and_includes>
-import { AgentsClient } from "@azure/ai-agents-ii";
-import { getBearerTokenProvider, DefaultAzureCredential } from "@azure/identity";
-import OpenAI from "openai";
+import { AIProjectClient } from "@azure/ai-projects";
+import { DefaultAzureCredential } from "@azure/identity";
 import { config } from "dotenv";
 import * as readline from "readline";
-
-// Import for connection resolution
-let AIProjectClient: any;
-let ConnectionType: any;
-let HAS_PROJECT_CLIENT = false;
-
-try {
-  const projectModule = require("@azure/ai-projects");
-  AIProjectClient = projectModule.AIProjectClient;
-  ConnectionType = projectModule.ConnectionType;
-  HAS_PROJECT_CLIENT = true;
-} catch (error) {
-  HAS_PROJECT_CLIENT = false;
-}
 // </imports_and_includes>
 
 config();
@@ -51,27 +36,12 @@ config();
 // Support default Azure credentials
 const credential = new DefaultAzureCredential();
 
-const agentsClient = new AgentsClient(
+const project = new AIProjectClient(
   process.env.PROJECT_ENDPOINT || "",
   credential,
-  {
-    apiVersion: "2025-05-15-preview",
-  }
 );
 
-// Create OpenAI client for conversations
-let openAIClient: OpenAI;
-
-async function initializeOpenAIClient() {
-  const scope = "https://ai.azure.com/.default";
-  const azureADTokenProvider = await getBearerTokenProvider(credential, scope);
-
-  openAIClient = new OpenAI({
-    apiKey: azureADTokenProvider,
-    baseURL: `${process.env.PROJECT_ENDPOINT}/openai`,
-    defaultQuery: { "api-version": "2025-05-15-preview" },
-  });
-}
+const openAIClient = project.getOpenAIClient();
 
 console.log(`✅ Connected to Azure AI Foundry: ${process.env.PROJECT_ENDPOINT}`);
 // </agent_authentication>
@@ -120,15 +90,8 @@ async function createWorkplaceAssistant(): Promise<Agent> {
     try {
       console.log("   🔍 Resolving connection name to ARM resource ID...");
 
-      if (HAS_PROJECT_CLIENT) {
         // Use AIProjectClient to list and find the connection
-        const projectClient = new AIProjectClient(
-          process.env.PROJECT_ENDPOINT || "",
-          credential
-        );
-
-        // List all connections and find the one we need
-        const connections = await projectClient.connections.list();
+        const connections = await project.connections.list();
         let connectionId: string | null = null;
 
         for await (const conn of connections) {
@@ -151,15 +114,7 @@ async function createWorkplaceAssistant(): Promise<Agent> {
           connectionId: connectionId,
         };
         console.log("✅ SharePoint tool configured successfully");
-      } else {
-        throw new Error("azure-ai-projects not installed");
-      }
     } catch (error: any) {
-      if (error.message === "azure-ai-projects not installed") {
-        console.log("⚠️  Connection resolution requires @azure/ai-projects package");
-        console.log("   Install with: npm install @azure/ai-projects");
-        console.log("   Agent will operate without SharePoint access");
-      } else {
         console.log(`⚠️  SharePoint connection unavailable: ${error.message}`);
         console.log("   Possible causes:");
         console.log(
@@ -168,7 +123,6 @@ async function createWorkplaceAssistant(): Promise<Agent> {
         console.log("   - Insufficient permissions to access the connection");
         console.log("   - Connection configuration is incomplete");
         console.log("   Agent will operate without SharePoint access");
-      }
       sharepointTool = null;
     }
   } else {
@@ -287,10 +241,11 @@ RESPONSE STRATEGY:
   console.log(`   Total tools: ${tools.length}`);
 
   // Create agent with or without tools
-  const agent = await agentsClient.createAgent(
-    process.env.MODEL_DEPLOYMENT_NAME || "gpt-4o",
+  const agent = await project.agents.createVersion(
+    "modern-workplace-assistant",
     {
-      name: "Modern Workplace Assistant",
+      kind: "prompt",
+      model: process.env.MODEL_DEPLOYMENT_NAME || "gpt-4o",
       instructions: instructions,
       tools: tools.length > 0 ? tools : undefined,
     }
@@ -301,110 +256,44 @@ RESPONSE STRATEGY:
   // </create_agent_with_tools>
 }
 
-// <mcp_approval_handler>
-class MCPApprovalHandler {
-  /**
-   * Handler to automatically approve MCP tool calls.
-   *
-   * This demonstrates the MCP approval pattern in Azure AI Agents SDK v2.
-   *
-   * Educational Value:
-   * - Shows proper MCP integration with Agent SDK v2
-   * - Demonstrates handler pattern for tool approval
-   * - Provides foundation for custom approval logic (RBAC, logging, etc.)
-   */
-
-  async submitMcpToolApproval(run: any, toolCall: any): Promise<any> {
-    /**
-     * Auto-approve MCP tool calls.
-     *
-     * In production, you might implement custom approval logic here:
-     * - RBAC checks (is user authorized for this tool?)
-     * - Cost controls (has budget limit been reached?)
-     * - Logging and auditing
-     * - Interactive approval prompts
-     */
-    return {
-      toolCallId: toolCall.id,
-      approve: true,
-    };
-  }
-}
-// </mcp_approval_handler>
-
 export async function chatWithAssistant(
-  agentId: string,
+  agentName: string,
   message: string
 ): Promise<ChatResponse> {
   /**
-   * Execute a conversation with the workplace assistant using Agent SDK v2.
+   * Execute a conversation with the workplace assistant using conversations/responses API.
    *
    * Educational Value:
-   * - Shows proper conversation management with Agent SDK v2
-   * - Demonstrates thread creation and message handling
-   * - Illustrates MCP approval with handler
-   * - Includes timeout and error management patterns
+   * - Shows proper conversation management with the v2 SDK
+   * - Demonstrates agent reference pattern for responses
+   * - Includes error management patterns
    */
 
   try {
-    // Create a thread for the conversation
-    const thread = await agentsClient.threads.create();
-
-    // Create a message in the thread
-    await agentsClient.messages.create(thread.id, {
-      role: "user",
-      content: message,
+    // Create conversation with user message
+    const conversation = await openAIClient.conversations.create({
+      items: [
+        { type: "message", role: "user", content: message },
+      ],
     });
 
-    // <mcp_approval_usage>
-    // Use createAndProcess with handler to automatically handle MCP approvals
-    const handler = new MCPApprovalHandler();
-    const run = await agentsClient.runs.createAndProcess(
-      thread.id,
+    // Generate response using the agent
+    const response = await openAIClient.responses.create(
       {
-        agentId: agentId,
+        conversation: conversation.id,
       },
       {
-        runHandler: handler,
-      }
+        body: { agent: { name: agentName, type: "agent_reference" } },
+      },
     );
-    // </mcp_approval_usage>
 
-    // Retrieve messages
-    if (run.status === "completed") {
-      const messages = await agentsClient.messages.list(thread.id, {
-        order: "asc",
-      });
+    // Clean up conversation
+    await openAIClient.conversations.delete(conversation.id);
 
-      // Get the assistant's response (last message from assistant)
-      const messageList = [];
-      for await (const msg of messages) {
-        messageList.push(msg);
-      }
-
-      for (let i = messageList.length - 1; i >= 0; i--) {
-        const msg = messageList[i];
-        if (msg.role === "assistant" && msg.content && msg.content.length > 0) {
-          const textContent = msg.content.find((c: any) => c.type === "text");
-          if (textContent && textContent.text) {
-            return {
-              response: textContent.text.value,
-              status: "completed",
-            };
-          }
-        }
-      }
-
-      return {
-        response: "No response from assistant",
-        status: "completed",
-      };
-    } else {
-      return {
-        response: `Run ended with status: ${run.status}`,
-        status: run.status,
-      };
-    }
+    return {
+      response: response.output_text,
+      status: "completed",
+    };
   } catch (error: any) {
     return {
       response: `Error in conversation: ${error.message}`,
@@ -419,8 +308,8 @@ async function demonstrateBusinessScenarios(agent: Agent): Promise<boolean> {
    *
    * Educational Value:
    * - Shows real business problems that AI agents can solve
-   * - Demonstrates proper thread and message management
-   * - Illustrates Agent SDK v2 conversation patterns
+   * - Demonstrates conversation and response patterns
+   * - Illustrates agent reference usage for responses
    */
 
   const scenarios = [
@@ -467,7 +356,7 @@ async function demonstrateBusinessScenarios(agent: Agent): Promise<boolean> {
 
     // <agent_conversation>
     console.log("🤖 ASSISTANT RESPONSE:");
-    const { response, status } = await chatWithAssistant(agent.id, scenario.question);
+    const { response, status } = await chatWithAssistant(agent.name, scenario.question);
     // </agent_conversation>
 
     if (status === "completed" && response && response.trim().length > 10) {
@@ -490,7 +379,7 @@ async function demonstrateBusinessScenarios(agent: Agent): Promise<boolean> {
   console.log("\n✅ DEMONSTRATION COMPLETED!");
   console.log("🎓 Key Learning Outcomes:");
   console.log("   • Agent SDK v2 usage for enterprise AI");
-  console.log("   • Proper thread and message management");
+  console.log("   • Proper conversation and response management");
   console.log("   • Real business value through AI assistance");
   console.log(
     "   • Foundation for governance and monitoring (Tutorials 2-3)"
@@ -547,7 +436,7 @@ async function interactiveMode(agent: Agent): Promise<void> {
       }
 
       process.stdout.write("\n🤖 Workplace Assistant: ");
-      const { response, status } = await chatWithAssistant(agent.id, question);
+      const { response, status } = await chatWithAssistant(agent.name, question);
       console.log(response);
 
       if (status !== "completed") {

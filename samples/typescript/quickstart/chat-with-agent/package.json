@@ -1,0 +1,22 @@
+{
+  "name": "foundry-samples-quickstart-chat-with-agent",
+  "version": "1.0.0",
+  "description": "TypeScript AI Foundry Quickstart - Chat with Agent",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/quickstart-chat-with-agent.js",
+  "scripts": {
+    "start": "tsx --no-deprecation src/quickstart-chat-with-agent.ts",
+    "build": "npx tsc"
+  },
+  "dependencies": {
+    "@azure/ai-projects": "1.0.0",
+    "@azure/identity": "^4.11.1",
+    "dotenv": "^17.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2"
+  }
+}

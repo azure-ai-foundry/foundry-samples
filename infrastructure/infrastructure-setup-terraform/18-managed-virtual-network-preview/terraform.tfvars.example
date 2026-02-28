@@ -1,9 +1,16 @@
 # Example Terraform Variables File
 # Copy this file to terraform.tfvars and update with your values
-subscription_id     = "%subscription-id%"
+subscription_id     = "%subscription_id%"
 resource_group_name = "foundry-mvnet-rg"
 location            = "eastus2"
-foundry_identifier = "foundry-v5"  # Change to recreate
+foundry_identifier = "foundry-v1"  # Avoid issues with soft delete, helps make the resource unique
+
+# Tags to apply to all resources
+tags = {
+  Environment = "lab"
+  Project     = "AI Foundry"
+  ManagedBy   = "Terraform"
+}
 
 # Feature Flags - Enable/disable resources
 enable_networking = true
@@ -29,3 +36,7 @@ bastion_name = "foundry-bastion"
 vm_name           = "foundry-vm"
 vm_admin_username = "azureadmin"
 
+# Key Vault Network Configuration
+allowed_public_ips = ["0.0.0.0/32"]  # Replace with your public IP in CIDR format (e.g., "1.2.3.4/32")
+
+# Note: VM admin password is automatically generated and stored in Azure Key Vault
