@@ -143,8 +143,8 @@ The evaluation script validates:
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────┐
-│            Azure AI Agents SDK v2                        │
-│              (@azure/ai-agents-ii)                      │
+│            Azure AI Projects SDK                         │
+│              (@azure/ai-projects)                       │
 └─────────────┬───────────────────┬───────────────────────┘
               │                   │
               ▼                   ▼
@@ -211,7 +211,7 @@ This tutorial is part of a series:
 ## Resources
 
 - [Azure AI Foundry Documentation](https://learn.microsoft.com/azure/ai-studio/)
-- [Azure AI Agents SDK v2](https://www.npmjs.com/package/@azure/ai-agents-ii)
+- [Azure AI Projects SDK](https://www.npmjs.com/package/@azure/ai-projects)
 - [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
 
 ## License

@@ -22,9 +22,12 @@ resource "azurerm_storage_account" "main" {
     ]
   }
 
-  tags = {
-    environment = "lab"
-  }
+  tags = merge(
+    var.tags,
+    {
+      environment = "lab"
+    }
+  )
 }
 
 # Private Endpoint for Blob
@@ -45,6 +48,69 @@ resource "azurerm_private_endpoint" "storage_blob" {
   private_dns_zone_group {
     name                 = "blob-dns-zone-group"
     private_dns_zone_ids = [azurerm_private_dns_zone.storage_blob[0].id]
+  }
+}
+
+# Private Endpoint for File
+resource "azurerm_private_endpoint" "storage_file" {
+  count               = var.enable_storage && var.enable_networking ? 1 : 0
+  name                = "${azurerm_storage_account.main[0].name}-file-pe"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  subnet_id           = azurerm_subnet.private_endpoints[0].id
+
+  private_service_connection {
+    name                           = "${azurerm_storage_account.main[0].name}-file-psc"
+    private_connection_resource_id = azurerm_storage_account.main[0].id
+    is_manual_connection           = false
+    subresource_names              = ["file"]
+  }
+
+  private_dns_zone_group {
+    name                 = "file-dns-zone-group"
+    private_dns_zone_ids = [azurerm_private_dns_zone.storage_file[0].id]
+  }
+}
+
+# Private Endpoint for Table
+resource "azurerm_private_endpoint" "storage_table" {
+  count               = var.enable_storage && var.enable_networking ? 1 : 0
+  name                = "${azurerm_storage_account.main[0].name}-table-pe"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  subnet_id           = azurerm_subnet.private_endpoints[0].id
+
+  private_service_connection {
+    name                           = "${azurerm_storage_account.main[0].name}-table-psc"
+    private_connection_resource_id = azurerm_storage_account.main[0].id
+    is_manual_connection           = false
+    subresource_names              = ["table"]
+  }
+
+  private_dns_zone_group {
+    name                 = "table-dns-zone-group"
+    private_dns_zone_ids = [azurerm_private_dns_zone.storage_table[0].id]
+  }
+}
+
+# Private Endpoint for Queue
+resource "azurerm_private_endpoint" "storage_queue" {
+  count               = var.enable_storage && var.enable_networking ? 1 : 0
+  name                = "${azurerm_storage_account.main[0].name}-queue-pe"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  subnet_id           = azurerm_subnet.private_endpoints[0].id
+
+  private_service_connection {
+    name                           = "${azurerm_storage_account.main[0].name}-queue-psc"
+    private_connection_resource_id = azurerm_storage_account.main[0].id
+    is_manual_connection           = false
+    subresource_names              = ["queue"]
+  }
+
+  private_dns_zone_group {
+    name                 = "queue-dns-zone-group"
+    private_dns_zone_ids = [azurerm_private_dns_zone.storage_queue[0].id]
   }
 }
 

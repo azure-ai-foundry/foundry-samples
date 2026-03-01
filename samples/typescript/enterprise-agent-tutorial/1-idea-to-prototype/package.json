@@ -5,9 +5,9 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/main.js",
+    "start": "node dist/main-simple.js",
     "evaluate": "node dist/evaluate.js",
-    "dev": "tsc && node dist/main.js",
+    "dev": "tsc && node dist/main-simple.js",
     "clean": "rimraf dist/"
   },
   "keywords": [
@@ -19,11 +19,9 @@
   "author": "Microsoft Corporation",
   "license": "MIT",
   "dependencies": {
-    "@azure/ai-agents-ii": "file:f:/git/agentsv2-preview/javascript/package/ai-agents-ii-2.0.0-alpha.20251020.12.tgz",
-    "@azure/ai-projects": "^1.0.0-beta.1",
-    "@azure/identity": "^4.11.1",
-    "dotenv": "^16.4.5",
-    "openai": "^6.2.0"
+    "@azure/ai-projects": "beta",
+    "@azure/identity": "^4.13.0",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -1,0 +1,5 @@
+name: Quickstart Create Agent
+description: Basic quickstart sample demonstrating Microsoft Foundry agent creation.
+
+build: "mvn compile"
+validate: "mvn compile"
