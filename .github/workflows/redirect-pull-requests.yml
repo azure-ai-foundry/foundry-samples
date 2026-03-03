@@ -4,6 +4,9 @@ on:
   pull_request_target:
     types: [opened]
 
+permissions:
+  pull-requests: write
+
 jobs:
   redirect:
     runs-on: ubuntu-latest
@@ -47,6 +50,21 @@ jobs:
                 '',
                 'See [CONTRIBUTING.md](https://github.com/microsoft-foundry/foundry-samples/blob/main/CONTRIBUTING.md) for more details.',
               ].join('\n');
+            }
+
+            // Skip if the bot already commented (idempotent on re-runs)
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+            });
+            const alreadyCommented = comments.data.some(c =>
+              c.user.login === 'github-actions[bot]' &&
+              c.body.includes('This repository')
+            );
+            if (alreadyCommented) {
+              console.log('Bot already commented on this PR, skipping.');
+              return;
             }
 
             await github.rest.issues.createComment({
