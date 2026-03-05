@@ -1,0 +1,5 @@
+name: Quickstart Chat with Agent
+description: Basic quickstart sample demonstrating Microsoft Foundry chat with Agent.
+
+build: "pip install -r requirements.txt"
+validate: "python -m py_compile *.py"
