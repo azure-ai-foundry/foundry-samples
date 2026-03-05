@@ -1,64 +1,33 @@
 package com.azure.ai.agents;
 
-import com.azure.ai.agents.models.AgentReference;
-import com.azure.ai.agents.models.AgentVersionDetails;
-import com.azure.ai.agents.models.PromptAgentDefinition;
-import com.azure.identity.AuthenticationUtil;
 import com.azure.identity.DefaultAzureCredentialBuilder;
-import com.openai.azure.AzureOpenAIServiceVersion;
-import com.openai.azure.AzureUrlPathMode;
-import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
-import com.openai.credential.BearerTokenCredential;
 import com.openai.models.conversations.Conversation;
-import com.openai.models.conversations.items.ItemCreateParams;
-import com.openai.models.responses.EasyInputMessage;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 
 public class ChatWithAgent {
     public static void main(String[] args) {
-        String endpoint = Configuration.getGlobalConfiguration().get("AZURE_AGENTS_ENDPOINT");
-        String agentName = "MyAgent";
-        
-        AgentsClient agentsClient = new AgentsClientBuilder()
+        // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+        String projectEndpoint = "your_project_endpoint";
+        String agentName = "your_agent_name";
+
+        // Create clients to call Foundry API
+        AgentsClientBuilder builder = new AgentsClientBuilder()
                 .credential(new DefaultAzureCredentialBuilder().build())
-                .endpoint(endpoint)
-                .buildAgentsClient();
+                .endpoint(projectEndpoint);
+        ResponsesClient responsesClient = builder.buildResponsesClient();
+        ConversationsClient conversationsClient = builder.buildConversationsClient();
 
-        AgentDetails agent = agentsClient.getAgent(agentName);
-
+        // Create a conversation for multi-turn chat
         Conversation conversation = conversationsClient.getConversationService().create();
-        conversationsClient.getConversationService().items().create(
-            ItemCreateParams.builder()
-                .conversationId(conversation.id())
-                .addItem(EasyInputMessage.builder()
-                    .role(EasyInputMessage.Role.SYSTEM)
-                    .content("You are a helpful assistant that speaks like a pirate.")
-                    .build()
-                ).addItem(EasyInputMessage.builder()
-                    .role(EasyInputMessage.Role.USER)
-                    .content("Hello, agent!")
-                    .build()
-            ).build()
-        );
 
-        AgentReference agentReference = new AgentReference(agent.getName()).setVersion(agent.getVersion());
-        Response response = responsesClient.createWithAgentConversation(agentReference, conversation.id());
-
-        OpenAIClient client = OpenAIOkHttpClient.builder()
-            .baseUrl(endpoint.endsWith("/") ? endpoint + "openai" : endpoint + "/openai")
-            .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
-            .credential(BearerTokenCredential.create(AuthenticationUtil.getBearerTokenSupplier(
-                    new DefaultAzureCredentialBuilder().build(), "https://ai.azure.com/.default")))
-            .azureServiceVersion(AzureOpenAIServiceVersion.fromString("2025-11-15-preview"))
-            .build();
-
+        // TODO: Java SDK does not yet support passing conversation ID or agent reference
+        // to ResponseCreateParams. Update once the SDK adds agent+conversation support.
+        // Chat with the agent to answer questions
         ResponseCreateParams responseRequest = new ResponseCreateParams.Builder()
-            .input("Hello, how can you help me?")
-            .model(model)
-            .build();
-
-        Response result = client.responses().create(responseRequest);
+                .input("What is the size of France in square miles?")
+                .build();
+        Response response = responsesClient.getResponseService().create(responseRequest);
+        System.out.println(response.output());
     }
 }
