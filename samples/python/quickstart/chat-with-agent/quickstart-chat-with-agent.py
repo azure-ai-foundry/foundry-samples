@@ -18,7 +18,7 @@ conversation = openai.conversations.create()
 # Chat with the agent to answer questions
 response = openai.responses.create(
     conversation=conversation.id,
-    extra_body={"agent": {"name": FOUNDRY_AGENT_NAME, "type": "agent_reference"}},
+    extra_body={"agent_reference": {"name": FOUNDRY_AGENT_NAME, "type": "agent_reference"}},
     input="What is the size of France in square miles?",
 )
 print(response.output_text)
@@ -26,7 +26,7 @@ print(response.output_text)
 # Ask a follow-up question in the same conversation
 response = openai.responses.create(
     conversation=conversation.id,
-    extra_body={"agent": {"name": FOUNDRY_AGENT_NAME, "type": "agent_reference"}},
+    extra_body={"agent_reference": {"name": FOUNDRY_AGENT_NAME, "type": "agent_reference"}},
     input="And what is the capital city?",
 )
 print(response.output_text)

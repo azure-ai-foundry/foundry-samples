@@ -3,7 +3,7 @@ import { AIProjectClient } from "@azure/ai-projects";
 
 // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
 const FOUNDRY_PROJECT_ENDPOINT = "your_project_endpoint";
-const FOUNDRY_MODEL_NAME = "gpt-5-mini";  // supports all Foundry direct models
+const FOUNDRY_MODEL_NAME = "gpt-5-mini"; 
 const FOUNDRY_AGENT_NAME = "your_agent_name";
 
 async function main(): Promise<void> {
