@@ -461,3 +461,14 @@ terraform.rc
 samples/microsoft/nul
 samples/microsoft/microsoft.sln
 samples/microsoft/developer-journey-stage-1-idea-to-prototype.md
+# Doc-Kit workspace files
+.github/AGENTS.md
+.github/agents/
+.github/instructions/
+.github/prompts/
+.github/skills/
+.vscode/settings.json
+.dockit/
+.env
+.env.example
+requirements.txt

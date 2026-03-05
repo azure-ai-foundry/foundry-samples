@@ -7,18 +7,19 @@ import com.azure.identity.DefaultAzureCredentialBuilder;
 public class CreateAgent {
     public static void main(String[] args) {
         // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
-        String projectEndpoint = "your_project_endpoint";
-        String agentName = "your_agent_name";
+        String foundryProjectEndpoint = "your_project_endpoint";
+        String foundryModelName = "gpt-5-mini";  // supports all Foundry direct models
+        String foundryAgentName = "your_agent_name";
 
         // Create agents client to call Foundry API
         AgentsClient agentsClient = new AgentsClientBuilder()
                 .credential(new DefaultAzureCredentialBuilder().build())
-                .endpoint(projectEndpoint)
+                .endpoint(foundryProjectEndpoint)
                 .buildAgentsClient();
 
         // Create an agent with a model and instructions
-        PromptAgentDefinition request = new PromptAgentDefinition("gpt-5-mini");
-        AgentVersionDetails agent = agentsClient.createAgentVersion(agentName, request);
+        PromptAgentDefinition request = new PromptAgentDefinition(foundryModelName);
+        AgentVersionDetails agent = agentsClient.createAgentVersion(foundryAgentName, request);
 
         System.out.println("Agent ID: " + agent.getId());
         System.out.println("Agent Name: " + agent.getName());

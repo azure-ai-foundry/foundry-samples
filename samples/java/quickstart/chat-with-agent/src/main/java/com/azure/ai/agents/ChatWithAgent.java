@@ -8,13 +8,13 @@ import com.openai.models.responses.ResponseCreateParams;
 public class ChatWithAgent {
     public static void main(String[] args) {
         // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
-        String projectEndpoint = "your_project_endpoint";
-        String agentName = "your_agent_name";
+        String foundryProjectEndpoint = "your_project_endpoint";
+        String foundryAgentName = "your_agent_name";
 
         // Create clients to call Foundry API
         AgentsClientBuilder builder = new AgentsClientBuilder()
                 .credential(new DefaultAzureCredentialBuilder().build())
-                .endpoint(projectEndpoint);
+                .endpoint(foundryProjectEndpoint);
         ResponsesClient responsesClient = builder.buildResponsesClient();
         ConversationsClient conversationsClient = builder.buildConversationsClient();
 
