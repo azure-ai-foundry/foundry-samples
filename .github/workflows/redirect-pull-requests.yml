@@ -18,6 +18,13 @@ jobs:
             const pr = context.payload.pull_request;
             const author = pr.user.login;
 
+            // Allow PRs from trusted automation bots (e.g., repo sync)
+            const allowedBots = ['foundry-samples-repo-sync[bot]'];
+            if (allowedBots.includes(author)) {
+              console.log(`Skipping redirect for allowed bot: ${author}`);
+              return;
+            }
+
             // Check if author is a member of the microsoft org
             let isOrgMember = false;
             try {
