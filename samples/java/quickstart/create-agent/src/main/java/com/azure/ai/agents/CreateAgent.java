@@ -8,7 +8,6 @@ public class CreateAgent {
     public static void main(String[] args) {
         // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
         String foundryProjectEndpoint = "your_project_endpoint";
-        String foundryModelName = "gpt-5-mini";  // supports all Foundry direct models
         String foundryAgentName = "your_agent_name";
 
         // Create agents client to call Foundry API
@@ -18,7 +17,8 @@ public class CreateAgent {
                 .buildAgentsClient();
 
         // Create an agent with a model and instructions
-        PromptAgentDefinition request = new PromptAgentDefinition(foundryModelName);
+        PromptAgentDefinition request = new PromptAgentDefinition("gpt-5-mini") // supports all Foundry direct models
+                .setInstructions("You are a helpful assistant that answers general questions");
         AgentVersionDetails agent = agentsClient.createAgentVersion(foundryAgentName, request);
 
         System.out.println("Agent ID: " + agent.getId());

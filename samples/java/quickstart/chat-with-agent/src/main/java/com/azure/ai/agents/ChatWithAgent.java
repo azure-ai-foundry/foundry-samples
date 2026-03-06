@@ -58,7 +58,7 @@ public class ChatWithAgent {
 
         ResponseCreateParams responseRequest = new ResponseCreateParams.Builder()
             .input("Hello, how can you help me?")
-            .model("gpt-5-mini")
+            .model("gpt-5-mini") //supports all Foundry direct models
             .build();
 
         Response result = client.responses().create(responseRequest);
