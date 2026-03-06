@@ -1,5 +1,6 @@
 package com.azure.ai.agents;
 
+import com.azure.ai.agents.models.AgentDetails;
 import com.azure.ai.agents.models.AgentReference;
 import com.azure.ai.agents.models.AgentVersionDetails;
 import com.azure.ai.agents.models.PromptAgentDefinition;
@@ -18,15 +19,16 @@ import com.openai.models.responses.ResponseCreateParams;
 
 public class ChatWithAgent {
     public static void main(String[] args) {
-        String endpoint = Configuration.getGlobalConfiguration().get("AZURE_AGENTS_ENDPOINT");
-        String agentName = "MyAgent";
+        // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+        String ProjectEndpoint = "your_project_endpoint";
+        String AgentName = "your_agent_name";
         
         AgentsClient agentsClient = new AgentsClientBuilder()
                 .credential(new DefaultAzureCredentialBuilder().build())
-                .endpoint(endpoint)
+                .endpoint(ProjectEndpoint)
                 .buildAgentsClient();
 
-        AgentDetails agent = agentsClient.getAgent(agentName);
+        AgentDetails agent = agentsClient.getAgent(AgentName);
 
         Conversation conversation = conversationsClient.getConversationService().create();
         conversationsClient.getConversationService().items().create(
@@ -47,7 +49,7 @@ public class ChatWithAgent {
         Response response = responsesClient.createWithAgentConversation(agentReference, conversation.id());
 
         OpenAIClient client = OpenAIOkHttpClient.builder()
-            .baseUrl(endpoint.endsWith("/") ? endpoint + "openai" : endpoint + "/openai")
+            .baseUrl(ProjectEndpoint.endsWith("/") ? ProjectEndpoint + "openai" : ProjectEndpoint + "/openai")
             .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
             .credential(BearerTokenCredential.create(AuthenticationUtil.getBearerTokenSupplier(
                     new DefaultAzureCredentialBuilder().build(), "https://ai.azure.com/.default")))
@@ -56,7 +58,7 @@ public class ChatWithAgent {
 
         ResponseCreateParams responseRequest = new ResponseCreateParams.Builder()
             .input("Hello, how can you help me?")
-            .model(model)
+            .model("gpt-5-mini") //supports all Foundry direct models
             .build();
 
         Response result = client.responses().create(responseRequest);

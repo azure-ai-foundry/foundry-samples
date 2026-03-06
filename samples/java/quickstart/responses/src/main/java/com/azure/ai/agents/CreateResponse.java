@@ -1,31 +1,26 @@
 package com.azure.ai.agents;
 
-import com.azure.core.util.Configuration;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 
 public class CreateResponse {
     public static void main(String[] args) {
-        String endpoint = Configuration.getGlobalConfiguration().get("PROJECT_ENDPOINT");
-        String model = Configuration.getGlobalConfiguration().get("MODEL_DEPLOYMENT_NAME");
-        // Code sample for creating a response
+        // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+        String ProjectEndpoint = "your_project_endpoint";
+
+        // Create responses client to call Foundry API
         ResponsesClient responsesClient = new AgentsClientBuilder()
                 .credential(new DefaultAzureCredentialBuilder().build())
-                .endpoint(endpoint)
-                .serviceVersion(AgentsServiceVersion.V2025_11_15_PREVIEW)
+                .endpoint(ProjectEndpoint)
                 .buildResponsesClient();
 
+        // Run a responses API call
         ResponseCreateParams responseRequest = new ResponseCreateParams.Builder()
-                .input("Hello, how can you help me?")
-                .model(model)
+                .input("What is the size of France in square miles?")
+                .model("gpt-5-mini")  // supports all Foundry direct models
                 .build();
-
         Response response = responsesClient.getResponseService().create(responseRequest);
-
-        System.out.println("Response ID: " + response.id());
-        System.out.println("Response Model: " + response.model());
-        System.out.println("Response Created At: " + response.createdAt());
-        System.out.println("Response Output: " + response.output());
+        System.out.println(response.output());
     }
 }

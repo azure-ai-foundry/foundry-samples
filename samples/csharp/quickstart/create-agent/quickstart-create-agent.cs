@@ -1,27 +1,23 @@
+using Azure.Identity;
 using Azure.AI.Projects;
 using Azure.AI.Projects.OpenAI;
-using Azure.Identity;
 
-string projectEndpoint = Environment.GetEnvironmentVariable("PROJECT_ENDPOINT")
-?? throw new InvalidOperationException("Missing environment variable 'PROJECT_ENDPOINT'");
-string modelDeploymentName = Environment.GetEnvironmentVariable("MODEL_DEPLOYMENT_NAME")
-?? throw new InvalidOperationException("Missing environment variable 'MODEL_DEPLOYMENT_NAME'");
-string agentName = Environment.GetEnvironmentVariable("AGENT_NAME")
-?? throw new InvalidOperationException("Missing environment variable 'AGENT_NAME'");
+// Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+var ProjectEndpoint = "your_project_endpoint";
+var AgentName = "your_agent_name";
 
-AIProjectClient projectClient = new(new Uri(projectEndpoint), new AzureCliCredential());
+// Create project client to call Foundry API
+AIProjectClient projectClient = new(
+    endpoint: new Uri(ProjectEndpoint),
+    tokenProvider: new DefaultAzureCredential());
 
-AgentDefinition agentDefinition = new PromptAgentDefinition(modelDeploymentName)
+// Create an agent with a model and instructions
+AgentDefinition agentDefinition = new PromptAgentDefinition("gpt-5-mini") // supports all Foundry direct models
 {
     Instructions = "You are a helpful assistant that answers general questions",
 };
 
-AgentVersion newAgentVersion = projectClient.Agents.CreateAgentVersion(
-    agentName,
+AgentVersion agent = projectClient.Agents.CreateAgentVersion(
+    AgentName,
     options: new(agentDefinition));
-
-List<AgentVersion> agentVersions = [..projectClient.Agents.GetAgentVersions(agentName)];
-foreach (AgentVersion agentVersion in agentVersions)
-{
-    Console.WriteLine($"Agent: {agentVersion.Id}, Name: {agentVersion.Name}, Version: {agentVersion.Version}");
-}
+Console.WriteLine($"Agent created (id: {agent.Id}, name: {agent.Name}, version: {agent.Version})");

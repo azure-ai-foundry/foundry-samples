@@ -1,34 +1,32 @@
-import os
-from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 
-load_dotenv()
+# Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+PROJECT_ENDPOINT = "your_project_endpoint"
+AGENT_NAME = "your_agent_name"
 
-project_client = AIProjectClient(
-    endpoint=os.environ["PROJECT_ENDPOINT"],
+# Create project and openai clients to call Foundry API
+project = AIProjectClient(
+    endpoint=FOUNDRY_PROJECT_ENDPOINT,
     credential=DefaultAzureCredential(),
 )
+openai = project.get_openai_client()
 
-agent_name = os.environ["AGENT_NAME"]
-openai_client = project_client.get_openai_client()
-
-# Optional Step: Create a conversation to use with the agent
-conversation = openai_client.conversations.create()
-print(f"Created conversation (id: {conversation.id})")
+# Create a conversation for multi-turn chat
+conversation = openai.conversations.create()
 
 # Chat with the agent to answer questions
-response = openai_client.responses.create(
-    conversation=conversation.id, #Optional conversation context for multi-turn
-    extra_body={"agent_reference": {"name": agent_name, "type": "agent_reference"}},
+response = openai.responses.create(
+    conversation=conversation.id,
+    extra_body={"agent_reference": {"name": FOUNDRY_AGENT_NAME, "type": "agent_reference"}},
     input="What is the size of France in square miles?",
 )
-print(f"Response output: {response.output_text}")
+print(response.output_text)
 
-# Optional Step: Ask a follow-up question in the same conversation
-response = openai_client.responses.create(
+# Ask a follow-up question in the same conversation
+response = openai.responses.create(
     conversation=conversation.id,
-    extra_body={"agent_reference": {"name": agent_name, "type": "agent_reference"}},
+    extra_body={"agent_reference": {"name": FOUNDRY_AGENT_NAME, "type": "agent_reference"}},
     input="And what is the capital city?",
 )
-print(f"Response output: {response.output_text}")
+print(response.output_text)

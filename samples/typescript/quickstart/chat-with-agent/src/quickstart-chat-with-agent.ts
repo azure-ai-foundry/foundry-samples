@@ -1,52 +1,41 @@
 import { DefaultAzureCredential } from "@azure/identity";
 import { AIProjectClient } from "@azure/ai-projects";
-import "dotenv/config";
 
-const projectEndpoint = process.env["PROJECT_ENDPOINT"] || "<project endpoint>";
-const deploymentName = process.env["MODEL_DEPLOYMENT_NAME"] || "<model deployment name>";
+// Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+const PROJECT_ENDPOINT = "your_project_endpoint";
+const AGENT_NAME = "your_agent_name";
 
 async function main(): Promise<void> {
-    const project = new AIProjectClient(projectEndpoint, new DefaultAzureCredential());
-    const openAIClient = project.getOpenAIClient();
-    
-    // Create agent
-    console.log("Creating agent...");
-    const agent = await project.agents.createVersion("my-agent-basic", {
-        kind: "prompt",
-        model: deploymentName,
-        instructions: "You are a helpful assistant that answers general questions",
-    });
-    console.log(`Agent created (id: ${agent.id}, name: ${agent.name}, version: ${agent.version})`);
-    
-    // Create conversation with initial user message
-    // You can save the conversation ID to database to retrieve later
-    console.log("\nCreating conversation with initial user message...");
-    const conversation = await openAIClient.conversations.create({
-        items: [
-            { type: "message", role: "user", content: "What is the size of France in square miles?" },
-        ],
-    });
-    console.log(`Created conversation with initial user message (id: ${conversation.id})`);
+    // Create project and openai clients to call Foundry API
+    const project = new AIProjectClient(PROJECT_ENDPOINT, new DefaultAzureCredential());
+    const openai = await project.getOpenAIClient();
 
-    // Generate response using the agent
-    console.log("\nGenerating response...");
-    const response = await openAIClient.responses.create(
+    // Create a conversation for multi-turn chat
+    const conversation = await openai.conversations.create();
+
+    // Chat with the agent to answer questions
+    const response = await openai.responses.create(
         {
             conversation: conversation.id,
+            input: "What is the size of France in square miles?",
         },
         {
-            body: { agent: { name: agent.name, type: "agent_reference" } },
+            body: { agent: { name: AGENT_NAME, type: "agent_reference" } },
         },
     );
-    console.log(`Response output: ${response.output_text}`);
+    console.log(response.output_text);
 
-     // Clean up
-    console.log("\nCleaning up resources...");
-    await openAIClient.conversations.delete(conversation.id);
-    console.log("Conversation deleted");
-
-    await project.agents.deleteVersion(agent.name, agent.version);
-    console.log("Agent deleted");
+    // Ask a follow-up question in the same conversation
+    const response2 = await openai.responses.create(
+        {
+            conversation: conversation.id,
+            input: "And what is the capital city?",
+        },
+        {
+            body: { agent: { name: FOUNDRY_AGENT_NAME, type: "agent_reference" } },
+        },
+    );
+    console.log(response2.output_text);
 }
 
 main().catch(console.error);

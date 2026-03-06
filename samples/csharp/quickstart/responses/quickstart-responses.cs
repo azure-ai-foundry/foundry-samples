@@ -1,18 +1,20 @@
+using Azure.Identity;
 using Azure.AI.Projects;
 using Azure.AI.Projects.OpenAI;
-using Azure.Identity;
 using OpenAI.Responses;
 
 #pragma warning disable OPENAI001
 
-string projectEndpoint = Environment.GetEnvironmentVariable("PROJECT_ENDPOINT")
-?? throw new InvalidOperationException("Missing environment variable 'PROJECT_ENDPOINT'");
-string modelDeploymentName = Environment.GetEnvironmentVariable("MODEL_DEPLOYMENT_NAME")
-?? throw new InvalidOperationException("Missing environment variable 'MODEL_DEPLOYMENT_NAME'");
+// Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+var ProjectEndpoint = "your_project_endpoint";
 
-AIProjectClient projectClient = new(new Uri(projectEndpoint), new AzureCliCredential());
+// Create project client to call Foundry API
+AIProjectClient projectClient = new(
+    endpoint: new Uri(ProjectEndpoint),
+    tokenProvider: new DefaultAzureCredential());
 
-ProjectResponsesClient responseClient = projectClient.OpenAI.GetProjectResponsesClientForModel(modelDeploymentName);
-ResponseResult response = await responseClient.CreateResponseAsync("What is the size of France in square miles?");
-
+// Run a responses API call
+ProjectResponsesClient responseClient = projectClient.OpenAI.GetProjectResponsesClientForModel("gpt-5-mini"); // supports all Foundry direct models
+ResponseResult response = await responseClient.CreateResponseAsync(
+    "What is the size of France in square miles?");
 Console.WriteLine(response.GetOutputText());

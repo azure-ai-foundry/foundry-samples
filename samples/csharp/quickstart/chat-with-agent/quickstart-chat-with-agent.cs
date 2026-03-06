@@ -1,30 +1,29 @@
+using Azure.Identity;
 using Azure.AI.Projects;
 using Azure.AI.Projects.OpenAI;
-using Azure.Identity;
 using OpenAI.Responses;
 
 #pragma warning disable OPENAI001
 
-string projectEndpoint = Environment.GetEnvironmentVariable("PROJECT_ENDPOINT")
-    ?? throw new InvalidOperationException("Missing environment variable 'PROJECT_ENDPOINT'");
-string modelDeploymentName = Environment.GetEnvironmentVariable("MODEL_DEPLOYMENT_NAME")
-    ?? throw new InvalidOperationException("Missing environment variable 'MODEL_DEPLOYMENT_NAME'");
-string agentName = Environment.GetEnvironmentVariable("AGENT_NAME")
-    ?? throw new InvalidOperationException("Missing environment variable 'AGENT_NAME'");
+// Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+var ProjectEndpoint = "your_project_endpoint";
+var AgentName = "your_agent_name";
 
-AIProjectClient projectClient = new(new Uri(projectEndpoint), new AzureCliCredential());
+// Create project client to call Foundry API
+AIProjectClient projectClient = new(
+    endpoint: new Uri(ProjectEndpoint),
+    tokenProvider: new DefaultAzureCredential());
 
-// Optional Step: Create a conversation to use with the agent
+// Create a conversation for multi-turn chat
 ProjectConversation conversation = projectClient.OpenAI.Conversations.CreateProjectConversation();
 
-ProjectResponsesClient responsesClient = projectClient.OpenAI.GetProjectResponsesClientForAgent(
-    defaultAgent: agentName,
-    defaultConversationId: conversation.Id);
-
 // Chat with the agent to answer questions
+ProjectResponsesClient responsesClient = projectClient.OpenAI.GetProjectResponsesClientForAgent(
+    defaultAgent: AgentName,
+    defaultConversationId: conversation.Id);
 ResponseResult response = responsesClient.CreateResponse("What is the size of France in square miles?");
 Console.WriteLine(response.GetOutputText());
 
-// Optional Step: Ask a follow-up question in the same conversation
+// Ask a follow-up question in the same conversation
 response = responsesClient.CreateResponse("And what is the capital city?");
 Console.WriteLine(response.GetOutputText());
