@@ -2,12 +2,12 @@ import { DefaultAzureCredential } from "@azure/identity";
 import { AIProjectClient } from "@azure/ai-projects";
 
 // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
-const FOUNDRY_PROJECT_ENDPOINT = "your_project_endpoint";
-const FOUNDRY_AGENT_NAME = "your_agent_name";
+const PROJECT_ENDPOINT = "your_project_endpoint";
+const AGENT_NAME = "your_agent_name";
 
 async function main(): Promise<void> {
     // Create project and openai clients to call Foundry API
-    const project = new AIProjectClient(FOUNDRY_PROJECT_ENDPOINT, new DefaultAzureCredential());
+    const project = new AIProjectClient(PROJECT_ENDPOINT, new DefaultAzureCredential());
     const openai = await project.getOpenAIClient();
 
     // Create a conversation for multi-turn chat
@@ -20,7 +20,7 @@ async function main(): Promise<void> {
             input: "What is the size of France in square miles?",
         },
         {
-            body: { agent: { name: FOUNDRY_AGENT_NAME, type: "agent_reference" } },
+            body: { agent: { name: AGENT_NAME, type: "agent_reference" } },
         },
     );
     console.log(response.output_text);

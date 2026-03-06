@@ -2,8 +2,8 @@ from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 
 # Format: "https://resource_name.ai.azure.com/api/projects/project_name"
-FOUNDRY_PROJECT_ENDPOINT = "your_project_endpoint"
-FOUNDRY_AGENT_NAME = "your_agent_name"
+PROJECT_ENDPOINT = "your_project_endpoint"
+AGENT_NAME = "your_agent_name"
 
 # Create project and openai clients to call Foundry API
 project = AIProjectClient(

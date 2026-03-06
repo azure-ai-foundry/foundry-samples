@@ -20,15 +20,15 @@ import com.openai.models.responses.ResponseCreateParams;
 public class ChatWithAgent {
     public static void main(String[] args) {
         // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
-        String foundryProjectEndpoint = "your_project_endpoint";
-        String foundryAgentName = "your_agent_name";
+        String ProjectEndpoint = "your_project_endpoint";
+        String AgentName = "your_agent_name";
         
         AgentsClient agentsClient = new AgentsClientBuilder()
                 .credential(new DefaultAzureCredentialBuilder().build())
-                .endpoint(foundryProjectEndpoint)
+                .endpoint(ProjectEndpoint)
                 .buildAgentsClient();
 
-        AgentDetails agent = agentsClient.getAgent(foundryAgentName);
+        AgentDetails agent = agentsClient.getAgent(AgentName);
 
         Conversation conversation = conversationsClient.getConversationService().create();
         conversationsClient.getConversationService().items().create(
@@ -49,7 +49,7 @@ public class ChatWithAgent {
         Response response = responsesClient.createWithAgentConversation(agentReference, conversation.id());
 
         OpenAIClient client = OpenAIOkHttpClient.builder()
-            .baseUrl(foundryProjectEndpoint.endsWith("/") ? foundryProjectEndpoint + "openai" : foundryProjectEndpoint + "/openai")
+            .baseUrl(ProjectEndpoint.endsWith("/") ? ProjectEndpoint + "openai" : ProjectEndpoint + "/openai")
             .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
             .credential(BearerTokenCredential.create(AuthenticationUtil.getBearerTokenSupplier(
                     new DefaultAzureCredentialBuilder().build(), "https://ai.azure.com/.default")))

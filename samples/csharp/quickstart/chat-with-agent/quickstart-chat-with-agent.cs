@@ -6,12 +6,12 @@ using OpenAI.Responses;
 #pragma warning disable OPENAI001
 
 // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
-var foundryProjectEndpoint = "your_project_endpoint";
-var foundryAgentName = "your_agent_name";
+var ProjectEndpoint = "your_project_endpoint";
+var AgentName = "your_agent_name";
 
 // Create project client to call Foundry API
 AIProjectClient projectClient = new(
-    endpoint: new Uri(foundryProjectEndpoint),
+    endpoint: new Uri(ProjectEndpoint),
     tokenProvider: new DefaultAzureCredential());
 
 // Create a conversation for multi-turn chat
@@ -19,7 +19,7 @@ ProjectConversation conversation = projectClient.OpenAI.Conversations.CreateProj
 
 // Chat with the agent to answer questions
 ProjectResponsesClient responsesClient = projectClient.OpenAI.GetProjectResponsesClientForAgent(
-    defaultAgent: foundryAgentName,
+    defaultAgent: AgentName,
     defaultConversationId: conversation.Id);
 ResponseResult response = responsesClient.CreateResponse("What is the size of France in square miles?");
 Console.WriteLine(response.GetOutputText());
