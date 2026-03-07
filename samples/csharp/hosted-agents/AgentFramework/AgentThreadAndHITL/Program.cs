@@ -8,6 +8,7 @@ using Azure.Identity;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
+using OpenAI.Chat;
 
 namespace AgengThreadAndHITL;
 
@@ -31,7 +32,7 @@ public partial class Program
             new Uri(endpoint),
             new AzureCliCredential())
             .GetChatClient(deploymentName)
-            .CreateAIAgent(
+            .AsAIAgent(
                 instructions: "You are a helpful assistant",
                 tools: [new ApprovalRequiredAIFunction(AIFunctionFactory.Create(GetWeather))]
             );
