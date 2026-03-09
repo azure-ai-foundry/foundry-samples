@@ -6,6 +6,7 @@ on:
 
 permissions:
   pull-requests: write
+  members: read
 
 jobs:
   redirect:
@@ -25,21 +26,64 @@ jobs:
               return;
             }
 
-            // Check if author is a member of the microsoft org
-            let isOrgMember = false;
+            // Check if author is a Microsoft contributor using multiple signals.
+            // The GITHUB_TOKEN can only see *public* members of the 'microsoft' org
+            // (since this repo is in the 'microsoft-foundry' org), so we cascade
+            // through several checks to catch contributors with private membership.
+            let isInternal = false;
+            let matchedSignal = null;
+
+            // Signal 1: Check microsoft-foundry org membership (full visibility via GITHUB_TOKEN)
             try {
               const res = await github.rest.orgs.checkMembershipForUser({
-                org: 'microsoft',
+                org: 'microsoft-foundry',
                 username: author,
               });
-              isOrgMember = res.status === 204;
+              if (res.status === 204) {
+                isInternal = true;
+                matchedSignal = 'microsoft-foundry org member';
+              }
             } catch {
               // 404 or 302 means not a member
-              isOrgMember = false;
             }
 
+            // Signal 2: Check if author is a collaborator on this repo
+            if (!isInternal) {
+              try {
+                const res = await github.rest.repos.checkCollaborator({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  username: author,
+                });
+                if (res.status === 204) {
+                  isInternal = true;
+                  matchedSignal = 'repo collaborator';
+                }
+              } catch {
+                // 404 means not a collaborator
+              }
+            }
+
+            // Signal 3: Check microsoft org membership (catches public members only)
+            if (!isInternal) {
+              try {
+                const res = await github.rest.orgs.checkMembershipForUser({
+                  org: 'microsoft',
+                  username: author,
+                });
+                if (res.status === 204) {
+                  isInternal = true;
+                  matchedSignal = 'microsoft org member (public)';
+                }
+              } catch {
+                // 404 or 302 means not a member (or private membership not visible)
+              }
+            }
+
+            console.log(`Author: ${author}, isInternal: ${isInternal}, signal: ${matchedSignal || 'none'}`);
+
             let body;
-            if (isOrgMember) {
+            if (isInternal) {
               body = [
                 `👋 Thanks for your contribution, @${author}!`,
                 '',
