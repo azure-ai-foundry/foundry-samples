@@ -1,0 +1,57 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# IDE and editor files
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+.foundry/
+
+# Git
+.git/
+.gitignore
+
+# Documentation and samples (not needed in container)
+*.md
+*.http
+
+# Ignore files
+.dockerignore
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Package manager directories
+node_modules/
+packages/
+
+# Test results
+TestResults/
+*.trx
+
+# Coverage reports
+coverage/
+*.coverage
+*.coveragexml
+
+# Environment files with secrets
+.env
+.env.*
+*.local
+appsettings.*.json
+!appsettings.json
+
+.venv/
+__pycache__/
