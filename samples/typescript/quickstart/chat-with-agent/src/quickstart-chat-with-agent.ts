@@ -8,7 +8,7 @@ const AGENT_NAME = "your_agent_name";
 async function main(): Promise<void> {
     // Create project and openai clients to call Foundry API
     const project = new AIProjectClient(PROJECT_ENDPOINT, new DefaultAzureCredential());
-    const openai = await project.getOpenAIClient();
+    const openai = project.getOpenAIClient();
 
     // Create a conversation for multi-turn chat
     const conversation = await openai.conversations.create();
