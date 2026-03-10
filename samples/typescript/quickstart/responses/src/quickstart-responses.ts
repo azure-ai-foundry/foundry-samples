@@ -7,7 +7,7 @@ const PROJECT_ENDPOINT = "your_project_endpoint";
 async function main(): Promise<void> {
     // Create project and openai clients to call Foundry API
     const project = new AIProjectClient(PROJECT_ENDPOINT, new DefaultAzureCredential());
-    const openai = await project.getOpenAIClient();
+    const openai = project.getOpenAIClient();
 
     // Run a responses API call
     const response = await openai.responses.create({
