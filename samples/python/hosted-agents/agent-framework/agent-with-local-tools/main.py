@@ -12,14 +12,14 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-from agent_framework.azure import AzureAIAgentClient
+from agent_framework.azure import AzureOpenAIResponsesClient
 from azure.ai.agentserver.agentframework import from_agent_framework
 from azure.identity.aio import DefaultAzureCredential
 
 # Configure these for your Foundry project
 # Read the explicit variables present in the .env file
-PROJECT_ENDPOINT = os.getenv("PROJECT_ENDPOINT")  # e.g., "https://<project>.services.ai.azure.com"
-MODEL_DEPLOYMENT_NAME = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-4.1-mini")  # Your model deployment name e.g., "gpt-4.1-mini"
+PROJECT_ENDPOINT = os.getenv("AZURE_AI_PROJECT_ENDPOINT")  # e.g., "https://<resource>.services.ai.azure.com/api/projects/<project>"
+MODEL_DEPLOYMENT_NAME = os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"]
 
 
 # Simulated hotel data for Seattle
@@ -80,16 +80,14 @@ def get_available_hotels(
 
 async def main():
     """Main function to run the agent as a web server."""
-    async with (
-        DefaultAzureCredential() as credential,
-        AzureAIAgentClient(
+    async with DefaultAzureCredential() as credential:
+        client = AzureOpenAIResponsesClient(
             project_endpoint=PROJECT_ENDPOINT,
-            model_deployment_name=MODEL_DEPLOYMENT_NAME,
+            deployment_name=MODEL_DEPLOYMENT_NAME,
             credential=credential,
-        ) as client,
-    ):
-        agent = client.create_agent(
-            name="SeattleHotelAgent",
+        )
+        agent = client.as_agent(
+            name="seattle-hotel-agent",
             instructions="""You are a helpful travel assistant specializing in finding hotels in Seattle, Washington.
 
 When a user asks about hotels in Seattle:

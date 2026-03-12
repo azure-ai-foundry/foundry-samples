@@ -21,9 +21,9 @@ template:
   protocols:
     - protocol: responses
   environment_variables:
-    - name: PROJECT_ENDPOINT
+    - name: AZURE_AI_PROJECT_ENDPOINT
       value: ${AZURE_AI_PROJECT_ENDPOINT}
-    - name: MODEL_DEPLOYMENT_NAME
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
       value: "{{chat}}"
 resources:
   - kind: model

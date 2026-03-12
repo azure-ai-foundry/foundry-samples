@@ -2,21 +2,21 @@
 // Uses Microsoft Agent Framework with Azure AI Foundry.
 // Ready for deployment to Foundry Hosted Agent service.
 
+using System.ClientModel.Primitives;
 using System.ComponentModel;
 using System.Globalization;
 using System.Text;
-using System.ClientModel.Primitives;
 using Azure.AI.AgentServer.AgentFramework.Extensions;
-using Azure.AI.OpenAI;
-using Azure.AI.Projects;
 using Azure.Identity;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using OpenAI;
+using OpenAI.Responses;
 
 // Get configuration from environment variables
 var endpoint = Environment.GetEnvironmentVariable("AZURE_AI_PROJECT_ENDPOINT")
     ?? throw new InvalidOperationException("AZURE_AI_PROJECT_ENDPOINT is not set.");
-var deploymentName = Environment.GetEnvironmentVariable("MODEL_DEPLOYMENT_NAME") ?? "gpt-4.1-mini";
+var deploymentName = Environment.GetEnvironmentVariable("AZURE_AI_MODEL_DEPLOYMENT_NAME") ?? throw new InvalidOperationException("AZURE_AI_MODEL_DEPLOYMENT_NAME is not set.");
 Console.WriteLine($"Project Endpoint: {endpoint}");
 Console.WriteLine($"Model Deployment: {deploymentName}");
 // Simulated hotel data for Seattle
@@ -88,46 +88,27 @@ string GetAvailableHotels(
     }
 }
 
-// Create chat client using AIProjectClient to get the OpenAI connection from the project
-var credential = new DefaultAzureCredential();
-AIProjectClient projectClient = new AIProjectClient(new Uri(endpoint), credential);
+// Create an agent using OpenAIClient through the Foundry project endpoint.
+var agent = new OpenAIClient(
+        new BearerTokenPolicy(new DefaultAzureCredential(), "https://ai.azure.com/.default"),
+        new OpenAIClientOptions { Endpoint = new Uri($"{endpoint}/openai/v1") })
+    .GetResponsesClient(deploymentName)
+    .AsAIAgent(
+        name: "seattle-hotel-agent",
+        instructions: """
+            You are a helpful travel assistant specializing in finding hotels in Seattle, Washington.
 
-// Get the OpenAI connection from the project
-ClientConnection connection = projectClient.GetConnection(typeof(AzureOpenAIClient).FullName!);
+            When a user asks about hotels in Seattle:
+            1. Ask for their check-in and check-out dates if not provided
+            2. Ask about their budget preferences if not mentioned
+            3. Use the GetAvailableHotels tool to find available options
+            4. Present the results in a friendly, informative way
+            5. Offer to help with additional questions about the hotels or Seattle
 
-if (!connection.TryGetLocatorAsUri(out Uri? openAiEndpoint) || openAiEndpoint is null)
-{
-    throw new InvalidOperationException("Failed to get OpenAI endpoint from project connection.");
-}
-openAiEndpoint = new Uri($"https://{openAiEndpoint.Host}");
-Console.WriteLine($"OpenAI Endpoint: {openAiEndpoint}");
-
-var chatClient = new AzureOpenAIClient(openAiEndpoint, credential)
-    .GetChatClient(deploymentName)
-    .AsIChatClient()
-    .AsBuilder()
-    .UseOpenTelemetry(sourceName: "Agents", configure: cfg => cfg.EnableSensitiveData = false)
-    .Build();
-
-var agent = new ChatClientAgent(chatClient,
-    name: "SeattleHotelAgent",
-    instructions: """
-        You are a helpful travel assistant specializing in finding hotels in Seattle, Washington.
-
-        When a user asks about hotels in Seattle:
-        1. Ask for their check-in and check-out dates if not provided
-        2. Ask about their budget preferences if not mentioned
-        3. Use the GetAvailableHotels tool to find available options
-        4. Present the results in a friendly, informative way
-        5. Offer to help with additional questions about the hotels or Seattle
-
-        Be conversational and helpful. If users ask about things outside of Seattle hotels,
-        politely let them know you specialize in Seattle hotel recommendations.
-        """,
-    tools: [AIFunctionFactory.Create(GetAvailableHotels)])
-    .AsBuilder()
-    .UseOpenTelemetry(sourceName: "Agents", configure: cfg => cfg.EnableSensitiveData = false)
-    .Build();
+            Be conversational and helpful. If users ask about things outside of Seattle hotels,
+            politely let them know you specialize in Seattle hotel recommendations.
+            """,
+        tools: [AIFunctionFactory.Create(GetAvailableHotels)]);
 
 Console.WriteLine("Seattle Hotel Agent Server running on http://localhost:8088");
 await agent.RunAIAgentAsync(telemetrySourceName: "Agents");
