@@ -2,7 +2,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 
-from agent_framework import WorkflowBuilder
+from agent_framework import Agent, WorkflowBuilder
 from agent_framework.azure import AzureAIAgentClient
 from azure.ai.agentserver.agentframework import from_agent_framework
 from azure.identity.aio import DefaultAzureCredential, ManagedIdentityCredential
@@ -44,11 +44,13 @@ async def create_agents():
             credential=credential,
         ) as reviewer_client,
     ):
-        writer = writer_client.create_agent(
+        writer = Agent(
+            writer_client,
             name="Writer",
             instructions="You are an excellent content writer. You create new content and edit contents based on the feedback.",
         )
-        reviewer = reviewer_client.create_agent(
+        reviewer = Agent(
+            reviewer_client,
             name="Reviewer",
             instructions="You are an excellent content reviewer. Provide actionable feedback to the writer about the provided content in the most concise manner possible.",
         )
@@ -57,11 +59,12 @@ async def create_agents():
 
 def create_workflow(writer, reviewer):
     workflow = (
-        WorkflowBuilder(name="Writer-Reviewer")
-        .register_agent(lambda: writer, name="Writer", output_response=True)
-        .register_agent(lambda: reviewer, name="Reviewer", output_response=True)
-        .set_start_executor("Writer")
-        .add_edge("Writer", "Reviewer")
+        WorkflowBuilder(
+            name="Writer-Reviewer",
+            start_executor=writer,
+            output_executors=[writer, reviewer],
+        )
+        .add_edge(writer, reviewer)
         .build()
     )
     return workflow.as_agent()

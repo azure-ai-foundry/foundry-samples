@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+from agent_framework import Agent
 from agent_framework.azure import AzureAIAgentClient
 from azure.ai.agentserver.agentframework import from_agent_framework
 from azure.identity.aio import DefaultAzureCredential
@@ -88,7 +89,8 @@ async def main():
             credential=credential,
         ) as client,
     ):
-        agent = client.create_agent(
+        agent = Agent(
+            client,
             name="SeattleHotelAgent",
             instructions="""You are a helpful travel assistant specializing in finding hotels in Seattle, Washington.
 

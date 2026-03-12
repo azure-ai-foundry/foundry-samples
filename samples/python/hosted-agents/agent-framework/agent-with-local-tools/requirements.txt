@@ -1,4 +1,4 @@
-azure-ai-agentserver-agentframework==1.0.0b12
+azure-ai-agentserver-agentframework==1.0.0b16
 python-dotenv
 azure-identity
 
