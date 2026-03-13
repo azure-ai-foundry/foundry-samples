@@ -461,3 +461,4 @@ terraform.rc
 samples/microsoft/nul
 samples/microsoft/microsoft.sln
 samples/microsoft/developer-journey-stage-1-idea-to-prototype.md
+foundry-int.parameters.json
