@@ -102,7 +102,7 @@ resource "azapi_resource" "ai_search" {
       # Search-specific properties
       replicaCount   = 1
       partitionCount = 1
-      hostingMode    = "default"
+      hostingMode    = "Default"
       semanticSearch = "disabled"
 
       # Identity-related controls
