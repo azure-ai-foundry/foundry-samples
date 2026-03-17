@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Check org membership and redirect
         uses: actions/github-script@v7
+        env:
+          ORG_READ_TOKEN: ${{ secrets.ORG_READ_TOKEN }}
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -63,19 +65,33 @@ jobs:
               }
             }
 
-            // Signal 3: Check microsoft org membership (catches public members only)
+            // Signal 3: Check microsoft org membership.
+            // If ORG_READ_TOKEN is configured (a PAT with read:org scope from a
+            // microsoft org member), this detects *all* members including private.
+            // Otherwise falls back to GITHUB_TOKEN which only sees public members.
             if (!isInternal) {
+              const orgReadToken = process.env.ORG_READ_TOKEN;
+              let octokit;
+              let tokenType;
+              if (orgReadToken) {
+                const { Octokit } = require('@octokit/rest');
+                octokit = new Octokit({ auth: orgReadToken });
+                tokenType = 'ORG_READ_TOKEN';
+              } else {
+                octokit = github;
+                tokenType = 'GITHUB_TOKEN';
+              }
               try {
-                const res = await github.rest.orgs.checkMembershipForUser({
+                const res = await octokit.rest.orgs.checkMembershipForUser({
                   org: 'microsoft',
                   username: author,
                 });
                 if (res.status === 204) {
                   isInternal = true;
-                  matchedSignal = 'microsoft org member (public)';
+                  matchedSignal = `microsoft org member (via ${tokenType})`;
                 }
               } catch {
-                // 404 or 302 means not a member (or private membership not visible)
+                console.log(`microsoft org check via ${tokenType}: not a member or not visible`);
               }
             }
 
