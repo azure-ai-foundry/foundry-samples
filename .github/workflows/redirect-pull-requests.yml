@@ -27,16 +27,30 @@ jobs:
               return;
             }
 
+            // Build an Octokit client for org membership checks.
+            // The GITHUB_TOKEN cannot read org membership (even for the repo's own
+            // org) — it only sees *public* members. An ORG_READ_TOKEN (a PAT with
+            // read:org scope from a microsoft org member) sees all members.
+            const orgReadToken = process.env.ORG_READ_TOKEN;
+            let orgOctokit;
+            let tokenType;
+            if (orgReadToken) {
+              const { Octokit } = require('@octokit/rest');
+              orgOctokit = new Octokit({ auth: orgReadToken });
+              tokenType = 'ORG_READ_TOKEN';
+            } else {
+              orgOctokit = github;
+              tokenType = 'GITHUB_TOKEN (public members only)';
+            }
+            console.log(`Using ${tokenType} for org membership checks`);
+
             // Check if author is a Microsoft contributor using multiple signals.
-            // The GITHUB_TOKEN can only see *public* members of the 'microsoft' org
-            // (since this repo is in the 'microsoft-foundry' org), so we cascade
-            // through several checks to catch contributors with private membership.
             let isInternal = false;
             let matchedSignal = null;
 
-            // Signal 1: Check microsoft-foundry org membership (full visibility via GITHUB_TOKEN)
+            // Signal 1: Check microsoft-foundry org membership
             try {
-              const res = await github.rest.orgs.checkMembershipForUser({
+              const res = await orgOctokit.rest.orgs.checkMembershipForUser({
                 org: 'microsoft-foundry',
                 username: author,
               });
@@ -45,10 +59,27 @@ jobs:
                 matchedSignal = 'microsoft-foundry org member';
               }
             } catch {
-              // 404 or 302 means not a member
+              // 404 = not a member, 302 = requester can't see membership
             }
 
-            // Signal 2: Check if author is a collaborator on this repo
+            // Signal 2: Check microsoft org membership
+            if (!isInternal) {
+              try {
+                const res = await orgOctokit.rest.orgs.checkMembershipForUser({
+                  org: 'microsoft',
+                  username: author,
+                });
+                if (res.status === 204) {
+                  isInternal = true;
+                  matchedSignal = 'microsoft org member';
+                }
+              } catch {
+                // 404 = not a member, 302 = requester can't see membership
+              }
+            }
+
+            // Signal 3: Check if author is a collaborator on this repo
+            // (uses default GITHUB_TOKEN — repo-level check, no org permission needed)
             if (!isInternal) {
               try {
                 const res = await github.rest.repos.checkCollaborator({
@@ -62,36 +93,6 @@ jobs:
                 }
               } catch {
                 // 404 means not a collaborator
-              }
-            }
-
-            // Signal 3: Check microsoft org membership.
-            // If ORG_READ_TOKEN is configured (a PAT with read:org scope from a
-            // microsoft org member), this detects *all* members including private.
-            // Otherwise falls back to GITHUB_TOKEN which only sees public members.
-            if (!isInternal) {
-              const orgReadToken = process.env.ORG_READ_TOKEN;
-              let octokit;
-              let tokenType;
-              if (orgReadToken) {
-                const { Octokit } = require('@octokit/rest');
-                octokit = new Octokit({ auth: orgReadToken });
-                tokenType = 'ORG_READ_TOKEN';
-              } else {
-                octokit = github;
-                tokenType = 'GITHUB_TOKEN';
-              }
-              try {
-                const res = await octokit.rest.orgs.checkMembershipForUser({
-                  org: 'microsoft',
-                  username: author,
-                });
-                if (res.status === 204) {
-                  isInternal = true;
-                  matchedSignal = `microsoft org member (via ${tokenType})`;
-                }
-              } catch {
-                console.log(`microsoft org check via ${tokenType}: not a member or not visible`);
               }
             }
 
