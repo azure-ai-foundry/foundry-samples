@@ -1,6 +1,6 @@
 using Azure.Identity;
 using Azure.AI.Projects;
-using Azure.AI.Projects.OpenAI;
+using Azure.AI.Extensions.OpenAI;
 using OpenAI.Responses;
 
 #pragma warning disable OPENAI001

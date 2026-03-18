@@ -1,6 +1,6 @@
 using Azure.Identity;
 using Azure.AI.Projects;
-using Azure.AI.Projects.OpenAI;
+using Azure.AI.Extensions.OpenAI;
 
 // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
 var ProjectEndpoint = "your_project_endpoint";
