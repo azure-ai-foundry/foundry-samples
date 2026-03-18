@@ -1,7 +1,6 @@
 import os, sys, time, json, argparse, subprocess, requests
 from typing import List, Dict, Any, Optional
 from azure.cosmos import CosmosClient, exceptions
-from read_cosmos_data import fetch_data
 from azure.ai.agents.models import AzureFunctionStorageQueue, AzureFunctionTool
 
 # Import AIProjectClient for project endpoint support
