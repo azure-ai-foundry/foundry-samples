@@ -26,7 +26,7 @@ This Azure AI Foundry template demonstrates how to deploy AI Foundry with Agents
 Steps:
 1. Run the command above once to create the account and project without CMK.
    ```bash
-   az deployment group create --name "{DEPLOYMENT_NAME}" --resource-group "{RESOURCE_GROUP_NAME}" --template-file ./main.bicep --parameters azureKeyVaultName="{KEY_VAULT_NAME}" azureKeyName="{KEY_NAME}" azureKeyVersion="{KEY_VERSION}"
+   az deployment group create --name "{DEPLOYMENT_NAME}" --resource-group "{RESOURCE_GROUP_NAME}" --template-file ./main.bicep --parameters keyVaultName="{KEY_VAULT_NAME}" keyName="{KEY_NAME}" keyVersion="{KEY_VERSION}"
    ```
 1. Give account resource Key Vault Admin role, or more restricted get/wrap/unwrap key role assignments, on the Azure Key Vault. 
 1. Uncomment out the encryption section in the main.bicep file to update with CMK.
