@@ -2,12 +2,11 @@ package com.azure.ai.agents;
 
 import com.azure.ai.agents.models.AgentDetails;
 import com.azure.ai.agents.models.AgentReference;
+import com.azure.ai.agents.models.AzureCreateResponseOptions;
 import com.azure.ai.agents.models.AgentVersionDetails;
 import com.azure.ai.agents.models.PromptAgentDefinition;
 import com.azure.identity.AuthenticationUtil;
 import com.azure.identity.DefaultAzureCredentialBuilder;
-import com.openai.azure.AzureOpenAIServiceVersion;
-import com.openai.azure.AzureUrlPathMode;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.credential.BearerTokenCredential;
@@ -16,6 +15,7 @@ import com.openai.models.conversations.items.ItemCreateParams;
 import com.openai.models.responses.EasyInputMessage;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
+import com.openai.services.blocking.ConversationService;
 
 public class ChatWithAgent {
     public static void main(String[] args) {
@@ -23,15 +23,19 @@ public class ChatWithAgent {
         String ProjectEndpoint = "your_project_endpoint";
         String AgentName = "your_agent_name";
         
-        AgentsClient agentsClient = new AgentsClientBuilder()
+        AgentsClientBuilder builder = new AgentsClientBuilder()
                 .credential(new DefaultAzureCredentialBuilder().build())
-                .endpoint(ProjectEndpoint)
-                .buildAgentsClient();
+                .endpoint(ProjectEndpoint);
+
+        AgentsClient agentsClient = builder.buildAgentsClient();
+        ResponsesClient responsesClient = builder.buildResponsesClient();
+        ConversationService conversationService
+            = builder.buildOpenAIClient().conversations();
 
         AgentDetails agent = agentsClient.getAgent(AgentName);
 
-        Conversation conversation = conversationsClient.getConversationService().create();
-        conversationsClient.getConversationService().items().create(
+        Conversation conversation = conversationService.create();
+        conversationService.items().create(
             ItemCreateParams.builder()
                 .conversationId(conversation.id())
                 .addItem(EasyInputMessage.builder()
@@ -46,14 +50,14 @@ public class ChatWithAgent {
         );
 
         AgentReference agentReference = new AgentReference(agent.getName()).setVersion(agent.getVersion());
-        Response response = responsesClient.createWithAgentConversation(agentReference, conversation.id());
+        Response response = responsesClient.createAzureResponse(
+            new AzureCreateResponseOptions().setAgentReference(agentReference),
+            ResponseCreateParams.builder().conversation(conversation.id()));
 
         OpenAIClient client = OpenAIOkHttpClient.builder()
-            .baseUrl(ProjectEndpoint.endsWith("/") ? ProjectEndpoint + "openai" : ProjectEndpoint + "/openai")
-            .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
+            .baseUrl(ProjectEndpoint.endsWith("/") ? ProjectEndpoint + "openai/v1" : ProjectEndpoint + "/openai/v1")
             .credential(BearerTokenCredential.create(AuthenticationUtil.getBearerTokenSupplier(
                     new DefaultAzureCredentialBuilder().build(), "https://ai.azure.com/.default")))
-            .azureServiceVersion(AzureOpenAIServiceVersion.fromString("2025-11-15-preview"))
             .build();
 
         ResponseCreateParams responseRequest = new ResponseCreateParams.Builder()
