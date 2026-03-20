@@ -1,0 +1,12 @@
+{
+  "name": "foundry-local-audio-transcription",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Audio transcription example using Foundry Local",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "foundry-local-sdk": "latest"
+  }
+}

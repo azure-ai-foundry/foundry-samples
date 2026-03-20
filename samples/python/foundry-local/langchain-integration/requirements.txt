@@ -1,0 +1,2 @@
+langchain[openai]
+foundry-local-sdk
