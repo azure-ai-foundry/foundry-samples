@@ -1,0 +1,3 @@
+openai
+foundry-local-sdk
+requests

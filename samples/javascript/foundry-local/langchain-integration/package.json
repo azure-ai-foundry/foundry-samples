@@ -1,0 +1,14 @@
+{
+  "name": "foundry-local-langchain-integration",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Translation app using LangChain with Foundry Local",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@langchain/openai": "latest",
+    "@langchain/core": "latest",
+    "foundry-local-sdk": "latest"
+  }
+}

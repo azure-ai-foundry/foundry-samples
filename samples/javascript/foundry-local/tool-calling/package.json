@@ -1,0 +1,13 @@
+{
+  "name": "foundry-local-tool-calling",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Tool calling example using Foundry Local with OpenAI SDK",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "foundry-local-sdk": "latest",
+    "openai": "latest"
+  }
+}

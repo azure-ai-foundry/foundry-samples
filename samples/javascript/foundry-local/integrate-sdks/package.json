@@ -1,0 +1,14 @@
+{
+  "name": "foundry-local-integrate-sdks",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Foundry Local integration examples with OpenAI SDK and Fetch API",
+  "scripts": {
+    "openai": "node openai-sdk.mjs",
+    "fetch": "node fetch-api.mjs"
+  },
+  "dependencies": {
+    "foundry-local-sdk": "latest",
+    "openai": "latest"
+  }
+}

@@ -1,0 +1,11 @@
+[package]
+name = "foundry-local-integrate-sdks"
+version = "0.1.0"
+edition = "2021"
+description = "Foundry Local integration example using Rust"
+
+[dependencies]
+anyhow = "1"
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
