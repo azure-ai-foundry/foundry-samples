@@ -7,7 +7,18 @@ output/
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Migration output
 migration_*.json
 agent_*.json
+
+# Local development environments
+.venv/
+venv/
+
+# Coverage artifacts
+.coverage
+htmlcov/

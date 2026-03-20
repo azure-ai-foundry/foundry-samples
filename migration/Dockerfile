@@ -20,9 +20,8 @@ COPY requirements.txt .
 # Install Python dependencies from requirements.txt
 RUN pip install -r requirements.txt
 
-# Copy the migration script and supporting files
+# Copy the migration script
 COPY v1_to_v2_migration.py .
-COPY read_cosmos_data.py .
 
 # Create a non-root user for security
 RUN useradd -m -u 1000 migration
@@ -37,13 +36,13 @@ RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
 RUN echo '#!/bin/bash\n\
 set -e\n\
 if [ "$NEED_BETA_VERSION" = "true" ]; then\n\
-    echo "🔧 Installing azure-ai-projects beta version for connection string support..."\n\
-    pip install --quiet --upgrade azure-ai-projects==1.0.0b10\n\
-    echo "✅ Beta version 1.0.0b10 installed"\n\
+    echo "Installing prerelease azure-ai-projects build for connection string support..."\n\
+    pip install --quiet --upgrade --pre azure-ai-projects\n\
+    echo "Prerelease azure-ai-projects installed"\n\
 else\n\
-    echo "✅ Using standard azure-ai-projects version 1.0.0"\n\
+    echo "Using stable azure-ai-projects 2.x from requirements.txt"\n\
 fi\n\
-echo "🔐 Switching to migration user..."\n\
+echo "Switching to migration user..."\n\
 chown -R migration:migration /app\n\
 exec gosu migration python v1_to_v2_migration.py "$@"\n\
 ' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh

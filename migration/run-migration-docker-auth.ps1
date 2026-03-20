@@ -8,12 +8,38 @@ param(
     [string[]]$Arguments
 )
 
+function Show-Usage {
+    Write-Host "Usage: .\run-migration-docker-auth.ps1 [source-options] --production-resource <resource> --production-subscription <subscription-id> --production-tenant <tenant-id> <assistant-id> [more-assistant-ids]"
+    Write-Host ""
+    Write-Host "Source options:"
+    Write-Host "  --use-api"
+    Write-Host "  --project-endpoint <url>"
+    Write-Host "  --project-connection-string <connection-string>"
+    Write-Host "  --source-tenant <tenant-id>"
+    Write-Host ""
+    Write-Host "Optional test tool injection:"
+    Write-Host "  --add-test-function"
+    Write-Host "  --add-test-mcp"
+    Write-Host "  --add-test-computer"
+    Write-Host "  --add-test-imagegen"
+    Write-Host "  --add-test-azurefunction"
+    Write-Host ""
+    Write-Host "Examples:"
+    Write-Host "  .\run-migration-docker-auth.ps1 --use-api --production-resource nextgen-eastus --production-subscription <subscription-id> --production-tenant <tenant-id> asst_abc123"
+    Write-Host "  .\run-migration-docker-auth.ps1 --project-endpoint https://your-project.services.ai.azure.com/api/projects/your-project --production-resource nextgen-eastus --production-subscription <subscription-id> --production-tenant <tenant-id> asst_abc123"
+}
+
 # Colors for output
 $Green = "`e[32m"
 $Blue = "`e[34m"
 $Yellow = "`e[33m"
 $Red = "`e[31m"
 $Reset = "`e[0m"
+
+if ($Arguments -contains "--help" -or $Arguments -contains "-h") {
+    Show-Usage
+    exit 0
+}
 
 Write-Host "${Blue}🐳 Running v1 to v2 assistant migration in DOCKER with automatic authentication${Reset}"
 Write-Host "======================================================================================"
@@ -173,7 +199,7 @@ if ($useConnectionString -and $sourceTenant) {
 # Handle production authentication (REQUIRED)
 $productionToken = $null
 Write-Host "${Blue}🏭 Production v2 API Configuration:${Reset}"
-Write-Host "${Blue}   � Resource: $productionResource${Reset}"
+Write-Host "${Blue}   Resource: $productionResource${Reset}"
 Write-Host "${Blue}   📋 Subscription: $productionSubscription${Reset}"
 Write-Host "${Blue}   🔐 Tenant: $productionTenant${Reset}"
 
@@ -267,7 +293,7 @@ try {
     for ($i = 0; $i -lt $Arguments.Length; $i++) {
         if ($Arguments[$i] -eq "--project-connection-string") {
             $needsBetaVersion = $true
-            Write-Host "${Blue}🔍 Detected project connection string usage - beta version required${Reset}"
+            Write-Host "${Blue}🔍 Detected project connection string usage - prerelease SDK support requested${Reset}"
             break
         }
     }
@@ -278,22 +304,22 @@ try {
     # Add environment variable to indicate if beta version is needed
     if ($needsBetaVersion) {
         $dockerEnvVars += "-e", "NEED_BETA_VERSION=true"
-        Write-Host "${Blue}🔧 Passing beta version requirement to container${Reset}"
+        Write-Host "${Blue}🔧 Passing prerelease SDK requirement to container${Reset}"
     }
     
     docker run --rm -it `
         @dockerEnvVars `
+        -e AGENTS_HOST="$env:AGENTS_HOST" `
+        -e AGENTS_SUBSCRIPTION="$env:AGENTS_SUBSCRIPTION" `
+        -e AGENTS_RESOURCE_GROUP="$env:AGENTS_RESOURCE_GROUP" `
+        -e AGENTS_WORKSPACE="$env:AGENTS_WORKSPACE" `
+        -e AGENTS_API_VERSION="$env:AGENTS_API_VERSION" `
         -e COSMOS_DB_CONNECTION_STRING="$env:COSMOS_DB_CONNECTION_STRING" `
         -e COSMOS_DB_DATABASE_NAME="$env:COSMOS_DB_DATABASE_NAME" `
         -e COSMOS_DB_CONTAINER_NAME="$env:COSMOS_DB_CONTAINER_NAME" `
-        -e ASSISTANT_API_BASE="$env:ASSISTANT_API_BASE" `
-        -e ASSISTANT_API_VERSION="$env:ASSISTANT_API_VERSION" `
-        -e ASSISTANT_API_KEY="$env:ASSISTANT_API_KEY" `
-        -e PROJECT_ENDPOINT_URL="$env:PROJECT_ENDPOINT_URL" `
-        -e PROJECT_CONNECTION_STRING="$env:PROJECT_CONNECTION_STRING" `
-        -e V2_API_BASE="$env:V2_API_BASE" `
-        -e V2_API_VERSION="$env:V2_API_VERSION" `
-        -e V2_API_KEY="$env:V2_API_KEY" `
+        -e COSMOS_CONNECTION_STRING="$env:COSMOS_CONNECTION_STRING" `
+        -e PRODUCTION_PROJECT_ENDPOINT="$env:PRODUCTION_PROJECT_ENDPOINT" `
+        -e PRODUCTION_PROJECT_NAME="$env:PRODUCTION_PROJECT_NAME" `
         -e AZURE_TENANT_ID="$env:AZURE_TENANT_ID" `
         -e AZURE_CLIENT_ID="$env:AZURE_CLIENT_ID" `
         -e AZURE_CLIENT_SECRET="$env:AZURE_CLIENT_SECRET" `

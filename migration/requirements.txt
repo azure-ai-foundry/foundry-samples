@@ -1,10 +1,5 @@
 # Core dependencies
-azure-cosmos==4.5.1
-azure-identity==1.15.0
-azure-ai-projects==1.0.0
-requests==2.31.0
-pandas==2.1.4
-urllib3==2.1.0
-
-# Optional dependencies for Azure Function tools
-azure-ai-agents
+azure-ai-projects>=2.0.0
+azure-cosmos>=4.5.1
+azure-identity>=1.17.0
+requests>=2.31.0

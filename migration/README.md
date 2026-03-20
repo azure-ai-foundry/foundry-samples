@@ -1,486 +1,212 @@
 # V1 to V2 Assistant Migration Tool
 
-A comprehensive tool for migrating OpenAI v1 assistants to Azure AI v2 agents with Docker containerization support, extensive test capabilities, and cross-platform compatibility.
+This tool migrates classic Assistants or classic Foundry agents into the current Foundry Agent Service model.
 
-## 🚀 Quick Start
+The rewritten migration flow follows the current guidance:
 
-### Prerequisites
+- Agent creation uses `project.agents.create_version(...)`
+- Agent definitions are explicit `PromptAgentDefinition` objects
+- Runtime validation uses `project.get_openai_client()` with conversations and responses
+- The tool does not create threads, runs, or legacy messages
 
-- **Docker Desktop** installed and running
-- **Azure CLI** installed on your host system
-- **Azure account** with appropriate permissions
-- **Python 3.11+** (if running locally without Docker)
+## What Changed
 
-### Authentication Setup
+The migration target is now the Foundry Agent Service runtime model:
 
-Choose your platform and run the authentication setup script:
+- v1 `assistant` becomes a versioned Foundry agent
+- v1 threads become conversations
+- v1 runs become responses
+- Agent creation and versioning stay on the project client
+- Runtime execution moves to the OpenAI client returned by the project client
 
-**Windows (PowerShell):**
+Historical state is not migrated. Old threads, runs, and messages remain out of scope by design.
+
+## Prerequisites
+
+- Docker Desktop installed and running if you use the container path
+- Azure CLI installed and authenticated with `az login`
+- Python 3.11+ if you run the script directly
+- `azure-ai-projects>=2.0.0`
+
+The container installs the stable 2.x SDK by default. If you use `--project-connection-string`, the wrapper can request a prerelease SDK build, but the tool also supports direct endpoint parsing when the helper API is unavailable.
+
+## Quick Start
+
+### Docker wrappers
+
+Windows PowerShell:
+
 ```powershell
-.\setup-azure-auth.bat
-```
-
-**Linux/macOS (Bash):**
-```bash
-./setup-azure-auth.sh
-```
-
-This script will:
-- ✅ Verify Docker is running
-- ✅ Check Azure CLI installation
-- ✅ Handle Azure authentication
-- ✅ Build the Docker image
-- ✅ Test authentication in container
-
-### Running Migrations
-
-After authentication setup, use the platform-specific runner:
-
-**Windows (PowerShell):**
-```powershell
-# Regular output
-.\run-migration.bat --help
-
-# Verbose output
-.\run-migration-verbose.bat --help
-
-# Docker-based with automatic authentication (recommended)
 .\run-migration-docker-auth.ps1 --help
 ```
 
-**Linux/macOS (Bash):**
+Linux or macOS:
+
 ```bash
-./run-migration.sh --help
+./run-migration-docker-auth.sh --help
 ```
 
-## 📋 Usage Examples
+### Direct Python execution
 
-### 1. Production Migration with Dual-Tenant Authentication (REQUIRED)
+```bash
+python v1_to_v2_migration.py --help
+```
 
-**All migrations require production parameters:**
+## Common Scenarios
+
+### Migrate from the legacy Assistants API
 
 ```powershell
-# Windows PowerShell - Migrate from v1 API to production v2 API
 .\run-migration-docker-auth.ps1 `
   --use-api `
   --source-tenant "72f988bf-86f1-41af-91ab-2d7cd011db47" `
   --production-resource "nextgen-eastus" `
-  --production-subscription "b1615458-c1ea-49bc-8526-cafc948d3c25" `
-  --production-tenant "33e577a9-b1b8-4126-87c0-673f197bf624" `
-  asst_abc123def456
+  --production-subscription "<subscription-id>" `
+  --production-tenant "<tenant-id>" `
+  asst_abc123
+```
 
-# Linux/macOS - Same command structure
+```bash
 ./run-migration-docker-auth.sh \
   --use-api \
   --source-tenant "72f988bf-86f1-41af-91ab-2d7cd011db47" \
   --production-resource "nextgen-eastus" \
-  --production-subscription "b1615458-c1ea-49bc-8526-cafc948d3c25" \
-  --production-tenant "33e577a9-b1b8-4126-87c0-673f197bf624" \
-  asst_abc123def456
+  --production-subscription "<subscription-id>" \
+  --production-tenant "<tenant-id>" \
+  asst_abc123
 ```
 
-**Required Parameters:**
-- `--production-resource`: Azure AI resource name (e.g., "nextgen-eastus")
-- `--production-subscription`: Subscription ID for production tenant
-- `--production-tenant`: Production tenant ID for writing agents
-- `--source-tenant`: Source tenant ID for reading assistants (optional, defaults to Microsoft tenant)
+### Migrate from a project endpoint
 
-### 2. Migrate Using Project Connection String (Beta)
 ```bash
-# Connection string format: region.api.azureml.ms;subscription-id;resource-group;project-name
 ./run-migration-docker-auth.sh \
-  --project-connection-string "eastus.api.azureml.ms;abc-123;my-rg;my-project" \
+  --project-endpoint "https://your-project.services.ai.azure.com/api/projects/your-project" \
   --production-resource "nextgen-eastus" \
-  --production-subscription "b1615458-c1ea-49bc-8526-cafc948d3c25" \
-  --production-tenant "33e577a9-b1b8-4126-87c0-673f197bf624" \
-  asst_abc123def456
-
-# Windows PowerShell
-.\run-migration-docker-auth.ps1 `
-  --project-connection-string "eastus.api.azureml.ms;abc-123;my-rg;my-project" `
-  --production-resource "nextgen-eastus" `
-  --production-subscription "b1615458-c1ea-49bc-8526-cafc948d3c25" `
-  --production-tenant "33e577a9-b1b8-4126-87c0-673f197bf624" `
-  asst_abc123def456
-```
-> **Note**: Connection string support requires `azure-ai-projects==1.0.0b10` (beta). The script automatically detects and installs the correct version. Production parameters are always required.
-
-### 3. Migrate from Project Endpoint to Production v2 API
-```bash
-# Using project endpoint (production parameters required)
-./run-migration-docker-auth.sh \
-  --project-endpoint "https://your-project.cognitiveservices.azure.com" \
-  --production-resource "nextgen-eastus" \
-  --production-subscription "b1615458-c1ea-49bc-8526-cafc948d3c25" \
-  --production-tenant "33e577a9-b1b8-4126-87c0-673f197bf624" \
-  assistant-id
+  --production-subscription "<subscription-id>" \
+  --production-tenant "<tenant-id>" \
+  asst_abc123
 ```
 
-### 4. Add Test Tools to Migration
-```bash
-# Add function calling test (production parameters required)
-./run-migration-docker-auth.sh \
-  --use-api \
-  --add-test-function \
-  --production-resource "nextgen-eastus" \
-  --production-subscription "b1615458-c1ea-49bc-8526-cafc948d3c25" \
-  --production-tenant "33e577a9-b1b8-4126-87c0-673f197bf624" \
-  assistant-id
+### Migrate from a project connection string
 
-# Add multiple test tools
+```bash
+./run-migration-docker-auth.sh \
+  --project-connection-string "eastus.api.azureml.ms;<subscription-id>;my-rg;my-project" \
+  --production-resource "nextgen-eastus" \
+  --production-subscription "<subscription-id>" \
+  --production-tenant "<tenant-id>" \
+  asst_abc123
+```
+
+### Inject test tools after migration
+
+```bash
 ./run-migration-docker-auth.sh \
   --use-api \
   --add-test-function \
   --add-test-mcp \
   --add-test-computer \
+  --add-test-imagegen \
   --production-resource "nextgen-eastus" \
-  --production-subscription "b1615458-c1ea-49bc-8526-cafc948d3c25" \
-  --production-tenant "33e577a9-b1b8-4126-87c0-673f197bf624" \
-  assistant-id
+  --production-subscription "<subscription-id>" \
+  --production-tenant "<tenant-id>" \
+  asst_abc123
 ```
 
-### 5. Environment Variables Support
-Create a `.env` file in the project directory:
-```env
-# Azure Project Configuration
-PROJECT_ENDPOINT_URL=https://your-project.cognitiveservices.azure.com
-PROJECT_CONNECTION_STRING=your-connection-string
-
-# Cosmos DB Configuration (optional)
-# Use either COSMOS_CONNECTION_STRING (recommended) or individual parameters
-COSMOS_CONNECTION_STRING=AccountEndpoint=https://...;AccountKey=...;
-# OR (legacy - still supported)
-COSMOS_DB_CONNECTION_STRING=your-cosmos-connection-string
-COSMOS_DB_DATABASE_NAME=your-database
-COSMOS_DB_CONTAINER_NAME=your-container
-
-# v1 API Configuration (optional)
-ASSISTANT_API_BASE=https://api.openai.com/v1
-ASSISTANT_API_KEY=your-openai-key
-ASSISTANT_API_VERSION=v1
-
-# v2 API Configuration (optional)
-V2_API_BASE=https://your-v2-api.cognitiveservices.azure.com
-V2_API_KEY=your-v2-key
-V2_API_VERSION=2024-05-01-preview
-
-# Azure Authentication (optional)
-AZURE_TENANT_ID=your-tenant-id
-AZURE_CLIENT_ID=your-client-id
-AZURE_CLIENT_SECRET=your-client-secret
-AZURE_SUBSCRIPTION_ID=your-subscription-id
-AZURE_RESOURCE_GROUP=your-resource-group
-AZURE_PROJECT_NAME=your-project-name
-```
-
-## 🛠️ Command Line Options
-
-### Input Methods (choose one)
-- `--use-api` - Read from v1 API (recommended)
-- `--project-endpoint URL` - Use Azure AI Project endpoint
-- `--project-connection-string STRING` - Use Azure AI Project connection string
-- `--cosmos` - Read from Cosmos DB (legacy)
-
-### Output Methods
-- Always uses **production v2 API** (requires production parameters)
-
-### Test Tool Options (optional, can use multiple)
-- `--add-test-tool function` - Add function calling test
-- `--add-test-tool mcp` - Add Model Context Protocol test
-- `--add-test-tool computer-use` - Add computer use test
-- `--add-test-tool image-gen` - Add image generation test
-- `--add-test-tool azure-function` - Add Azure Function test
-
-### Production Migration Options (REQUIRED for Docker Auth Scripts)
-- `--production-resource RESOURCE_NAME` - **REQUIRED** Production Azure AI resource name (e.g., "nextgen-eastus")
-- `--production-subscription SUBSCRIPTION_ID` - **REQUIRED** Production subscription ID
-- `--production-tenant TENANT_ID` - **REQUIRED** Production tenant for writing agents
-- `--source-tenant TENANT_ID` - *Optional* Source tenant for reading assistants (defaults to Microsoft tenant: 72f988bf-86f1-41af-91ab-2d7cd011db47)
-
-### Configuration Options
-- `--v1-api-version VERSION` - v1 API version (default: v1)
-- `--v2-api-version VERSION` - v2 API version (default: 2024-05-01-preview)
-- `--cosmos-database DATABASE` - Cosmos database name
-- `--cosmos-container CONTAINER` - Cosmos container name
-
-## � Unsupported Classic Assistant Features
-
-The migration tool will **continue migration** for classic assistants (v1) that use features not supported in new agents (v2), but will **skip the unsupported tools** and display warnings:
-
-### Connected Agent Tool
-```
-⚠️  WARNING: Your classic agent includes connected agents, which aren't supported in the new experience.
-ℹ️  These connected agents won't be carried over when you create the new agent.
-💡 To orchestrate multiple agents, use a workflow instead.
-📋 Unsupported tools that will be skipped: connected_agent
-```
-**What happens**: The connected_agent tool is skipped during migration. The new agent is created successfully without this tool.
-
-**Recommendation**: Use **new agent workflows** to connect multiple agents together.
-
-### Event Binding Tool
-```
-⚠️  WARNING: Your classic agent uses 'event_binding' which isn't supported in the new experience.
-ℹ️  This tool won't be carried over when you create the new agent.
-📋 Unsupported tools that will be skipped: event_binding
-```
-**What happens**: The event_binding tool is skipped during migration. The new agent is created successfully without this tool.
-
-**Recommendation**: This feature has no direct equivalent in new agents.
-
-### Output Binding Tool
-```
-⚠️  WARNING: Your classic agent uses 'output_binding' which isn't supported in the new experience.
-ℹ️  This tool won't be carried over when you create the new agent.
-💡 Consider using 'capture_structured_outputs' in your new agent instead.
-📋 Unsupported tools that will be skipped: output_binding
-```
-**What happens**: The output_binding tool is skipped during migration. The new agent is created successfully without this tool.
-
-**Recommendation**: Use **`capture_structured_outputs`** in new agents for structured output capture.
-
-> **Note**: Migration completes successfully even when unsupported tools are present. Only the unsupported tools are excluded from the new agent. All other tools and properties are migrated normally.
-
-## �🐳 Docker Architecture
-
-### Container Features
-- **Base Image**: Python 3.11-slim with Azure CLI
-- **Non-root User**: Runs as `migration` user for security
-- **Volume Mounts**: Azure CLI config directory for authentication
-- **Network**: Host networking for localhost API access
-- **Environment**: Comprehensive environment variable support
-
-### Dynamic Package Installation
-The container automatically installs the correct `azure-ai-projects` package version based on your usage:
-
-- **Standard version (1.0.0)**: Used for project endpoints and most scenarios
-- **Beta version (1.0.0b10)**: Automatically installed when using `--project-connection-string`
-  - Required for `from_connection_string()` method support
-  - Detection and installation happens at container startup
-  - No manual intervention needed
-
-The script detects connection string usage and sets the `NEED_BETA_VERSION` flag automatically.
-
-### Dual-Tenant Authentication (REQUIRED)
-The `run-migration-docker-auth.ps1` and `run-migration-docker-auth.sh` scripts require production parameters for all migrations:
-
-- **Production-First Architecture**: All migrations write to production v2 API (no localhost mode)
-- **Required Production Parameters**: Must specify production resource, subscription, and tenant
-- **Source Tenant Authentication**: Reads assistants from source tenant (defaults to Microsoft tenant)
-- **Production Tenant Authentication**: Writes agents to production tenant
-- **Automatic Token Management**: Generates and manages separate tokens for each tenant
-- **Seamless Tenant Switching**: Handles Azure CLI tenant switching automatically
-- **Token Isolation**: Source and production tokens are isolated for security
-- **Cross-Platform Support**: Both PowerShell (Windows) and Bash (Linux/macOS) versions
-
-### Security Considerations
-- Non-root container execution
-- Read-write Azure CLI directory for token management
-- Environment variable injection for sensitive data
-- Host network isolation when possible
-
-## 🧪 Test Tool Capabilities
-
-The migration tool can inject various test tools into migrated agents:
-
-### Function Calling Test
-```python
-def get_weather(location: str) -> str:
-    """Get current weather for a location."""
-    return f"Weather in {location}: 72°F, sunny"
-```
-
-### Model Context Protocol (MCP) Test
-```python
-def mcp_filesystem_tool(action: str, path: str) -> str:
-    """MCP filesystem operations."""
-    return f"MCP {action} operation on {path} completed"
-```
-
-### Computer Use Test
-```python
-def computer_screenshot() -> str:
-    """Take a screenshot of the current screen."""
-    return "Screenshot taken: desktop_1024x768.png"
-```
-
-### Image Generation Test
-```python
-def generate_image(prompt: str) -> str:
-    """Generate an image from a text prompt."""
-    return f"Generated image for: {prompt}"
-```
-
-### Azure Function Test
-```python
-def azure_function_call(function_name: str, data: dict) -> str:
-    """Call an Azure Function."""
-    return f"Azure Function {function_name} called with {data}"
-```
-
-## 🏗️ Architecture Details
-
-### Core Components
-
-1. **Migration Engine** (`v1_to_v2_migration.py`)
-   - Smart parameter extraction from endpoints
-   - Multi-input/output method support
-   - Comprehensive error handling
-   - Test tool injection capabilities
-
-2. **Docker Container** (`Dockerfile`)
-   - Multi-stage build process
-   - Azure CLI integration
-   - Proper user permissions
-   - Environment configuration
-
-3. **Platform Scripts**
-   - Windows: `setup-azure-auth.bat`, `run-migration.bat`, `run-migration-verbose.bat`
-   - Linux/macOS: `setup-azure-auth.sh`, `run-migration.sh`
-
-### Data Flow
-
-```
-Input Sources → Migration Engine → Output Destinations
-     ↓               ↓                    ↓
-- Cosmos DB    → Transform v1→v2 →   - Cosmos DB
-- v1 API       → Add test tools  →   - v2 API
-- Project EP   → Parameter extract
-- Connection   → Error handling
-```
-
-### Parameter Extraction
-
-The tool automatically extracts Azure AI project parameters from endpoints and connection strings:
-
-**From Project Endpoint:**
-```
-https://projectname-region.cognitiveservices.azure.com
-→ subscription_id, resource_group_name, project_name
-```
-
-**From Connection String:**
-```
-endpoint=https://...;subscriptionid=...;resourcegroupname=...;projectname=...
-→ Parsed individual components
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-1. **Docker Not Running**
-   ```
-   ❌ Docker is not running. Please start Docker and try again.
-   ```
-   **Solution**: Start Docker Desktop
-
-2. **Azure CLI Not Authenticated**
-   ```
-   ⚠️ Not authenticated to Azure CLI
-   ```
-   **Solution**: Run `az login` or use the setup script
-
-3. **Unsupported Tool Types**
-   ```
-   WARNING: Your classic agent includes connected agents...
-   ```
-   **Solution**: Migration will continue but unsupported tools will be skipped. See the "Unsupported Classic Assistant Features" section above for details and alternatives
-
-4. **Connection String Format**
-   ```
-   Failed to parse connection string
-   ```
-   **Solution**: Use format `region.api.azureml.ms;subscription-id;resource-group;project-name`
-
-5. **Dual-Tenant Authentication Issues**
-   ```
-   Token tenant does not match resource tenant
-   ```
-   **Solution**: Ensure correct source and production tenant IDs are specified
-
-6. **Agent Name Case Sensitivity**
-   ```
-   400 Bad Request on production endpoint
-   ```
-   **Solution**: Agent names are automatically converted to lowercase with proper formatting
-
-5. **Container Authentication Fails**
-   ```
-   Authentication test failed
-   ```
-   **Solution**: Ensure Azure CLI directory has proper permissions
-
-6. **Network Connection Issues**
-   ```
-   Connection refused to localhost
-   ```
-   **Solution**: Use `--network host` flag (included in scripts)
-
-### Debug Mode
-
-Use verbose scripts for detailed output:
-```powershell
-# Windows
-.\run-migration-verbose.bat --help
-
-# Linux/macOS
-./run-migration.sh --help  # Already verbose
-```
-
-### Manual Docker Commands
-
-If scripts fail, run manually:
-```bash
-# Build image
-docker build -t v1-to-v2-migration .
-
-# Run with debugging
-docker run --rm -it \
-    --network host \
-    -v ~/.azure:/home/migration/.azure \
-    v1-to-v2-migration \
-    /bin/bash
-```
-
-## 📚 API Compatibility
-
-### Supported Azure AI Project APIs
-- **2024-05-01-preview** (default)
-- **2024-02-15-preview**
-- **2023-12-01-preview**
-
-### Supported OpenAI v1 APIs
-- **OpenAI API v1**
-- **Azure OpenAI v1**
-- **Compatible third-party APIs**
-
-## 🤝 Contributing
-
-### Development Setup
-1. Clone repository
-2. Install dependencies: `pip install -r requirements.txt`
-3. Run tests: `python -m pytest`
-4. Build Docker: `docker build -t v1-to-v2-migration .`
-
-### Adding New Test Tools
-1. Add tool definition to `TEST_TOOLS` dictionary
-2. Update `inject_test_tools()` function
-3. Add command-line option handling
-4. Update documentation
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🆘 Support
-
-For issues and questions:
-1. Check troubleshooting section
-2. Run with verbose output
-3. Check Docker and Azure CLI status
-4. Verify authentication setup
-
----
-
-**Made with ❤️ for seamless AI agent migration**
+Injected test tools are appended after the original definition has been migrated, not during source parsing.
+
+## CLI Options
+
+Input sources:
+
+- `--use-api`
+- `--project-endpoint URL`
+- `--project-connection-string STRING`
+- Cosmos DB fallback via positional connection string or `COSMOS_CONNECTION_STRING`
+
+Migration target:
+
+- `--production-resource RESOURCE_OR_ENDPOINT`
+- `--production-subscription SUBSCRIPTION_ID`
+- `--production-tenant TENANT_ID`
+- `--source-tenant TENANT_ID`
+
+Optional test tools:
+
+- `--add-test-function`
+- `--add-test-mcp`
+- `--add-test-computer`
+- `--add-test-imagegen`
+- `--add-test-azurefunction`
+
+## Unsupported Classic Tools
+
+Migration continues when these classic tools are present, but they are skipped with explicit warnings:
+
+- `connected_agent`
+  Recommendation: use workflows or A2A for multi-agent orchestration.
+- `event_binding`
+  Recommendation: no direct equivalent in the current Agent Service.
+- `output_binding`
+  Recommendation: use `capture_structured_outputs` for structured output capture.
+
+The tool never drops those silently.
+
+## Runtime Validation
+
+After creating the new versioned agent, the tool performs a conversation-based smoke test:
+
+1. Creates a conversation.
+2. Sends a response request against the migrated agent.
+3. Adds a follow-up conversation item.
+4. Sends a second response request to confirm context retention.
+
+This keeps validation aligned with the current conversations and responses model.
+
+## Docker Behavior
+
+- Python 3.11 base image
+- Non-root execution
+- Azure CLI directory mounted into the container
+- Host networking enabled for local resource access
+- Stable `azure-ai-projects` 2.x by default
+- Optional prerelease SDK upgrade for connection-string scenarios
+
+## Environment Variables
+
+- `COSMOS_CONNECTION_STRING` or `COSMOS_DB_CONNECTION_STRING`
+- `AGENTS_HOST`
+- `AGENTS_SUBSCRIPTION`
+- `AGENTS_RESOURCE_GROUP`
+- `AGENTS_WORKSPACE`
+- `AGENTS_API_VERSION`
+- `AZ_TOKEN`
+- `PRODUCTION_TOKEN`
+- `PRODUCTION_PROJECT_ENDPOINT`
+- `PRODUCTION_PROJECT_NAME`
+
+`PRODUCTION_PROJECT_ENDPOINT` overrides the default endpoint construction if your Foundry project URL does not follow the default naming pattern.
+
+## Contributor Notes
+
+### v1 to v2 Mapping
+
+- Assistant definition fields map into `PromptAgentDefinition`
+- Names are normalized to lowercase kebab-case for versioned agent creation
+- Versions are created by the Agent Service through `create_version`
+- Source reading can still come from API, project endpoint, project connection string, or Cosmos DB
+- Output is always the Foundry Agent Service
+
+### Review Checklist
+
+- No legacy threads, runs, or messages APIs in new execution paths
+- `create_version` remains the only agent creation path
+- Runtime validation remains conversation plus responses based
+- Unsupported tools continue to log actionable warnings
+- Test tool injection stays post-migration
+
+## References
+
+- Official migration guidance: https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/migrate
+- Container notes: see `README-Docker.md`
+- Change history: see `CHANGELOG.md`
