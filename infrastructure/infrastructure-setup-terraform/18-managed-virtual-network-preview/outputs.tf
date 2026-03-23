@@ -138,18 +138,18 @@ output "ai_foundry_custom_subdomain" {
 output "private_dns_zone_ids" {
   description = "Map of private DNS zone IDs"
   value = var.enable_dns ? {
-    cognitive_services    = azurerm_private_dns_zone.cognitive_services[0].id
-    storage_blob          = azurerm_private_dns_zone.storage_blob[0].id
-    storage_file          = azurerm_private_dns_zone.storage_file[0].id
-    storage_table         = azurerm_private_dns_zone.storage_table[0].id
-    storage_queue         = azurerm_private_dns_zone.storage_queue[0].id
-    key_vault             = azurerm_private_dns_zone.key_vault[0].id
-    container_registry    = azurerm_private_dns_zone.container_registry[0].id
-    openai                = azurerm_private_dns_zone.openai[0].id
-    aifoundry_api         = azurerm_private_dns_zone.aifoundry_api[0].id
-    aifoundry_notebooks   = azurerm_private_dns_zone.aifoundry_notebooks[0].id
-    aifoundry_services    = azurerm_private_dns_zone.aifoundry_services[0].id
-    cosmos                = azurerm_private_dns_zone.cosmos[0].id
-    aisearch              = azurerm_private_dns_zone.aisearch[0].id
+    cognitive_services  = azurerm_private_dns_zone.cognitive_services[0].id
+    storage_blob        = azurerm_private_dns_zone.storage_blob[0].id
+    storage_file        = azurerm_private_dns_zone.storage_file[0].id
+    storage_table       = azurerm_private_dns_zone.storage_table[0].id
+    storage_queue       = azurerm_private_dns_zone.storage_queue[0].id
+    key_vault           = azurerm_private_dns_zone.key_vault[0].id
+    container_registry  = azurerm_private_dns_zone.container_registry[0].id
+    openai              = azurerm_private_dns_zone.openai[0].id
+    aifoundry_api       = azurerm_private_dns_zone.aifoundry_api[0].id
+    aifoundry_notebooks = azurerm_private_dns_zone.aifoundry_notebooks[0].id
+    aifoundry_services  = azurerm_private_dns_zone.aifoundry_services[0].id
+    cosmos              = azurerm_private_dns_zone.cosmos[0].id
+    aisearch            = azurerm_private_dns_zone.aisearch[0].id
   } : {}
 }

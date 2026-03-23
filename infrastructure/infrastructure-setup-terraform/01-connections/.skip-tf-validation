@@ -1,0 +1,4 @@
+# This directory contains standalone Terraform snippet files, not a complete module.
+# Each .tf file declares its own terraform{} and provider blocks and is meant to be
+# copied into an existing Terraform configuration, not run directly.
+# Skipped by infrastructure/infrastructure-setup-terraform/scripts/validate.sh.
