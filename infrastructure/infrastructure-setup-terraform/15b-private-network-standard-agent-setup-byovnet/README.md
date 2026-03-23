@@ -17,7 +17,7 @@ languages:
 > 
 > Private Class A subnet support is GA and available in the following regions. **Supported regions: Australia East, Brazil South, Canada East, East US, East US 2, France Central, Germany West Central, Italy North, Japan East, South Africa North, South Central US, South India, Spain Central, Sweden Central, UAE North, UK South, West Europe, West US, West US 3.**
 >
-> Private Class B and C subnet support is already GA and available in all regions supported by Azure AI Foundry Agent Service. Deployment templates and setup steps are identical for Class A, B, and C subnets. For more on the supported regions of the Azure AI Foundry Agent service, see [Models supported by Azure AI Foundry Agent Service](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/concepts/model-region-support?tabs=global-standard)
+> Private Class B and C subnet support is already GA and available in all regions supported by Microsoft Foundry Agent Service. Deployment templates and setup steps are identical for Class A, B, and C subnets. For more on the supported regions of the Microsoft Foundry Agent service, see [Models supported by Microsoft Foundry Agent Service](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/concepts/model-region-support?tabs=global-standard)
 
 ## Key Information
 
@@ -88,7 +88,7 @@ Note: The following resources will be created automatically for you:
 - Azure Cosmos DB for NoSQL  
 - Azure AI Search
 - Azure Storage
-- AI Foundry resource
+- Microsoft Foundry resource
 - Private Endpoints for resources above
 
 ### Variables
@@ -155,12 +155,12 @@ The architecture this deployment supports is pictured below with the resources d
    - Create new Azure Storage resource
    - Create new Azure AI Search resource
 
-2. Create Azure AI Foundry Resource (Cognitive Services/accounts, kind=AIServices)
+2. Create Microsoft Foundry Resource (Cognitive Services/accounts, kind=AIServices)
 
 3. Create account-level connections:
    - Deploy GPT-4o or other agent-compatible model
 
-4. Create private endpoints with DNS resolution for the Azure Resources: Azure Cosmos DB Account, Azure Storage Storage, Azure AI Search, and Azure AI Foundry
+4. Create private endpoints with DNS resolution for the Azure Resources: Azure Cosmos DB Account, Azure Storage Storage, Azure AI Search, and Microsoft Foundry
 
 5. Create Project (Cognitive Services/accounts/project)
 
@@ -188,7 +188,7 @@ The architecture this deployment supports is pictured below with the resources d
 The deployment creates an isolated network environment:
 
 - **Private Endpoints:**
-  - AI Foundry
+  - Microsoft Foundry
   - AI Search
   - CosmosDB
   - Storage
@@ -199,7 +199,7 @@ The deployment creates an isolated network environment:
 
 ### Core Components
 
-1. **AI Foundry Resource**
+1. **Microsoft Foundry Resource**
    - Central orchestration point
    - Manages service connections
    - Network-isolated capability hosts
@@ -286,8 +286,8 @@ code/
 
 ## References
 
-- [Azure AI Foundry Networking Documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/configure-private-link?tabs=azure-portal&pivots=fdp-project)
-- [Azure AI Foundry RBAC Documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/rbac-azure-ai-foundry?pivots=fdp-project)
+- [Microsoft Foundry Networking Documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/configure-private-link?tabs=azure-portal&pivots=fdp-project)
+- [Microsoft Foundry RBAC Documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/rbac-azure-ai-foundry?pivots=fdp-project)
 - [Private Endpoint Documentation](https://learn.microsoft.com/en-us/azure/private-link/)
 - [RBAC Documentation](https://learn.microsoft.com/en-us/azure/role-based-access-control/)
 - [Network Security Best Practices](https://learn.microsoft.com/en-us/azure/security/fundamentals/network-best-practices)

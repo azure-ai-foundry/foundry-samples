@@ -1,5 +1,5 @@
 ---
-description: This set of templates demonstrates how to set up Azure AI Foundry in the basic configuration with public network setup and Microsoft-managed storage resources using AzureRM provider.
+description: This set of templates demonstrates how to set up Microsoft Foundry in the basic configuration with public network setup and Microsoft-managed storage resources using AzureRM provider.
 page_type: sample
 products:
 - azure
@@ -9,11 +9,11 @@ languages:
 - hcl
 ---
 
-# Azure AI Foundry: Basic setup with public networking (AzureRM)
+# Microsoft Foundry: Basic setup with public networking (AzureRM)
  
 ## Key Information
   
-This infrastructure-as-code (IaC) solution deploys Azure AI Foundry with public networking and uses Microsoft-managed storage for file upload experience. It supports getting started scenarios, for typically non-enterprise scenarios. This variant shows AzureRM Terraform provider.
+This infrastructure-as-code (IaC) solution deploys Microsoft Foundry with public networking and uses Microsoft-managed storage for file upload experience. It supports getting started scenarios, for typically non-enterprise scenarios. This variant shows AzureRM Terraform provider.
 
 ## Prerequisites
 
@@ -99,5 +99,5 @@ code/
 
 ## References
 
-- [Learn more about Azure AI Foundry architecture](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/architecture)
-- [Azure AI Foundry reference docs for Terraform](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/create-resource-terraform)
+- [Learn more about Microsoft Foundry architecture](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/architecture)
+- [Microsoft Foundry reference docs for Terraform](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/create-resource-terraform)
