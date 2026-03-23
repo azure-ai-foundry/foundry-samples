@@ -115,7 +115,7 @@ az deployment group create \
   --template-file main.bicep \
   --parameters \
     location=eastus \
-    aiServices=foundy \
+    aiServices=foundry \
     gsaProxySshPublicKey="$(cat ~/.ssh/gsa-proxy-key.pub)"
 ```
 
@@ -148,7 +148,7 @@ az deployment group create \
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `location` | string | `eastus` | Azure region |
-| `aiServices` | string | `foundy` | AI Services resource name (max 9 chars) |
+| `aiServices` | string | `foundry` | AI Services resource name (max 9 chars) |
 | `firstProjectName` | string | `project` | Project resource name |
 | `vnetName` | string | `agent-vnet` | Virtual network name |
 | `vnetAddressPrefix` | string | `10.0.0.0/16` | VNet CIDR |

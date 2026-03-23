@@ -37,7 +37,7 @@ param location string = 'eastus'
 // ---- AI Services parameters ----
 @maxLength(9)
 @description('Name for your AI Services resource.')
-param aiServices string = 'foundy'
+param aiServices string = 'foundry'
 
 @description('The name of the model you want to deploy')
 param modelName string = 'gpt-4.1'
@@ -59,8 +59,6 @@ param projectDescription string = 'AI Foundry Agent project with BYO VNet and GS
 param displayName string = 'BYO VNet GSA Proxy Agent Project'
 @description('The name of the project capability host')
 param projectCapHost string = 'caphostproj'
-@description('The name of the account capability host')
-param accountCapHost string = 'caphostacc'
 
 // ---- VNet parameters ----
 @description('Name of the virtual network')
@@ -288,7 +286,6 @@ module addProjectCapabilityHost 'modules/add-project-capability-host.bicep' = {
     azureStorageConnection: aiProject.outputs.azureStorageConnection
     aiSearchConnection: aiProject.outputs.aiSearchConnection
     projectCapHost: projectCapHost
-    accountCapHost: accountCapHost
   }
   dependsOn: [
     aiSearchRoleAssignments

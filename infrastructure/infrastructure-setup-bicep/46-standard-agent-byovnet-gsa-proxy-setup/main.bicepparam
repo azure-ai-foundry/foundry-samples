@@ -1,7 +1,7 @@
 using './main.bicep'
 
 param location = 'eastus'
-param aiServices = 'foundy'
+param aiServices = 'foundry'
 param firstProjectName = 'project'
 param projectDescription = 'AI Foundry Agent project with BYO VNet and GSA proxy'
 param displayName = 'BYO VNet GSA Proxy Agent Project'
