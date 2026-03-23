@@ -1,1 +1,1 @@
-location = "eastus"
+location = "eastus2"
