@@ -9,7 +9,7 @@ resource "azurerm_search_service" "main" {
   partition_count     = 1
 
   public_network_access_enabled = true
-  
+
   identity {
     type = "SystemAssigned"
   }

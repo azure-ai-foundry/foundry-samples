@@ -18,9 +18,9 @@ resource "azurerm_cosmosdb_account" "main" {
     failover_priority = 0
   }
 
-  public_network_access_enabled = false
+  public_network_access_enabled         = false
   network_acl_bypass_for_azure_services = false
-  local_authentication_disabled = true
+  local_authentication_disabled         = true
 
   tags = merge(
     var.tags,

@@ -1,0 +1,3 @@
+# This directory is owned by @azure-ai-foundry/ai-platform-docs (see CODEOWNERS).
+# Its .tf files use intentional non-standard HCL formatting that must not be changed.
+# Skipped by infrastructure/infrastructure-setup-terraform/scripts/validate.sh.

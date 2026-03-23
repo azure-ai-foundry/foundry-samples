@@ -13,7 +13,7 @@ resource "random_string" "unique" {
 ##
 resource "azapi_resource" "rg" {
   type      = "Microsoft.Resources/resourceGroups@2021-04-01"
-  name      = "rg-aifoundry-${random_string.unique.result}"
+  name      = "tf-319-basic"
   location  = var.location
 }
 
@@ -63,7 +63,7 @@ resource "azapi_resource" "aifoundry_deployment_gpt_4o" {
 
   body = {
     sku = {
-      name     = "GlobalStandard"
+      name     = "Standard"
       capacity = 1
     }
     properties = {

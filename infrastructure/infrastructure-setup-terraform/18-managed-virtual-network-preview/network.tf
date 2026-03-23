@@ -9,30 +9,30 @@ resource "azurerm_virtual_network" "main" {
 
 # Subnets
 resource "azurerm_subnet" "private_endpoints" {
-  count                             = var.enable_networking ? 1 : 0
-  name                              = var.private_endpoints_subnet_name
-  resource_group_name               = azurerm_resource_group.main.name
-  virtual_network_name              = azurerm_virtual_network.main[0].name
-  address_prefixes                  = [var.private_endpoints_subnet_prefix]
-  default_outbound_access_enabled   = true
+  count                           = var.enable_networking ? 1 : 0
+  name                            = var.private_endpoints_subnet_name
+  resource_group_name             = azurerm_resource_group.main.name
+  virtual_network_name            = azurerm_virtual_network.main[0].name
+  address_prefixes                = [var.private_endpoints_subnet_prefix]
+  default_outbound_access_enabled = true
 }
 
 resource "azurerm_subnet" "vms" {
-  count                             = var.enable_vm ? 1 : 0
-  name                              = var.vm_subnet_name
-  resource_group_name               = azurerm_resource_group.main.name
-  virtual_network_name              = azurerm_virtual_network.main[0].name
-  address_prefixes                  = [var.vm_subnet_prefix]
-  default_outbound_access_enabled   = true
+  count                           = var.enable_vm ? 1 : 0
+  name                            = var.vm_subnet_name
+  resource_group_name             = azurerm_resource_group.main.name
+  virtual_network_name            = azurerm_virtual_network.main[0].name
+  address_prefixes                = [var.vm_subnet_prefix]
+  default_outbound_access_enabled = true
 }
 
 resource "azurerm_subnet" "bastion" {
-  count                             = var.enable_vm ? 1 : 0
-  name                              = "AzureBastionSubnet"
-  resource_group_name               = azurerm_resource_group.main.name
-  virtual_network_name              = azurerm_virtual_network.main[0].name
-  address_prefixes                  = [var.bastion_subnet_prefix]
-  default_outbound_access_enabled   = true
+  count                           = var.enable_vm ? 1 : 0
+  name                            = "AzureBastionSubnet"
+  resource_group_name             = azurerm_resource_group.main.name
+  virtual_network_name            = azurerm_virtual_network.main[0].name
+  address_prefixes                = [var.bastion_subnet_prefix]
+  default_outbound_access_enabled = true
 }
 
 # Bastion Public IP
