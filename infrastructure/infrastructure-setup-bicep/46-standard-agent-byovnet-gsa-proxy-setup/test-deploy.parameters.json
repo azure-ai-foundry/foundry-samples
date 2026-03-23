@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "value": "southcentralus" },
+    "aiServices": { "value": "foundy" },
+    "cosmosDBZoneRedundant": { "value": false },
+    "gsaProxySshPublicKey": { "value": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCb0hCfUaYIgrAo5ASOI1hWxNnW1lXpF6EaklfjtkXxKQ42KN+ezp35bEMteqeblIIsPr7xWbDSHr7qg7j7id4eZGWWdMZUmONn+jYL5UIyVyzxPAvS1WzOI4IvCXFcrSALQqLBe4kgTuAmpibrI0ofN+9YiRG6BpW/aevNNEvDBS0MBhAZRm7bQKrad76YgK3ps/QWIZaqyhHdvdLAhVgKRfF7aU719yHp7RTHfjzrKdsUnfTinMCpJr/PLktPPTvW2NHX71ztIYUVZVkuCw9w8kgD5TMoTgtIPqGPP3s/W+Sopv9WPPHigZY1n0VLhEqWAmQcxgILMxbTJi6LDlb2816eCu38iKPogpjGV/kBbqhO8sIJf7WI8bXMKY+hPGKROqMOZ95ReXb4P1bqt6RAryfyGLJ5F7r+1gJVlmeicI8KVUPr3BWPZyyFy/ScHWI1Bg/x5h+b8bf4ZEtI0gKGu+aS4q6GUwwQz0ESOppxT4yp1J1PSLMefAbezlxxS9UYIN2M1mKCWsamDz5Da1p+XPPgRzEMnSP+OjNP8BxGtq0MFMqI8vEdRcKNG1S4a3BIeTYUlAef0LTxH70yBJFUmNRelFM/QL++RgWqsRMnQOAxSurIV0H5Ep0MZuE+9WvnIpdM/YPPvjNSAbVAYJxFEk05RFfDRkUIQ2ycHXtggQ== redmond\\shdharma@DESKTOP-U0KS807" }
+  }
+}
