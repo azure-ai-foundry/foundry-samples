@@ -39,3 +39,5 @@
 /samples/typescript/quickstart/chat-with-agent/src/quickstart-chat-with-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/create-agent/src/quickstart-create-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/responses/src/quickstart-responses.ts @microsoft-foundry/AI-Platform-Docs
+samples/python/hosted-agents/agent-framework/azure-ai-agents-in-workflow @microsoft-foundry/foundry-vscode-extension
+samples/csharp/hosted-agents/AgentFramework/AzureAIAgentsInWorkflow @microsoft-foundry/foundry-vscode-extension
