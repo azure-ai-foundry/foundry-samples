@@ -1,26 +1,26 @@
-# LangGraph Toolset Sample
+# LangGraph Toolbox Sample
 
-This sample demonstrates a hosted LangGraph agent prewired for Azure AI Foundry Toolset MCP integration.
+This sample demonstrates a hosted LangGraph agent prewired for Azure AI Foundry toolbox MCP integration.
 
 ## Overview
 
-Deploy a LangGraph agent that automatically loads tools from Azure AI Foundry Toolsets via MCP protocol. Supports:
+Deploy a LangGraph agent that automatically loads tools from Azure AI Foundry toolboxes via MCP protocol. Supports:
 
 - **No-auth MCP servers** (public endpoints)
 - **Key-auth MCP servers** (GitHub PAT, etc.)
 - **OAuth MCP servers** (consent-required flows)
-- **Azure Foundry Toolsets** with project connections
-- **Fallback to MS Learn MCP** if no toolset configured
+- **Azure Foundry toolboxes** with project connections
+- **Fallback to MS Learn MCP** if no toolbox is configured
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `main.py` | LangGraph hosted agent runtime with Toolset MCP support |
+| `main.py` | LangGraph hosted agent runtime with toolbox MCP support |
 | `setup.py` | Agent name resolution, telemetry setup, logging |
 | `agent.yaml.template` | Hosted agent manifest with env variables |
-| `dot-env.template` | Environment template (project endpoint, model, toolset settings) |
-| `sample_toolsets_crud.py` | SDK samples for creating/managing toolsets |
+| `dot-env.template` | Environment template (project endpoint, model, toolbox settings) |
+| `sample_toolboxes_crud.py` | SDK samples for creating and managing toolbox resources |
 | `requirements.txt` | Python dependencies |
 | `Dockerfile` | Container build with CA cert setup |
 | `.dockerignore` | Docker build exclusions |
@@ -33,21 +33,21 @@ Deploy a LangGraph agent that automatically loads tools from Azure AI Foundry To
 export AZURE_AI_PROJECT_ENDPOINT=https://<region>.api.azureml.ms/<project-id>
 ```
 
-### 2. Create a toolset (optional)
+### 2. Create a toolbox (optional)
 
-Use `sample_toolsets_crud.py` to create a toolset with tools:
+Use `sample_toolboxes_crud.py` to create a toolbox with tools:
 
 ```bash
-python sample_toolsets_crud.py mcp-noauth
+python sample_toolboxes_crud.py mcp-noauth
 ```
 
-Or use the Azure AI Foundry portal to create custom toolsets.
+Or use the Azure AI Foundry portal to create a custom toolbox.
 
 ### 3. Configure environment
 
 Edit `.env` with one of:
 
-- **Option A: Explicit toolset endpoint**
+- **Option A: Explicit toolbox endpoint**
   ```
   AZURE_AI_TOOLSET_ENDPOINT=https://<endpoint>/toolsets/<name>/mcp?api-version=v1
   ```
@@ -69,7 +69,7 @@ python main.py
 The agent:
 1. Reads `AZURE_AI_PROJECT_ENDPOINT` and `MODEL_DEPLOYMENT_NAME`
 2. Authenticates to Azure via `DefaultAzureCredential`
-3. Connects to toolset MCP endpoint (if configured)
+3. Connects to the toolbox MCP endpoint (if configured)
 4. Loads tools and builds a LangGraph ReAct agent
 5. Listens for hosted agent requests
 
@@ -85,7 +85,7 @@ Deployment:
 3. Registers with Azure AI Foundry
 4. Returns invoke URL for remote calls
 
-## Toolset Endpoints
+## Toolbox Endpoints
 
 ### Resolution order (checked in main.py)
 
@@ -93,28 +93,28 @@ Deployment:
 2. **Profile**: `AZURE_AI_TOOLSET_PROFILE=noauth|keyauth` (uses preset endpoints)
 3. **Fallback**: MS Learn MCP (`https://learn.microsoft.com/api/mcp`)
 
-### Toolset MCP authentication
+### Toolbox MCP authentication
 
 - **No-auth**: public servers (no connection needed)
 - **Key-auth**: stored in a project connection (PAT, API keys)
 - **OAuth**: stored in an oauth-type connection (requires consent URL)
 
-## Sample Toolset Operations
+## Sample Toolbox Operations
 
-`sample_toolsets_crud.py` demonstrates:
+`sample_toolboxes_crud.py` demonstrates:
 
 ```bash
-# Create a no-auth MCP toolset
-python sample_toolsets_crud.py mcp-noauth
+# Create a no-auth MCP toolbox
+python sample_toolboxes_crud.py mcp-noauth
 
-# Create a GitHub-auth MCP toolset
-python sample_toolsets_crud.py mcp-keyauth
+# Create a GitHub-auth MCP toolbox
+python sample_toolboxes_crud.py mcp-keyauth
 
-# List all toolsets
-python sample_toolsets_crud.py list
+# List all toolbox resources
+python sample_toolboxes_crud.py list
 
-# Create OpenAPI toolset with project connection
-python sample_toolsets_crud.py openapi-conn
+# Create an OpenAPI toolbox with a project connection
+python sample_toolboxes_crud.py openapi-conn
 ```
 
 See docstrings in the file for full parameter requirements.
@@ -126,9 +126,11 @@ See docstrings in the file for full parameter requirements.
 | `AZURE_AI_PROJECT_ENDPOINT` | Foundry project endpoint | `https://<region>.api.azureml.ms/...` |
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint for inference | `https://<region>.openai.azure.com` |
 | `MODEL_DEPLOYMENT_NAME` | Model deployment in Azure OpenAI | `gpt-4o` |
-| `AZURE_AI_TOOLSET_ENDPOINT` | Explicit toolset MCP endpoint | `https://.../toolsets/<name>/mcp?...` |
+| `AZURE_AI_TOOLSET_ENDPOINT` | Explicit toolbox MCP endpoint | `https://.../toolsets/<name>/mcp?...` |
 | `AZURE_AI_TOOLSET_PROFILE` | Preset profile | `noauth` or `keyauth` |
-| `FOUNDRY_PROJECT_ENDPOINT` | For sample_toolsets_crud.py | Same as PROJECT_ENDPOINT |
+| `FOUNDRY_PROJECT_ENDPOINT` | For sample_toolboxes_crud.py | Same as PROJECT_ENDPOINT |
+
+Azure still exposes these settings through `toolset` API names, so the environment variables keep their original `AZURE_AI_TOOLSET_*` form.
 
 ## Hosting & Invocation
 
@@ -150,7 +152,7 @@ foundry-agent invoke --remote --name my-agent "Use a tool to..."
 
 ### Tools not appearing in agent response
 
-1. Check if toolset endpoint is reachable:
+1. Check if the toolbox endpoint is reachable:
    ```bash
    curl -X POST $AZURE_AI_TOOLSET_ENDPOINT \
      -H "Authorization: Bearer $(az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv)" \

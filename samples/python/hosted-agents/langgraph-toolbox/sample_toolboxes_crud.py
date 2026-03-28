@@ -1,5 +1,5 @@
 """
-Comprehensive SDK samples for Azure AI Foundry Toolsets CRUD operations.
+Comprehensive SDK samples for Azure AI Foundry toolbox CRUD operations.
 
 All tool types demonstrated with correct azure-ai-projects SDK models:
   - MCPTool (no-auth, key-auth via project_connection_id, OAuth via project_connection_id)
@@ -8,7 +8,7 @@ All tool types demonstrated with correct azure-ai-projects SDK models:
   - FileSearchTool
   - AzureAISearchTool (with AzureAISearchToolResource + AzureAISearchIndex)
   - CodeInterpreterTool
-  - Multi-tool (combining multiple tools in one toolset)
+    - Multi-tool (combining multiple tools in one toolbox)
 
 Prerequisites:
   pip install azure-ai-projects azure-identity python-dotenv
@@ -58,8 +58,8 @@ client = AIProjectClient(endpoint=ENDPOINT, credential=credential)
 # 1. MCP — No Auth (public server, e.g. gitmcp.io)
 # ---------------------------------------------------------------------------
 def sample_mcp_no_auth():
-    """Create a toolset with a public MCP server (no auth required)."""
-    toolset = client.beta.toolsets.create(
+    """Create a toolbox backed by a public MCP server (no auth required)."""
+    toolbox = client.beta.toolsets.create(
         name="mcp-noauth-sample",
         tools=[
             MCPTool(
@@ -68,20 +68,20 @@ def sample_mcp_no_auth():
             )
         ],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
 # 2. MCP — Key Auth (e.g. GitHub MCP with PAT stored in a project connection)
 # ---------------------------------------------------------------------------
 def sample_mcp_key_auth():
-    """Create a toolset with an MCP server that requires key-based auth.
+    """Create a toolbox with an MCP server that requires key-based auth.
 
     Auth is specified via project_connection_id directly on MCPTool —
     there is no separate auth wrapper object.
     """
-    toolset = client.beta.toolsets.create(
+    toolbox = client.beta.toolsets.create(
         name="mcp-keyauth-sample",
         tools=[
             MCPTool(
@@ -91,21 +91,21 @@ def sample_mcp_key_auth():
             )
         ],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
 # 3. MCP — OAuth (e.g. GitHub MCP with OAuth connection)
 # ---------------------------------------------------------------------------
 def sample_mcp_oauth():
-    """Create a toolset with an MCP server using OAuth connection.
+    """Create a toolbox with an MCP server using OAuth connection.
 
     Uses project_connection_id pointing to an OAuth-type connection.
     At runtime, tools/call may return CONSENT_REQUIRED with a consent
     URL that the user must visit to authorize.
     """
-    toolset = client.beta.toolsets.create(
+    toolbox = client.beta.toolsets.create(
         name="mcp-oauth-sample",
         tools=[
             MCPTool(
@@ -115,16 +115,16 @@ def sample_mcp_oauth():
             )
         ],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
 # 4. MCP — With allowed_tools filter and custom headers
 # ---------------------------------------------------------------------------
 def sample_mcp_filtered():
-    """Create a toolset with filtered tools and custom headers."""
-    toolset = client.beta.toolsets.create(
+    """Create a toolbox with filtered tools and custom headers."""
+    toolbox = client.beta.toolsets.create(
         name="mcp-filtered-sample",
         tools=[
             MCPTool(
@@ -136,15 +136,15 @@ def sample_mcp_filtered():
             )
         ],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
 # 5. OpenAPI — No Auth (anonymous)
 # ---------------------------------------------------------------------------
 def sample_openapi_no_auth():
-    """Create a toolset with a public OpenAPI spec (anonymous auth)."""
+    """Create a toolbox with a public OpenAPI spec (anonymous auth)."""
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "JSON Placeholder", "version": "1.0"},
@@ -167,7 +167,7 @@ def sample_openapi_no_auth():
             }
         },
     }
-    toolset = client.beta.toolsets.create(
+    toolbox = client.beta.toolsets.create(
         name="openapi-noauth-sample",
         tools=[
             OpenApiTool(
@@ -179,15 +179,15 @@ def sample_openapi_no_auth():
             )
         ],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
 # 6. OpenAPI — With Project Connection Auth
 # ---------------------------------------------------------------------------
 def sample_openapi_with_connection():
-    """Create a toolset with an OpenAPI spec that requires API key auth.
+    """Create a toolbox with an OpenAPI spec that requires API key auth.
 
     Uses OpenApiProjectConnectionAuthDetails with a security_scheme
     (OpenApiProjectConnectionSecurityScheme) that contains the
@@ -230,7 +230,7 @@ def sample_openapi_with_connection():
             }
         },
     }
-    toolset = client.beta.toolsets.create(
+    toolbox = client.beta.toolsets.create(
         name="openapi-tripadvisor-sample",
         tools=[
             OpenApiTool(
@@ -246,16 +246,16 @@ def sample_openapi_with_connection():
             )
         ],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
 # 7. A2A — Agent-to-Agent
 # ---------------------------------------------------------------------------
 def sample_a2a():
-    """Create a toolset with an agent-to-agent tool."""
-    toolset = client.beta.toolsets.create(
+    """Create a toolbox with an agent-to-agent tool."""
+    toolbox = client.beta.toolsets.create(
         name="a2a-sample",
         tools=[
             A2APreviewTool(
@@ -265,16 +265,16 @@ def sample_a2a():
             )
         ],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
 # 8. File Search
 # ---------------------------------------------------------------------------
 def sample_file_search():
-    """Create a toolset with vector file search capability."""
-    toolset = client.beta.toolsets.create(
+    """Create a toolbox with vector file search capability."""
+    toolbox = client.beta.toolsets.create(
         name="filesearch-sample",
         tools=[
             FileSearchTool(
@@ -282,20 +282,20 @@ def sample_file_search():
             )
         ],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
 # 9. Azure AI Search
 # ---------------------------------------------------------------------------
 def sample_azure_ai_search():
-    """Create a toolset with Azure AI Search index.
+    """Create a toolbox with Azure AI Search index.
 
     Uses AzureAISearchToolResource containing a list of AzureAISearchIndex
     objects, each specifying an index_name.
     """
-    toolset = client.beta.toolsets.create(
+    toolbox = client.beta.toolsets.create(
         name="aisearch-sample",
         tools=[
             AzureAISearchTool(
@@ -309,32 +309,32 @@ def sample_azure_ai_search():
             )
         ],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
 # 10. Code Interpreter
 # ---------------------------------------------------------------------------
 def sample_code_interpreter():
-    """Create a toolset with sandboxed code execution."""
-    toolset = client.beta.toolsets.create(
+    """Create a toolbox with sandboxed code execution."""
+    toolbox = client.beta.toolsets.create(
         name="codeinterp-sample",
         tools=[CodeInterpreterTool()],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
-# 11. Multi-Tool (combine multiple MCP servers in one toolset)
+# 11. Multi-Tool (combine multiple MCP servers in one toolbox)
 # ---------------------------------------------------------------------------
 def sample_multi_tool():
-    """Create a toolset with multiple tools.
+    """Create a toolbox with multiple tools.
 
     Each MCP tool MUST have a unique server_label.
     """
-    toolset = client.beta.toolsets.create(
+    toolbox = client.beta.toolsets.create(
         name="multi-tool-sample",
         tools=[
             MCPTool(
@@ -348,19 +348,19 @@ def sample_multi_tool():
             ),
         ],
     )
-    print(f"Created: {toolset.id}")
-    return toolset
+    print(f"Created: {toolbox.id}")
+    return toolbox
 
 
 # ---------------------------------------------------------------------------
-# 12. List all toolsets
+# 12. List all toolbox resources
 # ---------------------------------------------------------------------------
 def sample_list_all():
-    """List all toolsets in the project."""
-    toolsets = client.beta.toolsets.list()
-    for ts in toolsets:
+    """List all toolbox resources in the project."""
+    toolboxes = client.beta.toolsets.list()
+    for ts in toolboxes:
         print(f"  {ts.id}  {ts.name}")
-    return toolsets
+    return toolboxes
 
 
 # ---------------------------------------------------------------------------
@@ -389,7 +389,7 @@ if __name__ == "__main__":
 
     result = samples[sys.argv[1]]()
     if hasattr(result, "id"):
-        print(f"\nToolset ID: {result.id}")
+        print(f"\nToolbox ID: {result.id}")
         if input("Delete? [y/N] ").lower() == "y":
             client.beta.toolsets.delete(result.id)
             print("Deleted.")

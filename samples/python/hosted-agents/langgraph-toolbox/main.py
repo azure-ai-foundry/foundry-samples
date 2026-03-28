@@ -40,12 +40,12 @@ llm = AzureChatOpenAI(
     api_version=os.environ.get("OPENAI_API_VERSION", "2025-03-01-preview"),
 )
 
-# ── Toolset MCP helpers ────────────────────────────────────────────────────
+# ── Toolbox MCP helpers ────────────────────────────────────────────────────
 
-TOOLSET_ENDPOINT = os.getenv("AZURE_AI_TOOLSET_ENDPOINT")
+TOOLBOX_ENDPOINT = os.getenv("AZURE_AI_TOOLSET_ENDPOINT")
 
-def _get_toolset_token() -> str:
-    """Get bearer token for Toolset MCP endpoint."""
+def _get_toolbox_token() -> str:
+    """Get bearer token for the toolbox MCP endpoint."""
     try:
         credential = DefaultAzureCredential()
         token = credential.get_token("https://ai.azure.com/.default")
@@ -61,8 +61,8 @@ def _get_toolset_token() -> str:
             raise RuntimeError(f"Failed to get token: {result.stderr}")
         return result.stdout.strip()
 
-def _get_toolset_headers(token: str) -> dict:
-    """Get required headers for Toolset MCP calls."""
+def _get_toolbox_headers(token: str) -> dict:
+    """Get required headers for toolbox MCP calls."""
     return {
         "Authorization": f"Bearer {token}",
         "Foundry-Features": "Toolsets=V1Preview",
@@ -85,29 +85,29 @@ def create_agent(model, tools):
 async def quickstart():
     """Build and return a LangGraph agent wired to an MCP client.
 
-    Resolution order for toolset endpoint:
+    Resolution order for toolbox endpoint:
       1) AZURE_AI_TOOLSET_ENDPOINT (explicit)
       2) AZURE_AI_TOOLSET_PROFILE=noauth|keyauth
       3) fallback to Microsoft Learn MCP
     """
-    resolved_toolset_endpoint = TOOLSET_ENDPOINT
-    if not resolved_toolset_endpoint:
+    resolved_toolbox_endpoint = TOOLBOX_ENDPOINT
+    if not resolved_toolbox_endpoint:
         profile = os.getenv("AZURE_AI_TOOLSET_PROFILE", "").strip().lower()
         if profile == "noauth":
-            resolved_toolset_endpoint = os.getenv("AZURE_AI_TOOLSET_NOAUTH_ENDPOINT") or f"{PROJECT_ENDPOINT.rstrip('/')}/toolsets/gitmcp-noauth-test/mcp?api-version=v1"
+            resolved_toolbox_endpoint = os.getenv("AZURE_AI_TOOLSET_NOAUTH_ENDPOINT") or f"{PROJECT_ENDPOINT.rstrip('/')}/toolsets/gitmcp-noauth-test/mcp?api-version=v1"
         elif profile == "keyauth":
-            resolved_toolset_endpoint = os.getenv("AZURE_AI_TOOLSET_KEYAUTH_ENDPOINT") or f"{PROJECT_ENDPOINT.rstrip('/')}/toolsets/github-keyauth-test/mcp?api-version=v1"
+            resolved_toolbox_endpoint = os.getenv("AZURE_AI_TOOLSET_KEYAUTH_ENDPOINT") or f"{PROJECT_ENDPOINT.rstrip('/')}/toolsets/github-keyauth-test/mcp?api-version=v1"
 
-    if resolved_toolset_endpoint:
-        # Connect to Azure AI Foundry Toolset MCP endpoint
-        logger.info(f"Connecting to toolset: {resolved_toolset_endpoint}")
-        token = _get_toolset_token()
-        headers = _get_toolset_headers(token)
+    if resolved_toolbox_endpoint:
+        # Connect to the Azure AI Foundry toolbox MCP endpoint.
+        logger.info(f"Connecting to toolbox: {resolved_toolbox_endpoint}")
+        token = _get_toolbox_token()
+        headers = _get_toolbox_headers(token)
         
         client = MultiServerMCPClient(
             {
-                "toolset": {
-                    "url": resolved_toolset_endpoint,
+                "toolbox": {
+                    "url": resolved_toolbox_endpoint,
                     "transport": "streamable_http",
                     "headers": headers,
                 }

@@ -1,5 +1,5 @@
 name: {agent_name}
-description: LangGraph agent wired for Azure AI Foundry Toolset MCP.
+description: LangGraph agent wired for Azure AI Foundry toolbox MCP.
 metadata:
   tags:
     - AI Agent Hosting
