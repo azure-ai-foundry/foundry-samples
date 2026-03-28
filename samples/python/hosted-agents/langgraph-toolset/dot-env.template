@@ -1,0 +1,20 @@
+AZURE_AI_PROJECT_ENDPOINT={project_endpoint}
+AZURE_OPENAI_ENDPOINT=
+MODEL_DEPLOYMENT_NAME=gpt-4o
+ENABLE_APPLICATION_INSIGHTS_LOGGER=false
+
+# Toolset MCP endpoint used by main.py.
+# Set one explicit endpoint or use AZURE_AI_TOOLSET_PROFILE (noauth|keyauth).
+AZURE_AI_TOOLSET_ENDPOINT=
+AZURE_AI_TOOLSET_PROFILE=noauth
+AZURE_AI_TOOLSET_NOAUTH_ENDPOINT={project_endpoint}/toolsets/gitmcp-noauth-test/mcp?api-version=v1
+AZURE_AI_TOOLSET_KEYAUTH_ENDPOINT={project_endpoint}/toolsets/github-keyauth-test/mcp?api-version=v1
+
+# Variables used by sample_toolsets_crud.py
+FOUNDRY_PROJECT_ENDPOINT={project_endpoint}
+MCP_CONNECTION_ID=
+MCP_OAUTH_CONNECTION_ID=
+TRIPADVISOR_CONNECTION_ID=
+AI_SEARCH_INDEX_NAME=
+A2A_CONNECTION_ID=
+VECTOR_STORE_ID=
