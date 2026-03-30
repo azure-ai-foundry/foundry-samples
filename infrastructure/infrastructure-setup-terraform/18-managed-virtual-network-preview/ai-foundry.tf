@@ -148,6 +148,7 @@ resource "azapi_resource" "managed_network" {
       managedNetwork = {
         isolationMode      = "AllowInternetOutbound"
         managedNetworkKind = "V2"
+        provisionNetworkNow = true
       }
     }
   }
@@ -380,6 +381,10 @@ resource "azapi_resource" "conn_cosmosdb" {
       }
     }
   }
+
+  depends_on = [
+    azapi_resource.conn_aisearch
+  ]
 }
 
 # Connection: Storage Account
@@ -403,6 +408,10 @@ resource "azapi_resource" "conn_storage" {
       }
     }
   }
+
+  depends_on = [
+    azapi_resource.conn_cosmosdb
+  ]
 }
 
 # Local variable to format project workspace ID as GUID
