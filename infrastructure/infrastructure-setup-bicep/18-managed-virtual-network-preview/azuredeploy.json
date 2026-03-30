@@ -1274,7 +1274,8 @@
               "properties": {
                 "managedNetwork": {
                   "IsolationMode": "[parameters('isolationMode')]",
-                  "managedNetworkKind": "V2"
+                  "managedNetworkKind": "V2",
+                  "provisionNetworkNow": true
                 }
               }
             },

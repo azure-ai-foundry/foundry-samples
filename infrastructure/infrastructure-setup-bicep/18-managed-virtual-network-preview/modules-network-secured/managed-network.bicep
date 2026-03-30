@@ -49,6 +49,7 @@ resource managedNetwork 'Microsoft.CognitiveServices/accounts/managednetworks@20
     managedNetwork: {
       IsolationMode: isolationMode
       managedNetworkKind: 'V2'
+      provisionNetworkNow: true
       //firewallSku: 'Standard' // Uncomment to enable firewall only when in AllowOnlyApprovedOutbound mode
     }
   }
