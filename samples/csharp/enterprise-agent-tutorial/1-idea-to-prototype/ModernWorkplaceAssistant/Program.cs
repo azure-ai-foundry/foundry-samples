@@ -80,8 +80,8 @@ class Program
         {
             Console.WriteLine($"\n❌ Error: {ex.Message}");
             Console.WriteLine("Please check your .env configuration and ensure:");
-            Console.WriteLine("  - PROJECT_ENDPOINT is correct");
-            Console.WriteLine("  - MODEL_DEPLOYMENT_NAME is deployed");
+            Console.WriteLine("  - FOUNDRY_PROJECT_ENDPOINT is correct");
+            Console.WriteLine("  - FOUNDRY_MODEL_NAME is deployed");
             Console.WriteLine("  - Azure credentials are configured (az login)");
             throw;
         }
@@ -117,15 +117,15 @@ class Program
             Env.Load(".env");
         }
 
-        var projectEndpoint = Environment.GetEnvironmentVariable("PROJECT_ENDPOINT");
-        var modelDeploymentName = Environment.GetEnvironmentVariable("MODEL_DEPLOYMENT_NAME");
+        var projectEndpoint = Environment.GetEnvironmentVariable("FOUNDRY_PROJECT_ENDPOINT");
+        var modelDeploymentName = Environment.GetEnvironmentVariable("FOUNDRY_MODEL_NAME");
         var sharePointConnectionName = Environment.GetEnvironmentVariable("SHAREPOINT_CONNECTION_NAME");
         var mcpServerUrl = Environment.GetEnvironmentVariable("MCP_SERVER_URL");
 
         if (string.IsNullOrEmpty(projectEndpoint))
-            throw new InvalidOperationException("PROJECT_ENDPOINT environment variable not set");
+            throw new InvalidOperationException("FOUNDRY_PROJECT_ENDPOINT environment variable not set");
         if (string.IsNullOrEmpty(modelDeploymentName))
-            throw new InvalidOperationException("MODEL_DEPLOYMENT_NAME environment variable not set");
+            throw new InvalidOperationException("FOUNDRY_MODEL_NAME environment variable not set");
 
         Console.WriteLine("\n🤖 Creating Modern Workplace Assistant...");
 

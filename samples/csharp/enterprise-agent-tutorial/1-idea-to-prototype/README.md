@@ -76,8 +76,8 @@ This runs batch evaluation against 4 test questions and generates `evaluation_re
 
 The `.env` file in `shared/` requires:
 
-- `PROJECT_ENDPOINT`: Your Azure AI Foundry project endpoint
-- `MODEL_DEPLOYMENT_NAME`: Your deployed model name (e.g., `gpt-4o-mini`)
+- `FOUNDRY_PROJECT_ENDPOINT`: Your Azure AI Foundry project endpoint
+- `FOUNDRY_MODEL_NAME`: Your deployed model name (e.g., `gpt-4o-mini`)
 - `AI_FOUNDRY_TENANT_ID`: Your Azure AI Foundry tenant ID
 - `MCP_SERVER_URL`: Microsoft Learn MCP server URL
 - `SHAREPOINT_CONNECTION_ID`: Full ARM resource path to SharePoint connection
