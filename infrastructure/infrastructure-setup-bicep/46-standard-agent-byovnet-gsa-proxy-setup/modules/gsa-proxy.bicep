@@ -279,6 +279,13 @@ resource agentSubnetUdr 'Microsoft.Network/routeTables@2024-01-01' = {
           nextHopType: 'Internet'
         }
       }
+      {
+        name: 'AllowContainerAppsManagement'
+        properties: {
+          addressPrefix: 'ContainerAppsManagement'
+          nextHopType: 'Internet'
+        }
+      }
     ]
   }
 }
