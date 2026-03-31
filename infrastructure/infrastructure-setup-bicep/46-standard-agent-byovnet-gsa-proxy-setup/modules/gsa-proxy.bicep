@@ -272,6 +272,13 @@ resource agentSubnetUdr 'Microsoft.Network/routeTables@2024-01-01' = {
           nextHopType: 'Internet'
         }
       }
+      {
+        name: 'AllowAzureFrontDoorFirstParty'
+        properties: {
+          addressPrefix: 'AzureFrontDoor.FirstParty'
+          nextHopType: 'Internet'
+        }
+      }
     ]
   }
 }

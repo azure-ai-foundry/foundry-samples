@@ -73,6 +73,7 @@ The agent subnet has a route table that sends all default (`0.0.0.0/0`) traffic 
 | `AzureContainerRegistry` | Container image pulls |
 | `AzureKeyVault` | Key Vault access |
 | `Storage` | Azure Storage access |
+| `AzureFrontDoor.FirstParty` | Azure Front Door first-party services |
 
 ## Prerequisites
 
