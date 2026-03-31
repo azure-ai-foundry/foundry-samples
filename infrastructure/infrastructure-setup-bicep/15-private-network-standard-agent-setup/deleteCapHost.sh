@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Script to delete the capability host
+# Only run this script if you are sure you want to delete the capability host.
 
 # Prompt for required information
 read -p "Enter Subscription ID: " subscription_id
@@ -22,7 +23,7 @@ api_url="https://management.azure.com/subscriptions/${subscription_id}/resourceG
 
 echo "Deleting capability host: ${caphost_name}"
 echo "API URL: ${api_url}"
- 
+
 # Send DELETE request and capture headers
 echo "Sending DELETE request..."
 response_headers=$(mktemp)
@@ -32,7 +33,7 @@ curl -X DELETE \
      -D "${response_headers}" \
      -s \
      "${api_url}"
-     
+
 # Check if the curl command was successful
 if [ $? -ne 0 ]; then
     echo -e "\nError: Failed to send deletion request."
