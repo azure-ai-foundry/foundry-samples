@@ -15,10 +15,10 @@ AIProjectClient projectClient = new(
     tokenProvider: new DefaultAzureCredential());
 
 // Create a conversation for multi-turn chat
-ProjectConversation conversation = projectClient.OpenAI.Conversations.CreateProjectConversation();
+ProjectConversation conversation = projectClient.ProjectOpenAIClient.GetProjectConversationsClient().CreateProjectConversation();
 
 // Chat with the agent to answer questions
-ProjectResponsesClient responsesClient = projectClient.OpenAI.GetProjectResponsesClientForAgent(
+ProjectResponsesClient responsesClient = projectClient.ProjectOpenAIClient.GetProjectResponsesClientForAgent(
     defaultAgent: AgentName,
     defaultConversationId: conversation.Id);
 ResponseResult response = responsesClient.CreateResponse("What is the size of France in square miles?");
