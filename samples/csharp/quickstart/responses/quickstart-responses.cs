@@ -14,7 +14,7 @@ AIProjectClient projectClient = new(
     tokenProvider: new DefaultAzureCredential());
 
 // Run a responses API call
-ProjectResponsesClient responseClient = projectClient.OpenAI.GetProjectResponsesClientForModel("gpt-5-mini"); // supports all Foundry direct models
+ProjectResponsesClient responseClient = projectClient.ProjectOpenAIClient.GetProjectResponsesClientForModel("gpt-5-mini"); // supports all Foundry direct models
 ResponseResult response = await responseClient.CreateResponseAsync(
     "What is the size of France in square miles?");
 Console.WriteLine(response.GetOutputText());
