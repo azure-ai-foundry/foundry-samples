@@ -1,5 +1,6 @@
-import os, sys, time, json, argparse, subprocess, requests
+import os, sys, time, json, argparse, subprocess, requests, re
 from typing import List, Dict, Any, Optional
+from urllib.parse import urlparse
 from azure.cosmos import CosmosClient, exceptions
 from azure.ai.agents.models import AzureFunctionStorageQueue, AzureFunctionTool
 
@@ -30,6 +31,10 @@ RESOURCE_GROUP_V2 = os.getenv("AGENTS_RESOURCE_GROUP_V2") or "agents-e2e-tests-w
 WORKSPACE = os.getenv("AGENTS_WORKSPACE") or "basicaccountjqqa@e2e-tests@AML"
 WORKSPACE_V2 = os.getenv("AGENTS_WORKSPACE_V2") or "e2e-tests-westus2-account@e2e-tests-westus2@AML"
 API_VERSION = os.getenv("AGENTS_API_VERSION") or "2025-05-15-preview"
+# SOURCE_API_VERSION is used when reading from legacy openai.azure.com endpoints.
+# Legacy OpenAI-kind resources only support older API versions (e.g. 2024-05-01-preview),
+# not the newer 2025-xx-xx-preview Azure ML / AIServices versions.
+SOURCE_API_VERSION = os.getenv("SOURCE_API_VERSION") or None  # None = auto-detect per endpoint
 TOKEN = os.getenv("AZ_TOKEN")
 
 # Source Tenant Configuration (for reading v1 assistants from source tenant)
@@ -99,6 +104,65 @@ def get_production_v2_base_url(resource_name: str, subscription_id: str, project
     else:
         hostname = f"{resource_name}-resource.services.ai.azure.com"
     return f"https://{hostname}/api/projects/{project_name}"
+
+
+def sanitize_agent_name(agent_name: str) -> str:
+    """
+    Normalize an agent name to the v2 API constraints.
+
+    The v2 API accepts only lowercase alphanumerics and hyphens, with a
+    maximum length of 63 characters.
+    """
+    normalized_name = (agent_name or "").lower().replace('_', '-')
+    normalized_name = re.sub(r"[^a-z0-9-]", "-", normalized_name)
+    normalized_name = re.sub(r"-+", "-", normalized_name).strip('-')
+    normalized_name = normalized_name[:63].rstrip('-')
+    return normalized_name or "agent"
+
+
+def get_target_openai_endpoint(production_resource: Optional[str] = None, production_endpoint: Optional[str] = None) -> Optional[str]:
+    """
+    Derive the OpenAI-compatible endpoint (``*.openai.azure.com/openai``)
+    for the target resource.  Kept for reference / fallback.
+    """
+    if production_endpoint:
+        import re
+        m = re.match(r"https://([^.]+)\.", production_endpoint)
+        if m:
+            return f"https://{m.group(1)}.openai.azure.com/openai"
+    if production_resource:
+        if production_resource.endswith("-resource"):
+            hostname = production_resource
+        else:
+            hostname = f"{production_resource}-resource"
+        return f"https://{hostname}.openai.azure.com/openai"
+    return None
+
+
+def get_target_foundry_endpoint(production_resource: Optional[str] = None, production_endpoint: Optional[str] = None) -> Optional[str]:
+    """
+    Return the Foundry endpoint for file uploads and vector-store creation.
+
+    Files and vector stores **must** be created through the Foundry
+    (``*.services.ai.azure.com``) endpoint so they live in the same
+    namespace the Foundry agent runtime uses.  Resources created via the
+    legacy OpenAI endpoint (``*.openai.azure.com``) are invisible to agents
+    running in the Foundry portal.
+    """
+    if production_endpoint:
+        # Already a Foundry URL — return it directly
+        # e.g. "https://res-resource.services.ai.azure.com/api/projects/proj"
+        return production_endpoint.rstrip('/')
+    if production_resource:
+        if production_resource.endswith("-resource"):
+            hostname = production_resource
+        else:
+            hostname = f"{production_resource}-resource"
+        # Default project name = resource name without the -resource suffix
+        project = production_resource.replace("-resource", "") if production_resource.endswith("-resource") else production_resource
+        return f"https://{hostname}.services.ai.azure.com/api/projects/{project}"
+    return None
+
 
 # Production token handling removed - now handled by PowerShell wrapper
 # which provides PRODUCTION_TOKEN environment variable
@@ -1145,7 +1209,343 @@ def list_assistants_from_project_connection(project_connection_string: str) -> L
             agent_list.append(agent_dict)
         return agent_list
 
-def get_assistant_from_project(project_endpoint: str, assistant_id: str, subscription_id: Optional[str] = None, resource_group_name: Optional[str] = None, project_name: Optional[str] = None) -> Dict[str, Any]:
+def _get_source_api_version(project_endpoint: str) -> str:
+    """
+    Return the API version to use when reading from a source project endpoint.
+    Legacy openai.azure.com endpoints only support older API versions.
+    """
+    if SOURCE_API_VERSION:
+        return SOURCE_API_VERSION
+    # Parse the endpoint to extract the hostname for a safe check.
+    # A plain substring test (e.g. '"openai.azure.com" in url') would
+    # also match crafted URLs like evil-openai.azure.com.attacker.com.
+    parsed = urlparse(project_endpoint)
+    host = parsed.hostname if parsed.hostname else project_endpoint.strip('/')
+    if host == "openai.azure.com" or host.endswith(".openai.azure.com"):
+        # Legacy OpenAI-kind resource — use the last known compatible version
+        return "2024-05-01-preview"
+    return API_VERSION
+
+
+# ── File Migration Helpers ────────────────────────────────────────────
+# These functions handle downloading files from a v1 source environment
+# and re-uploading them to the v2 target, including vector-store creation.
+# Without this step, migrated agents that use file_search or
+# code_interpreter will have broken references (source file IDs / vector
+# store IDs don't exist on the target).
+# ──────────────────────────────────────────────────────────────────────
+
+def download_file_from_source(
+    source_endpoint: str,
+    file_id: str,
+    source_token: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Download a file's metadata and content from the source endpoint.
+
+    Returns a dict with keys ``id``, ``filename``, ``bytes``, ``purpose``,
+    and ``content`` (raw bytes), or *None* on failure.
+    """
+    token = source_token or TOKEN
+    if not token:
+        print(f"   ⚠️  No token available for file download")
+        return None
+
+    api_version = _get_source_api_version(source_endpoint)
+    base = source_endpoint.rstrip('/')
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {"api-version": api_version}
+
+    # 1. Get metadata
+    try:
+        meta_r = requests.get(f"{base}/files/{file_id}", headers=headers, params=params, timeout=30)
+        meta_r.raise_for_status()
+        meta = meta_r.json()
+    except Exception as e:
+        print(f"   ❌ Failed to get metadata for file {file_id}: {e}")
+        return None
+
+    # 2. Download content
+    try:
+        content_r = requests.get(f"{base}/files/{file_id}/content", headers=headers, params=params, timeout=60)
+        content_r.raise_for_status()
+    except Exception as e:
+        print(f"   ❌ Failed to download content for file {file_id}: {e}")
+        return None
+
+    result = {
+        "id": file_id,
+        "filename": meta.get("filename", f"file_{file_id}"),
+        "bytes": meta.get("bytes", len(content_r.content)),
+        "purpose": meta.get("purpose", "assistants"),
+        "content": content_r.content,
+    }
+    print(f"   📥 Downloaded {result['filename']} ({len(content_r.content)}B)")
+    return result
+
+
+def upload_file_to_target(
+    target_endpoint: str,
+    filename: str,
+    content: bytes,
+    purpose: str = "assistants",
+    target_token: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Upload a file to the target endpoint.
+
+    Returns the new file ID on success, or *None* on failure.
+    """
+    token = target_token or PRODUCTION_TOKEN or TOKEN
+    if not token:
+        print(f"   ⚠️  No token available for file upload")
+        return None
+
+    base = target_endpoint.rstrip('/')
+    headers = {"Authorization": f"Bearer {token}"}
+    # Use the target API version (not the source one).
+    # API_VERSION is 2025-05-15-preview for the Foundry project endpoint (*.services.ai.azure.com).
+    # The REST quickstart uses api-version=v1 but targets the legacy OpenAI-compatible endpoint (*.openai.azure.com),
+    # which is a different API surface.
+    params = {"api-version": API_VERSION}
+
+    try:
+        resp = requests.post(
+            f"{base}/files",
+            headers=headers,
+            params=params,
+            data={"purpose": purpose},
+            files={"file": (filename, content)},
+            timeout=60,
+        )
+        resp.raise_for_status()
+        new_id = resp.json().get("id")
+        print(f"   📤 Uploaded {filename} -> {new_id}")
+        return new_id
+    except Exception as e:
+        print(f"   ❌ Failed to upload {filename}: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"      {e.response.text[:300]}")
+        return None
+
+
+def list_vector_store_files(
+    source_endpoint: str,
+    vector_store_id: str,
+    source_token: Optional[str] = None,
+) -> List[str]:
+    """
+    Return the list of file IDs inside a source vector store.
+    """
+    token = source_token or TOKEN
+    if not token:
+        return []
+
+    api_version = _get_source_api_version(source_endpoint)
+    base = source_endpoint.rstrip('/')
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {"api-version": api_version}
+
+    try:
+        resp = requests.get(
+            f"{base}/vector_stores/{vector_store_id}/files",
+            headers=headers, params=params, timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        file_ids = [f.get("id") for f in data if f.get("id")]
+        print(f"   📋 Vector store {vector_store_id} contains {len(file_ids)} file(s)")
+        return file_ids
+    except Exception as e:
+        print(f"   ⚠️  Could not list files in vector store {vector_store_id}: {e}")
+        return []
+
+
+def create_vector_store_on_target(
+    target_endpoint: str,
+    file_ids: List[str],
+    name: str = "migrated-vector-store",
+    target_token: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Create a vector store on the target and attach *file_ids* to it.
+
+    Polls until the vector store reaches ``completed`` status.
+    Returns the new vector-store ID, or *None* on failure.
+    """
+    token = target_token or PRODUCTION_TOKEN or TOKEN
+    if not token or not file_ids:
+        return None
+
+    base = target_endpoint.rstrip('/')
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    # Use the target API version for the Foundry project endpoint (*.services.ai.azure.com).
+    # This is 2025-05-15-preview, not the legacy api-version=v1 from the REST quickstart
+    # (which targets a different OpenAI-compatible endpoint).
+    params = {"api-version": API_VERSION}
+
+    try:
+        resp = requests.post(
+            f"{base}/vector_stores",
+            headers=headers, params=params,
+            json={"name": name, "file_ids": file_ids},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        vs = resp.json()
+        vs_id = vs.get("id")
+        print(f"   🗄️  Created vector store {vs_id} (status: {vs.get('status')})")
+    except Exception as e:
+        print(f"   ❌ Failed to create vector store: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"      {e.response.text[:300]}")
+        return None
+
+    # Poll until completed
+    import time as _time
+    for _ in range(20):
+        _time.sleep(2)
+        try:
+            check = requests.get(f"{base}/vector_stores/{vs_id}", headers=headers, params=params, timeout=15)
+            status = check.json().get("status", "unknown")
+            fc = check.json().get("file_counts", {})
+            if status == "completed":
+                print(f"   ✅ Vector store ready (completed={fc.get('completed', 0)})")
+                return vs_id
+            if status == "failed":
+                print(f"   ❌ Vector store indexing failed: {check.json()}")
+                return vs_id  # Return anyway — caller can decide
+        except Exception:
+            pass
+    print(f"   ⚠️  Vector store polling timed out (returning {vs_id})")
+    return vs_id
+
+
+def migrate_assistant_files(
+    source_endpoint: str,
+    target_endpoint: str,
+    v1_assistant: Dict[str, Any],
+    source_token: Optional[str] = None,
+    target_token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Download every file referenced by *v1_assistant* from *source_endpoint*
+    and re-upload to *target_endpoint*.  Creates new vector stores on the
+    target for any ``file_search`` vector-store references.
+
+    Returns a **remapping dict**::
+
+        {
+            "file_id_map":  {old_id: new_id, ...},
+            "vs_id_map":    {old_vs_id: new_vs_id, ...},
+        }
+
+    The caller should use these maps to rewrite IDs in the v2 tool
+    definitions before posting to the target API.
+    """
+    file_id_map: Dict[str, str] = {}
+    vs_id_map: Dict[str, str] = {}
+
+    tool_resources = v1_assistant.get("tool_resources", {})
+    if isinstance(tool_resources, str):
+        try:
+            tool_resources = json.loads(tool_resources)
+        except (json.JSONDecodeError, TypeError):
+            tool_resources = {}
+    if not isinstance(tool_resources, dict):
+        tool_resources = {}
+
+    print(f"\n   📦 Migrating files for assistant {v1_assistant.get('id', '?')}")
+
+    # ── 1. code_interpreter files ─────────────────────────────────────
+    ci_file_ids = tool_resources.get("code_interpreter", {}).get("file_ids", [])
+    if ci_file_ids:
+        print(f"   🔧 code_interpreter: {len(ci_file_ids)} file(s) to migrate")
+        for fid in ci_file_ids:
+            if fid in file_id_map:
+                continue  # already migrated (shared with VS)
+            downloaded = download_file_from_source(source_endpoint, fid, source_token)
+            if downloaded:
+                new_id = upload_file_to_target(
+                    target_endpoint, downloaded["filename"], downloaded["content"],
+                    purpose="assistants", target_token=target_token,
+                )
+                if new_id:
+                    file_id_map[fid] = new_id
+
+    # ── 2. file_search vector stores ──────────────────────────────────
+    vs_ids = tool_resources.get("file_search", {}).get("vector_store_ids", [])
+    if vs_ids:
+        print(f"   🔍 file_search: {len(vs_ids)} vector store(s) to migrate")
+        for vs_id in vs_ids:
+            # List files in the source VS
+            vs_file_ids = list_vector_store_files(source_endpoint, vs_id, source_token)
+            new_vs_file_ids = []
+            for fid in vs_file_ids:
+                if fid in file_id_map:
+                    new_vs_file_ids.append(file_id_map[fid])
+                    continue
+                downloaded = download_file_from_source(source_endpoint, fid, source_token)
+                if downloaded:
+                    new_id = upload_file_to_target(
+                        target_endpoint, downloaded["filename"], downloaded["content"],
+                        purpose="assistants", target_token=target_token,
+                    )
+                    if new_id:
+                        file_id_map[fid] = new_id
+                        new_vs_file_ids.append(new_id)
+
+            # Create new VS on target with the uploaded files
+            if new_vs_file_ids:
+                new_vs_id = create_vector_store_on_target(
+                    target_endpoint, new_vs_file_ids,
+                    name=f"migrated-{vs_id}",
+                    target_token=target_token,
+                )
+                if new_vs_id:
+                    vs_id_map[vs_id] = new_vs_id
+
+    if file_id_map or vs_id_map:
+        print(f"   📊 File migration summary: {len(file_id_map)} file(s), {len(vs_id_map)} vector store(s) remapped")
+    else:
+        print(f"   ℹ️  No files to migrate for this assistant")
+
+    return {"file_id_map": file_id_map, "vs_id_map": vs_id_map}
+
+
+def apply_file_id_remapping(
+    v2_agent_data: Dict[str, Any],
+    file_id_map: Dict[str, str],
+    vs_id_map: Dict[str, str],
+) -> Dict[str, Any]:
+    """
+    Rewrite file IDs and vector-store IDs in a v2 agent payload using
+    the maps produced by :func:`migrate_assistant_files`.
+
+    Modifies *v2_agent_data* in place and returns it.
+    """
+    definition = v2_agent_data.get("v2_agent_version", {}).get("definition", {})
+    tools = definition.get("tools", [])
+
+    for tool in tools:
+        ttype = tool.get("type")
+
+        if ttype == "file_search" and "vector_store_ids" in tool:
+            tool["vector_store_ids"] = [
+                vs_id_map.get(vid, vid) for vid in tool["vector_store_ids"]
+            ]
+
+        if ttype == "code_interpreter" and "container" in tool:
+            container = tool["container"]
+            if "file_ids" in container:
+                container["file_ids"] = [
+                    file_id_map.get(fid, fid) for fid in container["file_ids"]
+                ]
+
+    return v2_agent_data
+
+
+
     """Get v1 assistant details from project endpoint using direct API calls (bypassing AIProjectClient SDK bug)."""
     
     # Since direct API calls work and AIProjectClient has issues, use direct REST API
@@ -1158,11 +1558,12 @@ def get_assistant_from_project(project_endpoint: str, assistant_id: str, subscri
     # Remove trailing slash if present, then add the assistants path
     api_url = project_endpoint.rstrip('/') + f'/assistants/{assistant_id}'
     
-    # Add API version parameter
-    params = {"api-version": API_VERSION}
+    # Auto-detect the right API version for this endpoint
+    effective_api_version = _get_source_api_version(project_endpoint)
+    params = {"api-version": effective_api_version}
     
     print(f"   📞 Making direct API call to: {api_url}")
-    print(f"   🔧 Using API version: {API_VERSION}")
+    print(f"   🔧 Using API version: {effective_api_version}")
     
     try:
         # Make the direct API request
@@ -1240,11 +1641,12 @@ def list_assistants_from_project(project_endpoint: str, subscription_id: Optiona
     # Remove trailing slash if present, then add the assistants path
     api_url = project_endpoint.rstrip('/') + '/assistants'
     
-    # Add API version parameter
-    params = {"api-version": API_VERSION, "limit": "100"}
+    # Auto-detect the right API version for this endpoint
+    effective_api_version = _get_source_api_version(project_endpoint)
+    params = {"api-version": effective_api_version, "limit": "100"}
     
     print(f"   📞 Making direct API call to: {api_url}")
-    print(f"   🔧 Using API version: {API_VERSION}")
+    print(f"   🔧 Using API version: {effective_api_version}")
     
     try:
         # Make the direct API request
@@ -1338,8 +1740,8 @@ def create_agent_version_via_api(agent_name: str, agent_version_data: Dict[str, 
         API response data
     """
     # Build the v2 API endpoint URL based on mode (production vs local)
-    # Ensure agent name is lowercase for API compliance
-    agent_name = agent_name.lower()
+    # Ensure agent name satisfies the v2 API constraints before using it in the URL.
+    agent_name = sanitize_agent_name(agent_name)
     
     if PRODUCTION_ENDPOINT_OVERRIDE:
         # Direct endpoint override — use as-is
@@ -1396,7 +1798,7 @@ def create_agent_version_via_api(agent_name: str, agent_version_data: Dict[str, 
         
     except requests.exceptions.HTTPError as e:
         print(f"❌ Failed to create agent version via v2 API: {e}")
-        if hasattr(e, 'response') and e.response:
+        if hasattr(e, 'response') and e.response is not None:
             print(f"🔍 Response Status Code: {e.response.status_code}")
             try:
                 error_response = e.response.json()
@@ -1741,7 +2143,17 @@ def v1_assistant_to_v2_agent(v1_assistant: Dict[str, Any], agent_name: Optional[
     
     # Derive agent name if not provided
     if not agent_name:
-        agent_name = v1_assistant.get("name") or f"agent_{v1_assistant.get('id', 'unknown')}"
+        v1_name = v1_assistant.get("name")
+        if v1_name:
+            agent_name = v1_name
+        else:
+            # Build from ID: strip common prefixes (asst_, agent_) and use hyphens
+            raw_id = v1_assistant.get('id', 'unknown')
+            # Remove leading 'asst_' prefix if present
+            clean_id = raw_id[5:] if raw_id.startswith('asst_') else raw_id
+            # Replace underscores with hyphens for v2 API compliance
+            clean_id = clean_id.replace('_', '-')
+            agent_name = f"agent-{clean_id}"
     
     # Determine the appropriate agent kind
     agent_kind = determine_agent_kind(v1_assistant)
@@ -2227,7 +2639,7 @@ def save_v2_agent_to_cosmos(v2_agent_data: Dict[str, Any], connection_string: st
         print(f"   Migration Doc: {migration_doc}")
         raise
 
-def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = None, cosmos_connection_string: Optional[str] = None, use_api: bool = False, project_endpoint: Optional[str] = None, project_connection_string: Optional[str] = None, project_subscription: Optional[str] = None, project_resource_group: Optional[str] = None, project_name: Optional[str] = None, production_resource: Optional[str] = None, production_subscription: Optional[str] = None, production_tenant: Optional[str] = None, source_tenant: Optional[str] = None, only_with_tools: bool = False, only_without_tools: bool = False, migrate_connections: bool = False, production_endpoint: Optional[str] = None):
+def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = None, cosmos_connection_string: Optional[str] = None, use_api: bool = False, project_endpoint: Optional[str] = None, project_connection_string: Optional[str] = None, project_subscription: Optional[str] = None, project_resource_group: Optional[str] = None, project_name: Optional[str] = None, production_resource: Optional[str] = None, production_subscription: Optional[str] = None, production_tenant: Optional[str] = None, source_tenant: Optional[str] = None, only_with_tools: bool = False, only_without_tools: bool = False, migrate_connections: bool = False, production_endpoint: Optional[str] = None, migrate_files: bool = True):
     """
     Main processing function that reads v1 assistants from Cosmos DB, API, Project endpoint, or Project connection string,
     converts them to v2 agents, and saves via v2 API.
@@ -2243,6 +2655,9 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
         only_without_tools: If True, only migrate assistants that have no tools
         migrate_connections: If True, attempt to discover and recreate connections in target project
         production_endpoint: Optional full production URL (overrides production_resource URL construction)
+        migrate_files: If True, download files and vector stores from the source and re-upload
+            them via the target Foundry project endpoint so that file_search/code_interpreter references
+            remain valid for agents.
     """
     
     # Handle package version management based on usage
@@ -2688,6 +3103,39 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
             # Convert v1 to v2
             v2_agent = v1_assistant_to_v2_agent(v1_assistant)
             
+            # ── File migration ────────────────────────────────────
+            # Download files / vector stores from the source endpoint
+            # and re-upload to the target's Foundry endpoint so that
+            # file_search and code_interpreter references resolve.
+            # NOTE: Files MUST be uploaded via the Foundry endpoint
+            # (*.services.ai.azure.com), NOT the OpenAI endpoint
+            # (*.openai.azure.com). The Foundry agent runtime only
+            # sees resources in the Foundry namespace.
+            file_id_map: Dict[str, str] = {}
+            vs_id_map: Dict[str, str] = {}
+            if migrate_files:
+                # Determine source endpoint (project_endpoint is set when reading from API / project)
+                source_ep = project_endpoint or (f"https://{HOST}/openai" if HOST else None)
+                target_foundry_ep = get_target_foundry_endpoint(production_resource, production_endpoint)
+                if source_ep and target_foundry_ep:
+                    remap = migrate_assistant_files(
+                        source_endpoint=source_ep,
+                        target_endpoint=target_foundry_ep,
+                        v1_assistant=v1_assistant,
+                        source_token=TOKEN,
+                        target_token=PRODUCTION_TOKEN or TOKEN,
+                    )
+                    file_id_map = remap.get("file_id_map", {})
+                    vs_id_map = remap.get("vs_id_map", {})
+                elif not source_ep:
+                    print("   ⚠️  Cannot migrate files: no source endpoint available")
+                elif not target_foundry_ep:
+                    print("   ⚠️  Cannot migrate files: unable to derive target Foundry endpoint")
+            
+            # Apply remapping to v2 agent payload
+            if file_id_map or vs_id_map:
+                v2_agent = apply_file_id_remapping(v2_agent, file_id_map, vs_id_map)
+            
             # Save to target container with proper project_id
             # You can customize this project_id as needed
             project_id = "e2e-tests-westus2-account@e2e-tests-westus2@AML"  # Match existing data format
@@ -2958,6 +3406,19 @@ Examples:
         help='Source tenant ID for reading v1 assistants. If not provided, uses SOURCE_TENANT environment variable or defaults to Microsoft tenant (72f988bf-86f1-41af-91ab-2d7cd011db47). Example: "72f988bf-86f1-41af-91ab-2d7cd011db47"'
     )
     
+    # File migration is enabled by default; use --no-migrate-files to disable it.
+    parser.set_defaults(migrate_files=True)
+    parser.add_argument(
+        '--no-migrate-files',
+        dest='migrate_files',
+        action='store_false',
+        help='Skip file/vector-store migration. By default, files and vector stores are '
+             'downloaded from the source and re-uploaded via the target Foundry project '
+             'endpoint (*.services.ai.azure.com) so that file_search/code_interpreter '
+             'references remain valid. Pass this flag to copy agent definitions only '
+             '(source file IDs will be broken on the target).'
+    )
+    
     args = parser.parse_args()
     
     # Handle empty string as None for assistant_id
@@ -3010,6 +3471,12 @@ Examples:
     if args.migrate_connections:
         print("🔗 Connection migration: ENABLED")
     
+    if args.migrate_files:
+        target_foundry = get_target_foundry_endpoint(args.production_resource, args.production_endpoint)
+        print(f"📂 File migration: ENABLED (target Foundry endpoint: {target_foundry})")
+    else:
+        print("📂 File migration: DISABLED (--no-migrate-files)")
+    
     if assistant_id:
         print(f"🎯 Target Assistant ID: {assistant_id}")
     else:
@@ -3048,7 +3515,8 @@ Examples:
         only_with_tools=args.only_with_tools,
         only_without_tools=args.only_without_tools,
         migrate_connections=args.migrate_connections,
-        production_endpoint=args.production_endpoint
+        production_endpoint=args.production_endpoint,
+        migrate_files=args.migrate_files,
     )
 
 if __name__ == "__main__":
