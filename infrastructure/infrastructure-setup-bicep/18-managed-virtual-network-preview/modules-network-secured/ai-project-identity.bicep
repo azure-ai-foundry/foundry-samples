@@ -72,6 +72,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
         location: storageAccount.location
       }
     }
+    dependsOn: [project_connection_cosmosdb_account]
   }
 
   resource project_connection_azureai_search 'connections@2025-04-01-preview' = {
@@ -86,6 +87,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
         location: searchService.location
       }
     }
+    dependsOn: [project_connection_azure_storage]
   }
 
 }
