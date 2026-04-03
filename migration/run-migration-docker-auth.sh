@@ -240,6 +240,20 @@ if [ $EXIT_CODE -eq 0 ]; then
 else
     echo ""
     echo -e "${RED}❌ Migration failed with exit code: $EXIT_CODE${NC}"
+    
+    # Auth-specific guidance
+    if [ $EXIT_CODE -eq 1 ]; then
+        echo ""
+        echo -e "${YELLOW}🔐 If you saw 401/403 errors, check your RBAC role assignments:${NC}"
+        echo "   • Reading assistants/agents : Azure AI User on the resource (minimum for Foundry)"
+        echo "   • Creating/writing agents   : Azure AI User on the resource"
+        echo "   • Uploading/downloading files: Azure AI User on the resource"
+        echo "   • Managing connections (ARM) : Contributor on the resource"
+        echo ""
+        echo "   Assign via: Azure portal → Resource → Access control (IAM) → Add role assignment"
+        echo "   📖 https://learn.microsoft.com/azure/ai-foundry/concepts/rbac-ai-foundry"
+        echo "   📖 https://learn.microsoft.com/azure/ai-services/openai/how-to/role-based-access-control"
+    fi
 fi
 
 exit $EXIT_CODE

@@ -36,6 +36,10 @@ API_VERSION = os.getenv("AGENTS_API_VERSION") or "2025-05-15-preview"
 # not the newer 2025-xx-xx-preview Azure ML / AIServices versions.
 SOURCE_API_VERSION = os.getenv("SOURCE_API_VERSION") or None  # None = auto-detect per endpoint
 TOKEN = os.getenv("AZ_TOKEN")
+TOKEN_SCOPE = os.getenv("AZ_TOKEN_SCOPE") or None
+OPENAI_COMPAT_TOKEN = os.getenv("OPENAI_COMPAT_TOKEN")
+OPENAI_COMPAT_TOKEN_SCOPE = os.getenv("OPENAI_COMPAT_TOKEN_SCOPE") or None
+LAST_LEGACY_OPENAI_QUERY_ERROR: Optional[str] = None
 
 # Source Tenant Configuration (for reading v1 assistants from source tenant)
 SOURCE_TENANT = os.getenv("SOURCE_TENANT") or os.getenv("AGENTS_TENANT") or "72f988bf-86f1-41af-91ab-2d7cd011db47"  # Microsoft tenant
@@ -118,8 +122,6 @@ def sanitize_agent_name(agent_name: str) -> str:
     normalized_name = re.sub(r"-+", "-", normalized_name).strip('-')
     normalized_name = normalized_name[:63].rstrip('-')
     return normalized_name or "agent"
-
-
 def get_target_openai_endpoint(production_resource: Optional[str] = None, production_endpoint: Optional[str] = None) -> Optional[str]:
     """
     Derive the OpenAI-compatible endpoint (``*.openai.azure.com/openai``)
@@ -170,18 +172,56 @@ def get_target_foundry_endpoint(production_resource: Optional[str] = None, produ
 # Production authentication is now handled by the PowerShell wrapper
 # which generates both AZ_TOKEN and PRODUCTION_TOKEN environment variables
 
-def get_token_from_az(tenant_id: Optional[str] = None) -> Optional[str]:
+def _infer_scope_for_url(url: Optional[str]) -> str:
     """
-    Runs the az CLI to get an access token for the AI resource scope.
+    Pick the correct AAD audience based on the target endpoint URL.
+    """
+    if not url:
+        return "https://ai.azure.com/.default"
+
+    host = (urlparse(url).hostname or "").lower()
+    if (
+        host == "cognitiveservices.azure.com"
+        or host.endswith(".cognitiveservices.azure.com")
+        or host == "openai.azure.com"
+        or host.endswith(".openai.azure.com")
+    ):
+        return "https://cognitiveservices.azure.com/.default"
+    if host == "management.azure.com" or host.endswith(".management.azure.com"):
+        return "https://management.azure.com/.default"
+    return "https://ai.azure.com/.default"
+
+
+def _get_env_token_for_url(url: str) -> Optional[str]:
+    """
+    Prefer explicit env-provided tokens so Docker behaves exactly like the
+    working host PowerShell path.
+    """
+    host = (urlparse(url or "").hostname or "").lower()
+    if (
+        host == "cognitiveservices.azure.com"
+        or host.endswith(".cognitiveservices.azure.com")
+        or host == "openai.azure.com"
+        or host.endswith(".openai.azure.com")
+    ):
+        return OPENAI_COMPAT_TOKEN or TOKEN
+    return TOKEN
+
+
+def get_token_from_az(tenant_id: Optional[str] = None, scope: Optional[str] = None) -> Optional[str]:
+    """
+    Runs the az CLI to get an access token for the requested resource scope.
     Returns the token string on success, or None on failure.
     
     Args:
         tenant_id: Optional tenant ID to authenticate with
+        scope: Optional AAD scope to request
     """
     try:
+        effective_scope = scope or "https://ai.azure.com/.default"
         cmd = [
             "az", "account", "get-access-token",
-            "--scope", "https://ai.azure.com/.default",
+            "--scope", effective_scope,
             "--query", "accessToken",
             "-o", "tsv"
         ]
@@ -190,6 +230,7 @@ def get_token_from_az(tenant_id: Optional[str] = None) -> Optional[str]:
         if tenant_id:
             cmd.extend(["--tenant", tenant_id])
             print(f"🔐 Requesting token for tenant: {tenant_id}")
+        print(f"   🔑 Requested token scope: {effective_scope}")
         
         # capture output (shell=True needed for Windows)
         proc = subprocess.run(cmd, capture_output=True, text=True, shell=True)
@@ -325,7 +366,7 @@ def get_azure_credential():
         print("🖥️  Host environment detected, using default credential chain")
         return DefaultAzureCredential()
 
-def set_api_token(force_refresh: bool = False, tenant_id: Optional[str] = None) -> bool:
+def set_api_token(force_refresh: bool = False, tenant_id: Optional[str] = None, scope: Optional[str] = None) -> bool:
     """
     Ensure we have a valid bearer token for API calls.
     Returns True if a token is set, False otherwise.
@@ -334,7 +375,7 @@ def set_api_token(force_refresh: bool = False, tenant_id: Optional[str] = None) 
         force_refresh: If True, ignore existing tokens and get a fresh one from az CLI
         tenant_id: Optional tenant ID to authenticate with (uses SOURCE_TENANT if not provided)
     """
-    global TOKEN
+    global TOKEN, TOKEN_SCOPE
     
     # If force refresh is requested, skip environment variable and get fresh token
     if not force_refresh:
@@ -342,6 +383,7 @@ def set_api_token(force_refresh: bool = False, tenant_id: Optional[str] = None) 
         env_token = os.getenv("AZ_TOKEN")
         if env_token:
             TOKEN = env_token
+            TOKEN_SCOPE = os.getenv("AZ_TOKEN_SCOPE") or scope or TOKEN_SCOPE
             return True
     
     # Use provided tenant or default to SOURCE_TENANT
@@ -349,12 +391,86 @@ def set_api_token(force_refresh: bool = False, tenant_id: Optional[str] = None) 
         tenant_id = SOURCE_TENANT
     
     # Try az CLI (either forced or as fallback) with tenant
-    token = get_token_from_az(tenant_id)
+    effective_scope = scope or "https://ai.azure.com/.default"
+    token = get_token_from_az(tenant_id, effective_scope)
     if token:
         TOKEN = token
+        TOKEN_SCOPE = effective_scope
         print(f"🔄 Token refreshed from az CLI for tenant: {tenant_id}")
         return True
     return False
+
+# ─── RBAC / Auth error guidance ──────────────────────────────────────
+RBAC_DOCS = (
+    "📖 Foundry RBAC docs : https://learn.microsoft.com/azure/ai-foundry/concepts/rbac-ai-foundry\n"
+    "📖 OpenAI RBAC docs  : https://learn.microsoft.com/azure/ai-services/openai/how-to/role-based-access-control"
+)
+
+def _print_rbac_guidance(status_code: int, url: str, method: str = "GET"):
+    """
+    Print actionable RBAC guidance when an API call returns 401 or 403.
+    Inspects the URL and HTTP method to determine which role is needed.
+    """
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    path = parsed.path or ""
+    is_write = method.upper() in ("POST", "PUT", "PATCH", "DELETE")
+    is_foundry = host == "services.ai.azure.com" or host.endswith(".services.ai.azure.com")
+    is_openai  = host == "openai.azure.com" or host.endswith(".openai.azure.com")
+    is_arm     = host == "management.azure.com" or host.endswith(".management.azure.com")
+    is_files   = "/files" in path
+    is_agents  = "/agents" in path
+    is_assistants = "/assistants" in path
+
+    print("")
+    print("╔══════════════════════════════════════════════════════════════════════╗")
+    if status_code == 401:
+        print("║  🔐  401 UNAUTHORIZED — Your token was rejected.                   ║")
+        print("║  Possible causes:                                                  ║")
+        print("║    • Token expired — rerun  az login  and try again                ║")
+        print("║    • Wrong tenant — check --source-tenant / --production-tenant    ║")
+        print("║    • Token audience mismatch — scope should be                     ║")
+        print("║      https://ai.azure.com/.default  (data plane)                   ║")
+        print("║      https://management.azure.com/.default  (ARM only)             ║")
+    elif status_code == 403:
+        print("║  🚫  403 FORBIDDEN — Token valid but missing permissions.           ║")
+        print("║  You need the following RBAC role(s) on the Azure resource:         ║")
+        print("║                                                                    ║")
+        if is_arm:
+            print("║    Operation : ARM management (connections, resource info)         ║")
+            print("║    Role      : Contributor  or  Cognitive Services Contributor     ║")
+            print("║    Scope     : Resource / resource-group                           ║")
+        elif is_files and is_write:
+            print("║    Operation : Upload files to target                              ║")
+            print("║    Role      : Azure AI User  (dataActions: CognitiveServices/*)   ║")
+            print("║    Scope     : Foundry resource or project                         ║")
+        elif is_files:
+            print("║    Operation : Download/list files from source                     ║")
+            print("║    Role      : Azure AI User  or  Cognitive Services OpenAI User   ║")
+            print("║    Scope     : Source AI resource                                  ║")
+        elif (is_agents or is_assistants) and is_write:
+            print("║    Operation : Create/write v2 agents                              ║")
+            print("║    Role      : Azure AI User  (dataActions: CognitiveServices/*)   ║")
+            print("║    Scope     : Foundry resource or project                         ║")
+            print("║    NOTE      : 'Cognitive Services OpenAI User' IS sufficient for  ║")
+            print("║                assistants/* but Azure AI User is recommended.       ║")
+        elif is_agents or is_assistants:
+            print("║    Operation : Read assistants / agents                            ║")
+            print("║    Role      : Azure AI User  or  Cognitive Services OpenAI User   ║")
+            print("║    Scope     : Source or target AI resource                        ║")
+        else:
+            print("║    Operation : General data-plane call                             ║")
+            print("║    Role      : Azure AI User  (recommended minimum for Foundry)    ║")
+        print("║                                                                    ║")
+    print("╠══════════════════════════════════════════════════════════════════════╣")
+    print("║  Assign roles: Azure portal → Resource → Access control (IAM)      ║")
+    print("║  Or: az role assignment create --role 'Azure AI User'              ║")
+    print("║        --assignee <email> --scope /subscriptions/<sub>/...         ║")
+    print(f"║  {RBAC_DOCS.splitlines()[0]:<67s}║")
+    print(f"║  {RBAC_DOCS.splitlines()[1]:<67s}║")
+    print("╚══════════════════════════════════════════════════════════════════════╝")
+    print("")
+
 
 def do_api_request_with_token(method: str, url: str, token: str, **kwargs) -> requests.Response:
     """
@@ -379,6 +495,8 @@ def do_api_request_with_token(method: str, url: str, token: str, **kwargs) -> re
 
     try:
         resp = requests.request(method, url, **kwargs)
+        if resp.status_code in (401, 403):
+            _print_rbac_guidance(resp.status_code, url, method)
         resp.raise_for_status()
         return resp
     
@@ -405,8 +523,9 @@ def do_api_request(method: str, url: str, **kwargs) -> requests.Response:
     Wrapper around requests.request with authentication and retry logic.
     """
     headers = kwargs.pop("headers", {})
-    if TOKEN:
-        headers["Authorization"] = f"Bearer {TOKEN}"
+    token_for_request = _get_env_token_for_url(url)
+    if token_for_request:
+        headers["Authorization"] = f"Bearer {token_for_request}"
     headers["Accept"] = "application/json"
     kwargs["headers"] = headers
 
@@ -426,13 +545,20 @@ def do_api_request(method: str, url: str, **kwargs) -> requests.Response:
         resp = requests.request(method, url, **kwargs)
         if resp.status_code == 401:
             print("Received 401 Unauthorized. Trying to refresh token...")
+            _print_rbac_guidance(401, url, method)
             time.sleep(5)
-            if set_api_token(force_refresh=True):  # Force refresh from az CLI on 401
-                headers["Authorization"] = f"Bearer {TOKEN}"
+            refresh_scope = _infer_scope_for_url(url)
+            print(f"🔄 Refreshing token for audience: {refresh_scope}")
+            if set_api_token(force_refresh=True, scope=refresh_scope):  # Force refresh from az CLI on 401
+                refreshed_token = _get_env_token_for_url(url) or TOKEN
+                headers["Authorization"] = f"Bearer {refreshed_token}"
                 kwargs["headers"] = headers
                 resp = requests.request(method, url, **kwargs)
             else:
                 print("Token refresh failed.")
+        
+        if resp.status_code == 403:
+            _print_rbac_guidance(403, url, method)
         
         resp.raise_for_status()
         return resp
@@ -1221,6 +1347,8 @@ def _get_source_api_version(project_endpoint: str) -> str:
     # also match crafted URLs like evil-openai.azure.com.attacker.com.
     parsed = urlparse(project_endpoint)
     host = parsed.hostname if parsed.hostname else project_endpoint.strip('/')
+    if host == "cognitiveservices.azure.com" or host.endswith(".cognitiveservices.azure.com"):
+        return OPENAI_COMPAT_API_VERSION
     if host == "openai.azure.com" or host.endswith(".openai.azure.com"):
         # Legacy OpenAI-kind resource — use the last known compatible version
         return "2024-05-01-preview"
@@ -1543,9 +1671,7 @@ def apply_file_id_remapping(
                 ]
 
     return v2_agent_data
-
-
-
+def get_assistant_from_project(project_endpoint: str, assistant_id: str, subscription_id: Optional[str] = None, resource_group_name: Optional[str] = None, project_name: Optional[str] = None) -> Dict[str, Any]:
     """Get v1 assistant details from project endpoint using direct API calls (bypassing AIProjectClient SDK bug)."""
     
     # Since direct API calls work and AIProjectClient has issues, use direct REST API
@@ -1724,6 +1850,118 @@ def list_assistants_from_project(project_endpoint: str, subscription_id: Optiona
                 return agent_list
         else:
             raise
+
+
+def _derive_openai_endpoint(project_endpoint: str) -> Optional[str]:
+    """
+    Derive the legacy OpenAI-compatible cognitiveservices endpoint from a
+    Foundry project endpoint.
+
+    The Foundry portal has TWO separate backends:
+      - NEW ("agents" page):  {resource}.services.ai.azure.com/api/projects/{project}/assistants
+                               uses api-version like 2025-05-15-preview
+      - OLD ("assistants" page): {resource}.cognitiveservices.azure.com/openai/assistants
+                               uses api-version like 2024-12-01-preview
+
+    These are completely separate storage silos.  Items created on the old
+    portal experience only appear on the cognitiveservices endpoint.
+
+        Given a project endpoint like
+            https://nikhowlett-6102-resource.services.ai.azure.com/api/projects/nikhowlett-6102
+        returns
+            https://nikhowlett-6102-resource.cognitiveservices.azure.com/openai
+    """
+    parsed = urlparse(project_endpoint)
+    host = parsed.hostname or ""
+    # Expected: {resource}.services.ai.azure.com
+    suffix = ".services.ai.azure.com"
+    if host.endswith(suffix):
+        resource_name = host[: -len(suffix)]
+        return f"https://{resource_name}.cognitiveservices.azure.com/openai"
+    return None
+
+
+# The API version that works on the old cognitiveservices /openai/assistants endpoint.
+# Most 2024/2025 preview versions work; use a fairly recent one.
+OPENAI_COMPAT_API_VERSION = "2024-12-01-preview"
+
+
+def list_v1_assistants_from_openai_endpoint(project_endpoint: str) -> List[Dict[str, Any]]:
+    """
+    List v1 assistants from the legacy OpenAI-compatible cognitiveservices endpoint.
+
+    The Foundry portal's "Assistants" page (ai.azure.com/resource/assistants)
+    reads from:  {resource}.cognitiveservices.azure.com/openai/assistants
+    using an older API version (e.g. 2024-12-01-preview).
+
+    These items do NOT appear on the newer Foundry
+    {resource}.services.ai.azure.com/api/projects/{project}/assistants endpoint.
+
+    Returns a list of assistant dicts.  Each dict gets an extra key
+    '_source_endpoint' set to 'openai' so callers can distinguish them.
+    """
+    global LAST_LEGACY_OPENAI_QUERY_ERROR
+    LAST_LEGACY_OPENAI_QUERY_ERROR = None
+
+    openai_base_url = _derive_openai_endpoint(project_endpoint)
+    if not openai_base_url:
+        print("   ⚠️  Could not derive cognitiveservices URL from project endpoint")
+        return []
+
+    openai_url = f"{openai_base_url.rstrip('/')}/assistants"
+
+    print(f"   🌐 Querying legacy OpenAI-compatible endpoint")
+    print(f"   📞 {openai_url}")
+    print(f"   🔧 Using API version: {OPENAI_COMPAT_API_VERSION}")
+
+    params = {"api-version": OPENAI_COMPAT_API_VERSION, "limit": "100"}
+
+    try:
+        # Ensure we have the correct audience for legacy OpenAI-compatible endpoints.
+        openai_scope = _infer_scope_for_url(openai_url)
+        if OPENAI_COMPAT_TOKEN and OPENAI_COMPAT_TOKEN_SCOPE == openai_scope:
+            global TOKEN, TOKEN_SCOPE
+            TOKEN = OPENAI_COMPAT_TOKEN
+            TOKEN_SCOPE = OPENAI_COMPAT_TOKEN_SCOPE
+        elif TOKEN_SCOPE != openai_scope:
+            if not set_api_token(force_refresh=True, scope=openai_scope):
+                raise RuntimeError(f"Unable to obtain token for scope {openai_scope}")
+
+        response = do_api_request("GET", openai_url, params=params)
+        result = response.json()
+
+        if isinstance(result, dict):
+            if "data" in result:
+                items = result["data"]
+            elif "assistants" in result:
+                items = result["assistants"]
+            else:
+                items = []
+        elif isinstance(result, list):
+            items = result
+        else:
+            items = []
+
+        # Tag each item
+        for item in items:
+            item['_source_endpoint'] = 'openai'
+
+        print(f"   ✅ Found {len(items)} v1 assistants on cognitiveservices endpoint")
+        return items
+
+    except Exception as e:
+        error_str = str(e)
+        if "404" in error_str or "NotFound" in error_str:
+            LAST_LEGACY_OPENAI_QUERY_ERROR = None
+            print(f"   ℹ️  cognitiveservices OpenAI endpoint not available (404) — skipping")
+        elif "401" in error_str or "Unauthorized" in error_str:
+            LAST_LEGACY_OPENAI_QUERY_ERROR = error_str
+            print(f"   ⚠️  cognitiveservices endpoint returned 401 — auth failed even with cognitiveservices scope")
+        else:
+            LAST_LEGACY_OPENAI_QUERY_ERROR = error_str
+            print(f"   ⚠️  cognitiveservices endpoint query failed: {e} — skipping")
+        return []
+
 
 def create_agent_version_via_api(agent_name: str, agent_version_data: Dict[str, Any], production_resource: Optional[str] = None, production_subscription: Optional[str] = None, production_token: Optional[str] = None) -> Dict[str, Any]:
     """
@@ -2003,6 +2241,51 @@ def remap_connection_ids_in_tool(tool_data: Any) -> Any:
     elif isinstance(tool_data, list):
         return [remap_connection_ids_in_tool(item) for item in tool_data]
     return tool_data
+
+
+def _normalize_bing_search_configurations(
+    bing_config: Dict[str, Any],
+    *,
+    default_values: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Normalize Bing tool config into v2 ``search_configurations`` format."""
+    default_values = default_values or {}
+    raw_configs = bing_config.get("search_configurations")
+
+    if isinstance(raw_configs, list) and raw_configs:
+        normalized_configs: List[Dict[str, Any]] = []
+        for raw_config in raw_configs:
+            if not isinstance(raw_config, dict):
+                continue
+
+            connection_id = (
+                raw_config.get("connection_id")
+                or raw_config.get("project_connection_id")
+                or bing_config.get("connection_id")
+                or ""
+            )
+            normalized = {
+                "project_connection_id": resolve_connection_id(connection_id) if connection_id else connection_id
+            }
+            for key, value in default_values.items():
+                normalized[key] = raw_config.get(key, value)
+            for key, value in raw_config.items():
+                if key in {"connection_id", "project_connection_id"}:
+                    continue
+                if value is not None:
+                    normalized[key] = value
+            normalized_configs.append(normalized)
+
+        if normalized_configs:
+            return normalized_configs
+
+    connection_id = bing_config.get("connection_id", "")
+    normalized = {
+        "project_connection_id": resolve_connection_id(connection_id) if connection_id else connection_id
+    }
+    for key, value in default_values.items():
+        normalized[key] = bing_config.get(key, value)
+    return [normalized]
 
 
 def build_connection_map_from_projects(
@@ -2410,34 +2693,31 @@ def v1_assistant_to_v2_agent(v1_assistant: Dict[str, Any], agent_name: Optional[
             # Handle bing_grounding — v2 requires search_configurations array
             elif tool_type == "bing_grounding":
                 v1_bing = tool.get("bing_grounding", {})
-                conn_id = v1_bing.get("connection_id", "")
-                resolved_conn = resolve_connection_id(conn_id) if conn_id else conn_id
-                search_config = {
-                    "project_connection_id": resolved_conn,
-                    "market": "en-us",
-                    "set_lang": "en",
-                    "count": 5,
-                }
                 transformed_tool["bing_grounding"] = {
-                    "search_configurations": [search_config]
+                    "search_configurations": _normalize_bing_search_configurations(
+                        v1_bing,
+                        default_values={
+                            "market": "en-us",
+                            "set_lang": "en",
+                            "count": 5,
+                        },
+                    )
                 }
-                print(f"     bing_grounding: wrapped connection '{resolved_conn}' in search_configurations")
+                print(
+                    "     bing_grounding: normalized "
+                    f"{len(transformed_tool['bing_grounding']['search_configurations'])} search configuration(s)"
+                )
 
             # Handle bing_custom_search — v2 requires search_configurations array
             elif tool_type == "bing_custom_search":
                 v1_bcs = tool.get("bing_custom_search", {})
-                conn_id = v1_bcs.get("connection_id", "")
-                resolved_conn = resolve_connection_id(conn_id) if conn_id else conn_id
-                search_config = {
-                    "project_connection_id": resolved_conn,
-                }
-                # Carry over custom_config_id if present
-                if v1_bcs.get("custom_config_id"):
-                    search_config["custom_config_id"] = v1_bcs["custom_config_id"]
                 transformed_tool["bing_custom_search"] = {
-                    "search_configurations": [search_config]
+                    "search_configurations": _normalize_bing_search_configurations(v1_bcs)
                 }
-                print(f"     bing_custom_search: wrapped connection '{resolved_conn}' in search_configurations")
+                print(
+                    "     bing_custom_search: normalized "
+                    f"{len(transformed_tool['bing_custom_search']['search_configurations'])} search configuration(s)"
+                )
 
             # Handle sharepoint_grounding — remap connection_id to project_connection_id
             elif tool_type == "sharepoint_grounding":
@@ -2721,6 +3001,25 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
             except Exception as e:
                 print(f"❌ Failed to fetch assistants from project: {e}")
                 return
+            
+            # Also query the legacy OpenAI cognitiveservices endpoint to
+            # pick up real v1 assistants that don't appear on the Foundry
+            # endpoint.  These are stored on a completely separate backend.
+            try:
+                openai_assistants = list_v1_assistants_from_openai_endpoint(project_endpoint)
+                if openai_assistants:
+                    existing_ids = {a.get("id") or a.get("name") for a in v1_assistants}
+                    added = 0
+                    for asst in openai_assistants:
+                        asst_id = asst.get("id") or asst.get("name") or ""
+                        if asst_id and asst_id not in existing_ids:
+                            v1_assistants.append(asst)
+                            existing_ids.add(asst_id)
+                            added += 1
+                    if added:
+                        print(f"   ➕ Added {added} v1 assistants from legacy OpenAI endpoint")
+            except Exception as e2:
+                print(f"   ⚠️  Could not query legacy OpenAI endpoint: {e2}")
         
         if not v1_assistants:
             print("❌ No v1 assistants found from project")
@@ -2880,32 +3179,36 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
         if agents_with_tools:
             print_connection_migration_report(agents_with_tools, source_connections)
     
-    # Auto-build connection map if we have both source and target connections
-    if source_connections and not CONNECTION_MAP:
-        # Determine target endpoint for listing connections
+    # Discover target connections for any assistants that rely on connection-backed tools.
+    # This is needed even when source connection discovery was skipped, because the v2 portal
+    # runner expects full ARM project_connection_id values and valid metadata.displayName.
+    target_connections: List[Dict[str, Any]] = []
+    assistants_requiring_connections = [a for a in v1_assistants if get_agent_required_connections(a)]
+    if assistants_requiring_connections:
         if production_endpoint:
             target_ep = production_endpoint
         elif production_resource and production_subscription:
             target_ep = get_production_v2_base_url(production_resource, production_subscription, production_resource)
         else:
             target_ep = None
-        
+
         if target_ep:
-            print("\n🔗 Auto-discovering target connections for mapping...")
+            print("\n🔗 Discovering target connections for runtime compatibility...")
             prod_token = PRODUCTION_TOKEN or TOKEN
             target_connections = list_connections_from_project(target_ep, prod_token)
             if target_connections:
                 # Ensure all target connections have displayName set (required for v2 runtime)
-                # The v2 agent runtime resolves project_connection_id by metadata.displayName,
-                # not by the raw connection name. We auto-patch connections that lack one.
+                # and set TARGET_PROJECT_ARM_PREFIX so resolve_connection_id emits full ARM paths.
                 _try_ensure_display_names(target_ep, target_connections, production_subscription)
-                
-                auto_map = build_connection_map_from_projects(source_connections, target_connections)
-                # Merge auto-map with explicit CLI mappings (CLI takes precedence)
-                for k, v in auto_map.items():
-                    if k not in CONNECTION_MAP:
-                        CONNECTION_MAP[k] = v
-                print(f"   📋 Connection map ({len(CONNECTION_MAP)} entries): {CONNECTION_MAP}")
+
+    # Auto-build connection map if we have both source and target connections
+    if source_connections and target_connections and not CONNECTION_MAP:
+        auto_map = build_connection_map_from_projects(source_connections, target_connections)
+        # Merge auto-map with explicit CLI mappings (CLI takes precedence)
+        for k, v in auto_map.items():
+            if k not in CONNECTION_MAP:
+                CONNECTION_MAP[k] = v
+        print(f"   📋 Connection map ({len(CONNECTION_MAP)} entries): {CONNECTION_MAP}")
     
     # Attempt to create connections in target if requested
     if migrate_connections and source_connections:
@@ -3114,15 +3417,21 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
             file_id_map: Dict[str, str] = {}
             vs_id_map: Dict[str, str] = {}
             if migrate_files:
-                # Determine source endpoint (project_endpoint is set when reading from API / project)
-                source_ep = project_endpoint or (f"https://{HOST}/openai" if HOST else None)
+                # Determine source endpoint based on where the v1 assistant was discovered.
+                source_origin = v1_assistant.get("_source_endpoint")
+                if source_origin == "openai" and project_endpoint:
+                    source_ep = _derive_openai_endpoint(project_endpoint)
+                    source_token = OPENAI_COMPAT_TOKEN or TOKEN
+                else:
+                    source_ep = project_endpoint or (f"https://{HOST}/openai" if HOST else None)
+                    source_token = TOKEN
                 target_foundry_ep = get_target_foundry_endpoint(production_resource, production_endpoint)
                 if source_ep and target_foundry_ep:
                     remap = migrate_assistant_files(
                         source_endpoint=source_ep,
                         target_endpoint=target_foundry_ep,
                         v1_assistant=v1_assistant,
-                        source_token=TOKEN,
+                        source_token=source_token,
                         target_token=PRODUCTION_TOKEN or TOKEN,
                     )
                     file_id_map = remap.get("file_id_map", {})
@@ -3195,6 +3504,214 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
     
     # Always using v2 API
     print(f"   Target: v2 API ({BASE_V2})")
+
+
+def _classify_v1_item(item: Dict[str, Any]) -> str:
+    """
+    Classify a v1 item as 'agent' (has platform/integration tools) or 'assistant' (plain / code-only).
+    
+    In the v1 API, both "assistants" and "agents" are returned by GET /assistants
+    with IDs starting with 'asst_'. They are the same object type at the API level.
+    
+    The distinction is a UX/branding concept:
+    - "Assistant": a plain conversational model, OR one with only OpenAI-native tools
+      like code_interpreter and file_search (retrieval).
+    - "Agent": has platform-level tools like bing_grounding, azure_ai_search,
+      openapi, azure_function, connected_agent, fabric_dataagent, etc.
+    """
+    tools = item.get("tools", [])
+    if isinstance(tools, str):
+        try:
+            tools = json.loads(tools)
+        except:
+            tools = []
+    if not isinstance(tools, list):
+        tools = []
+    
+    # OpenAI-native tools (don't make it an "agent" in Foundry terms)
+    NATIVE_TOOL_TYPES = {"code_interpreter", "file_search", "retrieval", "function"}
+    
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        tool_type = tool.get("type", "")
+        if tool_type and tool_type not in NATIVE_TOOL_TYPES:
+            return "agent"
+    
+    return "assistant"
+
+
+def _format_tools_list(item: Dict[str, Any]) -> str:
+    """Return a compact summary of tools on a v1 item."""
+    tools = item.get("tools", [])
+    if isinstance(tools, str):
+        try:
+            tools = json.loads(tools)
+        except:
+            tools = []
+    if not isinstance(tools, list):
+        return "(none)"
+    if not tools:
+        return "(none)"
+    
+    types = []
+    for t in tools:
+        if isinstance(t, dict):
+            tt = t.get("type", "?")
+            if tt == "function":
+                fname = t.get("function", {}).get("name", "?")
+                tt = f"function:{fname}"
+            types.append(tt)
+    return ", ".join(types)
+
+
+def list_project_inventory(project_endpoint: str, source_tenant: Optional[str] = None) -> None:
+    """
+    List all v1 items in a project, showing everything that needs migration.
+    This is the handler for --list mode.
+
+    Queries TWO separate backends to get the full picture — both contain
+    v1-style items that need migration to the v2 named-agent/versioned model
+    (``project_client.agents.create_version(...)``):
+
+      1. Foundry endpoint (portal "agents" page):
+         {resource}.services.ai.azure.com/api/projects/{project}/assistants
+         → Items created through the Foundry portal's agents experience.
+
+      2. Legacy OpenAI endpoint (portal "assistants" page):
+         {resource}.cognitiveservices.azure.com/openai/assistants
+         → Items created through the older OpenAI-compatible experience.
+
+    Items that appear on both are deduplicated by ID.
+    """
+    print("")
+    print("╔══════════════════════════════════════════════════════════════════════╗")
+    print("║              📋  PROJECT INVENTORY  (read-only)                     ║")
+    print("╚══════════════════════════════════════════════════════════════════════╝")
+    print(f"   Endpoint: {project_endpoint}")
+    print("")
+
+    # Ensure we have a token for the source
+    tenant_for_auth = source_tenant if source_tenant else SOURCE_TENANT
+    if not TOKEN and not set_api_token(tenant_id=tenant_for_auth):
+        print("❌ Error: Unable to obtain API authentication token")
+        print("Set AZ_TOKEN env var or ensure az CLI is installed and logged in")
+        sys.exit(1)
+
+    had_endpoint_error = False
+
+    # ── 1. Query Foundry endpoint (portal "agents" page) ──────────────
+    print("   ── Querying Foundry endpoint (portal agents page) ──")
+    try:
+        foundry_items = list_assistants_from_project(project_endpoint)
+        for item in foundry_items:
+            if '_source_endpoint' not in item:
+                item['_source_endpoint'] = 'foundry'
+    except Exception as e:
+        print(f"   ⚠️  Failed to list from Foundry endpoint: {e}")
+        foundry_items = []
+        had_endpoint_error = True
+
+    # ── 2. Query legacy OpenAI endpoint (portal "assistants" page) ────
+    print("   ── Querying legacy OpenAI endpoint (portal assistants page) ──")
+    openai_items = list_v1_assistants_from_openai_endpoint(project_endpoint)
+    if LAST_LEGACY_OPENAI_QUERY_ERROR:
+        had_endpoint_error = True
+
+    # ── Merge & deduplicate ───────────────────────────────────────────
+    seen_ids = set()
+    merged = []
+
+    for item in foundry_items:
+        item_id = item.get("id") or item.get("name") or ""
+        if item_id and item_id not in seen_ids:
+            seen_ids.add(item_id)
+            merged.append(item)
+
+    for item in openai_items:
+        item_id = item.get("id") or item.get("name") or ""
+        if item_id and item_id not in seen_ids:
+            seen_ids.add(item_id)
+            merged.append(item)
+        elif not item_id:
+            merged.append(item)
+
+    items = merged
+
+    if not items:
+        if had_endpoint_error:
+            print("   ❌ Unable to build a complete inventory because one or more endpoint queries failed.")
+            sys.exit(1)
+        print("   (no items found on either endpoint)")
+        return
+
+    # ── Separate by source for display ────────────────────────────────
+    from_foundry = [i for i in items if i.get('_source_endpoint') != 'openai']
+    from_openai  = [i for i in items if i.get('_source_endpoint') == 'openai']
+
+    # Summary
+    total = len(items)
+    print(f"   Total v1 items found: {total}  (all need migration to v2)")
+    if from_foundry:
+        print(f"   ├─ From Foundry endpoint  (portal agents page):      {len(from_foundry)}")
+    if from_openai:
+        print(f"   ├─ From OpenAI endpoint   (portal assistants page):  {len(from_openai)}")
+    print(f"   └─ v2 agents use named agents with versions — these items are all v1.")
+    print("")
+
+    # ── Print helper ──────────────────────────────────────────────────
+    def _print_item(index: int, a: Dict[str, Any], show_source: bool = False) -> None:
+        aid = a.get("id", "?")
+        name = a.get("name", "(unnamed)")
+        model = a.get("model", "?")
+        tools_str = _format_tools_list(a)
+        created = a.get("created_at", "")
+        source = a.get("_source_endpoint", "?")
+        print(f"   {index}. {aid}")
+        print(f"      Name : {name}")
+        print(f"      Model: {model}")
+        if tools_str != "(none)":
+            print(f"      Tools: {tools_str}")
+        if show_source:
+            source_label = "Foundry (agents page)" if source != 'openai' else "OpenAI (assistants page)"
+            print(f"      Source: {source_label}")
+        if created:
+            if isinstance(created, (int, float)):
+                from datetime import datetime
+                created = datetime.fromtimestamp(created).strftime('%Y-%m-%d %H:%M')
+            print(f"      Created: {created}")
+        print("")
+
+    # If items came from both sources, show them in separate sections
+    if from_foundry and from_openai:
+        print("─── 🤖 FROM FOUNDRY ENDPOINT (portal agents page) ───────────────────")
+        print("   Created through the Foundry agents experience.  Needs migration to v2.")
+        print("")
+        for i, a in enumerate(from_foundry, 1):
+            _print_item(i, a)
+
+        print("─── 💬 FROM OPENAI ENDPOINT (portal assistants page) ─────────────────")
+        print("   Created through the older assistants experience.  Needs migration to v2.")
+        print("")
+        for i, a in enumerate(from_openai, 1):
+            _print_item(i, a)
+    else:
+        # Only one source — show a single flat list
+        source_label = "Foundry agents page" if from_foundry else "OpenAI assistants page"
+        print(f"─── 📋 MIGRATION CANDIDATES (from {source_label}) ───────────────────")
+        print(f"   All items need migration to v2 named agents.")
+        print("")
+        for i, a in enumerate(items, 1):
+            _print_item(i, a)
+
+    # Migration hints
+    print("─── 💡 NEXT STEPS ──────────────────────────────────────────────────")
+    print(f"   Migrate ALL:            migrate.ps1 --resource-id <your-resource-id>")
+    print(f"   Migrate agents only:    migrate.ps1 --resource-id <your-resource-id> --only-with-tools")
+    print(f"   Migrate assistants only: migrate.ps1 --resource-id <your-resource-id> --only-without-tools")
+    print(f"   Migrate one by ID:      migrate.ps1 --resource-id <your-resource-id> asst_xxxxx")
+    print("")
+
 
 def main():
     """
@@ -3308,6 +3825,14 @@ Examples:
         help='Project connection string for AIProjectClient (e.g., "eastus.api.azureml.ms;...;...;..."). Requires azure-ai-projects==1.0.0b10. If provided, reads assistants from project connection instead of other methods.'
     )
     
+    parser.add_argument(
+        '--list',
+        action='store_true',
+        help='List all v1 assistants/agents in the project WITHOUT migrating. '
+             'Shows a categorized inventory: assistants (no tools) vs agents (with tools). '
+             'Does not require --production-resource/subscription/tenant.'
+    )
+
     # Tool filtering arguments (mutually exclusive)
     tools_filter_group = parser.add_mutually_exclusive_group()
     tools_filter_group.add_argument(
@@ -3370,27 +3895,24 @@ Examples:
         help='Add a test Azure Function tool to the assistant for testing Azure Function tool transformation.'
     )
     
-    # Production Resource Arguments (REQUIRED for v2 API)
+    # Production Resource Arguments (required for migration, NOT required for --list)
     parser.add_argument(
         '--production-resource',
         type=str,
-        required=True,
-        help='Production Azure AI resource name (REQUIRED). Example: "nextgen-eastus". '
+        help='Production Azure AI resource name (required for migration). Example: "nextgen-eastus". '
              'If the name already ends with "-resource", it will NOT be doubled.'
     )
     
     parser.add_argument(
         '--production-subscription', 
         type=str,
-        required=True,
-        help='Production subscription ID (REQUIRED). Example: "b1615458-c1ea-49bc-8526-cafc948d3c25"'
+        help='Production subscription ID (required for migration). Example: "b1615458-c1ea-49bc-8526-cafc948d3c25"'
     )
     
     parser.add_argument(
         '--production-tenant',
         type=str,
-        required=True,
-        help='Production tenant ID for Azure authentication (REQUIRED). Example: "33e577a9-b1b8-4126-87c0-673f197bf624"'
+        help='Production tenant ID for Azure authentication (required for migration). Example: "33e577a9-b1b8-4126-87c0-673f197bf624"'
     )
     
     parser.add_argument(
@@ -3425,7 +3947,15 @@ Examples:
     assistant_id = args.assistant_id if args.assistant_id and args.assistant_id.strip() else None
     cosmos_connection_string = args.cosmos_endpoint if args.cosmos_endpoint and args.cosmos_endpoint.strip() else None
     
-    # Production arguments are now required, so no additional validation needed
+    # Validate production args are present when NOT in --list mode
+    if not args.list:
+        missing = []
+        if not args.production_resource:     missing.append('--production-resource')
+        if not args.production_subscription: missing.append('--production-subscription')
+        if not args.production_tenant:       missing.append('--production-tenant')
+        if missing:
+            parser.error(f"The following arguments are required for migration: {', '.join(missing)}\n"
+                         f"Tip: use --list to preview what's in the project without migrating.")
     
     # Set global production endpoint override if provided
     global PRODUCTION_ENDPOINT_OVERRIDE, CONNECTION_MAP
@@ -3441,6 +3971,21 @@ Examples:
                 print(f"🔗 Connection mapping: '{src.strip()}' -> '{tgt.strip()}'")
             else:
                 print(f"⚠️  Invalid connection mapping (expected SOURCE=TARGET): {mapping}")
+    
+    # ── List mode: show inventory and exit ──────────────────────────────
+    if args.list:
+        endpoint = args.project_endpoint or args.production_endpoint
+        if not endpoint:
+            # Try to construct from production-resource if provided
+            if args.production_resource:
+                res = args.production_resource
+                endpoint = f"https://{res}.services.ai.azure.com/api/projects/{res}"
+            else:
+                parser.error("--list requires --project-endpoint (or --production-endpoint, or --production-resource) "
+                             "to know which project to list.\n"
+                             "Example: --list --project-endpoint \"https://my-resource.services.ai.azure.com/api/projects/my-project\"")
+        list_project_inventory(endpoint, source_tenant=args.source_tenant)
+        return
     
     print("🚀 Starting v1 to v2 Agent Migration")
     print("=" * 50)
