@@ -22,7 +22,6 @@ RUN pip install -r requirements.txt
 
 # Copy the migration script and supporting files
 COPY v1_to_v2_migration.py .
-COPY read_cosmos_data.py .
 
 # Create a non-root user for security
 RUN useradd -m -u 1000 migration
@@ -47,6 +46,10 @@ echo "🔐 Switching to migration user..."\n\
 chown -R migration:migration /app\n\
 exec gosu migration python v1_to_v2_migration.py "$@"\n\
 ' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+# Copy the interactive-login entrypoint (handles az login inside Docker)
+COPY entrypoint-login.sh /app/entrypoint-login.sh
+RUN chmod +x /app/entrypoint-login.sh
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1

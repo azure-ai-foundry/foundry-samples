@@ -172,6 +172,7 @@ if ($useConnectionString -and $sourceTenant) {
 
 # Handle production authentication (REQUIRED)
 $productionToken = $null
+$openAiCompatToken = $null
 Write-Host "${Blue}🏭 Production v2 API Configuration:${Reset}"
 Write-Host "${Blue}   � Resource: $productionResource${Reset}"
 Write-Host "${Blue}   📋 Subscription: $productionSubscription${Reset}"
@@ -202,6 +203,14 @@ try {
     } else {
         Write-Host "${Red}❌ Failed to generate production token${Reset}"
         exit 1
+    }
+
+    Write-Host "${Blue}🔑 Generating legacy OpenAI-compatible token...${Reset}"
+    $openAiCompatToken = az account get-access-token --scope https://cognitiveservices.azure.com/.default --query accessToken -o tsv
+    if ($openAiCompatToken -and $openAiCompatToken.Length -gt 100) {
+        Write-Host "${Green}✅ Legacy OpenAI-compatible token generated successfully (length: $($openAiCompatToken.Length))${Reset}"
+    } else {
+        Write-Host "${Yellow}⚠️  Failed to generate legacy OpenAI-compatible token; legacy assistants endpoint may fail.${Reset}"
     }
     
     # Switch back to source tenant if different (for reading v1 assistants)
@@ -261,6 +270,12 @@ try {
     # Add production token (required)
     $dockerEnvVars += "-e", "PRODUCTION_TOKEN=$productionToken"
     Write-Host "${Green}🏭 Passing both source and production tokens to container${Reset}"
+
+    if ($openAiCompatToken -and $openAiCompatToken.Length -gt 100) {
+        $dockerEnvVars += "-e", "OPENAI_COMPAT_TOKEN=$openAiCompatToken"
+        $dockerEnvVars += "-e", "OPENAI_COMPAT_TOKEN_SCOPE=https://cognitiveservices.azure.com/.default"
+        Write-Host "${Green}🔑 Passing legacy OpenAI-compatible token to container${Reset}"
+    }
     
     # Check if we need the beta version for project connection string
     $needsBetaVersion = $false
@@ -312,6 +327,20 @@ try {
     } else {
         Write-Host ""
         Write-Host "${Red}❌ Migration failed with exit code: $exitCode${Reset}"
+        
+        # Auth-specific guidance
+        if ($exitCode -eq 1) {
+            Write-Host ""
+            Write-Host "${Yellow}🔐 If you saw 401/403 errors, check your RBAC role assignments:${Reset}"
+            Write-Host "   • Reading assistants/agents : ${Blue}Azure AI User${Reset} on the resource (minimum for Foundry)"
+            Write-Host "   • Creating/writing agents   : ${Blue}Azure AI User${Reset} on the resource"
+            Write-Host "   • Uploading/downloading files: ${Blue}Azure AI User${Reset} on the resource"
+            Write-Host "   • Managing connections (ARM) : ${Blue}Contributor${Reset} on the resource"
+            Write-Host ""
+            Write-Host "   Assign via: Azure portal → Resource → Access control (IAM) → Add role assignment"
+            Write-Host "   📖 ${Blue}https://learn.microsoft.com/azure/ai-foundry/concepts/rbac-ai-foundry${Reset}"
+            Write-Host "   📖 ${Blue}https://learn.microsoft.com/azure/ai-services/openai/how-to/role-based-access-control${Reset}"
+        }
     }
     
     exit $exitCode
