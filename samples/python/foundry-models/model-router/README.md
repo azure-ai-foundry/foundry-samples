@@ -1,22 +1,42 @@
-# Foundry Model Router — Chat Completion Sample
+# Foundry Model Router — API & SDK Samples
 
-Simple "Hello World" Python example showing how to use [Foundry Model Router](https://learn.microsoft.com/azure/foundry/openai/how-to/model-router) with Chat Completions API.
+Simple "Hello World" Python examples showing how to use [Foundry Model Router](https://learn.microsoft.com/azure/foundry/openai/how-to/model-router) across different Azure OpenAI APIs and SDKs.
 
 Model Router is a deployable AI chat model in Azure AI Foundry that **automatically selects the best underlying LLM** for each prompt in real time. It delivers high performance and cost savings from a single deployment — you use it just like any other chat model.
+
+## Examples
+
+| Folder | API | Auth | Description |
+|--------|-----|------|-------------|
+| [`chat-completions/`](chat-completions/) | Chat Completions | API Key | Basic single-prompt chat completion via `AzureOpenAI` client |
+| [`foundry-responses-sdk/`](foundry-responses-sdk/) | Foundry SDK | Entra ID | Uses `AIProjectClient` → `get_openai_client()` → Responses API |
 
 ## Prerequisites
 
 - **Python 3.9+**
 - **Azure subscription** with an Azure OpenAI resource
 - **Model Router deployment** — deploy `model-router` from the model catalog in [Microsoft Foundry](https://ai.azure.com/)
+- For the Foundry SDK example only: **Azure CLI** installed and logged in (`az login`)
 
-3. **Install dependencies**
+## Setup
+
+1. **Create a virtual environment** (recommended)
+
+   ```bash
+   python -m venv .venv
+   # Windows
+   .venv\Scripts\activate
+   # macOS/Linux
+   source .venv/bin/activate
+   ```
+
+2. **Install dependencies**
 
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Create your `.env` file**
+3. **Create your `.env` file**
 
    ```bash
    cp .env.sample .env
@@ -36,13 +56,19 @@ Model Router is a deployable AI chat model in Azure AI Foundry that **automatica
 ### Chat Completions API
 
 ```bash
-cd chat-completions
 python model-router-chat-completions.py
+```
+
+### Foundry Responses SDK (Entra ID)
+
+```bash
+az login
+python model-router-foundry-responses-sdk.py
 ```
 
 ## What to Expect
 
-The example prints:
+Each example prints:
 - **Which underlying model** was selected by the router (e.g. `gpt-4.1-mini-2025-04-14`)
 - **The model's response** to the prompt
 - Token usage
