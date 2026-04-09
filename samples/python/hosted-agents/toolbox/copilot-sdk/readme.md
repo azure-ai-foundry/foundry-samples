@@ -85,7 +85,7 @@ cp dot-env.template .env
 ```env
 AZURE_AI_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project>
 GITHUB_TOKEN=github_pat_...
-FOUNDRY_TOOLBOX_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project>/toolsets/<name>/mcp?api-version=v1
+FOUNDRY_TOOLBOX_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/<name>/mcp?api-version=v1
 ```
 
 ### 4. Important: Toolbox Endpoint URL
@@ -93,7 +93,7 @@ FOUNDRY_TOOLBOX_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<p
 The toolbox MCP endpoint URL **must** include `?api-version=v1`:
 
 ```
-https://<account>.services.ai.azure.com/api/projects/<project>/toolsets/<toolset-name>/mcp?api-version=v1
+https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/<toolbox-name>/mcp?api-version=v1
 ```
 
 Without the `?api-version=v1` query parameter, the endpoint returns HTTP 400.
