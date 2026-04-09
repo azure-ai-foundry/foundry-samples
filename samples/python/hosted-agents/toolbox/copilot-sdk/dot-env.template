@@ -12,5 +12,5 @@ ENABLE_APPLICATION_INSIGHTS_LOGGER=false
 
 # Toolbox MCP endpoint (optional — falls back to skills-only mode if not set).
 # IMPORTANT: URL must include ?api-version=v1, e.g.:
-# https://<account>.services.ai.azure.com/api/projects/<project>/toolsets/<name>/mcp?api-version=v1
+# https://<account>.services.ai.azure.com/api/projects/<project>/toolboxess/<name>/versions/<version>/mcp?api-version=v1
 TOOLBOX_MCP_ENDPOINT=
