@@ -72,7 +72,6 @@ cat > toolbox.json << 'EOF'
 }
 EOF
 
-foundry-agent toolset create --payload toolbox.json --env tip
 ```
 
 ### 3. Configure Environment
