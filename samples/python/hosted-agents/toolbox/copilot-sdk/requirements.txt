@@ -1,0 +1,12 @@
+github-copilot-sdk>=0.1.29
+starlette<1.0.0
+uvicorn[standard]
+python-dotenv==1.1.1
+azure-identity>=1.19.0
+azure-monitor-opentelemetry>=1.6.0
+opentelemetry-sdk<1.39
+azure-ai-agentserver-core>=2.0.0a1
+azure-ai-agentserver-responses>=1.0.0a1
+httpx
+aiohttp
+cachetools

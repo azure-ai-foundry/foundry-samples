@@ -1,0 +1,6 @@
+langchain-openai>=0.3.0
+langgraph>=0.2.0
+langchain-mcp-adapters==0.1.11
+python-dotenv==1.1.1
+starlette<1.0.0
+websockets>=12.0

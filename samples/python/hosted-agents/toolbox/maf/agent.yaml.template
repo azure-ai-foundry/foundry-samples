@@ -1,0 +1,26 @@
+name: {agent_name}
+description: Agent Framework agent wired for Azure AI Foundry toolbox MCP.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Agent Framework
+    - MCP Toolbox
+template:
+  name: {agent_name}
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: v1
+  environment_variables:
+    - name: AZURE_AI_PROJECT_ENDPOINT
+      value: ${{AZURE_AI_PROJECT_ENDPOINT}}
+    - name: AZURE_OPENAI_ENDPOINT
+      value: ${{AZURE_OPENAI_ENDPOINT}}
+    - name: MODEL_DEPLOYMENT_NAME
+      value: ${{MODEL_DEPLOYMENT_NAME}}
+    - name: TOOLBOX_MCP_ENDPOINT
+      value: ${{TOOLBOX_MCP_ENDPOINT}}
+resources:
+  - kind: model
+    id: gpt-4o
+    name: chat

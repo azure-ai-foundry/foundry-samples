@@ -1,0 +1,16 @@
+AZURE_AI_PROJECT_ENDPOINT={project_endpoint}
+
+# GitHub token for Copilot authentication (required)
+# Create a fine-grained PAT at: https://github.com/settings/personal-access-tokens/new
+#   -> Account permissions -> Copilot Requests -> Read-only
+GITHUB_TOKEN=
+
+# Optional: override the Copilot model
+# GITHUB_COPILOT_MODEL=
+
+ENABLE_APPLICATION_INSIGHTS_LOGGER=false
+
+# Toolbox MCP endpoint (optional — falls back to skills-only mode if not set).
+# IMPORTANT: URL must include ?api-version=v1, e.g.:
+# https://<account>.services.ai.azure.com/api/projects/<project>/toolsets/<name>/mcp?api-version=v1
+TOOLBOX_MCP_ENDPOINT=

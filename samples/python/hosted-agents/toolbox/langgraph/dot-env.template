@@ -1,0 +1,21 @@
+AZURE_AI_PROJECT_ENDPOINT={project_endpoint}
+AZURE_OPENAI_ENDPOINT=
+MODEL_DEPLOYMENT_NAME=gpt-4o
+ENABLE_APPLICATION_INSIGHTS_LOGGER=false
+
+# Toolbox MCP endpoint used by main.py.
+# IMPORTANT: URL must include ?api-version=v1, e.g.:
+# https://<account>.services.ai.azure.com/api/projects/<project>/toolsets/<name>/mcp?api-version=v1
+FOUNDRY_TOOLBOX_ENDPOINT=
+
+# Variables used by sample_toolboxes_crud.py
+FOUNDRY_PROJECT_ENDPOINT={project_endpoint}
+MCP_CONNECTION_ID=
+MCP_OAUTH_CONNECTION_ID=
+TRIPADVISOR_CONNECTION_ID=
+AI_SEARCH_INDEX_NAME=
+AI_SEARCH_CONNECTION_ID=
+BING_SEARCH_CONNECTION_ID=
+BING_SEARCH_INSTANCE_NAME=
+A2A_CONNECTION_ID=
+VECTOR_STORE_ID=

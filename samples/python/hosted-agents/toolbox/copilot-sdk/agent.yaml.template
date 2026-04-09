@@ -1,0 +1,21 @@
+name: {agent_name}
+description: >
+  Copilot SDK agent with Foundry toolbox MCP tools and skills.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Copilot SDK
+    - Toolbox
+template:
+  name: {agent_name}
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: v1
+  environment_variables:
+    - name: AZURE_AI_PROJECT_ENDPOINT
+      value: ${{AZURE_AI_PROJECT_ENDPOINT}}
+    - name: GITHUB_TOKEN
+      value: ${{GITHUB_TOKEN}}
+    - name: TOOLBOX_MCP_ENDPOINT
+      value: ${{TOOLBOX_MCP_ENDPOINT}}

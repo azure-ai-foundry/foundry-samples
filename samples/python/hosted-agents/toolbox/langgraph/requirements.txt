@@ -1,0 +1,4 @@
+--extra-index-url https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-python/pypi/simple/
+azure-ai-agentserver-core[tracing]>=2.0.0a20260408004
+azure-ai-agentserver-responses>=1.0.0a20260408004
+aiohttp
