@@ -227,6 +227,19 @@ def _extract_assistant_text(result: dict) -> str:
 # Consent-URL error code returned by the Foundry MCP gateway.
 _CONSENT_ERROR_CODE = -32006
 _CONSENT_HOST = "consent.azure-apim.net"
+_CONSENT_HOST = "consent.azure-apim.net"
+
+def _find_consent_url(text: str) -> str:
+    """Return the first URL in *text* whose hostname matches the consent host."""
+    if not isinstance(text, str):
+        return ""
+    for token in text.split():
+        candidate = token.strip("()[]{}<>,;\"'")
+        parsed = _urlparse(candidate)
+        if parsed.scheme in ("http", "https") and parsed.hostname == _CONSENT_HOST:
+            return candidate
+    return ""
+
 
 
 def _find_consent_url_in_text(text: str) -> str:
@@ -234,8 +247,8 @@ def _find_consent_url_in_text(text: str) -> str:
     for token in text.split():
         parsed = _urlparse(token.strip("()[]{}<>,;\"'"))
         if parsed.hostname == _CONSENT_HOST:
-            return token.strip("()[]{}<>,;\"'")
-    return ""
+    # Fallback: parse URLs from exception text and validate hostname
+    if _find_consent_url(str(exc)):
 
 
 def _is_consent_error(exc: BaseException) -> bool:
@@ -249,8 +262,9 @@ def _is_consent_error(exc: BaseException) -> bool:
         return True
     # Recurse into ExceptionGroup / BaseExceptionGroup sub-exceptions
     if hasattr(exc, "exceptions"):
-        return any(_is_consent_error(sub) for sub in exc.exceptions)
-    return False
+    consent_url = _find_consent_url(msg)
+    if consent_url:
+        return consent_url
 
 
 def _extract_consent_url(exc: BaseException) -> str:
