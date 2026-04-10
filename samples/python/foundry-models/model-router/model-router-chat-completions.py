@@ -29,6 +29,7 @@ endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]
 api_key = os.environ["AZURE_OPENAI_API_KEY"]
 deployment = os.environ["MODEL_DEPLOYMENT_NAME"]
 
+# <chat_completion>
 client = AzureOpenAI(
     azure_endpoint=endpoint,
     api_key=api_key,
@@ -45,6 +46,7 @@ response = client.chat.completions.create(
         },
     ],
 )
+# </chat_completion>
 
 print("--- Chat Completions Response ---")
 print(f"Routed to model: {response.model}")

@@ -33,6 +33,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=True)
 project_endpoint = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
 deployment = os.environ["MODEL_DEPLOYMENT_NAME"]
 
+# <foundry_responses>
 with (
     DefaultAzureCredential() as credential,
     AIProjectClient(endpoint=project_endpoint, credential=credential) as project_client,
@@ -42,6 +43,7 @@ with (
         model=deployment,
         input="In one sentence, name the most popular tourist destination in Seattle.",
     )
+# </foundry_responses>
 
     print("--- Foundry Responses SDK Output ---")
     print(f"Routed to model: {response.model}")
