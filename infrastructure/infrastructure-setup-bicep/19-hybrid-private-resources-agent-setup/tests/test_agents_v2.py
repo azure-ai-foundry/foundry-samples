@@ -61,6 +61,10 @@ from azure.ai.projects.models import (
     AzureAISearchToolResource,
     AISearchIndexResource,
     AzureAISearchQueryType,
+    OpenApiTool,
+    OpenApiFunctionDefinition,
+    OpenApiAnonymousAuthDetails,
+    A2APreviewTool,
 )
 from azure.identity import DefaultAzureCredential
 from openai.types.responses import ResponseInputParam
@@ -89,6 +93,16 @@ MCP_SERVER_URL = os.environ.get(
     "MCP_SERVER_URL",
     "https://mcp-http-server-public.victoriousfield-89c08f4e.westus2.azurecontainerapps.io/noauth/mcp"
 )
+
+# OpenAPI Server configuration - Calculator API deployed to Container Apps
+OPENAPI_SERVER_URL = os.environ.get(
+    "OPENAPI_SERVER_URL",
+    "",  # Set to your Container App URL, e.g. https://openapi-server.<env>.<region>.azurecontainerapps.io
+)
+
+# A2A (Agent-to-Agent) configuration
+A2A_CONNECTION_ID = os.environ.get("A2A_CONNECTION_ID", "")
+A2A_ENDPOINT = os.environ.get("A2A_ENDPOINT", "")
 
 # ============================================================================
 
@@ -343,7 +357,7 @@ def test_basic_agent():
             response = openai_client.responses.create(
                 conversation=conversation.id,
                 input="Say hello and confirm you are working. Keep it brief.",
-                extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
             )
             log_response_info(response, "Basic Agent Response")
 
@@ -422,7 +436,7 @@ def test_ai_search_tool():
             response = openai_client.responses.create(
                 conversation=conversation.id,
                 input="Search for any documents in the index and tell me what you find.",
-                extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
             )
             log_response_info(response, "AI Search Response")
 
@@ -495,7 +509,7 @@ def test_mcp_tool_with_agent():
             response = openai_client.responses.create(
                 conversation=conversation.id,
                 input="Please, calculate 1 + 2 using the MCP tool and print the response.",
-                extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
             )
             log_response_info(response, "MCP Tool Response")
 
@@ -516,7 +530,7 @@ def test_mcp_tool_with_agent():
                     response = openai_client.responses.create(
                         input=input_list,
                         previous_response_id=response.id,
-                        extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                        extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
                     )
 
             print(f"\n✓ Agent response: {response.output_text}")
@@ -590,6 +604,177 @@ def test_openai_responses_api():
         return False
 
 
+def _load_openapi_spec():
+    """Load the calculator OpenAPI spec from the JSON file next to this script."""
+    spec_path = os.path.join(os.path.dirname(__file__), "calculator_openapi.json")
+    with open(spec_path, "r") as f:
+        import json
+        return json.load(f)
+
+
+def test_openapi_tool():
+    """Test that an agent can use an OpenAPI tool to call a private API service."""
+    print("\n" + "=" * 60)
+    print("TEST 6: OpenAPI Tool → Private API Service")
+    print("=" * 60)
+
+    if not OPENAPI_SERVER_URL:
+        print("  ⚠ OPENAPI_SERVER_URL not set, skipping this test")
+        print("  Set it with: export OPENAPI_SERVER_URL=https://<container-app-url>")
+        return None
+
+    agent = None
+
+    try:
+        with (
+            DefaultAzureCredential() as credential,
+            AIProjectClient(
+                credential=credential,
+                endpoint=PROJECT_ENDPOINT
+            ) as project_client,
+            project_client.get_openai_client() as openai_client,
+        ):
+            print(f"✓ Connected to AI Project at {PROJECT_ENDPOINT}")
+
+            openapi_spec = _load_openapi_spec()
+            openapi_spec["servers"] = [
+                {"url": OPENAPI_SERVER_URL.rstrip("/"), "description": "Calculator API"}
+            ]
+
+            auth = OpenApiAnonymousAuthDetails()
+            openapi_tool = OpenApiTool(
+                openapi=OpenApiFunctionDefinition(
+                    name="calculator",
+                    spec=openapi_spec,
+                    description="A calculator API that can perform arithmetic operations",
+                    auth=auth,
+                )
+            )
+
+            agent = project_client.agents.create_version(
+                agent_name="openapi-test-agent",
+                definition=PromptAgentDefinition(
+                    model=MODEL_NAME,
+                    instructions="""You are a helpful agent that can use a calculator API.
+                    When asked to calculate, use the calculator tool's /calculate endpoint.
+                    Report the exact result from the API response.""",
+                    tools=[openapi_tool],
+                ),
+            )
+            print(f"✓ Created agent with OpenAPI tool (id: {agent.id})")
+            print(f"  OpenAPI Server URL: {OPENAPI_SERVER_URL}")
+
+            conversation = openai_client.conversations.create()
+            print(f"✓ Created conversation: {conversation.id}")
+
+            print("  Sending request to use calculator API...")
+            response = openai_client.responses.create(
+                conversation=conversation.id,
+                input="Please calculate 15 multiplied by 7 using the calculator tool and tell me the result.",
+                extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
+            )
+            log_response_info(response, "OpenAPI Tool Response")
+
+            print(f"\n✓ Agent response: {response.output_text}")
+            print("\n✓ TEST PASSED: OpenAPI tool successfully called private API")
+
+            project_client.agents.delete_version(
+                agent_name=agent.name,
+                agent_version=agent.version
+            )
+            print(f"  Cleaned up agent: {agent.name}")
+
+            return True
+
+    except Exception as e:
+        print(f"\n✗ TEST FAILED: {str(e)}")
+        log_exception_info(e, "OpenAPI Tool Error")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def test_a2a_tool():
+    """Test that an agent can use A2A tool to communicate with a remote agent."""
+    print("\n" + "=" * 60)
+    print("TEST 7: A2A Tool → Remote Agent")
+    print("=" * 60)
+
+    if not A2A_CONNECTION_ID:
+        print("  ⚠ A2A_CONNECTION_ID not set, skipping this test")
+        print("  Set it with: export A2A_CONNECTION_ID=<connection-id>")
+        return None
+
+    agent = None
+
+    try:
+        with (
+            DefaultAzureCredential() as credential,
+            AIProjectClient(
+                credential=credential,
+                endpoint=PROJECT_ENDPOINT
+            ) as project_client,
+            project_client.get_openai_client() as openai_client,
+        ):
+            print(f"✓ Connected to AI Project at {PROJECT_ENDPOINT}")
+
+            a2a_tool = A2APreviewTool(
+                project_connection_id=A2A_CONNECTION_ID,
+            )
+            if A2A_ENDPOINT:
+                a2a_tool.base_url = A2A_ENDPOINT
+
+            agent = project_client.agents.create_version(
+                agent_name="a2a-test-agent",
+                definition=PromptAgentDefinition(
+                    model=MODEL_NAME,
+                    instructions="""You are a coordinator agent that delegates tasks
+                    to other agents using A2A communication.
+                    When asked a question, use the A2A tool to consult the remote agent.""",
+                    tools=[a2a_tool],
+                ),
+            )
+            print(f"✓ Created agent with A2A tool (id: {agent.id})")
+            print(f"  A2A Connection: {A2A_CONNECTION_ID}")
+
+            print("  Sending request via A2A tool (streaming)...")
+            full_text = ""
+
+            stream_response = openai_client.responses.create(
+                stream=True,
+                tool_choice="required",
+                input="What can you do? Describe your capabilities briefly.",
+                extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
+            )
+
+            for event in stream_response:
+                if event.type == "response.output_text.delta":
+                    full_text += event.delta
+                elif event.type == "response.completed":
+                    if hasattr(event, "response") and hasattr(event.response, "output_text"):
+                        full_text = event.response.output_text
+
+            if full_text:
+                display = full_text[:500] + "..." if len(full_text) > 500 else full_text
+                print(f"\n✓ Agent response: {display}")
+
+            project_client.agents.delete_version(
+                agent_name=agent.name,
+                agent_version=agent.version
+            )
+            print(f"  Cleaned up agent: {agent.name}")
+
+            print("\n✓ TEST PASSED: A2A tool successfully communicated with remote agent")
+            return True
+
+    except Exception as e:
+        print(f"\n✗ TEST FAILED: {str(e)}")
+        log_exception_info(e, "A2A Tool Error")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def main():
     print("=" * 60)
     print("AGENTS V2 END-TO-END TEST")
@@ -601,6 +786,8 @@ def main():
     print(f"  AI Search Index: {AI_SEARCH_INDEX_NAME}")
     print(f"  AI Search Connection: {AI_SEARCH_CONNECTION_NAME or '(not set)'}")
     print(f"  MCP Server: {MCP_SERVER_URL}")
+    print(f"  OpenAPI Server: {OPENAPI_SERVER_URL or '(not set)'}")
+    print(f"  A2A Connection: {A2A_CONNECTION_ID or '(not set)'}")
 
     results = {}
 
@@ -622,6 +809,16 @@ def main():
     mcp_tool_result = test_mcp_tool_with_agent()
     if mcp_tool_result is not None:
         results['mcp_tool'] = mcp_tool_result
+
+    # Test 6: OpenAPI Tool (optional)
+    openapi_result = test_openapi_tool()
+    if openapi_result is not None:
+        results['openapi_tool'] = openapi_result
+
+    # Test 7: A2A Tool (optional)
+    a2a_result = test_a2a_tool()
+    if a2a_result is not None:
+        results['a2a_tool'] = a2a_result
 
     # Summary
     print("\n" + "=" * 60)

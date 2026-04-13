@@ -309,7 +309,7 @@ def test_mcp_tool_via_agent(mcp_url: str, label: str = "MCP Server"):
             response = openai_client.responses.create(
                 conversation=conversation.id,
                 input="Please calculate 1 + 2 using the MCP add tool and tell me the result.",
-                extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
             )
             log_response_info(response, "MCP Tool Response")
 
@@ -327,7 +327,7 @@ def test_mcp_tool_via_agent(mcp_url: str, label: str = "MCP Server"):
                     response = openai_client.responses.create(
                         input=input_list,
                         previous_response_id=response.id,
-                        extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                        extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
                     )
 
             print(f"\n✓ Agent response: {response.output_text}")

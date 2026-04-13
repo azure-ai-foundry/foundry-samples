@@ -1,0 +1,86 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Calculator API",
+    "description": "A simple calculator service for testing OpenAPI tool integration.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/calculate": {
+      "post": {
+        "summary": "Perform a calculation",
+        "description": "Perform an arithmetic operation (add, subtract, multiply, divide) on two numbers.",
+        "operationId": "calculate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (e.g., division by zero or unknown operation)"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CalculateRequest": {
+        "type": "object",
+        "required": ["operation", "a", "b"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["add", "subtract", "multiply", "divide"],
+            "description": "The arithmetic operation to perform: add, subtract, multiply, or divide"
+          },
+          "a": {
+            "type": "number",
+            "description": "The first operand"
+          },
+          "b": {
+            "type": "number",
+            "description": "The second operand"
+          }
+        }
+      },
+      "CalculateResponse": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "description": "The operation that was performed"
+          },
+          "a": {
+            "type": "number",
+            "description": "The first operand"
+          },
+          "b": {
+            "type": "number",
+            "description": "The second operand"
+          },
+          "result": {
+            "type": "number",
+            "description": "The result of the operation"
+          }
+        }
+      }
+    }
+  }
+}

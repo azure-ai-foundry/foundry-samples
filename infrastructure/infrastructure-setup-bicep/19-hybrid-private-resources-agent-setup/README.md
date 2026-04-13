@@ -85,6 +85,9 @@ For detailed setup instructions, see: [Securely connect to Azure AI Foundry](htt
 Use this template when you want:
 - **Private backend resources** — Keep AI Search, Cosmos DB, and Storage behind private endpoints
 - **MCP server integration** — Deploy MCP servers on the VNet that agents can access via Data Proxy
+- **OpenAPI tool integration** — Deploy OpenAPI-spec HTTP services on the VNet for agent tool access
+- **A2A (Agent-to-Agent)** — Connect agents to remote agents behind the VNet via the A2A protocol
+- **Azure Functions** — Deploy an Azure Function behind a VNET for agent tool access. 
 - **Private Foundry (default)** — Full network isolation with secure access via VPN/ExpressRoute/Bastion
 - **Optional public Foundry access** — Switch to public for portal-based development if allowed by your security policy
 
