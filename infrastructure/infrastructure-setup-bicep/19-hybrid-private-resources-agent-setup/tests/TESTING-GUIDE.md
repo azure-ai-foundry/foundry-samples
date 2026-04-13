@@ -1,6 +1,6 @@
 # Hybrid Private Resources - Testing Guide
 
-This guide covers testing Azure AI Foundry agents with tools that access private resources (AI Search, MCP servers). By default, the Foundry (AI Services) resource has **public network access disabled**. You can optionally [switch to public access](#switching-the-foundry-resource-to-public-access) for easier development.
+This guide covers testing Azure AI Foundry agents with tools that access private resources (AI Search, MCP servers, Fabric Data Agents). By default, the Foundry (AI Services) resource has **public network access disabled**. You can optionally [switch to public access](#switching-the-foundry-resource-to-public-access) for easier development.
 
 > **Private Foundry (default):** You need a secure connection (VPN Gateway, ExpressRoute, or Azure Bastion) to reach the Foundry resource and run SDK tests. See [Connecting to a Private Foundry Resource](#connecting-to-a-private-foundry-resource).
 
@@ -15,9 +15,13 @@ This guide covers testing Azure AI Foundry agents with tools that access private
 5. [Step 2: Verify Private Endpoints](#step-2-verify-private-endpoints)
 6. [Step 3: Create Test Data in AI Search](#step-3-create-test-data-in-ai-search)
 7. [Step 4: Deploy MCP Server](#step-4-deploy-mcp-server)
-8. [Step 5: Test via SDK](#step-5-test-via-sdk)
-9. [Troubleshooting](#troubleshooting)
-10. [Test Results Summary](#test-results-summary)
+8. [Step 5: Deploy OpenAPI Server](#step-5-deploy-openapi-server)
+9. [Step 6: Configure A2A Connection](#step-6-configure-a2a-connection)
+10. [Step 7: Configure Fabric Data Agent](#step-7-configure-fabric-data-agent)
+11. [Step 8: Test via SDK](#step-8-test-via-sdk)
+12. [Azure Functions Behind a VNet](#azure-functions-behind-a-vnet)
+13. [Troubleshooting](#troubleshooting)
+14. [Test Results Summary](#test-results-summary)
 
 ---
 
@@ -285,22 +289,274 @@ echo "Public MCP Server URL: https://${PUBLIC_MCP_FQDN}/noauth/mcp"
 
 ---
 
-## Step 5: Test via SDK
+## Step 5: Deploy OpenAPI Server
 
-Two test scripts are provided:
+Deploy the calculator OpenAPI service on Container Apps for testing OpenAPI tool integration.
+
+### 5.1 Build and Push the Image
+
+```bash
+# Build the OpenAPI server image
+cd ../openapi-server
+az acr build --registry $ACR_NAME --image openapi-server:latest .
+cd ../tests
+```
+
+### 5.2 Deploy to Private Container Apps Environment
+
+```bash
+# Deploy to the existing private Container Apps environment (mcp-env)
+az containerapp create \
+  --resource-group $RESOURCE_GROUP \
+  --name "openapi-server" \
+  --environment "mcp-env" \
+  --image "${ACR_NAME}.azurecr.io/openapi-server:latest" \
+  --target-port 8080 \
+  --ingress external \
+  --min-replicas 1 \
+  --user-assigned $IDENTITY_ID \
+  --registry-server "${ACR_NAME}.azurecr.io" \
+  --registry-identity $IDENTITY_ID
+
+# Get the private OpenAPI server URL
+OPENAPI_FQDN=$(az containerapp show -g $RESOURCE_GROUP -n "openapi-server" --query "properties.configuration.ingress.fqdn" -o tsv)
+echo "Private OpenAPI Server URL: https://${OPENAPI_FQDN}"
+```
+
+### 5.3 (Optional) Deploy Public OpenAPI Server
+
+```bash
+az containerapp create \
+  --resource-group $RESOURCE_GROUP \
+  --name "openapi-server-public" \
+  --environment "mcp-env-public" \
+  --image "${ACR_NAME}.azurecr.io/openapi-server:latest" \
+  --target-port 8080 \
+  --ingress external \
+  --min-replicas 1 \
+  --user-assigned $IDENTITY_ID \
+  --registry-server "${ACR_NAME}.azurecr.io" \
+  --registry-identity $IDENTITY_ID
+
+PUBLIC_OPENAPI_FQDN=$(az containerapp show -g $RESOURCE_GROUP -n "openapi-server-public" --query "properties.configuration.ingress.fqdn" -o tsv)
+echo "Public OpenAPI Server URL: https://${PUBLIC_OPENAPI_FQDN}"
+```
+
+### 5.4 Verify Connectivity
+
+```bash
+# Test the health endpoint
+curl -s "https://${OPENAPI_FQDN}/healthz"
+# Expected: {"status":"ok"}
+
+# Test the calculate endpoint
+curl -s -X POST "https://${OPENAPI_FQDN}/calculate" \
+  -H "Content-Type: application/json" \
+  -d '{"operation":"add","a":2,"b":4}'
+# Expected: {"operation":"add","a":2.0,"b":4.0,"result":6.0}
+```
+
+---
+
+## Step 6: Configure A2A Connection
+
+To test A2A (Agent-to-Agent) tool integration, you need a remote agent accessible via the A2A protocol.
+
+### 6.1 Set Up a Remote A2A Agent
+
+Deploy an A2A-compatible agent (e.g., another Foundry agent, or a custom A2A service) on the VNet or publicly. The agent must implement the [A2A protocol](https://a2a-protocol.org/latest/).
+
+### 6.2 Create a Project Connection
+
+In the Azure AI Foundry portal:
+
+1. Navigate to your project → **Settings** → **Connections**
+2. Click **+ New connection** → **Custom keys** (or **A2A** if available)
+3. Set the **Target** URL to your remote agent's endpoint
+4. Note the **Connection ID** for use in tests
+
+### 6.3 Configure Environment
+
+```bash
+export A2A_CONNECTION_ID="<your-a2a-connection-id>"
+# Optional: override the endpoint URL if the connection lacks a target
+export A2A_ENDPOINT="https://<remote-agent-url>"
+```
+
+---
+
+## Step 7: Configure Fabric Data Agent
+
+To test Fabric Data Agent integration, you need a Microsoft Fabric workspace with a Data Agent connected to your Foundry project. You can test with a public workspace (no private endpoints) or a private workspace (with workspace-level private endpoints on your VNet).
+
+### 7.1 Deploy a Fabric Capacity
+
+A Fabric Capacity is an Azure resource (`Microsoft.Fabric/capacities`) that provides compute for Fabric workloads. The **F2 SKU** is the smallest (2 Capacity Units) and suitable for testing.
+
+> **Important**: Deploy the Fabric Capacity in the **same region** as your VNet and AI Services deployment (e.g., `westus2`) for private endpoint connectivity.
+
+#### Option A: Azure Portal
+
+1. Go to the [Azure Portal](https://portal.azure.com) and search for **Microsoft Fabric**
+2. Click **Create** and fill in:
+   - **Subscription**: Your subscription
+   - **Resource Group**: Your existing resource group (e.g., `rg-hybrid-agent-test`)
+   - **Capacity Name**: A unique name (3–63 characters, lowercase, e.g., `fabriccaptest`)
+   - **Region**: Same region as your deployment (e.g., `westus2`)
+   - **Size**: **F2**
+   - **Capacity Administrator**: Your email address
+3. Click **Review + create** → **Create**
+
+> **Note**: You may need to register the `Microsoft.Fabric` resource provider and request F2 quota in your subscription first:
+> ```bash
+> az provider register --namespace Microsoft.Fabric
+> ```
+
+#### Option B: Azure CLI / Bicep
+
+```bash
+# Deploy Fabric capacity via CLI
+az deployment group create \
+  --resource-group $RESOURCE_GROUP \
+  --template-spec '
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [{
+    "type": "Microsoft.Fabric/capacities",
+    "apiVersion": "2023-11-01",
+    "name": "fabriccaptest",
+    "location": "[resourceGroup().location]",
+    "sku": { "name": "F2", "tier": "Fabric" },
+    "properties": {
+      "administration": { "members": ["your-email@example.com"] }
+    }
+  }]
+}'
+```
+
+Or add to your Bicep deployment:
+
+```bicep
+resource fabricCapacity 'Microsoft.Fabric/capacities@2023-11-01' = {
+  name: 'fabriccaptest'
+  location: location
+  sku: {
+    name: 'F2'
+    tier: 'Fabric'
+  }
+  properties: {
+    administration: {
+      members: [ 'your-email@example.com' ]
+    }
+  }
+}
+```
+
+### 7.2 Create a Fabric Workspace
+
+1. Go to [https://app.fabric.microsoft.com/home](https://app.fabric.microsoft.com/home)
+2. Click **Workspaces** → **New workspace**
+3. Give the workspace a name (e.g., `agent-test-workspace`)
+4. Under **Fabric and Power BI workspace types**, choose **Fabric**
+5. Under **Details**, select the capacity you created in Step 7.1
+6. Click **Apply**
+
+### 7.3 Enable Private Endpoints (for VNet testing)
+
+To test Fabric behind a VNet with private endpoints:
+
+1. **Enable tenant setting** (requires Fabric Admin):
+   - Go to [Fabric Admin Portal](https://app.fabric.microsoft.com/admin-portal) → **Tenant Settings**
+   - Enable **"Configure workspace-level inbound network rules"**
+
+2. **Deploy private endpoint for the Fabric workspace**:
+
+   The `main.bicep` template already supports Fabric private endpoints via the `fabricWorkspaceResourceId` parameter. Redeploy with the workspace resource ID:
+
+   ```bash
+   # Get the Fabric workspace resource ID from the Azure Portal
+   # (Azure Portal → Fabric workspace → Properties → Resource ID)
+
+   az deployment group create \
+     --resource-group $RESOURCE_GROUP \
+     --template-file main.bicep \
+     --parameters location=$LOCATION \
+     --parameters fabricWorkspaceResourceId="/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Fabric/capacities/<capacity>/workspaces/<workspace-id>"
+   ```
+
+   This creates a private endpoint for the Fabric workspace on the `pe-subnet` with a private DNS zone (`privatelink.fabric.microsoft.com`).
+
+3. **Verify the private endpoint**:
+
+   ```bash
+   az network private-endpoint list -g $RESOURCE_GROUP --query "[?contains(name,'fabric')]" -o table
+   ```
+
+### 7.4 Add Foundry Project Identity to Workspace
+
+1. In the [Fabric Portal](https://app.fabric.microsoft.com), open your workspace
+2. Click **Manage access** (or **Settings** → **Access**)
+3. Add your Foundry Project's managed identity as a **Contributor**
+
+   To find the project identity:
+   ```bash
+   # Get the project's managed identity principal ID
+   az cognitiveservices account show -g $RESOURCE_GROUP -n $AI_SERVICES_NAME \
+     --query "identity.principalId" -o tsv
+   ```
+
+### 7.5 Create a Fabric Data Agent
+
+1. In the Fabric Portal, navigate to your workspace
+2. Click **+ New item** → **Data Agent** (or search for "Data Agent")
+3. Configure the Data Agent with your Fabric data sources (e.g., lakehouse, warehouse, SQL endpoint)
+4. Publish the Data Agent
+
+### 7.6 Create a Project Connection
+
+1. In the [Azure AI Foundry Portal](https://ai.azure.com), navigate to your project
+2. Go to **Settings** → **Connections**
+3. Click **+ New connection** → **Microsoft Fabric**
+4. Configure the connection to point to your Fabric workspace and Data Agent
+5. Note the **Connection ID** — you'll need it for the tests
+
+### 7.7 Configure Environment
+
+```bash
+# For public Fabric workspace (no private endpoints)
+export FABRIC_CONNECTION_ID_PUBLIC="<your-fabric-connection-id>"
+
+# For private Fabric workspace (with private endpoints)
+export FABRIC_CONNECTION_ID_PRIVATE="<your-private-fabric-connection-id>"
+
+# Optional: Custom test query
+export FABRIC_TEST_QUERY="What tables are available and what data do they contain?"
+```
+
+---
+
+## Step 8: Test via SDK
+
+Six test scripts are provided:
 
 | Script | Description |
 |--------|-------------|
-| `test_agents_v2.py` | Full test suite: basic agent, AI Search, MCP tools |
+| `test_agents_v2.py` | Full test suite: basic agent, AI Search, MCP, OpenAPI, A2A |
 | `test_mcp_tools_agents_v2.py` | Focused MCP testing: connectivity + public/private agent tests |
+| `test_ai_search_tool_agents_v2.py` | Focused AI Search testing |
+| `test_openapi_tool_agents_v2.py` | Focused OpenAPI testing: connectivity + agent tests |
+| `test_a2a_connector_agents_v2.py` | Focused A2A testing: connectivity + agent tests |
+| `test_fabric_data_agent_v2.py` | Focused Fabric Data Agent testing: connectivity + agent tests |
+| `test_azure_function_agents_v2.py` | Azure Function as OpenAPI tool: connectivity + agent tests |
 
-### 5.1 Install Dependencies
+### 8.1 Install Dependencies
 
 ```bash
 pip install azure-ai-projects azure-identity openai
 ```
 
-### 5.2 Configure Environment
+### 8.2 Configure Environment
 
 ```bash
 # Set the project endpoint (get from Azure Portal -> AI Services -> Projects -> Properties)
@@ -309,12 +565,29 @@ export PROJECT_ENDPOINT="https://<ai-services>.services.ai.azure.com/api/project
 # Optional: Override MCP server URLs
 export MCP_SERVER_PUBLIC="https://<public-mcp-fqdn>/noauth/mcp"
 export MCP_SERVER_PRIVATE="https://<private-mcp-fqdn>/noauth/mcp"
+
+# Optional: OpenAPI server URL
+export OPENAPI_SERVER_URL="https://<openapi-container-app-fqdn>"
+export OPENAPI_SERVER_PUBLIC="https://<public-openapi-fqdn>"
+export OPENAPI_SERVER_PRIVATE="https://<private-openapi-fqdn>"
+
+# Optional: A2A connection
+export A2A_CONNECTION_ID="<a2a-project-connection-id>"
+export A2A_ENDPOINT="https://<remote-a2a-agent-url>"
+
+# Optional: Fabric Data Agent connection
+export FABRIC_CONNECTION_ID_PUBLIC="<public-fabric-connection-id>"
+export FABRIC_CONNECTION_ID_PRIVATE="<private-fabric-connection-id>"
+
+# Optional: Azure Function App
+export FUNCTION_APP_PUBLIC="https://<func-app-name>.azurewebsites.net"
+export FUNCTION_APP_PRIVATE="https://<private-func-app-name>.azurewebsites.net"
 ```
 
-### 5.3 Run Full Test Suite
+### 8.3 Run Full Test Suite
 
 ```bash
-# Run all tests (basic agent, AI Search, MCP)
+# Run all tests (basic agent, AI Search, MCP, OpenAPI, A2A)
 python test_agents_v2.py
 
 # Run specific test
@@ -323,7 +596,7 @@ python test_agents_v2.py --test ai_search
 python test_agents_v2.py --test mcp_tool
 ```
 
-### 5.4 Run MCP-Focused Tests
+### 8.4 Run MCP-Focused Tests
 
 ```bash
 # Run all MCP tests (connectivity + public + private)
@@ -339,7 +612,78 @@ python test_mcp_tools_agents_v2.py --test private
 python test_mcp_tools_agents_v2.py --test public --retry 3
 ```
 
-### 5.5 Understanding Test Results
+### 8.5 Run OpenAPI-Focused Tests
+
+```bash
+# Run all OpenAPI tests (connectivity + agent tests)
+python test_openapi_tool_agents_v2.py
+
+# Test only public OpenAPI server
+python test_openapi_tool_agents_v2.py --test public
+
+# Test only private OpenAPI server
+python test_openapi_tool_agents_v2.py --test private
+
+# With retries
+python test_openapi_tool_agents_v2.py --test public --retry 3
+```
+
+### 8.6 Run A2A-Focused Tests
+
+```bash
+# Run all A2A tests (connectivity + agent tests)
+python test_a2a_connector_agents_v2.py
+
+# Test only public A2A endpoint
+python test_a2a_connector_agents_v2.py --test public
+
+# Test only private A2A endpoint
+python test_a2a_connector_agents_v2.py --test private
+
+# With retries
+python test_a2a_connector_agents_v2.py --retry 3
+```
+
+### 8.7 Run Fabric Data Agent Tests
+
+```bash
+# Run all Fabric tests (connectivity + public + private)
+python test_fabric_data_agent_v2.py
+
+# Test only public Fabric workspace
+python test_fabric_data_agent_v2.py --test public
+
+# Test only private Fabric workspace (VNet)
+python test_fabric_data_agent_v2.py --test private
+
+# With retries
+python test_fabric_data_agent_v2.py --retry 3
+
+# With a custom query
+python test_fabric_data_agent_v2.py --test public --query "Show me the sales data summary"
+```
+
+### 8.8 Run Azure Function Tests
+
+```bash
+# Set Function App URLs
+export FUNCTION_APP_PUBLIC="https://<func-app-name>.azurewebsites.net"
+export FUNCTION_APP_PRIVATE="https://<func-app-name>.azurewebsites.net"
+
+# Run all Function tests (connectivity + agent tests)
+python test_azure_function_agents_v2.py
+
+# Test only public Function App
+python test_azure_function_agents_v2.py --test public
+
+# Test only private Function App (VNet)
+python test_azure_function_agents_v2.py --test private
+
+# With retries
+python test_azure_function_agents_v2.py --test private --retry 3
+```
+
+### 8.9 Understanding Test Results
 
 **MCP Connectivity Test**: Direct HTTP test to verify the MCP server responds correctly:
 - Sends `initialize` request and captures `mcp-session-id` header
@@ -352,6 +696,181 @@ python test_mcp_tools_agents_v2.py --test public --retry 3
 - Validates the agent can call MCP tools through the Data Proxy
 
 > **Known Issue**: Agent tests may fail ~50% of the time with `TaskCanceledException` due to Hyena cluster routing. The Data Proxy is only deployed on one of two scale units, and the load balancer routes in round-robin fashion. Use `--retry` to mitigate.
+
+---
+
+## Azure Functions Behind a VNet
+
+> **Key concept**: "Azure Functions behind a VNet" does **not** mean Foundry or the model calls your function over your VNet. It means the Function App's own networking (inbound and/or outbound) is restricted to a customer-owned VNet. Foundry never directly invokes Azure Functions — the customer's application code executes the call.
+
+### How It Works
+
+An Azure Function runs inside a Function App, which is a specialized App Service. Networking is inherited from App Service networking primitives.
+
+There are two **independent** networking dimensions:
+
+| Dimension | Controls | Mechanism |
+|-----------|----------|-----------|
+| **Outbound** ("Where can my function call?") | Egress from the function runtime | **VNet Integration** — function is attached to a delegated subnet; all outbound traffic flows through it |
+| **Inbound** ("Who can call my function?") | Access to the function endpoint | **Private Endpoint** — function gets a private IP in a subnet; public access can be disabled |
+
+These combine into three distinct scenarios:
+
+### The Three Scenarios
+
+| Scenario | VNet Integration (outbound) | Private Endpoint (inbound) | `publicNetworkAccess` | DataProxy compatible? | Use case |
+|----------|:--------------------------:|:--------------------------:|:---------------------:|:--------------------:|----------|
+| **1. No VNet** | ❌ | ❌ | Enabled | ✅ Yes | Baseline — function can't reach private resources |
+| **2. VNet Integration only** | ✅ | ❌ | Enabled | ✅ Yes | **Function reaches private resources** — the practical scenario for Foundry |
+| **3. Full lockdown (VNet Integration + PE)** | ✅ | ✅ | Disabled | ❌ No | Customer code on VNet calls the function — DataProxy cannot |
+
+#### Scenario 1: No VNet (Baseline)
+
+The Function App has no VNet attachment. It can only reach public resources.
+
+```
+Agent → DataProxy → Function App (public) → ❌ private storage unreachable
+```
+
+The function's `storage.stored` field returns `false` — it can compute but can't reach private resources.
+
+#### Scenario 2: VNet Integration Only (DataProxy-Compatible) ✅
+
+The Function App has **VNet Integration** for outbound traffic but keeps `publicNetworkAccess: Enabled`. This is the practical scenario for Foundry OpenAPI tools.
+
+```
+Agent → DataProxy → Function App (public endpoint)
+                         │
+                         │  outbound via VNet Integration
+                         ▼
+                    Private Storage Account (no public endpoint)
+                         └─ ✅ storage.stored = true
+```
+
+**Why this works**: The DataProxy can reach the Function via its public endpoint, and the Function can reach private resources via VNet Integration. The `storage.stored: true` field proves VNet Integration is working.
+
+#### Scenario 3: Full Lockdown (Customer Code Only) 🔒
+
+The Function App has both VNet Integration AND a Private Endpoint with `publicNetworkAccess: Disabled`. Only callers on the VNet can reach it.
+
+```
+Customer App (on VNet) → Function App (private endpoint)
+                              │
+                              │  outbound via VNet Integration
+                              ▼
+                         Private Storage Account
+                              └─ ✅ storage.stored = true
+
+Agent → DataProxy → Function App (public endpoint disabled)
+                         └─ ❌ 403 Ip Forbidden
+```
+
+**Why the DataProxy can't use this**: The DataProxy resolves DNS at the Foundry infrastructure level, not through the VNet's private DNS zones. Even though the PE has a private IP, the DataProxy's traffic is not recognized as arriving via the PE. The Function App rejects it with `403 Ip Forbidden`.
+
+**Contrast with Container Apps**: Internal Container Apps environments have no public endpoint at all — the private FQDN only resolves within the VNet, and the DataProxy reaches them natively via VNet routing. There is no `publicNetworkAccess` toggle.
+
+**When to use Scenario 3**: When the Function is called by customer-owned compute (AKS, VM, App Service) that runs on the VNet — NOT via the Foundry DataProxy.
+
+### What "Behind VNet" Does and Does Not Mean
+
+| ✅ It means | ❌ It does NOT mean |
+|------------|-------------------|
+| The function can reach private resources via VNet Integration (outbound) | The function runs inside your VNet compute |
+| Callers on the VNet can use Private Endpoint (inbound, Scenario 3) | Foundry DataProxy can use Private Endpoint (it cannot) |
+| Storage writes go through the VNet to locked-down storage | Setting `publicNetworkAccess: Disabled` works with DataProxy |
+
+### Relationship to Foundry Agents
+
+```
+Scenario 2 (DataProxy path):              Scenario 3 (Customer app path):
+
+Model / Agent                              Model / Agent
+   │                                          │
+   │  tool call (JSON)                        │  tool call (JSON)
+   ▼                                          ▼
+DataProxy (Foundry infra)                  Customer App (AKS/VM)  ← runs in VNet
+   │                                          │
+   │  HTTPS to public endpoint                │  HTTPS via Private Endpoint
+   ▼                                          ▼
+Azure Function App                         Azure Function App
+   │                                          │
+   │  VNet Integration (outbound)             │  VNet Integration (outbound)
+   ▼                                          ▼
+Private Storage / DB / APIs                Private Storage / DB / APIs
+```
+
+### When Does the DataProxy Apply?
+
+The DataProxy is **only** involved when Foundry-hosted infrastructure (Capability Hosts / Tool Server) needs to make outbound calls. This happens with:
+
+- **Private OpenAPI tools** — Tool Server Python sandbox routes through DataProxy
+- **Private MCP tools** — Tool Server C# connector routes through DataProxy
+- **Private A2A tools** — Tool Server C# connector routes through DataProxy
+
+If a Function is exposed as an **OpenAPI tool** (Scenario 2), the DataProxy routes the call to the Function's public endpoint. The Function then uses VNet Integration to reach private backends.
+
+If the Function is called by customer application code (Scenario 3), the DataProxy is **not** in the path — the customer app calls the Function directly via its Private Endpoint on the VNet.
+
+### Required Resources
+
+| Resource | Scenario 2 | Scenario 3 | Purpose |
+|----------|:----------:|:----------:|---------|
+| Function App (EP1+ plan) | ✅ | ✅ | VNet Integration requires Elastic Premium |
+| Storage Account | ✅ | ✅ | Required by Functions runtime |
+| VNet + delegated subnet | ✅ | ✅ | For VNet Integration outbound |
+| Storage PEs (Blob + Queue + File) | ✅ | ✅ | Runtime won't start without them when storage is locked |
+| Storage DNS zones | ✅ | ✅ | `privatelink.blob`, `.queue`, `.file.core.windows.net` |
+| Function App Private Endpoint | ❌ | ✅ | Inbound access from VNet callers |
+| Function App DNS zone | ❌ | ✅ | `privatelink.azurewebsites.net` |
+
+> ⚠️ **Storage requires three PEs**: Blob, Queue, **and File**. The File PE is often
+> forgotten but is required for the Functions content share (`WEBSITE_CONTENTSHARE`).
+> Without it, the runtime fails after storage lockdown.
+
+### Deployment Order (Validated)
+
+This sequence avoids the storage chicken-and-egg problem:
+
+1. Create a **delegated subnet** for VNet Integration
+2. Create a **Storage Account** with `defaultAction: Allow` (temporarily)
+3. Create **Storage Private Endpoints** (Blob + Queue + File) with DNS zone groups
+4. Create an **Elastic Premium (EP1)** plan
+5. Create the **Function App** with VNet Integration (`--vnet`, `--subnet`)
+6. Set app settings: `WEBSITE_CONTENTOVERVNET=1`, `WEBSITE_VNET_ROUTE_ALL=1`
+7. **Deploy function code** with `func azure functionapp publish`
+8. Verify the function (`curl /api/healthz` — check `private_storage.reachable`)
+9. Lock down storage (`defaultAction: Deny`), then **restart the Function App**
+10. Verify again (`curl /api/healthz` — storage should still be reachable via VNet)
+
+> ⚠️ If storage is locked before the Function App is created, `az functionapp create`
+> fails with `403 Forbidden` (cannot create file share). If storage is locked after
+> deployment without restarting, the Function App may return `503 Application Error`.
+
+### Testing an Azure Function Behind VNet with Foundry
+
+The test proves VNet Integration by checking the `storage.stored` field:
+
+- **Without VNet Integration** → `storage.stored: false` (can't reach private storage)
+- **With VNet Integration** → `storage.stored: true` (VNet routes to private storage)
+
+```bash
+# Function WITHOUT VNet Integration (Scenario 1 — baseline)
+export FUNCTION_APP_PUBLIC="https://<func-no-vnet>.azurewebsites.net"
+
+# Function WITH VNet Integration (Scenario 2 — reaches private storage)
+export FUNCTION_APP_PRIVATE="https://<func-with-vnet>.azurewebsites.net"
+
+# Run tests
+python test_azure_function_agents_v2.py --test all --retry 3
+```
+
+6. The DataProxy routes the OpenAPI tool call through the VNet, the same way it routes any private OpenAPI call. The agent creates an `OpenApiTool` pointing to the Function's spec, and the test validates the full round-trip.
+
+> **Note**: The public and private URLs are typically the same because the Function App
+> keeps `publicNetworkAccess: Enabled`. The "private" aspect is **outbound** — the function
+> can reach private resources on the VNet that public functions cannot.
+
+This follows the same pattern as the OpenAPI server tests (see [Step 5](#step-5-deploy-openapi-server)). A complete example is in [`azure-function-server/`](../azure-function-server/) with a README, Bicep template, and the function code.
 
 ---
 
@@ -409,6 +928,30 @@ Check the error message for details:
    az containerapp ingress show -g $RESOURCE_GROUP -n "mcp-http-server" --query "targetPort"
    ```
 
+### Fabric Data Agent Not Working
+
+1. **Verify the project connection exists**:
+   - Go to the Azure AI Foundry Portal → Project → Settings → Connections
+   - Confirm a Microsoft Fabric connection exists and is active
+
+2. **Verify the Foundry identity has access**:
+   ```bash
+   # Check the project's managed identity
+   az cognitiveservices account show -g $RESOURCE_GROUP -n $AI_SERVICES_NAME \
+     --query "identity.principalId" -o tsv
+   ```
+   Ensure this identity is a **Contributor** on the Fabric workspace.
+
+3. **Verify the Fabric capacity is running**:
+   - In the Azure Portal, check the Fabric capacity resource is in a running state
+   - F2 capacities can be paused to save costs — ensure it's active during testing
+
+4. **For private Fabric workspace — verify private endpoint**:
+   ```bash
+   az network private-endpoint list -g $RESOURCE_GROUP --query "[?contains(name,'fabric')]" -o table
+   ```
+   Ensure the private DNS zone `privatelink.fabric.microsoft.com` is linked to your VNet.
+
 ### Portal Shows "New Foundry Not Supported"
 
 This is expected when network injection is configured. Use SDK testing instead - it works perfectly with network injection.
@@ -421,8 +964,13 @@ This is expected when network injection is configured. Use SDK testing instead -
 
 | Script | Purpose |
 |--------|---------|
-| `test_agents_v2.py` | Full test suite: OpenAI API, basic agent, AI Search, MCP |
+| `test_agents_v2.py` | Full test suite: OpenAI API, basic agent, AI Search, MCP, OpenAPI, A2A |
 | `test_mcp_tools_agents_v2.py` | Focused MCP testing with retry support |
+| `test_ai_search_tool_agents_v2.py` | Focused AI Search testing |
+| `test_openapi_tool_agents_v2.py` | Focused OpenAPI tool testing with retry support |
+| `test_a2a_connector_agents_v2.py` | Focused A2A connector testing with retry support |
+| `test_fabric_data_agent_v2.py` | Focused Fabric Data Agent testing with retry support |
+| `test_azure_function_agents_v2.py` | Azure Function as OpenAPI tool, testing VNet routing |
 
 ### Validated ✅
 
@@ -433,6 +981,18 @@ This is expected when network injection is configured. Use SDK testing instead -
 | AI Search Tool | ✅ Pass | Data Proxy routes to private endpoint |
 | MCP Connectivity (direct HTTP) | ✅ Pass | Server responds correctly |
 | MCP Tool via Agent (public server) | ✅ Pass* | *~50% fail rate due to Hyena routing |
+| MCP Tool via Agent (private server) | ✅ Pass* | *C# RemoteMcpConnector — VNet-aware |
+| OpenAPI Connectivity (direct HTTP) | ✅ Pass | Both public and private servers |
+| OpenAPI Tool via Agent (public) | ✅ Pass* | *~50% fail rate due to Hyena routing |
+| OpenAPI Tool via Agent (private) | ✅ Pass* | *Requires DataProxy feature flags enabled |
+| A2A Connectivity (direct HTTP) | ✅ Pass | Both public and private servers |
+| A2A Tool via Agent (public) | ✅ Pass* | *C# RemoteA2AConnector — VNet-aware |
+| A2A Tool via Agent (private) | ✅ Pass* | *C# RemoteA2AConnector — VNet-aware |
+| Azure Function Connectivity | ✅ Pass | healthz + calculate endpoints |
+| Azure Function as OpenAPI Tool | ✅ Pass* | *Function App must have `publicNetworkAccess: Enabled` |
+| Fabric Connectivity (connection check) | 🔲 Pending | Requires Fabric workspace + connection |
+| Fabric Data Agent via Agent (public) | 🔲 Pending | Requires Fabric capacity + Data Agent |
+| Fabric Data Agent via Agent (private) | 🔲 Pending | Requires Fabric private endpoint |
 
 ### Known Limitations ⚠️
 
@@ -440,7 +1000,9 @@ This is expected when network injection is configured. Use SDK testing instead -
 |-------|-------|------------|
 | ~50% TaskCanceledException | Hyena cluster has 2 scale units, Data Proxy only on 1 | Use `--retry` flag |
 | Portal "New Foundry" blocked | Network injection not supported in portal | Use SDK testing |
-| Private MCP via Data Proxy | DNS resolution issues for Container Apps | Use public MCP server |
+| Function App `publicNetworkAccess: Disabled` → 403 | DataProxy resolves DNS at Foundry level, not via VNet PE | Keep `publicNetworkAccess: Enabled` (Scenario 2) |
+| Function App 503 after storage lockdown | Runtime loses access to backing storage | Restart Function App; ensure Blob + Queue + **File** PEs all exist |
+| Function App `storage.stored: false` with VNet | Missing File PE for content share | Add `file` PE alongside `blob` and `queue` PEs |
 
 ### Architecture Notes
 
@@ -448,9 +1010,21 @@ This is expected when network injection is configured. Use SDK testing instead -
 
 2. **MCP uses Streamable HTTP transport** - The multi-auth MCP server implements proper session management with `mcp-session-id` headers required by Azure's MCP client.
 
-3. **Container Apps require port 8080** - The multi-auth MCP image runs on port 8080, not 80.
+3. **OpenAPI tools** use the `OpenApiTool` with an inline OpenAPI spec. The Data Proxy routes to the private service the same way it routes MCP traffic — via the `scenario: 'agent'` network injection.
 
-4. **Use `/noauth/mcp` endpoint** for testing without authentication. Production deployments should use `/mcp` with proper auth configuration.
+4. **A2A tools** use the `A2APreviewTool` which requires a project connection configured in the Foundry portal. The remote agent must implement the [A2A protocol](https://a2a-protocol.org/latest/).
+
+5. **Fabric Data Agent tools** use the `MicrosoftFabricPreviewTool` (preview) which connects to a Microsoft Fabric workspace via a project connection. The Data Proxy routes requests to the Fabric Data Agent. For private workspaces, a private endpoint to `privatelink.fabric.microsoft.com` is required on the VNet.
+
+6. **Container Apps require port 8080** - Both the MCP and OpenAPI server images run on port 8080, not 80.
+
+6. **Use `/noauth/mcp` endpoint** for MCP testing without authentication. Production deployments should use `/mcp` with proper auth configuration.
+
+7. **Azure Functions behind VNet** have three scenarios: (1) no VNet — baseline, (2) VNet Integration only — function reaches private resources, `publicNetworkAccess: Enabled`, DataProxy-compatible, (3) full lockdown with PE — `publicNetworkAccess: Disabled`, only VNet callers, NOT DataProxy-compatible. Scenario 2 is the practical choice for Foundry OpenAPI tools. Scenario 3 is for customer-owned code calling from the VNet.
+
+8. **Container Apps vs Function Apps** have fundamentally different private networking. Internal Container Apps have no public endpoint — the DataProxy reaches them via VNet DNS natively. Function Apps with Private Endpoints still have a public hostname; `publicNetworkAccess: Disabled` blocks DataProxy traffic because it doesn't arrive via the PE NIC.
+
+9. **Storage requires three PEs** for Functions behind VNet: Blob, Queue, **and File**. The File PE is required for the content share (`WEBSITE_CONTENTSHARE`). Without all three, the runtime fails after storage lockdown.
 
 ---
 

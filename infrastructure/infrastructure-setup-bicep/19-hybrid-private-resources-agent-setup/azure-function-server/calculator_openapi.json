@@ -1,0 +1,170 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Calculator API (Azure Function with Private Storage)",
+    "description": "A calculator service running as an Azure Function with VNet Integration. Performs arithmetic and stores results in a private Azure Blob Storage account (no public endpoint). The 'storage' field in the calculate response proves VNet Integration is working.",
+    "version": "2.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://localhost:7071",
+      "description": "Local development"
+    }
+  ],
+  "paths": {
+    "/api/calculate": {
+      "post": {
+        "operationId": "calculate",
+        "summary": "Perform a calculation and store the result",
+        "description": "Perform an arithmetic operation (add, subtract, multiply, divide) on two numbers. The result is stored in a private Azure Blob Storage account via VNet Integration. The 'storage' field in the response indicates whether the private storage write succeeded.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful calculation with storage status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request (invalid input, division by zero, etc.)"
+          }
+        }
+      }
+    },
+    "/api/history": {
+      "get": {
+        "operationId": "getHistory",
+        "summary": "Get recent calculation history",
+        "description": "Read recent calculations from private blob storage. This proves VNet Integration works for both read and write access to the private storage account.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of records to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calculation history from private storage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Private storage unreachable (VNet Integration not configured)"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CalculateRequest": {
+        "type": "object",
+        "required": ["operation", "a", "b"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["add", "subtract", "multiply", "divide"],
+            "description": "The arithmetic operation to perform"
+          },
+          "a": {
+            "type": "number",
+            "description": "The first operand"
+          },
+          "b": {
+            "type": "number",
+            "description": "The second operand"
+          }
+        }
+      },
+      "CalculateResponse": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "description": "The operation that was performed"
+          },
+          "a": {
+            "type": "number",
+            "description": "The first operand"
+          },
+          "b": {
+            "type": "number",
+            "description": "The second operand"
+          },
+          "result": {
+            "type": "number",
+            "description": "The result of the operation"
+          },
+          "storage": {
+            "type": "object",
+            "description": "Status of the private storage write (proves VNet Integration)",
+            "properties": {
+              "stored": {
+                "type": "boolean",
+                "description": "Whether the result was stored in private blob storage"
+              },
+              "blob": {
+                "type": "string",
+                "description": "Name of the blob where the result was stored"
+              },
+              "reason": {
+                "type": "string",
+                "description": "Reason for storage failure (if stored is false)"
+              }
+            }
+          }
+        }
+      },
+      "HistoryResponse": {
+        "type": "object",
+        "properties": {
+          "history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": { "type": "string" },
+                "operation": { "type": "string" },
+                "a": { "type": "number" },
+                "b": { "type": "number" },
+                "result": { "type": "number" }
+              }
+            }
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of records returned"
+          },
+          "vnet_integration": {
+            "type": "boolean",
+            "description": "Whether the function could reach private storage"
+          }
+        }
+      }
+    }
+  }
+}
