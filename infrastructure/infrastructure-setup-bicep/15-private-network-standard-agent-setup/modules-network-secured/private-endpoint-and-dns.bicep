@@ -75,6 +75,9 @@ param existingDnsZones object = {
 @description('Subscription ID where existing private DNS zones are located. Should be resolved to current subscription if empty.')
 param dnsZonesSubscriptionId string
 
+@description('Location where resources will be deployed')
+param location string = resourceGroup().location
+
 // ---- Resource references ----
 resource aiAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
   name: aiAccountName
@@ -113,7 +116,7 @@ resource peSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' existin
 // - Establishes private connection to AI Services account
 resource aiAccountPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: '${aiAccountName}-private-endpoint'
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: { id: peSubnet.id } // Deploy in customer hub subnet
     privateLinkServiceConnections: [
@@ -135,7 +138,7 @@ resource aiAccountPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01
 // - Establishes private connection to AI Search service
 resource aiSearchPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: '${aiSearchName}-private-endpoint'
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: { id: peSubnet.id } // Deploy in customer hub subnet
     privateLinkServiceConnections: [
@@ -157,7 +160,7 @@ resource aiSearchPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01'
 // - Establishes private connection to blob storage
 resource storagePrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: '${storageName}-private-endpoint'
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: { id: peSubnet.id } // Deploy in customer hub subnet
     privateLinkServiceConnections: [
@@ -176,7 +179,7 @@ resource storagePrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' 
 
 resource cosmosDBPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: '${cosmosDBName}-private-endpoint'
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: { id: peSubnet.id } // Deploy in customer hub subnet
     privateLinkServiceConnections: [

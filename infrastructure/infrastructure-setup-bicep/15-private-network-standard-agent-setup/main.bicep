@@ -272,6 +272,7 @@ module privateEndpointAndDNS 'modules-network-secured/private-endpoint-and-dns.b
       storageAccountSubscriptionId: azureStorageSubscriptionId // Subscription ID for Storage Account
       existingDnsZones: existingDnsZones
       dnsZonesSubscriptionId: resolvedDnsZonesSubscriptionId
+      location: location
     }
     dependsOn: [
     aiSearch      // Ensure AI Search exists
