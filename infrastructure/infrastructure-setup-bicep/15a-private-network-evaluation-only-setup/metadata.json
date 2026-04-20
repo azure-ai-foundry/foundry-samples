@@ -1,0 +1,12 @@
+{
+  "$schema": "https://aka.ms/azure-quickstart-templates-metadata-schema#",
+  "type": "QuickStart",
+  "itemDisplayName": "Network Secured Evaluation-Only Setup",
+  "description": "This set of templates demonstrates how to set up a network-secured Azure AI Foundry environment for evaluation scenarios without Cosmos DB, AI Search, or capability host.",
+  "summary": "This set of templates demonstrates how to use Azure AI Foundry with your own virtual network for evaluation purposes.",
+  "githubUsername": "fosteramanda",
+  "dateUpdated": "2025-06-24",
+  "environments": [
+    "AzureCloud"
+  ]
+}

@@ -1,0 +1,297 @@
+/*
+Evaluation-Only Network Secured Setup - main.bicep
+-----------------------------------
+A simplified private-network setup for evaluation scenarios.
+This template does NOT deploy Cosmos DB, AI Search, or project capability host.
+It deploys only the AI Services account, a project with a storage connection,
+a VNet with private endpoints, and the required role assignments.
+*/
+@description('Location for all resources.')
+@allowed([
+  'westus'
+  'eastus'
+  'eastus2'
+  'japaneast'
+  'francecentral'
+  'spaincentral'
+  'uaenorth'
+  'southcentralus'
+  'italynorth'
+  'germanywestcentral'
+  'brazilsouth'
+  'southafricanorth'
+  'australiaeast'
+  'swedencentral'
+  'canadaeast'
+  'westeurope'
+  'westus3'
+  'uksouth'
+  'southindia'
+
+  //only class B and C
+  'koreacentral'
+  'polandcentral'
+  'switzerlandnorth'
+  'norwayeast'
+])
+param location string = 'eastus'
+
+@description('Name for your AI Services resource.')
+param aiServices string = 'aiservices'
+
+// Model deployment parameters
+@description('The name of the model you want to deploy')
+param modelName string = 'gpt-4.1'
+@description('The provider of your model')
+param modelFormat string = 'OpenAI'
+@description('The version of your model')
+param modelVersion string = '2025-04-14'
+@description('The sku of your model deployment')
+param modelSkuName string = 'GlobalStandard'
+@description('The tokens per minute (TPM) of your model deployment')
+param modelCapacity int = 30
+
+// Create a short, unique suffix, that will be unique to each resource group
+param deploymentTimestamp string = utcNow('yyyyMMddHHmmss')
+var uniqueSuffix = substring(uniqueString('${resourceGroup().id}-${deploymentTimestamp}'), 0, 4)
+var accountName = toLower('${aiServices}${uniqueSuffix}')
+
+@description('Name for your project resource.')
+param firstProjectName string = 'project'
+
+@description('This project will be a sub-resource of your account')
+param projectDescription string = 'A project for the AI Foundry account with network secured evaluation setup'
+
+@description('The display name of the project')
+param displayName string = 'network secured evaluation project'
+
+// Existing Virtual Network parameters
+@description('Virtual Network name for the Agent to create new or existing virtual network')
+param vnetName string = 'agent-vnet-test'
+
+@description('The name of Agents Subnet to create new or existing subnet for agents')
+param agentSubnetName string = 'agent-subnet'
+
+@description('The name of Private Endpoint subnet to create new or existing subnet for private endpoints')
+param peSubnetName string = 'pe-subnet'
+
+//Existing standard Agent required resources
+@description('Existing Virtual Network name Resource ID')
+param existingVnetResourceId string = ''
+
+@description('Address space for the VNet (only used for new VNet)')
+param vnetAddressPrefix string = ''
+
+@description('Address prefix for the agent subnet. The default value is 192.168.0.0/24 but you can choose any size /26 or any class like 10.0.0.0 or 172.168.0.0')
+param agentSubnetPrefix string = ''
+
+@description('Address prefix for the private endpoint subnet')
+param peSubnetPrefix string = ''
+
+@description('The AI Storage Account full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
+param azureStorageAccountResourceId string = ''
+
+@description('Subscription ID where existing private DNS zones are located. Leave empty to use current subscription.')
+param dnsZonesSubscriptionId string = ''
+
+@description('Object mapping DNS zone names to their resource group, or empty string to indicate creation')
+param existingDnsZones object = {
+  'privatelink.services.ai.azure.com': ''
+  'privatelink.openai.azure.com': ''
+  'privatelink.cognitiveservices.azure.com': ''
+  'privatelink.blob.core.windows.net': ''
+}
+
+@description('Zone Names for Validation of existing Private Dns Zones')
+param dnsZoneNames array = [
+  'privatelink.services.ai.azure.com'
+  'privatelink.openai.azure.com'
+  'privatelink.cognitiveservices.azure.com'
+  'privatelink.blob.core.windows.net'
+]
+
+
+var projectName = toLower('${firstProjectName}${uniqueSuffix}')
+var azureStorageName = toLower('${aiServices}${uniqueSuffix}storage')
+
+// Check if existing resources have been passed in
+var storagePassedIn = azureStorageAccountResourceId != ''
+var existingVnetPassedIn = existingVnetResourceId != ''
+
+var storageParts = split(azureStorageAccountResourceId, '/')
+var azureStorageSubscriptionId = storagePassedIn ? storageParts[2] : subscription().subscriptionId
+var azureStorageResourceGroupName = storagePassedIn ? storageParts[4] : resourceGroup().name
+
+var vnetParts = split(existingVnetResourceId, '/')
+var vnetSubscriptionId = existingVnetPassedIn ? vnetParts[2] : subscription().subscriptionId
+var vnetResourceGroupName = existingVnetPassedIn ? vnetParts[4] : resourceGroup().name
+var existingVnetName = existingVnetPassedIn ? last(vnetParts) : vnetName
+var trimVnetName = trim(existingVnetName)
+
+// Resolve DNS zones subscription ID - use current subscription if not specified
+var resolvedDnsZonesSubscriptionId = empty(dnsZonesSubscriptionId) ? subscription().subscriptionId : dnsZonesSubscriptionId
+
+// Create Virtual Network and Subnets
+module vnet 'modules-network-secured/network-agent-vnet.bicep' = {
+  name: 'vnet-${trimVnetName}-${uniqueSuffix}-deployment'
+  params: {
+    location: location
+    vnetName: trimVnetName
+    useExistingVnet: existingVnetPassedIn
+    existingVnetResourceGroupName: vnetResourceGroupName
+    agentSubnetName: agentSubnetName
+    peSubnetName: peSubnetName
+    vnetAddressPrefix: vnetAddressPrefix
+    agentSubnetPrefix: agentSubnetPrefix
+    peSubnetPrefix: peSubnetPrefix
+    existingVnetSubscriptionId: vnetSubscriptionId
+  }
+}
+
+/*
+  Create the AI Services account and model deployment
+*/
+module aiAccount 'modules-network-secured/ai-account-identity.bicep' = {
+  name: '${accountName}-${uniqueSuffix}-deployment'
+  params: {
+    accountName: accountName
+    location: location
+    modelName: modelName
+    modelFormat: modelFormat
+    modelVersion: modelVersion
+    modelSkuName: modelSkuName
+    modelCapacity: modelCapacity
+    agentSubnetId: vnet.outputs.agentSubnetId
+  }
+}
+
+/*
+  Validate existing resources
+  This module will check if the Storage Account already exists.
+*/
+module validateExistingResources 'modules-network-secured/validate-existing-resources.bicep' = {
+  name: 'validate-existing-resources-${uniqueSuffix}-deployment'
+  params: {
+    azureStorageAccountResourceId: azureStorageAccountResourceId
+    existingDnsZones: existingDnsZones
+    dnsZoneNames: dnsZoneNames
+    dnsZonesSubscriptionId: resolvedDnsZonesSubscriptionId
+  }
+}
+
+// This module will create a new Storage Account if one does not already exist
+module aiDependencies 'modules-network-secured/standard-dependent-resources.bicep' = {
+  name: 'dependencies-${uniqueSuffix}-deployment'
+  params: {
+    location: location
+    azureStorageName: azureStorageName
+
+    // Storage Account
+    azureStorageAccountResourceId: azureStorageAccountResourceId
+    azureStorageExists: validateExistingResources.outputs.azureStorageExists
+  }
+}
+
+resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' existing = {
+  name: aiDependencies.outputs.azureStorageName
+  scope: resourceGroup(azureStorageSubscriptionId, azureStorageResourceGroupName)
+}
+
+// Private Endpoint and DNS Configuration
+// This module sets up private network access for AI Services and Storage:
+// 1. Creates private endpoints in the specified subnet
+// 2. Sets up private DNS zones for each service
+// 3. Links private DNS zones to the VNet for name resolution
+module privateEndpointAndDNS 'modules-network-secured/private-endpoint-and-dns.bicep' = {
+  name: '${uniqueSuffix}-private-endpoint'
+  params: {
+    aiAccountName: aiAccount.outputs.accountName
+    storageName: aiDependencies.outputs.azureStorageName
+    vnetName: vnet.outputs.virtualNetworkName
+    peSubnetName: vnet.outputs.peSubnetName
+    suffix: uniqueSuffix
+    vnetResourceGroupName: vnet.outputs.virtualNetworkResourceGroup
+    vnetSubscriptionId: vnet.outputs.virtualNetworkSubscriptionId
+    storageAccountResourceGroupName: azureStorageResourceGroupName
+    storageAccountSubscriptionId: azureStorageSubscriptionId
+    existingDnsZones: existingDnsZones
+    dnsZonesSubscriptionId: resolvedDnsZonesSubscriptionId
+  }
+  dependsOn: [
+    storage
+  ]
+}
+
+/*
+  Creates a new project (sub-resource of the AI Services account)
+*/
+module aiProject 'modules-network-secured/ai-project-identity.bicep' = {
+  name: '${projectName}-${uniqueSuffix}-deployment'
+  params: {
+    projectName: projectName
+    projectDescription: projectDescription
+    displayName: displayName
+    location: location
+
+    azureStorageName: aiDependencies.outputs.azureStorageName
+    azureStorageSubscriptionId: aiDependencies.outputs.azureStorageSubscriptionId
+    azureStorageResourceGroupName: aiDependencies.outputs.azureStorageResourceGroupName
+
+    accountName: aiAccount.outputs.accountName
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+    storage
+  ]
+}
+
+module formatProjectWorkspaceId 'modules-network-secured/format-project-workspace-id.bicep' = {
+  name: 'format-project-workspace-id-${uniqueSuffix}-deployment'
+  params: {
+    projectWorkspaceId: aiProject.outputs.projectWorkspaceId
+  }
+}
+
+/*
+  Assigns the project SMI the storage blob data contributor role on the storage account
+*/
+module storageAccountRoleAssignment 'modules-network-secured/azure-storage-account-role-assignment.bicep' = {
+  name: 'storage-${azureStorageName}-${uniqueSuffix}-deployment'
+  scope: resourceGroup(azureStorageSubscriptionId, azureStorageResourceGroupName)
+  params: {
+    azureStorageName: aiDependencies.outputs.azureStorageName
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
+  }
+  dependsOn: [
+    storage
+    privateEndpointAndDNS
+  ]
+}
+
+/*
+  Assigns the project SMI the Azure AI User role on the AI Services account
+*/
+module aiAccountRoleAssignment 'modules-network-secured/ai-account-role-assignment.bicep' = {
+  name: 'ai-account-ra-${uniqueSuffix}-deployment'
+  params: {
+    accountName: aiAccount.outputs.accountName
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+  ]
+}
+
+// The Storage Blob Data Owner role assignment
+module storageContainersRoleAssignment 'modules-network-secured/blob-storage-container-role-assignments.bicep' = {
+  name: 'storage-containers-ra-${uniqueSuffix}-deployment'
+  scope: resourceGroup(azureStorageSubscriptionId, azureStorageResourceGroupName)
+  params: {
+    aiProjectPrincipalId: aiProject.outputs.projectPrincipalId
+    storageName: aiDependencies.outputs.azureStorageName
+    workspaceId: formatProjectWorkspaceId.outputs.projectWorkspaceIdGuid
+  }
+  dependsOn: [
+    storageAccountRoleAssignment
+  ]
+}
