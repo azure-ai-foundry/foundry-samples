@@ -43,7 +43,7 @@ load_dotenv()
 # ============================================================================
 # AUTHENTICATION SETUP
 # ============================================================================
-endpoint = os.environ["PROJECT_ENDPOINT"]
+endpoint = os.environ["FOUNDRY_PROJECT_ENDPOINT"]
 
 
 def create_workplace_assistant(project_client):
@@ -157,7 +157,7 @@ CAPABILITIES:
 - Help with Azure AD, Conditional Access, MFA, and security configurations"""
 
     # <create_agent_with_tools>
-    print(f"🛠️  Creating agent with model: {os.environ['MODEL_DEPLOYMENT_NAME']}")
+    print(f"🛠️  Creating agent with model: {os.environ['FOUNDRY_MODEL_NAME']}")
 
     tools = []
     if sharepoint_tool:
@@ -172,15 +172,15 @@ CAPABILITIES:
     agent = project_client.agents.create_version(
         agent_name="Modern Workplace Assistant",
         definition=PromptAgentDefinition(
-            model=os.environ["MODEL_DEPLOYMENT_NAME"],
+            model=os.environ["FOUNDRY_MODEL_NAME"],
             instructions=instructions,
             tools=tools if tools else None,
         ),
     )
 
     print(f"✅ Agent created successfully (name: {agent.name}, version: {agent.version})")
-    return agent
     # </create_agent_with_tools>
+    return agent
 
 
 def demonstrate_business_scenarios(agent, openai_client):
@@ -385,8 +385,8 @@ def main():
         except Exception as e:
             print(f"\n❌ Error: {e}")
             print("Please check your .env configuration and ensure:")
-            print("  - PROJECT_ENDPOINT is correct")
-            print("  - MODEL_DEPLOYMENT_NAME is deployed")
+            print("  - FOUNDRY_PROJECT_ENDPOINT is correct")
+            print("  - FOUNDRY_MODEL_NAME is deployed")
             print("  - Azure credentials are configured (az login)")
 
 
