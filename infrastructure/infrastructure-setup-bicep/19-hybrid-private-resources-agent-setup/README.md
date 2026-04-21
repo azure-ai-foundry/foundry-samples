@@ -178,6 +178,25 @@ Then configure private DNS zone for Container Apps (see TESTING-GUIDE.md Step 6.
 
 ## Parameters
 
+> **⚠️ Important: Cosmos DB Connection Requirements**
+>
+> If you are creating the Cosmos DB connection manually (e.g., via REST API or ARM), ensure the following:
+> - The `authType` **must** be set to `AAD`. This is the only supported authentication type for the Cosmos DB connection used by the Agent Service.
+> - The `metadata` section **must** include the `ResourceId` property, set to the full Azure Resource ID of your Cosmos DB account. The Agent Service relies on this property to correctly identify and connect to your Cosmos DB resource. Omitting `ResourceId` from the metadata will cause the connection to fail.
+>
+> Example connection properties:
+> ```json
+> {
+>   "category": "CosmosDB",
+>   "authType": "AAD",
+>   "metadata": {
+>     "ApiType": "Azure",
+>     "ResourceId": "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/{cosmosDbAccountName}",
+>     "location": "{region}"
+>   }
+> }
+> ```
+
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `location` | Azure region | `eastus2` |
