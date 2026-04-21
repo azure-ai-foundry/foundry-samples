@@ -8,6 +8,7 @@ Endpoints:
   GET  /.well-known/agent.json       - Agent card (A2A spec standard)
   GET  /.well-known/agent-card.json   - Agent card (Azure SDK default path)
   POST /                              - JSON-RPC 2.0 task endpoint
+  POST /a2a                           - JSON-RPC 2.0 task endpoint (DataProxy-compatible path)
   GET  /healthz                       - Container health check
 """
 
@@ -72,7 +73,10 @@ async def get_agent_card(request: Request):
         host = request.headers.get("x-forwarded-host", request.headers.get("host", ""))
         base_url = f"{scheme}://{host}"
     card = dict(AGENT_CARD)
-    card["url"] = base_url + "/"
+    # Use /a2a path instead of root "/" to ensure compatibility with the
+    # Foundry DataProxy, which requires a non-empty path after the hostname
+    # in its /v1/https/{serviceName}/{remainder} route.
+    card["url"] = base_url + "/a2a"
     return card
 
 
@@ -173,6 +177,7 @@ def _compute(op: str, a: float, b: float) -> str:
 
 
 @app.post("/")
+@app.post("/a2a")
 async def handle_jsonrpc(request: Request):
     """Handle A2A JSON-RPC 2.0 requests."""
     try:
