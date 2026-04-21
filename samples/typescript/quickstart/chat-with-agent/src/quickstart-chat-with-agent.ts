@@ -20,7 +20,7 @@ async function main(): Promise<void> {
             input: "What is the size of France in square miles?",
         },
         {
-            body: { agent: { name: AGENT_NAME, type: "agent_reference" } },
+            body: { agent_reference: { name: AGENT_NAME, type: "agent_reference" } },
         },
     );
     console.log(response.output_text);
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
             input: "And what is the capital city?",
         },
         {
-            body: { agent: { name: FOUNDRY_AGENT_NAME, type: "agent_reference" } },
+            body: { agent_reference: { name: AGENT_NAME, type: "agent_reference" } },
         },
     );
     console.log(response2.output_text);
