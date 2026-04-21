@@ -30,3 +30,22 @@ For more details on the standard agent setup, see the [standard agent setup conc
 **Azure Cosmos DB for NoSQL**
 - Your existing Azure Cosmos DB for NoSQL Account used in standard setup must have at least a total throughput limit of at least 3000 RU/s. Both Provisioned Thoughtput and Serverless are supported.
     - 3 containers will be provisioned in your existing Cosmos DB account and each need 1000 RU/s
+
+> **⚠️ Important: Cosmos DB Connection Requirements**
+>
+> When creating the Cosmos DB connection (e.g., via REST API or ARM), ensure the following:
+> - The `authType` **must** be set to `AAD`. This is the only supported authentication type for the Cosmos DB connection used by the Agent Service.
+> - The `metadata` section **must** include the `ResourceId` property, set to the full Azure Resource ID of your Cosmos DB account. The Agent Service relies on this property to correctly identify and connect to your Cosmos DB resource. Omitting `ResourceId` from the metadata will cause the connection to fail.
+>
+> Example connection properties:
+> ```json
+> {
+>   "category": "CosmosDB",
+>   "authType": "AAD",
+>   "metadata": {
+>     "ApiType": "Azure",
+>     "ResourceId": "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/{cosmosDbAccountName}",
+>     "location": "{region}"
+>   }
+> }
+> ```
