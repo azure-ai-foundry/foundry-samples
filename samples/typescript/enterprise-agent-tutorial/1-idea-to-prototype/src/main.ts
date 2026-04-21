@@ -283,7 +283,7 @@ export async function chatWithAssistant(
         conversation: conversation.id,
       },
       {
-        body: { agent: { name: agentName, type: "agent_reference" } },
+        body: { agent_reference: { name: agentName, type: "agent_reference" } },
       },
     );
 
