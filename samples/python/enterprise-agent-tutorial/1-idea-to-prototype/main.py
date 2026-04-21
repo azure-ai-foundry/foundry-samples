@@ -179,8 +179,8 @@ CAPABILITIES:
     )
 
     print(f"✅ Agent created successfully (name: {agent.name}, version: {agent.version})")
-    return agent
     # </create_agent_with_tools>
+    return agent
 
 
 def demonstrate_business_scenarios(agent, openai_client):
