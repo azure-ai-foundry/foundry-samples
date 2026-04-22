@@ -22,7 +22,6 @@
 .gitignore
 
 # Docker files
-Dockerfile
 .dockerignore
 
 # Docs
