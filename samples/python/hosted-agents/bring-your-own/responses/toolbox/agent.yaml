@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+
+kind: hosted
+name: toolbox-python-responses
+description: |
+    Bring-your-own agent using the Responses protocol with Foundry Toolbox MCP integration. Connects to a toolbox at startup, discovers tools, and lets the model call them during conversation.
+metadata:
+    tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Bring Your Own
+        - Toolbox
+        - Python
+protocols:
+    - protocol: responses
+      version: 1.0.0
+resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: gpt-4.1
+    - name: TOOLBOX_ENDPOINT
+      value: '{{TOOLBOX_ENDPOINT}}'
+    - name: TOOLBOX_WEB_SEARCH_TOOLS_MCP_ENDPOINT
+      value: ${TOOLBOX_WEB_SEARCH_TOOLS_MCP_ENDPOINT}
