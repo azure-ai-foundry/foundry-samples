@@ -11,11 +11,11 @@ USAGE:
     python evaluate.py
 
     Before running:
-    pip install azure-ai-projects==2.0.0b3 python-dotenv openai
+    pip install azure-ai-projects==2.0.0b3 python-dotenv
 
     Set these environment variables:
-    1) PROJECT_ENDPOINT - Your Foundry project endpoint
-    2) MODEL_DEPLOYMENT_NAME - Model deployment name (e.g., gpt-4o-mini)
+    1) FOUNDRY_PROJECT_ENDPOINT - Your Foundry project endpoint
+    2) FOUNDRY_MODEL_NAME - Model deployment name (e.g., gpt-4o-mini)
 """
 
 # <imports_and_includes>
@@ -34,8 +34,8 @@ from openai.types.evals.run_retrieve_response import RunRetrieveResponse
 
 # <configure_evaluation>
 load_dotenv()
-endpoint = os.environ["PROJECT_ENDPOINT"]
-model_deployment_name = os.environ.get("MODEL_DEPLOYMENT_NAME", "gpt-4o-mini")
+endpoint = os.environ["FOUNDRY_PROJECT_ENDPOINT"]
+model_deployment_name = os.environ.get("FOUNDRY_MODEL_NAME", "gpt-4o-mini")
 
 with (
     DefaultAzureCredential() as credential,
