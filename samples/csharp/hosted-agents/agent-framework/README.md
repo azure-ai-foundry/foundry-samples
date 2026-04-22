@@ -42,7 +42,7 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 mkdir hosted-agent-framework-agent && cd hosted-agent-framework-agent
 
 # Initialize from the manifest
-azd ai agent init -m https://github.com/microsoft/hosted-agents-vnext-private-preview/blob/main/samples/dotnet/hosted-agents/agent-framework/hello-world/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/hello-world/agent.manifest.yaml
 ```
 
 Follow the instructions from `azd ai agent init` to complete the agent initialization. If you don't have an existing Foundry project and a model deployment, `azd ai agent init` will guide you through creating them.
@@ -126,8 +126,8 @@ Or in PowerShell:
 Clone the repository containing the sample code:
 
 ```bash
-git clone https://github.com/microsoft/hosted-agents-vnext-private-preview.git
-cd hosted-agents-vnext-private-preview/samples/dotnet/hosted-agents/agent-framework
+git clone https://github.com/microsoft-foundry/foundry-samples.git
+cd foundry-samples/samples/csharp/hosted-agents/agent-framework
 ```
 
 #### Environment setup

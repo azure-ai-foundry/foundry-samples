@@ -88,9 +88,31 @@ curl -N -X POST http://localhost:8088/responses \
   }'
 ```
 
-## Deploy
+## Deploying the Agent to Microsoft Foundry
 
-See the [Azure AI Agent Hosting documentation](../../README.md) for deployment instructions.
+Once you've tested locally, deploy to Microsoft Foundry:
+
+```bash
+# Provision Azure resources (skip if already done during local setup)
+azd provision
+
+# Build, push, and deploy the agent to Foundry
+azd deploy
+```
+
+After deploying, invoke the agent running in Foundry:
+
+```bash
+azd ai agent invoke "save a note - book reservation for dinner"
+```
+
+To stream logs from the running agent:
+
+```bash
+azd ai agent monitor
+```
+
+For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
 
 ## File Structure
 
@@ -103,3 +125,19 @@ See the [Azure AI Agent Hosting documentation](../../README.md) for deployment i
 | `agent.yaml` | Agent hosting configuration |
 | `agent.manifest.yaml` | Agent metadata and template |
 | `.dockerignore` | Docker build exclusions |
+
+## Troubleshooting
+
+### Images built on Apple Silicon or other ARM64 machines do not work on our service
+
+We **recommend deploying with `azd deploy`**, which uses ACR remote build and always produces images with the correct architecture.
+
+If you choose to **build locally**, and your machine is **not `linux/amd64`** (for example, an Apple Silicon Mac), the image will **not be compatible with our service**, causing runtime failures.
+
+**Fix for local builds:**
+
+```bash
+docker build --platform=linux/amd64 -t image .
+```
+
+This forces the image to be built for the required `amd64` architecture.

@@ -91,9 +91,31 @@ curl -N -X POST "http://localhost:8088/invocations?agent_session_id=another-sess
   -d '{"message": "show me my notes"}'
 ```
 
-## Deploy
+## Deploying the Agent to Microsoft Foundry
 
-See the [Azure AI Agent Hosting documentation](../../README.md) for deployment instructions.
+Once you've tested locally, deploy to Microsoft Foundry:
+
+```bash
+# Provision Azure resources (skip if already done during local setup)
+azd provision
+
+# Build, push, and deploy the agent to Foundry
+azd deploy
+```
+
+After deploying, invoke the agent running in Foundry:
+
+```bash
+azd ai agent invoke '{"message": "save a note - book reservation for dinner"}'
+```
+
+To stream logs from the running agent:
+
+```bash
+azd ai agent monitor
+```
+
+For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
 
 ## File Structure
 
