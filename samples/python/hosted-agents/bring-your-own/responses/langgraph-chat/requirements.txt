@@ -1,0 +1,7 @@
+azure-ai-agentserver-responses==1.0.0b4
+azure-ai-agentserver-core==2.0.0b2
+azure-identity==1.25.3
+langgraph==1.1.8
+langgraph-prebuilt==1.0.10
+langchain-core==1.3.0
+langchain-openai==1.1.14

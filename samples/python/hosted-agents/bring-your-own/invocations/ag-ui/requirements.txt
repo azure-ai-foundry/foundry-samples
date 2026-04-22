@@ -1,0 +1,5 @@
+pydantic-ai-slim[openai]==1.75.0
+openai==2.32.0
+azure-identity==1.25.3
+ag-ui-protocol==0.1.16
+azure-ai-agentserver-invocations==1.0.0b2
