@@ -18,15 +18,18 @@ Notes are stored per session in `notes_{session_id}.jsonl` files, demonstrating 
 - Azure CLI installed and authenticated (`az login`)
 - Foundry project with a deployed model (e.g., `gpt-4.1-mini`)
 
-### Build
+### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+The agent starts on `http://localhost:8088/`.
+
+### Without `azd`
 
 ```bash
 dotnet build
-```
-
-### Start the Agent
-
-```bash
 cp .env.example .env  # then edit values
 export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
@@ -37,7 +40,19 @@ The agent starts on `http://localhost:8088/`.
 
 ### Test
 
-#### 1. Test with curl
+#### 1. Test with azd
+
+**Bash:**
+```bash
+azd ai agent invoke --local '{"message": "save a note - book reservation for dinner"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke --local '{\"message\": \"save a note - book reservation for dinner\"}'
+```
+
+#### 2. Test with curl
 
 ##### Save a note
 
@@ -71,7 +86,7 @@ curl -N -X POST "http://localhost:8088/invocations?agent_session_id=new-session"
   -d '{"message": "get all my notes"}'
 ```
 
-#### 2. Test in Agent Inspector
+#### 3. Test in Agent Inspector
 
 Once the agent is running, open **Agent Inspector** in VS Code to interactively send messages and view responses.
 

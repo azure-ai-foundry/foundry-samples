@@ -25,6 +25,14 @@ A note-taking agent built with `azure-ai-agentserver-invocations` and Azure Open
 
 ## Run Locally
 
+### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+### Without `azd`
+
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -35,6 +43,18 @@ export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
 
 # Start the agent
 python main.py
+```
+
+## Test with azd
+
+**Bash:**
+```bash
+azd ai agent invoke --local '{"message": "save a note - book reservation for dinner"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke --local '{\"message\": \"save a note - book reservation for dinner\"}'
 ```
 
 ## Test with curl

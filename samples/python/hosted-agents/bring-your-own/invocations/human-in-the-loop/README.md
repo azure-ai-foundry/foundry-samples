@@ -42,15 +42,18 @@ GET http://localhost:8088/invocations/docs/openapi.json
 - Azure CLI installed and authenticated (`az login`)
 - Azure OpenAI resource with a deployed model
 
-### Install Dependencies
+### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+The agent starts on `http://localhost:8088/`.
+
+### Without `azd`
 
 ```bash
 pip install -r requirements.txt
-```
-
-### Start the Agent
-
-```bash
 cp .env.example .env  # then edit values
 export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
@@ -59,7 +62,33 @@ python main.py
 
 The agent starts on `http://localhost:8088/`.
 
-### Test
+## Invoke with azd
+
+### Local
+
+**Bash:**
+```bash
+azd ai agent invoke --local '{"task": "Write a product launch announcement for Azure AI Foundry"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke --local '{\"task\": \"Write a product launch announcement for Azure AI Foundry\"}'
+```
+
+### Remote (after `azd up`)
+
+**Bash:**
+```bash
+azd ai agent invoke '{"task": "Write a product launch announcement for Azure AI Foundry"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke '{\"task\": \"Write a product launch announcement for Azure AI Foundry\"}'
+```
+
+### Test with curl
 
 ```bash
 # Fetch the OpenAPI spec
@@ -96,32 +125,6 @@ curl -X POST "http://localhost:8088/invocations?agent_session_id=session-1" \
 # Cancel a pending session
 curl -X POST http://localhost:8088/invocations/<invocation_id>/cancel
 # -> {"status": "cancelled", ...}
-```
-
-## Invoke with azd
-
-### Local
-
-**Bash:**
-```bash
-azd ai agent invoke --local '{"task": "Write a product launch announcement for Azure AI Foundry"}'
-```
-
-**PowerShell:**
-```powershell
-azd ai agent invoke --local '{\"task\": \"Write a product launch announcement for Azure AI Foundry\"}'
-```
-
-### Remote (after `azd up`)
-
-**Bash:**
-```bash
-azd ai agent invoke '{"task": "Write a product launch announcement for Azure AI Foundry"}'
-```
-
-**PowerShell:**
-```powershell
-azd ai agent invoke '{\"task\": \"Write a product launch announcement for Azure AI Foundry\"}'
 ```
 
 ## Deploying to Microsoft Foundry

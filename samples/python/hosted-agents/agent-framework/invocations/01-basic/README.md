@@ -2,9 +2,15 @@
 
 ## Running the server locally
 
-### Environment setup
+### Using `azd` (Recommended)
 
-Follow the instructions in the [Environment setup](../../README.md#environment-setup) section of the README in the parent directory to set up your environment and install dependencies.
+```bash
+azd ai agent run
+```
+
+### Without `azd`
+
+Follow the instructions in the [Environment setup](../../README.md#environment-setup-without-azd) section of the README in the parent directory to set up your environment and install dependencies.
 
 Run the following command to start the server:
 
@@ -15,6 +21,18 @@ python main.py
 ### Interacting with the agent
 
 Send a POST request to the server with a JSON body containing a "message" field to interact with the agent. For example:
+
+**Bash:**
+```bash
+azd ai agent invoke --local '{"message": "Hi"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke --local '{\"message\": \"Hi\"}'
+```
+
+Or use `curl`:
 
 ```bash
 curl -X POST http://localhost:8088/invocations -i -H "Content-Type: application/json" -d '{"message": "Hi"}'

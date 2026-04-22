@@ -31,7 +31,15 @@ Create one at [github.com/settings/personal-access-tokens/new](https://github.co
 
 > **Note:** Classic tokens (`ghp_`) are not supported. Use a fine-grained PAT, OAuth token (`gho_`), or GitHub App user token (`ghu_`).
 
-### Install & Run
+### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+The agent starts on `http://localhost:8088/`.
+
+### Without `azd`
 
 ```bash
 pip install -r requirements.txt
@@ -40,32 +48,6 @@ python main.py
 ```
 
 The agent starts on `http://localhost:8088/`.
-
-### Test
-
-```bash
-# First message
-curl -N -X POST http://localhost:8088/invocations \
-  -H "Content-Type: application/json" \
-  -d '{"input": "What is Python?"}'
-
-# Follow-up (multi-turn — same session remembers context)
-curl -N -X POST http://localhost:8088/invocations \
-  -H "Content-Type: application/json" \
-  -d '{"input": "Give me a code example"}'
-```
-
-### SSE Event Format
-
-Each Copilot SDK event is streamed via `event.to_dict()`:
-
-```
-data: {"type": "assistant.message_delta", "data": {"delta_content": "Python is"}}\n\n
-data: {"type": "assistant.message_delta", "data": {"delta_content": " a programming"}}\n\n
-...
-event: done
-data: {"invocation_id": "...", "session_id": "..."}
-```
 
 ## Invoke with azd
 
@@ -91,6 +73,32 @@ azd ai agent invoke '{"input": "What can you help me with?"}'
 **PowerShell:**
 ```powershell
 azd ai agent invoke '{\"input\": \"What can you help me with?\"}'
+```
+
+### Test with curl
+
+```bash
+# First message
+curl -N -X POST http://localhost:8088/invocations \
+  -H "Content-Type: application/json" \
+  -d '{"input": "What is Python?"}'
+
+# Follow-up (multi-turn — same session remembers context)
+curl -N -X POST http://localhost:8088/invocations \
+  -H "Content-Type: application/json" \
+  -d '{"input": "Give me a code example"}'
+```
+
+### SSE Event Format
+
+Each Copilot SDK event is streamed via `event.to_dict()`:
+
+```
+data: {"type": "assistant.message_delta", "data": {"delta_content": "Python is"}}\n\n
+data: {"type": "assistant.message_delta", "data": {"delta_content": " a programming"}}\n\n
+...
+event: done
+data: {"invocation_id": "...", "session_id": "..."}
 ```
 
 ## Deploying to Microsoft Foundry
