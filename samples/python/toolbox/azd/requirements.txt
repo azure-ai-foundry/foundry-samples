@@ -1,0 +1,12 @@
+azure-ai-agentserver-core[tracing]==2.0.0b2
+azure-ai-agentserver-responses==1.0.0b4
+langchain-openai>=1.1.14
+langgraph>=1.1.8
+langchain-mcp-adapters>=0.2.2
+langchain-azure-ai[opentelemetry]>=1.2.2
+azure-ai-projects>=1.0.0b10
+python-dotenv==1.1.1
+starlette<1.0.0
+aiohttp
+# Pin to avoid Azure SDK feed 401 on pydantic-core>=2.46.0 downloads
+pydantic-core<2.46.0

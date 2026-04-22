@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-oauth-custom
+displayName: "LangGraph MCP OAuth2 Custom App Registration Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a GitHub MCP toolbox using a bring-your-own
+  OAuth2 app registration. First invocation triggers a consent flow.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - OAuth2
+    - GitHub
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: your_client_id
+      secret: false
+      description: OAuth2 client ID from your app registration
+    - name: your_client_secret
+      secret: true
+      description: OAuth2 client secret from your app registration
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: github-oauth-custom-conn
+    category: RemoteTool
+    authType: OAuth2
+    target: https://api.githubcopilot.com/mcp
+    credentials:
+      type: OAuth2
+      clientId: "{{ your_client_id }}"
+      clientSecret: "{{ your_client_secret }}"
+    authorizationUrl: "https://github.com/login/oauth/authorize"
+    tokenUrl: "https://github.com/login/oauth/access_token"
+    refreshUrl: "https://github.com/login/oauth/access_token"
+    scopes:
+      - repo
+      - read:user
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: github
+        project_connection_id: github-oauth-custom-conn

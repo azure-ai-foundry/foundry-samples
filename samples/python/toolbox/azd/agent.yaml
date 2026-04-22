@@ -1,0 +1,48 @@
+kind: hosted
+name: toolbox-azd-test
+description: LangGraph agent wired for toolbox MCP in Microsoft Foundry.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+
+# template: contains the ContainerAgent definition (kind: hosted).
+# These fields are used to generate src/<agent>/agent.yaml during init.
+template:
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT is injected by the platform — do NOT declare it here.
+    - name: MODEL_DEPLOYMENT_NAME
+      value: ${MODEL_DEPLOYMENT_NAME=gpt-4.1}
+    - name: TOOLBOX_ENDPOINT
+      value: ${TOOLBOX_ENDPOINT}
+
+# parameters: secret values prompted at init time (or set via azd env).
+# azd uppercases the param name to find the env var: github_pat → GITHUB_PAT.
+parameters:
+  github_pat:
+    secret: true
+    description: GitHub Personal Access Token (classic ghp_... or fine-grained github_pat_...)
+
+# resources: connections and toolboxes scaffolded into azure.yaml by azd ai agent init.
+resources:
+  - kind: connection
+    name: github-mcp-conn
+    target: https://api.githubcopilot.com/mcp
+    category: remoteTool
+    credentials:
+      type: CustomKeys
+      keys:
+        Authorization: "Bearer {{ github_pat }}"
+
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: web_search
+      - type: mcp
+        server_label: github
+        server_url: https://api.githubcopilot.com/mcp
+        project_connection_id: github-mcp-conn

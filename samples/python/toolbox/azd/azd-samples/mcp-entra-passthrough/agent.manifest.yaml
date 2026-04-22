@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-entra-passthrough
+displayName: "LangGraph MCP Entra Token Passthrough Toolbox Agent"
+description: >
+  LangGraph ReAct agent with an MCP toolbox that uses Entra token passthrough.
+  Microsoft Foundry proxies the caller's Entra identity to the downstream MCP server.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - Entra Token Passthrough
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: entra_audience
+      secret: false
+      description: Entra ID audience for the target MCP server
+    - name: entra_mcp_target
+      secret: false
+      description: URL of the MCP server that accepts Entra user tokens
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: entra-passthrough-conn
+    category: RemoteTool
+    authType: UserEntraToken
+    audience: "{{ entra_audience }}"
+    target: "{{ entra_mcp_target }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: outlook-mail
+        project_connection_id: entra-passthrough-conn

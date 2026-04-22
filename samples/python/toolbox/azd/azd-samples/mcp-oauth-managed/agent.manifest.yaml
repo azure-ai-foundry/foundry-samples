@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-oauth-managed
+displayName: "LangGraph MCP OAuth2 Managed Connector Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a GitHub MCP toolbox using Microsoft Foundry's
+  managed OAuth connector. No client credentials needed — Foundry handles
+  the OAuth app registration. First invocation triggers a consent flow.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - OAuth2
+    - GitHub
+    - Managed Connector
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties: []
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: github-oauth-conn
+    category: RemoteTool
+    authType: OAuth2
+    target: https://api.githubcopilot.com/mcp
+    connectorName: foundrygithubmcp
+    credentials:
+      type: OAuth2
+      clientId: managed
+      clientSecret: managed
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: github
+        project_connection_id: github-oauth-conn
