@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-noauth
+displayName: "LangGraph Public MCP No-Auth Toolbox Agent"
+description: >
+  LangGraph ReAct agent connected to a public MCP server that requires no
+  authentication. The server URL is proxied by toolbox in Microsoft Foundry.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - No-Auth
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: mcp_endpoint
+      secret: false
+      description: URL of the public MCP server (e.g. https://gitmcp.io/Azure/azure-rest-api-specs)
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: noauthmcp
+        server_url: "{{ mcp_endpoint }}"

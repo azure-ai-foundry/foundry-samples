@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-agent-identity
+displayName: "LangGraph MCP Agent Identity Toolbox Agent"
+description: >
+  LangGraph ReAct agent with an MCP toolbox using Microsoft Foundry's Agentic
+  Identity (agent managed identity) for Entra ID authentication to the MCP server.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - Agentic Identity
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: entra_audience
+      secret: false
+      description: Entra ID audience for the target MCP server
+    - name: mcp_target_url
+      secret: false
+      description: URL of the MCP server that accepts agent identity tokens
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: language-mcp
+    category: RemoteTool
+    authType: AgenticIdentity
+    audience: "{{ entra_audience }}"
+    target: "{{ mcp_target_url }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: language-mcp
+        project_connection_id: language-mcp

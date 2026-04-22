@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-bing-custom-search
+displayName: "LangGraph Bing Custom Search Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a Bing Custom Search toolbox. Uses a
+  GroundingWithCustomSearch connection for scoped web search.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - Bing Custom Search
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: bing_api_key
+      secret: true
+      description: Bing Search API key
+    - name: bing_resource_id
+      secret: false
+      description: ARM resource ID of your Bing account
+    - name: bing_custom_instance
+      secret: false
+      description: Bing Custom Search instance name
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: bing-custom-conn
+    category: GroundingWithCustomSearch
+    authType: ApiKey
+    target: https://api.bing.microsoft.com/
+    credentials:
+      type: ApiKey
+      key: "{{ bing_api_key }}"
+    metadata:
+      ResourceId: "{{ bing_resource_id }}"
+      type: bing_custom_search_preview
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: web_search
+        custom_search_configuration:
+          instance_name: "{{ bing_custom_instance }}"
+          project_connection_id: bing-custom-conn
