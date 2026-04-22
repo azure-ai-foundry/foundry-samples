@@ -11,6 +11,12 @@ Follow the instructions in the [Running the Agent Host Locally](../README.md#run
 > Depending on how you run the agent host, you can invoke the agent using `curl` (`Invoke-WebRequest` in PowerShell) or `azd`. Please refer to the [parent README](../README.md) for more details. Use this README for sample queries you can send to the agent.
 
 ```bash
+azd ai agent invoke --local "What is your return policy?"
+```
+
+Or use `curl`:
+
+```bash
 curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "What is your return policy?", "stream": false}'
 curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "How long does shipping take?", "stream": false}'
 curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "How do I clean my tent?", "stream": false}'

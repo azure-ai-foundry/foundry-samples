@@ -13,6 +13,12 @@ Follow the instructions in the [Running the Agent Host Locally](../README.md#run
 Send a request to the agent:
 
 ```bash
+azd ai agent invoke --local "What is Microsoft Foundry?"
+```
+
+Or use `curl`:
+
+```bash
 curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "What is Microsoft Foundry?", "stream": false}'
 ```
 

@@ -25,6 +25,14 @@ A note-taking agent built with `azure-ai-agentserver-responses` and Azure OpenAI
 
 ## Run Locally
 
+### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+### Without `azd`
+
 ```bash
 # Copy and edit environment file
 cp .env.example .env
@@ -34,6 +42,12 @@ pip install -r requirements.txt
 
 # Start the agent
 python main.py
+```
+
+## Test with azd
+
+```bash
+azd ai agent invoke --local "save a note - book reservation for dinner"
 ```
 
 ## Test with curl

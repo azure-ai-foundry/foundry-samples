@@ -47,10 +47,24 @@ via `previous_response_id` — no need for an in-memory session store.
 
 ## Running locally
 
+### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+### Without `azd`
+
 ```bash
 cp .env.example .env  # then edit values
 pip install -r requirements.txt
 python main.py
+```
+
+## Testing with azd
+
+```bash
+azd ai agent invoke --local "What time is it right now?"
 ```
 
 ## Testing with curl

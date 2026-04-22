@@ -27,7 +27,15 @@ A minimal getting-started agent implementing the [AG-UI protocol](https://docs.a
 - Python 3.10+
 - A Foundry project with a deployed model
 
-### Install & Run
+### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+The agent starts on `http://localhost:8088/`.
+
+### Without `azd`
 
 ```bash
 pip install -r requirements.txt
@@ -37,7 +45,33 @@ python main.py
 
 The agent starts on `http://localhost:8088/`.
 
-### Test
+## Invoke with azd
+
+### Local
+
+**Bash:**
+```bash
+azd ai agent invoke --local '{"threadId": "thread-1", "runId": "run-1", "state": {}, "messages": [{"id": "msg-1", "role": "user", "content": "Hello"}], "tools": [], "context": [], "forwardedProps": {}}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke --local '{\"threadId\": \"thread-1\", \"runId\": \"run-1\", \"state\": {}, \"messages\": [{\"id\": \"msg-1\", \"role\": \"user\", \"content\": \"Hello\"}], \"tools\": [], \"context\": [], \"forwardedProps\": {}}'
+```
+
+### Remote (after `azd up`)
+
+**Bash:**
+```bash
+azd ai agent invoke '{"threadId": "thread-1", "runId": "run-1", "state": {}, "messages": [{"id": "msg-1", "role": "user", "content": "Hello"}], "tools": [], "context": [], "forwardedProps": {}}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke '{\"threadId\": \"thread-1\", \"runId\": \"run-1\", \"state\": {}, \"messages\": [{\"id\": \"msg-1\", \"role\": \"user\", \"content\": \"Hello\"}], \"tools\": [], \"context\": [], \"forwardedProps\": {}}'
+```
+
+### Test with curl
 
 ```bash
 curl -N -X POST http://localhost:8088/invocations \
@@ -65,32 +99,6 @@ data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"...","delta":"Hello"}
 data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"...","delta":"! How"}
 data: {"type":"TEXT_MESSAGE_END","messageId":"..."}
 data: {"type":"RUN_FINISHED","threadId":"thread-123","runId":"run-456"}
-```
-
-## Invoke with azd
-
-### Local
-
-**Bash:**
-```bash
-azd ai agent invoke --local '{"messages": [{"role": "user", "content": "Hello"}]}'
-```
-
-**PowerShell:**
-```powershell
-azd ai agent invoke --local '{\"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}'
-```
-
-### Remote (after `azd up`)
-
-**Bash:**
-```bash
-azd ai agent invoke '{"messages": [{"role": "user", "content": "Hello"}]}'
-```
-
-**PowerShell:**
-```powershell
-azd ai agent invoke '{\"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}'
 ```
 
 ## Deploying to Microsoft Foundry

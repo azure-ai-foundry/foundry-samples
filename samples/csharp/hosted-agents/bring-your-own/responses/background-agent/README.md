@@ -25,7 +25,15 @@ The handler itself stays simple — background mode, polling, and cancellation a
 | `FOUNDRY_PROJECT_ENDPOINT` | Azure AI Foundry project endpoint (auto-injected when deployed) |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Azure OpenAI model deployment name (e.g., `gpt-4.1-mini`) |
 
-### Start the Agent
+### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+The agent starts on `http://localhost:8088/`.
+
+### Without `azd`
 
 ```bash
 export FOUNDRY_PROJECT_ENDPOINT="https://your-resource.services.ai.azure.com/api/projects/your-project"
@@ -34,6 +42,20 @@ dotnet run
 ```
 
 The agent starts on `http://localhost:8088/`.
+
+## Invoke with azd
+
+### Local
+
+```bash
+azd ai agent invoke --local "Analyze the impact of AI on healthcare"
+```
+
+### Remote (after `azd up`)
+
+```bash
+azd ai agent invoke "Analyze the impact of AI on healthcare"
+```
 
 ### Test — Background Mode
 
@@ -56,20 +78,6 @@ curl -X POST http://localhost:8088/responses/<response_id>/cancel
 curl -X POST http://localhost:8088/responses \
   -H "Content-Type: application/json" \
   -d '{"model": "research", "input": "Analyze the impact of AI on healthcare"}'
-```
-
-## Invoke with azd
-
-### Local
-
-```bash
-azd ai agent invoke --local "Analyze the impact of AI on healthcare"
-```
-
-### Remote (after `azd up`)
-
-```bash
-azd ai agent invoke "Analyze the impact of AI on healthcare"
 ```
 
 ## Deploying to Microsoft Foundry

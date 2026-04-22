@@ -2,7 +2,17 @@
 
 This directory contains samples that demonstrate how to use the Agent Framework to host agents with different capabilities and configurations. Each sample includes a README with instructions on how to set up, run, and interact with the agent.
 
-## Environment setup
+## Running with `azd` (Recommended)
+
+The easiest way to run any agent-framework sample is with the Azure Developer CLI:
+
+```bash
+azd ai agent run
+```
+
+This handles virtual environment creation, dependency installation, environment variable injection, and starts the agent on `http://localhost:8088`. See each sample's README for invocation examples.
+
+## Environment setup (without `azd`)
 
 1. Navigate to the sample directory you want to run. For example:
 
