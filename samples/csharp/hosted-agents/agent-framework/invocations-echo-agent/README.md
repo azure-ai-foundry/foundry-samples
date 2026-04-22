@@ -12,6 +12,18 @@ Follow the instructions in the [Running the Agent Host Locally](../README.md#run
 
 Send a POST request to the server with a JSON body containing a "message" field to interact with the agent:
 
+**Bash:**
+```bash
+azd ai agent invoke --local '{"message": "Hello, world!"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke --local '{\"message\": \"Hello, world!\"}'
+```
+
+Or use `curl`:
+
 ```bash
 curl -X POST http://localhost:8088/invocations -i -H "Content-Type: application/json" -d '{"message": "Hello, world!"}'
 ```

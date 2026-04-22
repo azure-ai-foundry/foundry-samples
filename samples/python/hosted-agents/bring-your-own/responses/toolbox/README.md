@@ -77,31 +77,38 @@ https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/<toolbo
 ```
 Set it as an environment variable in `.env` for local dev, or via `azd env set TOOLBOX_ENDPOINT "<url>"` for deployed agents.
 
-**Local development (without `azd`):**
+### Running the Sample
+
+#### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+The agent starts on `http://localhost:8088`.
+
+#### Without `azd`
 
 ```bash
 cp .env.example .env
 # Edit .env and fill in your values, then:
 export $(grep -v '^#' .env | xargs)
-```
 
-### Installing Dependencies
-
-```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-### Running the Sample
-
-```bash
 python main.py
 ```
 
 The agent starts on `http://localhost:8088`.
 
 ### Testing
+
+```bash
+azd ai agent invoke --local "Search the web for Azure AI Foundry news"
+```
+
+Or use `curl`:
 
 ```bash
 # Non-streaming

@@ -56,6 +56,32 @@ The agent starts on `http://localhost:8088/`.
 azd ai agent run
 ```
 
+## Invoke with azd
+
+### Local
+
+**Bash:**
+```bash
+azd ai agent invoke --local '{"task": "Write a product launch announcement for Azure AI Foundry"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke --local '{\"task\": \"Write a product launch announcement for Azure AI Foundry\"}'
+```
+
+### Remote (after `azd up`)
+
+**Bash:**
+```bash
+azd ai agent invoke '{"task": "Write a product launch announcement for Azure AI Foundry"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke '{\"task\": \"Write a product launch announcement for Azure AI Foundry\"}'
+```
+
 ### Test with curl
 
 ```bash
@@ -90,32 +116,6 @@ curl -X POST "http://localhost:8088/invocations?agent_session_id=session-1" \
 # Cancel a pending session
 curl -X POST http://localhost:8088/invocations/<invocation_id>/cancel
 # -> {"status": "cancelled", ...}
-```
-
-## Invoke with azd
-
-### Local
-
-**Bash:**
-```bash
-azd ai agent invoke --local '{"task": "Write a product launch announcement for Azure AI Foundry"}'
-```
-
-**PowerShell:**
-```powershell
-azd ai agent invoke --local '{\"task\": \"Write a product launch announcement for Azure AI Foundry\"}'
-```
-
-### Remote (after `azd up`)
-
-**Bash:**
-```bash
-azd ai agent invoke '{"task": "Write a product launch announcement for Azure AI Foundry"}'
-```
-
-**PowerShell:**
-```powershell
-azd ai agent invoke '{\"task\": \"Write a product launch announcement for Azure AI Foundry\"}'
 ```
 
 ## Deploying to Microsoft Foundry

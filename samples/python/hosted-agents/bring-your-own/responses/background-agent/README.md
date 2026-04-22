@@ -16,15 +16,18 @@ The agent receives a request via `POST /responses` with `"background": true`. Th
 - Azure CLI installed and authenticated (`az login`)
 - Foundry project with a deployed model
 
-### Install Dependencies
+### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+The agent starts on `http://localhost:8088/`.
+
+### Without `azd`
 
 ```bash
 pip install -r requirements.txt
-```
-
-### Start the Agent
-
-```bash
 cp .env.example .env  # then edit values
 export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
@@ -32,6 +35,20 @@ python main.py
 ```
 
 The agent starts on `http://localhost:8088/`.
+
+## Invoke with azd
+
+### Local
+
+```bash
+azd ai agent invoke --local "Analyze the impact of AI on healthcare"
+```
+
+### Remote (after `azd up`)
+
+```bash
+azd ai agent invoke "Analyze the impact of AI on healthcare"
+```
 
 ### Test — Background Mode
 
@@ -54,32 +71,6 @@ curl -X POST http://localhost:8088/responses/<response_id>/cancel
 curl -X POST http://localhost:8088/responses \
   -H "Content-Type: application/json" \
   -d '{"model": "research", "input": "Analyze the impact of AI on healthcare"}'
-```
-
-## Invoke with azd
-
-### Local
-
-**Bash:**
-```bash
-azd ai agent invoke --local "Analyze the impact of AI on healthcare"
-```
-
-**PowerShell:**
-```powershell
-azd ai agent invoke --local "Analyze the impact of AI on healthcare"
-```
-
-### Remote (after `azd up`)
-
-**Bash:**
-```bash
-azd ai agent invoke "Analyze the impact of AI on healthcare"
-```
-
-**PowerShell:**
-```powershell
-azd ai agent invoke "Analyze the impact of AI on healthcare"
 ```
 
 ## Deploying to Microsoft Foundry

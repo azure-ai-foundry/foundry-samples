@@ -41,10 +41,30 @@ and Azure OpenAI, hosted via the **invocations** protocol.
 
 ## Running locally
 
+### Using `azd` (Recommended)
+
+```bash
+azd ai agent run
+```
+
+### Without `azd`
+
 ```bash
 cp .env.example .env  # then edit values
 pip install -r requirements.txt
 python main.py
+```
+
+## Testing with azd
+
+**Bash:**
+```bash
+azd ai agent invoke --local '{"message": "What time is it right now?"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke --local '{\"message\": \"What time is it right now?\"}'
 ```
 
 ## Testing with curl
