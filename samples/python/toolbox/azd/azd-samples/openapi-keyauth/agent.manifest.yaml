@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-openapi-keyauth
+displayName: "LangGraph OpenAPI Key-Auth Toolbox Agent"
+description: >
+  LangGraph ReAct agent with an OpenAPI toolbox using key-based auth.
+  Uses TripAdvisor Content API as an example — replace the spec and
+  connection with your own OpenAPI service.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - OpenAPI
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: tripadvisor_api_key
+      secret: true
+      description: TripAdvisor Content API key (replace with your own OpenAPI service key)
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: tripadvisor-conn
+    category: CustomKeys
+    authType: CustomKeys
+    target: https://api.content.tripadvisor.com
+    credentials:
+      type: CustomKeys
+      keys:
+        key: "{{ tripadvisor_api_key }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: openapi
+        openapi:
+          name: tripadvisor
+          spec:
+            openapi: "3.0.1"
+            info:
+              title: "TripAdvisor API"
+              version: "1.0"
+            servers:
+              - url: https://api.content.tripadvisor.com/api/v1
+            paths:
+              /location/search:
+                get:
+                  operationId: searchLocations
+                  parameters:
+                    - name: searchQuery
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: key
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                  responses:
+                    "200":
+                      description: OK
+          auth:
+            type: connection_auth
+            connection_id: tripadvisor-conn

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-keyauth
+displayName: "LangGraph GitHub MCP Key-Auth Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a GitHub MCP toolbox using key-based authentication
+  (GitHub PAT injected as Bearer token).
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - GitHub
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: github_pat
+      secret: true
+      description: GitHub Personal Access Token (classic ghp_... or fine-grained github_pat_...)
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: github-mcp-conn
+    category: RemoteTool
+    authType: CustomKeys
+    target: https://api.githubcopilot.com/mcp
+    credentials:
+      type: CustomKeys
+      keys:
+        Authorization: "Bearer {{ github_pat }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: github
+        project_connection_id: github-mcp-conn

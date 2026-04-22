@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+kind: hosted
+name: toolbox-maf-agent
+protocols:
+  - protocol: responses
+    version: 1.0.0
+resources:
+  cpu: '0.25'
+  memory: 0.5Gi
+environment_variables:
+  # FOUNDRY_PROJECT_ENDPOINT and FOUNDRY_AGENT_TOOLBOX_* are injected
+  # automatically by the platform at runtime — do NOT declare them here.
+  - name: MODEL_DEPLOYMENT_NAME
+    value: ${MODEL_DEPLOYMENT_NAME=gpt-4.1}
+  - name: TOOLBOX_ENDPOINT
+    value: ${TOOLBOX_ENDPOINT}
+dockerfile_path: Dockerfile
