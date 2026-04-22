@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: github-copilot-invocations
+displayName: "GitHub Copilot (Invocations)"
+description: >
+  A getting-started agent that uses the GitHub Copilot SDK (CopilotClient) with
+  the azure-ai-agentserver-invocations protocol, streaming raw session events
+  as Server-Sent Events (SSE).
+metadata:
+  tags:
+    - AI Agent Hosting
+    - GitHub Copilot SDK
+    - Invocations Protocol
+    - Bring Your Own
+template:
+  name: github-copilot-invocations
+  kind: hosted
+  protocols:
+    - protocol: invocations
+      version: 1.0.0
+  environment_variables:
+    # APPLICATIONINSIGHTS_CONNECTION_STRING is auto-injected by the platform —
+    # do NOT declare it here.
+    #
+    # GITHUB_TOKEN is a user-supplied secret (fine-grained PAT). Supply via
+    # .env (local) or the hosted agent secret store (production).
+    - name: GITHUB_TOKEN
+      value: ${GITHUB_TOKEN}
