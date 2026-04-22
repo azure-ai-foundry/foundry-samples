@@ -80,9 +80,31 @@ curl -X POST http://localhost:8088/responses \
   -d '{"model": "research", "input": "Analyze the impact of AI on healthcare"}'
 ```
 
-## Deploying to Microsoft Foundry
+## Deploying the Agent to Microsoft Foundry
 
-To deploy your agent to Microsoft Foundry, follow the deployment guide at https://github.com/microsoft/hosted-agents-vnext-private-preview/blob/main/azd-quickstart.md
+Once you've tested locally, deploy to Microsoft Foundry:
+
+```bash
+# Provision Azure resources (skip if already done during local setup)
+azd provision
+
+# Build, push, and deploy the agent to Foundry
+azd deploy
+```
+
+After deploying, invoke the agent running in Foundry:
+
+```bash
+azd ai agent invoke "Analyze the impact of AI on healthcare"
+```
+
+To stream logs from the running agent:
+
+```bash
+azd ai agent monitor
+```
+
+For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
 
 ## Project Structure
 
@@ -98,3 +120,19 @@ background-agent/
 ├── test-payload.json        # Sample request payload for testing
 └── README.md                # This file
 ```
+
+## Troubleshooting
+
+### Images built on Apple Silicon or other ARM64 machines do not work on our service
+
+We **recommend deploying with `azd deploy`**, which uses ACR remote build and always produces images with the correct architecture.
+
+If you choose to **build locally**, and your machine is **not `linux/amd64`** (for example, an Apple Silicon Mac), the image will **not be compatible with our service**, causing runtime failures.
+
+**Fix for local builds:**
+
+```bash
+docker build --platform=linux/amd64 -t image .
+```
+
+This forces the image to be built for the required `amd64` architecture.

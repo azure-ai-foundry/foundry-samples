@@ -114,9 +114,37 @@ Once the agent is running, open **Agent Inspector** in VS Code to interactively 
 
 Click the **Clear Conversation** button at the top-right corner to start a new session.
 
-## Deploying to Microsoft Foundry
+## Deploying the Agent to Microsoft Foundry
 
-To deploy your agent to Microsoft Foundry, follow the deployment guide at https://github.com/microsoft/hosted-agents-vnext-private-preview/blob/main/azd-quickstart.md
+Once you've tested locally, deploy to Microsoft Foundry:
+
+```bash
+# Provision Azure resources (skip if already done during local setup)
+azd provision
+
+# Build, push, and deploy the agent to Foundry
+azd deploy
+```
+
+After deploying, invoke the agent running in Foundry:
+
+**Bash:**
+```bash
+azd ai agent invoke '{"message": "save a note - book reservation for dinner"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke '{\"message\": \"save a note - book reservation for dinner\"}'
+```
+
+To stream logs from the running agent:
+
+```bash
+azd ai agent monitor
+```
+
+For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
 
 ## Troubleshooting
 

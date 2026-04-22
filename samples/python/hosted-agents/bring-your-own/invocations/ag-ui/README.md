@@ -101,9 +101,31 @@ data: {"type":"TEXT_MESSAGE_END","messageId":"..."}
 data: {"type":"RUN_FINISHED","threadId":"thread-123","runId":"run-456"}
 ```
 
-## Deploying to Microsoft Foundry
+## Deploying the Agent to Microsoft Foundry
 
-To deploy your agent to Microsoft Foundry, follow the deployment guide at https://github.com/microsoft/hosted-agents-vnext-private-preview/blob/main/azd-quickstart.md
+Once you've tested locally, deploy to Microsoft Foundry:
+
+```bash
+# Provision Azure resources (skip if already done during local setup)
+azd provision
+
+# Build, push, and deploy the agent to Foundry
+azd deploy
+```
+
+After deploying, invoke the agent running in Foundry:
+
+```bash
+azd ai agent invoke '{"threadId": "thread-1", "runId": "run-1", "state": {}, "messages": [{"id": "msg-1", "role": "user", "content": "Hello"}], "tools": [], "context": [], "forwardedProps": {}}'
+```
+
+To stream logs from the running agent:
+
+```bash
+azd ai agent monitor
+```
+
+For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
 
 ## Learn More
 
