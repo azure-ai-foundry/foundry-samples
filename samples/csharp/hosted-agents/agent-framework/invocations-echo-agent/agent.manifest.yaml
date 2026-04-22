@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: invocations-echo-agent
+displayName: "Invocations Echo Agent"
+
+description: >
+  A minimal echo agent hosted as a Foundry Hosted Agent using the Invocations protocol
+  and the Agent Framework. Reads the request body as plain text, echoes it back in the response.
+  No LLM or Azure credentials are required.
+
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Azure AI AgentServer
+    - Invocations Protocol
+    - Agent Framework
+
+template:
+  name: invocations-echo-agent
+  kind: hosted
+  protocols:
+    - protocol: invocations
+      version: 1.0.0
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties: []
+resources: []

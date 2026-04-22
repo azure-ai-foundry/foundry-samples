@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-python-responses
+displayName: "Toolbox (Python, Responses)"
+description: >
+  Bring-your-own agent using the Responses protocol with Foundry Toolbox MCP
+  integration. Connects to a toolbox at startup, discovers tools, and lets the
+  model call them during conversation.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Responses Protocol
+    - Bring Your Own
+    - Toolbox
+    - Python
+template:
+  name: toolbox-python-responses
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT and APPLICATIONINSIGHTS_CONNECTION_STRING
+    # are injected by the platform (hosted) and translated by azd (local)
+    # — do NOT declare them here.
+    #
+    # Model deployment name — resolved from the resources section below.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_ENDPOINT
+      value: "{{TOOLBOX_ENDPOINT}}"
+resources:
+  - kind: model
+    id: gpt-4.1
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: toolbox
+    name: web-search-tools
+    tools:
+      - type: web_search
