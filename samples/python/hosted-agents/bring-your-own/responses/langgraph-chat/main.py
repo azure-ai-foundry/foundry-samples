@@ -41,7 +41,6 @@ import os
 from datetime import datetime, timezone
 from typing import Annotated
 
-import httpx
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, START, END
@@ -89,23 +88,9 @@ if not AZURE_AI_MODEL_DEPLOYMENT_NAME:
         "Set it to your model deployment name as declared in agent.manifest.yaml."
     )
 
-_credential = DefaultAzureCredential()
 _token_provider = get_bearer_token_provider(
-    _credential, "https://ai.azure.com/.default"
+    DefaultAzureCredential(), "https://ai.azure.com/.default"
 )
-
-
-# httpx Auth hook that injects a fresh Azure AD token on every request.
-class _AzureTokenAuth(httpx.Auth):
-    def __init__(self, provider):
-        self._provider = provider
-
-    def auth_flow(self, request):
-        request.headers["Authorization"] = f"Bearer {self._provider()}"
-        yield request
-
-
-_http_client = httpx.Client(auth=_AzureTokenAuth(_token_provider))
 
 
 # ── Tools ────────────────────────────────────────────────────────────
@@ -137,11 +122,10 @@ def _build_graph() -> StateGraph:
     """Build and compile the LangGraph agent graph."""
     llm = ChatOpenAI(
         base_url=f"{FOUNDRY_PROJECT_ENDPOINT}/openai/v1",
-        api_key="placeholder",  # overridden by _AzureTokenAuth
+        api_key=_token_provider,
         model=AZURE_AI_MODEL_DEPLOYMENT_NAME,
         use_responses_api=True,
         streaming=True,
-        http_client=_http_client,
     )
     llm_with_tools = llm.bind_tools(TOOLS)
 
