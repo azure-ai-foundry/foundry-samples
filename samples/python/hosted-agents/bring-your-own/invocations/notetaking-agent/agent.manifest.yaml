@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: notetaking-agent-invocations
+displayName: "Notetaking Agent (Invocations)"
+description: >
+  Note-taking agent using the Invocations protocol. Demonstrates function
+  calling (save_note/get_notes tools) with per-session JSONL persistence and SSE
+  streaming.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Invocations Protocol
+    - Bring Your Own
+    - Function Calling
+    - Python
+template:
+  name: notetaking-agent-invocations
+  kind: hosted
+  protocols:
+    - protocol: invocations
+      version: 1.0.0
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT and APPLICATIONINSIGHTS_CONNECTION_STRING
+    # are injected by the platform (hosted) and translated by azd (local)
+    # — do NOT declare them here.
+    #
+    # Model deployment name — resolved from the resources section below.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME

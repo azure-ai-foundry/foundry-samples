@@ -33,11 +33,12 @@
 /samples/java/quickstart/create-agent/src/main/java/com/azure/ai/agents/CreateAgent.java @microsoft-foundry/AI-Platform-Docs
 /samples/python/enterprise-agent-tutorial/1-idea-to-prototype/evaluate.py @microsoft-foundry/AI-Platform-Docs
 /samples/python/enterprise-agent-tutorial/1-idea-to-prototype/main.py @microsoft-foundry/AI-Platform-Docs
+/samples/python/foundry-models/model-router/model-router-chat-completions.py @microsoft-foundry/AI-Platform-Docs
+/samples/python/foundry-models/model-router/model-router-foundry-responses.py @microsoft-foundry/AI-Platform-Docs
 /samples/python/quickstart/chat-with-agent/quickstart-chat-with-agent.py @microsoft-foundry/AI-Platform-Docs
 /samples/python/quickstart/create-agent/quickstart-create-agent.py @microsoft-foundry/AI-Platform-Docs
 /samples/python/quickstart/responses/quickstart-responses.py @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/chat-with-agent/src/quickstart-chat-with-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/create-agent/src/quickstart-create-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/responses/src/quickstart-responses.ts @microsoft-foundry/AI-Platform-Docs
-samples/python/hosted-agents/agent-framework/azure-ai-agents-in-workflow @microsoft-foundry/foundry-vscode-extension
-samples/csharp/hosted-agents/AgentFramework/AzureAIAgentsInWorkflow @microsoft-foundry/foundry-vscode-extension
+

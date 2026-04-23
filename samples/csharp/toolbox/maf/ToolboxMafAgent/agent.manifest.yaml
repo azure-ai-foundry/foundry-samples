@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-maf-dotnet
+displayName: "Toolbox MAF Agent (.NET)"
+
+description: >
+  Agent Framework agent wired to an toolbox MCP endpoint in Microsoft Foundry.
+  Discovers tools via MCP tools/list and exposes them through Azure OpenAI
+  function calling. Tool calls are forwarded to the toolbox via MCP tools/call.
+
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Agent Framework
+    - Toolbox
+    - MCP
+    - Microsoft Foundry
+    - .NET
+
+template:
+  name: toolbox-maf-dotnet
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: MODEL_DEPLOYMENT_NAME
+      value: "{{MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_ENDPOINT
+      value: "{{TOOLBOX_ENDPOINT}}"
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: MODEL_DEPLOYMENT_NAME

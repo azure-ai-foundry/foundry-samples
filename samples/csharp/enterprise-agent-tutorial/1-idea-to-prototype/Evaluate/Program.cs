@@ -27,8 +27,8 @@ class EvaluateProgram
         // Load environment variables from shared directory
         Env.Load(GetFile(".env"));
 
-        var projectEndpoint = Environment.GetEnvironmentVariable("PROJECT_ENDPOINT");
-        var modelDeploymentName = Environment.GetEnvironmentVariable("MODEL_DEPLOYMENT_NAME");
+        var projectEndpoint = Environment.GetEnvironmentVariable("FOUNDRY_PROJECT_ENDPOINT");
+        var modelDeploymentName = Environment.GetEnvironmentVariable("FOUNDRY_MODEL_NAME");
         var sharepointConnectionId = Environment.GetEnvironmentVariable("SHAREPOINT_CONNECTION_ID");
         var mcpServerUrl = Environment.GetEnvironmentVariable("MCP_SERVER_URL");
         var tenantId = Environment.GetEnvironmentVariable("AI_FOUNDRY_TENANT_ID");

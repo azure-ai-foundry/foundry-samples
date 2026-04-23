@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-file-search
+displayName: "LangGraph File Search Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a File Search toolbox backed by an Azure AI
+  Foundry vector store. The vector store must exist in the same project.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - File Search
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: file_search_vector_store_id
+      secret: false
+      description: Vector store ID from the same Foundry project (e.g. vs_xxxxxxxxxxxx)
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: file_search
+        vector_store_ids:
+          - "{{ file_search_vector_store_id }}"

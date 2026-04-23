@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+
+kind: hosted
+name: langgraph-chat-invocations
+description: |
+    Multi-turn chat agent built with LangGraph and the Invocations protocol. Demonstrates a tool-calling agent graph (chatbot ↔ tools) with get_current_time and calculator tools.
+metadata:
+    tags:
+        - AI Agent Hosting
+        - Invocations Protocol
+        - Bring Your Own
+        - LangGraph
+        - Tool Calling
+        - Python
+protocols:
+    - protocol: invocations
+      version: 1.0.0
+resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: gpt-4.1-mini
