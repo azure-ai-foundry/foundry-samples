@@ -22,6 +22,9 @@ template:
     # do NOT declare it here.
     #
     # GITHUB_TOKEN is a user-supplied secret (fine-grained PAT). Supply via
-    # .env (local) or the hosted agent secret store (production).
+    # azd env set GITHUB_TOKEN="github_pat_..."" (local) or the hosted agent secret store (production).
     - name: GITHUB_TOKEN
       value: ${GITHUB_TOKEN}
+parameters:
+  properties: []
+resources: []
