@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <!-- Responses protocol SDK — provides ResponsesServer, ResponseHandler, ResponseContext -->
-    <PackageReference Include="Azure.AI.AgentServer.Responses" Version="1.0.0-beta.3" />
+    <PackageReference Include="Azure.AI.AgentServer.Responses" Version="1.0.0-beta.4" />
     <!-- Azure OpenAI client — Chat Completions API used for function calling -->
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
     <!-- Azure authentication via DefaultAzureCredential -->
