@@ -1,6 +1,6 @@
 # What this sample demonstrates
 
-An [Agent Framework](https://github.com/microsoft/agent-framework) hosted agent that uses **Foundry Toolbox** for tool discovery and invocation with the **Responses protocol**. Foundry Toolbox is a managed tool registry in Microsoft Foundry that lets you define tools centrally and share them across agents. This sample connects to a toolbox via its MCP endpoint, enabling the agent to discover and call tools at runtime.
+An [Agent Framework](https://github.com/microsoft/agent-framework) hosted agent that uses **Foundry Toolbox** for tool discovery and invocation with the **Responses protocol**. Foundry Toolbox is a managed tool registry in Microsoft Foundry that lets you define tools centrally and share them across agents. This sample loads a toolbox by name with `client.get_toolbox(...)` and filters it to a subset of tool types with `select_toolbox_tools(...)`, showing how a single toolbox can power multiple agents that each expose only the tools they need.
 
 ## Creating a Foundry Toolbox
 
@@ -12,7 +12,9 @@ You can also create a Foundry Toolbox in the Foundry portal. Read more [here](ht
 
 ### Model Integration
 
-The agent uses `FoundryChatClient` from the Agent Framework to create an OpenAI-compatible Responses client. It registers a Foundry Toolbox as an MCP tool by constructing the toolbox MCP endpoint from the project endpoint and toolbox name. A custom `httpx` auth handler injects a fresh Azure bearer token on every request. When the model calls a tool, the framework routes the call to the Foundry Toolbox MCP endpoint and returns the result to the model.
+The agent uses `FoundryChatClient` from the Agent Framework to create an OpenAI-compatible Responses client. It loads a named Foundry Toolbox via `client.get_toolbox(name)` — the toolbox is a server-side bundle of tool configurations (e.g., `code_interpreter`, `web_search`) defined in the Foundry portal or by `azd provision`. Omitting `version` resolves the toolbox's current default version at runtime.
+
+The sample then narrows the toolbox to a subset of tool types via `select_toolbox_tools(toolbox, include_types=[...])` before handing it to the agent. This demonstrates how one toolbox can be reused across agents that each expose only the tools they need — here, the agent only sees `code_interpreter` even though the toolbox also includes `web_search`.
 
 See [main.py](main.py) for the full implementation.
 
