@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.2.0-preview.260421.1" />
-    <PackageReference Include="Azure.AI.AgentServer.Invocations" Version="1.0.0-beta.2" />
+    <PackageReference Include="Azure.AI.AgentServer.Invocations" Version="1.0.0-beta.3" />
   </ItemGroup>
 
 </Project>
