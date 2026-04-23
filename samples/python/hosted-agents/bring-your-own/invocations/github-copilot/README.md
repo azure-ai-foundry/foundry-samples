@@ -29,9 +29,17 @@ A minimal getting-started agent using the [GitHub Copilot SDK](https://pypi.org/
 
 Create one at [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new) with **Account permissions → Copilot Requests → Read-only**.
 
-> **Note:** Classic tokens (`ghp_`) are not supported. Use a fine-grained PAT, OAuth token (`gho_`), or GitHub App user token (`ghu_`).
+> **Note:** Classic tokens (`ghp_`) are not supported. Use a fine-grained PAT (`github_pat_`), OAuth token (`gho_`), or GitHub App user token (`ghu_`).
 
 ### Using `azd` (Recommended)
+
+Add the `GITHUB_TOKEN` to the environment variables first:
+
+```bash
+azd env set GITHUB_TOKEN="github_pat_..."
+```
+
+Next, start the agent locally with the `run` command:
 
 ```bash
 azd ai agent run
@@ -61,18 +69,6 @@ azd ai agent invoke --local '{"input": "What can you help me with?"}'
 **PowerShell:**
 ```powershell
 azd ai agent invoke --local '{\"input\": \"What can you help me with?\"}'
-```
-
-### Remote (after `azd up`)
-
-**Bash:**
-```bash
-azd ai agent invoke '{"input": "What can you help me with?"}'
-```
-
-**PowerShell:**
-```powershell
-azd ai agent invoke '{\"input\": \"What can you help me with?\"}'
 ```
 
 ### Test with curl
@@ -115,8 +111,14 @@ azd deploy
 
 After deploying, invoke the agent running in Foundry:
 
+**Bash:**
 ```bash
 azd ai agent invoke '{"input": "What can you help me with?"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke '{\"input\": \"What can you help me with?\"}'
 ```
 
 To stream logs from the running agent:
@@ -150,7 +152,7 @@ description: What this skill does.
 # My Skill
 
 Instructions for Copilot when this skill is active.
-EOF
+...
 ```
 
 ## Troubleshooting
