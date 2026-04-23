@@ -2,7 +2,13 @@
 Write-Host "Starting post-provision script..."
 
 # AZURE_LOCATION is a default azd environment variable
-Write-Host "Resources were deployed to: location $env:AZURE_LOCATION blueprintId $env:AZURE_AGENT_IDENTITY_BLUEPRINT_ID subscriptionId $env:AZURE_SUBSCRIPTION_ID applicationName $env:AZURE_APPLICATION_NAME"
+Write-Host "Resources were deployed to: location $env:AZURE_LOCATION blueprintId $env:AZURE_AGENT_IDENTITY_BLUEPRINT_ID subscriptionId $env:AZURE_SUBSCRIPTION_ID agentName $env:AGENT_NAME"
+
+Write-Host "===============Building and pushing Docker image==============="
+& "$PSScriptRoot/build-docker-image-acr.ps1"
+
+Write-Host "===============Creating Agent Version==============="
+& "$PSScriptRoot/agent-creation-script.ps1"
 
 Write-Host "===============Publishing digital worker==============="
 
@@ -12,14 +18,6 @@ Write-Host "===============Publishing digital worker==============="
 # oAuth2grants for blueprint SP for inheritable scopes to work.
 Write-Host "===============OAuth2 grants for blueprint SP==============="
 & "$PSScriptRoot/create-blueprintsp-oauth2-grants.ps1"
-
-
-Write-Host "===============Building and pushing Docker image==============="
-& "$PSScriptRoot/build-docker-image-acr.ps1"
-
-
-Write-Host "===============Creating Foundry container agent==============="
-& "$PSScriptRoot/create-application-deployment.ps1" -AgentName $env:AGENT_NAME -AgentVersion $env:AGENT_VERSION
 
 
 Write-Host ""

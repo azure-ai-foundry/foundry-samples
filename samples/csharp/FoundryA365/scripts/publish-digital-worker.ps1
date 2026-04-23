@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 Write-Host "Starting post-provision script..."
 
 # AZURE_LOCATION is a default azd environment variable
-Write-Host "Resources were deployed to: location $env:LOCATION blueprintId $env:AGENT_IDENTITY_BLUEPRINT_ID subscriptionId $env:SUBSCRIPTION_ID applicationName $env:APPLICATION_NAME"
+Write-Host "Resources were deployed to: location $env:LOCATION blueprintId $env:AGENT_IDENTITY_BLUEPRINT_ID subscriptionId $env:SUBSCRIPTION_ID agentName $env:AGENT_NAME agentVersion $env:AGENT_VERSION"
 
 # Construct JSON body based on Microsoft365PublishRequest
 $body = @{
@@ -12,7 +12,7 @@ $body = @{
     publishAsDigitalWorker = $true
     appPublishScope     = "Tenant"
     subscriptionId      = $env:SUBSCRIPTION_ID
-    agentName           = $env:APPLICATION_NAME
+    agentName           = $env:AGENT_NAME
     appVersion          = "1.0.0"
     shortDescription    = "Foundry A365 Agent deployed via Azure Developer CLI"
     fullDescription     = "A Foundry A365 agent example that demonstrates integration with Microsoft 365 and Azure Cognitive Services."

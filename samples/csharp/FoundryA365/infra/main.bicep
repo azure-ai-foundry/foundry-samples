@@ -33,35 +33,19 @@ param cognitiveServicesSku string = 'S0'
 @allowed(['Basic', 'Standard', 'Premium'])
 param containerRegistrySku string = 'Basic'
 
-// =================================================================================================
-// Application module parameters
-// =================================================================================================
+param agentName string = 'foundry-agent-5'
 
-@description('Name of the Cognitive Services application')
-param applicationName string = '${environmentName}app'
-
-@description('Display name of the application')
-param applicationDisplayName string = '${environmentName} Application'
-
-param agentName string = 'foundry-agent'
-
-@description('Agents configuration for the application')
-param agents array = [
-  {
-    agentId: '$azureml://tenants/${tenant().tenantId}/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/accounts/${accountName}/projects/${projectName}/${agentName}'
-    agentName: agentName
-  }
-]
+param maibName string = '${agentName}-maib'
 
 // =================================================================================================
 // Bot Service module parameters
 // =================================================================================================
 
 @description('Name of the Bot Service')
-param botName string = '${environmentName}bot'
+param botName string = '${agentName}-bot'
 
 @description('Display name of the bot')
-param botDisplayName string = '${environmentName} Bot'
+param botDisplayName string = '${agentName} Bot'
 
 @description('SKU of the Bot Service')
 param botServiceSku string = 'F0'
@@ -79,7 +63,7 @@ param tags object = {}
 
 // 1. Deploy the project module (Cognitive Services account, project, and Container Registry)
 module project 'modules/project.bicep' = {
-  name: 'project-deployment'
+  name: 'project1-deployment'
   params: {
     accountName: accountName
     projectName: projectName
@@ -99,14 +83,13 @@ module deploymentScriptUmi 'modules/deployment-script-umi.bicep' = {
   ]
 }
 
-// 3. Create agent definition as deployment script.
-module deploymentScriptAgent 'modules/agent-deployment-script.bicep' = {
-  name: 'agent-deployment-script'
+// 3. Create managed agent identity blueprint using a deployment script as that is a dataplane operation.
+module deploymentScriptAgent 'modules/maib-creation-script.bicep' = {
+  name: 'maib-creation-script'
   params: {
     uamiResourceId: deploymentScriptUmi.outputs.uamiResourceId
     azureAIProjectEndpoint: project.outputs.foundryProjectEndpoint
-    agentName: agentName
-    azureContainerRegistryEndpoint: project.outputs.acrloginServer
+    maibName: maibName
   }
   dependsOn: [
     deploymentScriptUmi
@@ -114,33 +97,18 @@ module deploymentScriptAgent 'modules/agent-deployment-script.bicep' = {
 }
 
 
-// 4. Deploy the application module (depends on project)
-module application 'modules/application.bicep' = {
-  name: 'application-deployment'
-  params: {
-    accountName: accountName
-    projectName: projectName
-    applicationName: applicationName
-    displayName: applicationDisplayName
-    agents: agents
-  }
-  dependsOn: [
-    deploymentScriptAgent
-  ]
-}
-
-// 5. Deploy the bot service module
+// 4. Deploy the bot service module
 module botService 'modules/botservice.bicep' = {
   name: 'botservice-deployment'
   params: {
     botName: botName
     displayName: botDisplayName
-    msaAppId: application.outputs.agentIdentityBlueprintId
-    endpoint: 'https://${accountName}.services.ai.azure.com/api/projects/${projectName}/applications/${applicationName}/protocols/activityprotocol?api-version=2025-05-15-preview'
+    msaAppId: deploymentScriptAgent.outputs.blueprintClientId
+    endpoint: 'https://${accountName}.services.ai.azure.com/api/projects/${projectName}/agents/${agentName}/endpoint/protocols/activityProtocol?api-version=2025-05-15-preview'
     botServiceSku: botServiceSku
   }
   dependsOn: [
-    application
+    deploymentScriptAgent
   ]
 }
 
@@ -154,10 +122,7 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = project.outputs.acrloginServer
 output AZURE_AI_PROJECT_ENDPOINT string = project.outputs.foundryProjectEndpoint
 
 @description('Agent identity blueprint ID')
-output AGENT_IDENTITY_BLUEPRINT_ID string = application.outputs.agentIdentityBlueprintId
-
-@description('Application name')
-output APPLICATION_NAME string = applicationName
+output AGENT_IDENTITY_BLUEPRINT_ID string = deploymentScriptAgent.outputs.blueprintClientId
 
 output SUBSCRIPTION_ID string = subscription().subscriptionId
 
@@ -173,4 +138,4 @@ output TENANT_ID string = tenant().tenantId
 
 output PROJECT_PRINCIPAL_ID string = project.outputs.foundryProjectPrincipalId
 
-output AGENT_VERSION string = deploymentScriptAgent.outputs.agentVersion
+output MAIB_NAME string = maibName

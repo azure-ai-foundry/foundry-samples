@@ -35,16 +35,6 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   }
 }
 
-resource accountCapHost 'Microsoft.CognitiveServices/accounts/capabilityHosts@2025-10-01-preview' = {
-  name: 'accountcaphost'
-  parent: account
-  properties: {
-    capabilityHostKind: 'Agents'
-    enablePublicHostingEnvironment: true
-  }
-}
-
-
 // Cognitive Services Project (child resource)
 resource project 'Microsoft.CognitiveServices/accounts/projects@2025-09-01' = {
   parent: account
@@ -105,7 +95,7 @@ resource cogServicesUserRoleAssignment 'Microsoft.Authorization/roleAssignments@
 }
 
 resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
-  name: 'gpt-4o'
+  name: 'gpt-5-chat'
   parent: account
   sku: {
     name: 'GlobalStandard'
@@ -114,8 +104,8 @@ resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'gpt-4o'
-      version: '2024-11-20'
+      name: 'gpt-5-chat'
+      version: '2025-10-03'
     }
   }
 }
