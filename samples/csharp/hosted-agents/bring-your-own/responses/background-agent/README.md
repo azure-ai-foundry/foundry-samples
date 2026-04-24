@@ -117,7 +117,7 @@ background-agent/
 ├── agent.manifest.yaml      # Agent manifest for Foundry
 ├── .dockerignore            # Docker build exclusions
 ├── .env.example             # Example environment variables
-├── test-payload.json        # Sample request payload for testing
+├── test-payload.txt         # Sample request payload for testing
 └── README.md                # This file
 ```
 

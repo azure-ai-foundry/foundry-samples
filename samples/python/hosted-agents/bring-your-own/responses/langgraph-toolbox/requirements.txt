@@ -1,0 +1,10 @@
+azure-ai-agentserver-responses==1.0.0b4
+langchain-openai>=1.1.14
+langgraph>=1.1.8
+langchain-mcp-adapters>=0.2.2
+azure-ai-projects>=2.0.0
+azure-identity>=1.25.0
+python-dotenv==1.1.1
+starlette<1.0.0
+aiohttp
+pydantic-core<2.46.0
