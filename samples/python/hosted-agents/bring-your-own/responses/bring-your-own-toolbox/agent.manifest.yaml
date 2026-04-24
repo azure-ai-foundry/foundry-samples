@@ -26,8 +26,8 @@ template:
     # Model deployment name — resolved from the resources section below.
     - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
       value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
-    - name: TOOLBOX_ENDPOINT
-      value: "{{TOOLBOX_ENDPOINT}}"
+    - name: TOOLBOX_NAME
+      value: "web-search-tools"
 resources:
   - kind: model
     id: gpt-4.1
@@ -36,3 +36,5 @@ resources:
     name: web-search-tools
     tools:
       - type: web_search
+parameters:
+  properties: []

@@ -20,14 +20,15 @@ maintains context across messages.
 Required environment variables:
     FOUNDRY_PROJECT_ENDPOINT: Foundry project endpoint (auto-injected in hosted containers)
     AZURE_AI_MODEL_DEPLOYMENT_NAME: Model deployment name (declared in agent.manifest.yaml)
-    TOOLBOX_ENDPOINT: Full toolbox MCP endpoint URL (declared in agent.manifest.yaml)
+    TOOLBOX_NAME: Toolbox resource name (declared in agent.manifest.yaml); the MCP URL
+        is constructed from this and FOUNDRY_PROJECT_ENDPOINT automatically.
 
 Usage::
 
     # Set environment variables
     export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
     export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1"
-    export TOOLBOX_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/<name>/mcp?api-version=v1"
+    export TOOLBOX_NAME="<toolbox-resource-name>"
 
     # Start the agent
     python main.py
@@ -89,20 +90,22 @@ if not _model:
         "Set it to your model deployment name as declared in agent.manifest.yaml."
     )
 
-# Platform injects TOOLBOX_{NAME}_MCP_ENDPOINT for declared toolbox resources.
-# Fall back to TOOLBOX_ENDPOINT for local dev (.env).
+# TOOLBOX_NAME is declared in agent.manifest.yaml and resolved from the toolbox
+# resource at deploy time. The full MCP URL is constructed from the project endpoint.
+# Falls back to TOOLBOX_ENDPOINT for local testing / explicit override.
+_TOOLBOX_NAME = os.getenv("TOOLBOX_NAME", "")
 TOOLBOX_ENDPOINT = (
-    os.environ.get("TOOLBOX_WEB_SEARCH_TOOLS_MCP_ENDPOINT")
-    or os.environ.get("TOOLBOX_ENDPOINT", "")
+    f"{_endpoint.rstrip('/')}/toolboxes/{_TOOLBOX_NAME}/mcp?api-version=v1"
+    if _TOOLBOX_NAME
+    else os.getenv("TOOLBOX_ENDPOINT", "")
 )
 if not TOOLBOX_ENDPOINT:
-    raise EnvironmentError(
-        "TOOLBOX_ENDPOINT environment variable is not set. "
-        "Set it to your toolbox MCP endpoint URL, or declare the toolbox "
-        "in agent.manifest.yaml resources."
+    logger.warning(
+        "TOOLBOX_NAME is not set — agent will start without toolbox tools. "
+        "Set TOOLBOX_NAME or declare a toolbox resource in agent.manifest.yaml."
     )
-# Ensure api-version query param is present.
-if "api-version=" not in TOOLBOX_ENDPOINT:
+# Ensure api-version query param is present when using a manually set TOOLBOX_ENDPOINT.
+elif "api-version=" not in TOOLBOX_ENDPOINT:
     sep = "&" if "?" in TOOLBOX_ENDPOINT else "?"
     TOOLBOX_ENDPOINT += f"{sep}api-version=v1"
 
@@ -229,6 +232,10 @@ _tools_initialized = False
 def _ensure_tools():
     global _mcp_client, _tool_definitions, _tools_initialized
     if _tools_initialized:
+        return
+    if not TOOLBOX_ENDPOINT:
+        logger.warning("TOOLBOX_ENDPOINT not set — skipping toolbox tool discovery")
+        _tools_initialized = True
         return
     logger.info("Connecting to toolbox: %s", TOOLBOX_ENDPOINT)
     _mcp_client = _McpToolboxClient(TOOLBOX_ENDPOINT, _token_provider)
@@ -383,12 +390,8 @@ async def handler(
 
     logger.info("Processing request %s", context.response_id)
 
-    try:
-        loop = asyncio.get_running_loop()
-        assistant_reply = await loop.run_in_executor(None, _run_agent_loop, input_items)
-    except Exception as e:
-        logger.error("Failed to process request: %s", e, exc_info=True)
-        assistant_reply = f"I encountered an error processing your request: {e}"
+    loop = asyncio.get_running_loop()
+    assistant_reply = await loop.run_in_executor(None, _run_agent_loop, input_items)
 
     message_item = stream.add_output_item_message()
     yield message_item.emit_added()
