@@ -124,27 +124,95 @@ curl -sS -N -X POST http://localhost:8088/responses \
 
 ### Deploying the Agent to Microsoft Foundry
 
-Once you've tested locally, deploy to Microsoft Foundry:
+#### Setup
 
+##### 1. Install Azure Developer CLI (`azd`)
+
+**Linux/macOS:**
 ```bash
-# Provision Azure resources (skip if already done during local setup)
-azd provision
-
-# Build, push, and deploy the agent to Foundry
-azd deploy
+curl -fsSL https://aka.ms/install-azd.sh | bash
 ```
 
-After deploying, invoke the agent running in Foundry:
+**Windows (PowerShell):**
+```powershell
+winget install microsoft.azd
+```
+
+See the [full installation docs](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) for other options.
+
+##### 2. Install the AI Agents azd extension
 
 ```bash
-azd ai agent invoke "Search the web for Azure AI Foundry news"
+azd extension install azure.ai.agents
 ```
+
+To upgrade the extension later:
+
+```bash
+azd extension upgrade azure.ai.agents
+```
+
+##### 3. Log in to Azure
+
+```bash
+azd auth login
+```
+
+##### 4. Fix git CRLF setting (Windows only)
+
+```bash
+git config --global core.autocrlf false
+```
+
+#### Quick Start (Deploy with azd)
+
+> **IMPORTANT:** The `-m` (or `--manifest`) flag is **required** for `azd ai agent init`.
+> It tells the command where to find your agent definition and source files.
+
+```bash
+# 1. Create a new directory and initialize the agent project
+mkdir my-agent && cd my-agent
+PROJECT_ID="/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<account>/projects/<project>"
+azd ai agent init \
+  -m /path/to/samples/python/hosted-agents/bring-your-own/responses/bring-your-own-toolbox/agent.manifest.yaml \
+  --project-id $PROJECT_ID \
+  --no-prompt \
+  -e my-env
+
+# 2. Set required environment variables
+azd env set enableHostedAgentVNext "true" -e my-env
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "gpt-4o" -e my-env  # must match the deployment name in azure.yaml
+
+# 3. Provision infrastructure and deploy the container
+azd up -e my-env
+
+# 4. Invoke the deployed agent (run from the scaffolded project directory)
+azd ai agent invoke "Search the web for Azure AI Foundry news" --timeout 120
+```
+
+#### Post-Init Checklist
+
+After `azd ai agent init`, perform these steps before `azd up` will work:
+
+| # | Action | Why |
+|---|--------|-----|
+| 1 | `azd env set enableHostedAgentVNext "true"` | Without this, container health probes fail |
+| 2 | Edit `src/<agent>/agent.yaml`: replace all `${{VAR}}` with `${VAR}` | Init scaffolds broken double-brace syntax that is NOT resolved at deploy time |
+| 3 | Verify `agent.yaml` uses **flat format** (`kind: hosted` at root) | The nested `template:` format silently fails during deploy |
+| 4 | `azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "<deployment-name>"` | Must match the deployment `name` in `azure.yaml`; platform injection is unreliable without this (container crashes on startup) |
+| 5 | Verify `main.py` checks `FOUNDRY_PROJECT_ENDPOINT` first | Platform injects this var, NOT `AZURE_AI_PROJECT_ENDPOINT` |
+| 6 | **If using existing project with AppInsights already connected:** `azd env set ENABLE_MONITORING "false"` | Provision fails with duplicate App Insights connection error |
+| 7 | **If model region ≠ RG region:** edit generated `infra/main.parameters.json` — change `aiDeploymentsLocation` value from `${AZURE_LOCATION}` to `${AZURE_AI_DEPLOYMENTS_LOCATION}`, then `azd env set AZURE_AI_DEPLOYMENTS_LOCATION "<region>"` | Init templates map model deployment location to `AZURE_LOCATION` which is wrong when model is in a different region |
 
 To stream logs from the running agent:
 
 ```bash
-azd ai agent monitor
+azd ai agent monitor --tail 50
 ```
+
+> **Tip:** `azd ai agent invoke` must be run from the scaffolded project directory
+> (the directory where `azure.yaml` was created by `azd ai agent init`).  
+> The `--timeout 120` flag is recommended — agent cold starts can take up to 60 seconds.
 
 For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
 

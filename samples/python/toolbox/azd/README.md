@@ -26,9 +26,10 @@ structured for `azd` deployment:
 
 The `azd/` folder includes:
 - `main.py` — LangGraph agent (same pattern as `../langgraph/`)
-- `agent.yaml` — azd manifest for the default (GitHub MCP) scenario
-- `agent.manifest.yaml` — agent manifest for `azd ai agent init -m` for the default scenario
-- `azd-samples/` — scenario-specific `agent.yaml` + `agent.manifest.yaml` for 14 toolbox scenarios
+- `agent.yaml` — runtime manifest (shared across all scenarios)
+- `agent.manifest.yaml` — default (GitHub MCP key-auth) scenario manifest for `azd ai agent init -m`
+
+See [Supported Scenarios](#supported-scenarios) for all 14 scenario manifests inline.
 
 ## Prerequisites
 
@@ -111,13 +112,10 @@ azd ai agent init -m https://raw.githubusercontent.com/microsoft/hosted-agents-v
 azd env set enableHostedAgentVNext "true" -e my-env
 azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "gpt-4o" -e my-env  # must match the deployment name in azure.yaml
 
-# 4. Provision infrastructure (creates connections via Bicep)
-azd provision -e my-env
+# 4. Provision infrastructure and deploy the agent
+azd up -e my-env
 
-# 5. Deploy agent (creates toolboxes, container image, agent version)
-azd deploy -e my-env
-
-# 6. Invoke the agent (MUST run from the scaffolded project directory)
+# 5. Invoke the agent (MUST run from the scaffolded project directory)
 azd ai agent invoke --new-session "Hello, what tools do you have?" --timeout 120
 ```
 
@@ -299,30 +297,905 @@ template:
 
 ## Supported Scenarios
 
-Each scenario in [`azd-samples/`](azd-samples/) ships its own `agent.yaml` and `agent.manifest.yaml`. To use a scenario:
+The `agent.yaml` runtime definition is **identical for all scenarios** — only `agent.manifest.yaml` differs per scenario. `agent.manifest.yaml` drives `azd ai agent init`: it declares toolbox resources, connection definitions, and secret parameters that are prompted interactively.
 
-> ⚠️ **Important:** The `azd-samples/` subdirectories contain **only YAML manifests** (`agent.yaml` + `agent.manifest.yaml`). They do **not** include source code (`main.py`, `Dockerfile`, `requirements.txt`, etc.). When you init from a scenario manifest, `azd ai agent init` copies source files from the **manifest directory** — so copy the scenario's YAML files into the root `azd/` folder first to pick up the existing `main.py` and other source files.
+To deploy a scenario:
 
-1. Copy `agent.yaml` and `agent.manifest.yaml` from the scenario folder into `toolbox/azd/` (replacing the defaults).
-2. Run `azd ai agent init -m agent.manifest.yaml` — this **auto-generates** `azure.yaml` from the manifest.
-3. Set any required env vars (see table), then run `azd provision` and `azd deploy`.
+1. Create a folder and copy the shared `agent.yaml` (below) into it.
+2. Copy the scenario's `agent.manifest.yaml` (from a section below) into the same folder.
+3. Run `azd ai agent init -m <folder-path> --project-id <id> -e <env>` — enter required secrets at the interactive prompt.
+4. Run `azd up -e <env>`.
 
-| # | Scenario | Sample | Required env vars | Notes |
-|---|----------|--------|-------------------|-------|
-| 1 | Web Search | [`azd-samples/web-search/`](azd-samples/web-search/) | — | No connection needed |
-| 2 | File Search | [`azd-samples/file-search/`](azd-samples/file-search/) | `FILE_SEARCH_VECTOR_STORE_ID` | Vector store must be in same project |
-| 3 | Code Interpreter | [`azd-samples/code-interpreter/`](azd-samples/code-interpreter/) | — | Requires active model deployment at runtime |
-| 4 | MCP Key-Auth (GitHub) | [`azd-samples/mcp-keyauth/`](azd-samples/mcp-keyauth/) | `GITHUB_PAT` | `server_label` is required |
-| 5 | MCP No-Auth | [`azd-samples/mcp-noauth/`](azd-samples/mcp-noauth/) | — | Public MCP servers only |
-| 6 | MCP OAuth (Managed Connector) | [`azd-samples/mcp-oauth-managed/`](azd-samples/mcp-oauth-managed/) | — | First call returns consent URL (code `-32006`) |
-| 7 | MCP OAuth (Custom App) | [`azd-samples/mcp-oauth-custom/`](azd-samples/mcp-oauth-custom/) | — | First call returns consent URL (code `-32006`) |
-| 8 | MCP Agent Identity | [`azd-samples/mcp-agent-identity/`](azd-samples/mcp-agent-identity/) | — | Assign RBAC role to agent identity first |
-| 9 | Azure AI Search | [`azd-samples/ai-search/`](azd-samples/ai-search/) | `AI_SEARCH_ENDPOINT`, `AI_SEARCH_KEY` | `CognitiveSearch` connection |
-| 10 | A2A (Agent-to-Agent) | [`azd-samples/a2a/`](azd-samples/a2a/) | — | Tool name prefixed with toolbox name |
-| 11 | Bing Custom Search | [`azd-samples/bing-custom-search/`](azd-samples/bing-custom-search/) | `BING_API_KEY`, `BING_RESOURCE_ID`, `BING_CUSTOM_INSTANCE` | Uses `web_search` type + `custom_search_configuration` |
-| 12 | OpenAPI Key-Auth | [`azd-samples/openapi-keyauth/`](azd-samples/openapi-keyauth/) | `TRIPADVISOR_API_KEY` | `openapi` key requires `name`, `spec`, `auth` sub-keys |
-| 13 | MCP OAuth (Entra Passthrough) | [`azd-samples/mcp-entra-passthrough/`](azd-samples/mcp-entra-passthrough/) | — | `audience` field required; proxies user Entra token |
-| 14 | Multi-Tool Toolbox | [`azd-samples/multi-tool/`](azd-samples/multi-tool/) | — | Combine multiple tool types in one toolbox |
+### Shared `agent.yaml`
+
+> This file is the runtime container definition. `FOUNDRY_PROJECT_ENDPOINT` and `FOUNDRY_AGENT_TOOLBOX_*` are auto-injected by the platform — do not declare them here.
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+kind: hosted
+name: toolbox-azd
+description: LangGraph ReAct agent wired to a toolbox in Microsoft Foundry via MCP.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+protocols:
+  - protocol: responses
+    version: 1.0.0
+environment_variables:
+  # FOUNDRY_PROJECT_ENDPOINT and FOUNDRY_AGENT_TOOLBOX_* are injected
+  # automatically by the platform at runtime — do NOT declare them here.
+  - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+    value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4o}
+  - name: TOOLBOX_NAME
+    value: ${TOOLBOX_NAME=agent-tools}
+```
+
+---
+
+### 1. Web Search
+
+No connection or secrets required. The simplest toolbox scenario.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-web-search
+displayName: "LangGraph Web Search Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a Bing web search toolbox. The simplest toolbox
+  scenario — no connections or secrets required.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - Web Search
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties: []
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: web_search
+```
+
+---
+
+### 2. File Search
+
+Requires a vector store in the same Foundry project. Prompted parameter: `file_search_vector_store_id`.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-file-search
+displayName: "LangGraph File Search Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a File Search toolbox backed by an Azure AI
+  Foundry vector store. The vector store must exist in the same project.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - File Search
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: file_search_vector_store_id
+      secret: false
+      description: Vector store ID from the same Foundry project (e.g. vs_xxxxxxxxxxxx)
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: file_search
+        vector_store_ids:
+          - "{{ file_search_vector_store_id }}"
+```
+
+---
+
+### 3. Code Interpreter
+
+No secrets required. Executes Python code in a sandboxed environment.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-code-interpreter
+displayName: "LangGraph Code Interpreter Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a Code Interpreter toolbox. Executes Python
+  code in a sandboxed environment via toolbox in Microsoft Foundry.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - Code Interpreter
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties: []
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: code_interpreter
+```
+
+---
+
+### 4. MCP Key-Auth (GitHub)
+
+Prompted parameter: `github_pat` (GitHub Personal Access Token, injected as Bearer token).
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-keyauth
+displayName: "LangGraph GitHub MCP Key-Auth Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a GitHub MCP toolbox using key-based authentication
+  (GitHub PAT injected as Bearer token).
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - GitHub
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: github_pat
+      secret: true
+      description: GitHub Personal Access Token (classic ghp_... or fine-grained github_pat_...)
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: github-mcp-conn
+    category: RemoteTool
+    authType: CustomKeys
+    target: https://api.githubcopilot.com/mcp
+    credentials:
+      type: CustomKeys
+      keys:
+        Authorization: "Bearer {{ github_pat }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: github
+        project_connection_id: github-mcp-conn
+```
+
+---
+
+### 5. MCP No-Auth
+
+Prompted parameter: `mcp_endpoint` (URL of the public MCP server). No credentials needed.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-noauth
+displayName: "LangGraph Public MCP No-Auth Toolbox Agent"
+description: >
+  LangGraph ReAct agent connected to a public MCP server that requires no
+  authentication. The server URL is proxied by toolbox in Microsoft Foundry.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - No-Auth
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: mcp_endpoint
+      secret: false
+      description: URL of the public MCP server (e.g. https://gitmcp.io/Azure/azure-rest-api-specs)
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: noauthmcp
+        server_url: "{{ mcp_endpoint }}"
+```
+
+---
+
+### 6. MCP OAuth (Managed Connector)
+
+No secrets required — Foundry manages the OAuth app registration. First invocation returns a consent URL (MCP code `-32006`).
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-oauth-managed
+displayName: "LangGraph MCP OAuth2 Managed Connector Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a GitHub MCP toolbox using Microsoft Foundry's
+  managed OAuth connector. No client credentials needed — Foundry handles
+  the OAuth app registration. First invocation triggers a consent flow.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - OAuth2
+    - GitHub
+    - Managed Connector
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties: []
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: github-oauth-conn
+    category: RemoteTool
+    authType: OAuth2
+    target: https://api.githubcopilot.com/mcp
+    connectorName: foundrygithubmcp
+    credentials:
+      type: OAuth2
+      clientId: managed
+      clientSecret: managed
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: github
+        project_connection_id: github-oauth-conn
+```
+
+---
+
+### 7. MCP OAuth (Custom App)
+
+Prompted parameters: `your_client_id`, `your_client_secret` (OAuth2 app registration). First invocation returns a consent URL (MCP code `-32006`).
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-oauth-custom
+displayName: "LangGraph MCP OAuth2 Custom App Registration Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a GitHub MCP toolbox using a bring-your-own
+  OAuth2 app registration. First invocation triggers a consent flow.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - OAuth2
+    - GitHub
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: your_client_id
+      secret: false
+      description: OAuth2 client ID from your app registration
+    - name: your_client_secret
+      secret: true
+      description: OAuth2 client secret from your app registration
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: github-oauth-custom-conn
+    category: RemoteTool
+    authType: OAuth2
+    target: https://api.githubcopilot.com/mcp
+    credentials:
+      type: OAuth2
+      clientId: "{{ your_client_id }}"
+      clientSecret: "{{ your_client_secret }}"
+    authorizationUrl: "https://github.com/login/oauth/authorize"
+    tokenUrl: "https://github.com/login/oauth/access_token"
+    refreshUrl: "https://github.com/login/oauth/access_token"
+    scopes:
+      - repo
+      - read:user
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: github
+        project_connection_id: github-oauth-custom-conn
+```
+
+---
+
+### 8. MCP Agent Identity
+
+Prompted parameters: `entra_audience`, `mcp_target_url`. Assign an RBAC role to the agent's managed identity on the target MCP server before deploying.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-agent-identity
+displayName: "LangGraph MCP Agent Identity Toolbox Agent"
+description: >
+  LangGraph ReAct agent with an MCP toolbox using Microsoft Foundry's Agentic
+  Identity (agent managed identity) for Entra ID authentication to the MCP server.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - Agentic Identity
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: entra_audience
+      secret: false
+      description: Entra ID audience for the target MCP server
+    - name: mcp_target_url
+      secret: false
+      description: URL of the MCP server that accepts agent identity tokens
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: language-mcp
+    category: RemoteTool
+    authType: AgenticIdentity
+    audience: "{{ entra_audience }}"
+    target: "{{ mcp_target_url }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: language-mcp
+        project_connection_id: language-mcp
+```
+
+---
+
+### 9. Azure AI Search
+
+Prompted parameters: `ai_search_endpoint`, `ai_search_key`, `ai_search_index_name`.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-ai-search
+displayName: "LangGraph Azure AI Search Toolbox Agent"
+description: >
+  LangGraph ReAct agent with an Azure AI Search toolbox. Queries an existing
+  search index via toolbox proxy in Microsoft Foundry.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - Azure AI Search
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: ai_search_endpoint
+      secret: false
+      description: Azure AI Search service endpoint (e.g. https://my-search.search.windows.net/)
+    - name: ai_search_key
+      secret: true
+      description: Azure AI Search admin key
+    - name: ai_search_index_name
+      secret: false
+      description: Name of the search index to query
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: aisearch-conn
+    category: CognitiveSearch
+    authType: ApiKey
+    target: "{{ ai_search_endpoint }}"
+    credentials:
+      type: ApiKey
+      key: "{{ ai_search_key }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: azure_ai_search
+        index_name: "{{ ai_search_index_name }}"
+        project_connection_id: aisearch-conn
+```
+
+---
+
+### 10. A2A (Agent-to-Agent)
+
+Prompted parameter: `a2a_agent_endpoint` (URL of the remote A2A-compatible agent).
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-a2a
+displayName: "LangGraph Agent-to-Agent (A2A) Toolbox Agent"
+description: >
+  LangGraph ReAct agent with an Agent-to-Agent (A2A) toolbox. Calls a remote
+  A2A-compatible agent endpoint via toolbox proxy in Microsoft Foundry.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - A2A
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: a2a_agent_endpoint
+      secret: false
+      description: URL of the remote A2A-compatible agent endpoint (e.g. https://my-agent.azurecontainerapps.io)
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: a2a-conn
+    category: RemoteA2A
+    authType: None
+    target: "{{ a2a_agent_endpoint }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: a2a_preview
+        project_connection_id: a2a-conn
+```
+
+---
+
+### 11. Bing Custom Search
+
+Prompted parameters: `bing_api_key`, `bing_resource_id`, `bing_custom_instance`.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-bing-custom-search
+displayName: "LangGraph Bing Custom Search Toolbox Agent"
+description: >
+  LangGraph ReAct agent with a Bing Custom Search toolbox. Uses a
+  GroundingWithCustomSearch connection for scoped web search.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - Bing Custom Search
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: bing_api_key
+      secret: true
+      description: Bing Search API key
+    - name: bing_resource_id
+      secret: false
+      description: ARM resource ID of your Bing account
+    - name: bing_custom_instance
+      secret: false
+      description: Bing Custom Search instance name
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: bing-custom-conn
+    category: GroundingWithCustomSearch
+    authType: ApiKey
+    target: https://api.bing.microsoft.com/
+    credentials:
+      type: ApiKey
+      key: "{{ bing_api_key }}"
+    metadata:
+      ResourceId: "{{ bing_resource_id }}"
+      type: bing_custom_search_preview
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: web_search
+        custom_search_configuration:
+          instance_name: "{{ bing_custom_instance }}"
+          project_connection_id: bing-custom-conn
+```
+
+---
+
+### 12. OpenAPI Key-Auth
+
+Prompted parameter: `tripadvisor_api_key`. Replace the spec and connection with your own OpenAPI service.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-openapi-keyauth
+displayName: "LangGraph OpenAPI Key-Auth Toolbox Agent"
+description: >
+  LangGraph ReAct agent with an OpenAPI toolbox using key-based auth.
+  Uses TripAdvisor Content API as an example — replace the spec and
+  connection with your own OpenAPI service.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - OpenAPI
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: tripadvisor_api_key
+      secret: true
+      description: TripAdvisor Content API key (replace with your own OpenAPI service key)
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: tripadvisor-conn
+    category: CustomKeys
+    authType: CustomKeys
+    target: https://api.content.tripadvisor.com
+    credentials:
+      type: CustomKeys
+      keys:
+        key: "{{ tripadvisor_api_key }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: openapi
+        openapi:
+          name: tripadvisor
+          spec:
+            openapi: "3.0.1"
+            info:
+              title: "TripAdvisor API"
+              version: "1.0"
+            servers:
+              - url: https://api.content.tripadvisor.com/api/v1
+            paths:
+              /location/search:
+                get:
+                  operationId: searchLocations
+                  parameters:
+                    - name: searchQuery
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: key
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                  responses:
+                    "200":
+                      description: OK
+          auth:
+            type: connection_auth
+            connection_id: tripadvisor-conn
+```
+
+---
+
+### 13. MCP OAuth (Entra Passthrough)
+
+Prompted parameters: `entra_audience`, `entra_mcp_target`. Foundry proxies the caller's Entra identity to the downstream MCP server.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-mcp-entra-passthrough
+displayName: "LangGraph MCP Entra Token Passthrough Toolbox Agent"
+description: >
+  LangGraph ReAct agent with an MCP toolbox that uses Entra token passthrough.
+  Microsoft Foundry proxies the caller's Entra identity to the downstream MCP server.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - Entra Token Passthrough
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: entra_audience
+      secret: false
+      description: Entra ID audience for the target MCP server
+    - name: entra_mcp_target
+      secret: false
+      description: URL of the MCP server that accepts Entra user tokens
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: entra-passthrough-conn
+    category: RemoteTool
+    authType: UserEntraToken
+    audience: "{{ entra_audience }}"
+    target: "{{ entra_mcp_target }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: mcp
+        server_label: outlook-mail
+        project_connection_id: entra-passthrough-conn
+```
+
+---
+
+### 14. Multi-Tool Toolbox
+
+Prompted parameter: `github_pat`. Combines Bing web search and GitHub MCP in one toolbox.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-azd-multi-tool
+displayName: "LangGraph Multi-Tool Toolbox Agent (Web Search + GitHub MCP)"
+description: >
+  LangGraph ReAct agent with a combined toolbox: Bing web search plus GitHub
+  MCP tools via key-based auth. Demonstrates multiple tool types in one toolbox.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - LangGraph
+    - MCP
+    - Web Search
+    - GitHub
+    - Microsoft Foundry
+template:
+  name: toolbox-azd
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME=agent-tools}
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+parameters:
+  properties:
+    - name: github_pat
+      secret: true
+      description: GitHub Personal Access Token (classic ghp_... or fine-grained github_pat_...)
+resources:
+  - kind: model
+    id: gpt-4o
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: github-mcp-conn
+    category: RemoteTool
+    authType: CustomKeys
+    target: https://api.githubcopilot.com/mcp
+    credentials:
+      type: CustomKeys
+      keys:
+        Authorization: "Bearer {{ github_pat }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: web_search
+      - type: mcp
+        server_label: github
+        project_connection_id: github-mcp-conn
+```
 
 ---
 
