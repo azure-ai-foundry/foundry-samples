@@ -163,3 +163,54 @@ az deployment group create \
 | `aiSearchResourceId` | string | `''` | Optional existing AI Search ARM ID |
 | `azureStorageAccountResourceId` | string | `''` | Optional existing Storage ARM ID |
 | `azureCosmosDBAccountResourceId` | string | `''` | Optional existing Cosmos DB ARM ID |
+
+## Post-Deployment Steps
+
+### 1. Assign Azure AI User Role
+
+After deployment, users who need to build agents must be assigned the **Azure AI User** role on the AI Services account:
+
+```bash
+az role assignment create \
+  --assignee <USER_EMAIL_OR_OBJECT_ID> \
+  --role "Azure AI User" \
+  --scope "/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.CognitiveServices/accounts/<AI_ACCOUNT_NAME>"
+```
+
+Without this role, you'll see: *"You don't have permission to build agents in this project."*
+
+### 2. Ensure VNet Traffic Is Allowed on Subnet-Level NSGs
+
+The GSA proxy VM requires inbound traffic from the virtual network on **all ports** (including ports 80 and 443). While this template attaches an NSG to the NIC that allows VNet traffic, additional NSGs may be attached to the **subnet** by organizational policies, Azure Policy, or compliance tooling (e.g., NRMS in Microsoft internal subscriptions).
+
+If agent traffic is not reaching the proxy after deployment, check for any additional NSGs on the GSA proxy subnet:
+
+```bash
+# Check what NSG is attached to the gsa-proxy-subnet
+az network vnet subnet show \
+  --resource-group <RESOURCE_GROUP> \
+  --vnet-name <VNET_NAME> \
+  --name gsa-proxy-subnet \
+  --query "networkSecurityGroup.id" -o tsv
+
+# List all NSGs in the resource group
+az network nsg list --resource-group <RESOURCE_GROUP> --query "[].name" -o table
+```
+
+If a subnet-level NSG exists and does not allow VNet inbound traffic on all ports, add an allow rule:
+
+```bash
+az network nsg rule create \
+  --resource-group <RESOURCE_GROUP> \
+  --nsg-name <SUBNET_NSG_NAME> \
+  --name AllowVNetInbound \
+  --priority 100 \
+  --direction Inbound \
+  --access Allow \
+  --protocol '*' \
+  --source-address-prefixes VirtualNetwork \
+  --destination-address-prefixes '*' \
+  --destination-port-ranges '*'
+```
+
+> **Why is this needed?** Azure evaluates NSG rules at both the subnet and NIC level. Traffic must be allowed by **both** NSGs. If a subnet-level NSG blocks port 80 or 443 from the VNet, agent traffic will be dropped before reaching the proxy VM — even though the NIC-level NSG allows it.
