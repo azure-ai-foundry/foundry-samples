@@ -29,7 +29,7 @@ public class AgentTokenHelper(ILogger<AgentTokenHelper> logger)
             var isClientSecret = false;
             var useManagedIdentity = string.IsNullOrEmpty(certificateData);
             X509Certificate2? certificate = null;
-            AuthenticationResult? agentTokenResult = null;
+            string blueprintToken = null;
             // Parse certificate data
 
             if (!useManagedIdentity)
@@ -59,21 +59,18 @@ public class AgentTokenHelper(ILogger<AgentTokenHelper> logger)
             //
             if (isClientSecret)
             {
-                agentTokenResult = await GetTokenWithCustomParametersAsync(
+                var agentTokenResult = await GetTokenWithCustomParametersAsync(
                     agentAppId,
                     tenantId,
                     certificateData,
                     ["api://AzureAdTokenExchange/.default"],
                     new Dictionary<string, string> { { "fmi_path", agentAppInstanceId } });
+                blueprintToken = agentTokenResult?.AccessToken;
             }
             else
             {
-                agentTokenResult = await GetTokenWithCustomParametersAsync(
-                    agentAppId,
-                    tenantId,
-                    ["api://AzureAdTokenExchange/.default"],
-                    new Dictionary<string, string> { { "fmi_path", agentAppInstanceId } },
-                    certificate);
+                var accessToken = await GetBlueprintToken(agentAppId);
+                blueprintToken = accessToken.Token;
             }
 
             // SECOND: Get AAD token for AgentAppInstanceId
@@ -86,7 +83,7 @@ public class AgentTokenHelper(ILogger<AgentTokenHelper> logger)
             //
             var instanceApp = ConfidentialClientApplicationBuilder
                 .Create(agentAppInstanceId)
-                .WithClientAssertion((AssertionRequestOptions _) => Task.FromResult(agentTokenResult.AccessToken))
+                .WithClientAssertion((AssertionRequestOptions _) => Task.FromResult(blueprintToken))
                 .WithAuthority(new Uri($"https://login.microsoftonline.com/{tenantId}"))
                 .Build();
 
@@ -107,7 +104,7 @@ public class AgentTokenHelper(ILogger<AgentTokenHelper> logger)
             var userToken = await GetUserFederatedIdentityTokenAsync(
                 agentAppInstanceId,
                 tenantId,
-                agentTokenResult.AccessToken,
+                blueprintToken!,
                 instanceTokenResult.AccessToken,
                 userUpn,
                 scopes);
@@ -179,6 +176,20 @@ public class AgentTokenHelper(ILogger<AgentTokenHelper> logger)
         }
 
         throw new InvalidOperationException("Failed to parse access token from response");
+    }
+
+
+    private async Task<AccessToken> GetBlueprintToken(
+        string clientId)
+    {
+        using var httpClient = new HttpClient();
+
+        var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+        {
+            ManagedIdentityClientId = clientId,
+        });
+        var blueprintToken = await credential.GetTokenAsync(new TokenRequestContext(new[] { "api://AzureADTokenExchange/.default" }));
+        return blueprintToken;
     }
 
     private async Task<AuthenticationResult> GetTokenWithCustomParametersAsync(

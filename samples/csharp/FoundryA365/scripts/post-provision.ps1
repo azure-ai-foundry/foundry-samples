@@ -12,12 +12,12 @@ Write-Host "===============Creating Agent Version==============="
 
 Write-Host "===============Publishing digital worker==============="
 
-& "$PSScriptRoot/publish-digital-worker.ps1"
+# & "$PSScriptRoot/publish-digital-worker.ps1"
 
 # TODO: temporary fix until service starts doing it.
 # oAuth2grants for blueprint SP for inheritable scopes to work.
 Write-Host "===============OAuth2 grants for blueprint SP==============="
-& "$PSScriptRoot/create-blueprintsp-oauth2-grants.ps1"
+# & "$PSScriptRoot/create-blueprintsp-oauth2-grants.ps1"
 
 
 Write-Host ""

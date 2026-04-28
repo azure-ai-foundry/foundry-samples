@@ -25,7 +25,7 @@
       metadata = @{
         enableVnextExperience = "true"
       }
-      description = "Foundry digital worker."
+      description = "Foundry digital worker 24."
       agent_endpoint = @{
         protocols = @("activity")
       }

@@ -39,14 +39,14 @@
 		<PackageReference Include="ModelContextProtocol" Version="0.3.0-preview.4" />
 		<PackageReference Include="OpenAI" Version="2.5.0" />
 		<PackageReference Include="OpenTelemetry.Exporter.Console" Version="$(OpenTelemetryVersion)" />
-		<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="$(OpenTelemetryVersion)" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.14.0" />
 		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="$(OpenTelemetryVersion)" />
 		<PackageReference Include="System.Text.Json" Version="9.0.5" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
-		<PackageReference Include="Microsoft.Agents.Authentication.Msal" Version="1.3.*-*" />
-		<PackageReference Include="Microsoft.Agents.Hosting.AspNetCore" Version="1.3.*-*" />
-		<PackageReference Include="Microsoft.Agents.Storage" Version="1.3.*-*" />
-		<PackageReference Include="Microsoft.Agents.Storage.Transcript" Version="1.3.*-*" />
+		<PackageReference Include="Microsoft.Agents.Authentication.Msal" Version="1.3.163-beta" />
+		<PackageReference Include="Microsoft.Agents.Hosting.AspNetCore" Version="1.4.9-beta" />
+		<PackageReference Include="Microsoft.Agents.Storage" Version="1.4.9-beta" />
+		<PackageReference Include="Microsoft.Agents.Storage.Transcript" Version="1.4.9-beta" />
 		<PackageReference Include="xunit" Version="2.9.3" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
 			<PrivateAssets>all</PrivateAssets>
@@ -57,6 +57,7 @@
 		<PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.23.0" />
 		<PackageReference Include="Microsoft.Bcl.Memory" Version="9.0.0" />
 		<PackageReference Include="System.Runtime.Caching" Version="9.0.10" />
+		<PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
 		
 	</ItemGroup>
 </Project>

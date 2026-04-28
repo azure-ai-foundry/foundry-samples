@@ -14,16 +14,19 @@ public class A365AgentApplication : AgentApplication
 {
     private readonly AgentLogicServiceFactory _factory;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<A365AgentApplication> _logger;
 
     public A365AgentApplication(
         AgentApplicationOptions options,
         AgentLogicServiceFactory factory,
+        ILogger<A365AgentApplication> logger,
         IConfiguration configuration) : base(options)
     {
         _factory = factory ?? throw new ArgumentNullException(nameof(factory));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         // Configure the agent to handle message activities
         ConfigureMessageHandling();
+        _logger = logger;
     }
 
     /// <summary>
@@ -100,20 +103,36 @@ public class A365AgentApplication : AgentApplication
         
         OnActivity(ActivityTypes.Message, async (turnContext, turnState, cancellationToken) =>
         {
-            // Based on the recipient, determine which agent to use
-            var agent = await GetAgentFromRecipient(turnContext.Activity);
-
-            // Get agent logic service from factory
-            var agentService = await _factory.GetService(agent, turnContext);
-
-            // Ignoring all other channel Ids to prevent duplicate notifications.
-			if (agent.IsMessagingEnabled && turnContext.Activity.ChannelId != "msteams")
+            try
             {
-                return;
-            }
+                _logger.LogInformation("Received message activity: {ActivityId} from {UserId} activity {activity}", turnContext.Activity.Id, turnContext.Activity.From?.Id, System.Text.Json.JsonSerializer.Serialize(turnContext.Activity));
+                // Based on the recipient, determine which agent to use
+                var agent = await GetAgentFromRecipient(turnContext.Activity);
 
-			// Execute logic
-			await agentService.NewActivityReceived(turnContext, turnState, cancellationToken);
+                // Get agent logic service from factory
+                var agentService = await _factory.GetService(agent, turnContext);
+
+                // Ignoring all other channel Ids to prevent duplicate notifications.
+                if (agent.IsMessagingEnabled && turnContext.Activity.ChannelId != "msteams")
+                {
+                    return;
+                }
+
+                // Execute logic
+                await agentService.NewActivityReceived(turnContext, turnState, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing message activity");
+                await turnContext.SendActivitiesAsync(new IActivity[]
+                {
+                    new Activity
+                    {
+                        Type = ActivityTypes.Message,
+                        Text = $"Sorry, something went wrong while processing your message: {ex}"
+                    }
+                }, cancellationToken);
+            }
         });
 
         // Keep existing handlers for backward compatibility

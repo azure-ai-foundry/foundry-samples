@@ -94,21 +94,21 @@ resource cogServicesUserRoleAssignment 'Microsoft.Authorization/roleAssignments@
   }
 }
 
-resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
-  name: 'gpt-5-chat'
-  parent: account
-  sku: {
-    name: 'GlobalStandard'
-    capacity: 10
-  }
-  properties: {
-    model: {
-      format: 'OpenAI'
-      name: 'gpt-5-chat'
-      version: '2025-10-03'
-    }
-  }
-}
+// resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+//   name: 'gpt-5.3-chat'
+//   parent: account
+//   sku: {
+//     name: 'GlobalStandard'
+//     capacity: 10
+//   }
+//   properties: {
+//     model: {
+//       format: 'OpenAI'
+//       name: 'gpt-5.3-chat'
+//       version: '2026-03-03'
+//     }
+//   }
+// }
 
 
 

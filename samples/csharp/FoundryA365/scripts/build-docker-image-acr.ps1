@@ -28,7 +28,7 @@ az acr build `
     --build-arg BLUEPRINT_CLIENT_ID=$env:AGENT_IDENTITY_BLUEPRINT_ID `
     --build-arg AUTHORITY_ENDPOINT=$authorityEndpoint `
     --build-arg AZURE_OPENAI_ENDPOINT=$azureOpenAIEndpoint `
-    --build-arg MODEL_DEPLOYMENT='gpt-5-chat' `
+    --build-arg MODEL_DEPLOYMENT='gpt-5.3-chat' `
     .
 
 if ($LASTEXITCODE -ne 0) {
