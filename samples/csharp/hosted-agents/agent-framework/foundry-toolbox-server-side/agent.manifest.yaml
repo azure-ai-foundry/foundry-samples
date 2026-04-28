@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: foundry-toolbox-server-side-dotnet-agent-framework
+displayName: "Foundry Toolbox — Server-Side Tools (.NET, Agent Framework)"
+description: >
+  Agent Framework agent that loads a Foundry Toolbox and passes its tools to the
+  agent as server-side tools. The Foundry platform executes tool calls through the
+  Responses API — the agent does not connect to the toolbox MCP proxy locally.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Responses Protocol
+    - Agent Framework
+    - Toolbox
+    - MCP
+    - Server-Side Tools
+    - .NET
+template:
+  name: foundry-toolbox-server-side-dotnet-agent-framework
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT and APPLICATIONINSIGHTS_CONNECTION_STRING
+    # are injected by the platform (hosted) and translated by azd (local)
+    # — do NOT declare them here.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: "agent-tools"
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: code_interpreter
+        container:
+          type: auto
+      - type: mcp
+        server_label: api_specs
+        server_url: "https://gitmcp.io/Azure/azure-rest-api-specs"
