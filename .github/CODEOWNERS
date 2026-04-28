@@ -1,5 +1,10 @@
 # See for instructions on this file https://help.github.com/articles/about-codeowners/
 
+#### Team-owned sample areas ############################################################################
+# Each contributing team owns their sample paths for review routing. See CONTRIBUTING.md for setup guide.
+/samples/python/hosted-agents/ @microsoft-foundry/hosted-agents
+/samples/csharp/hosted-agents/ @microsoft-foundry/hosted-agents
+
 #### files referenced in docs (DO NOT EDIT, except for Docs team!!!) ##########################################
 /infrastructure/infrastructure-setup-bicep/01-connections/connection-key-vault.bicep @microsoft-foundry/AI-Platform-Docs
 /infrastructure/infrastructure-setup-bicep/05-custom-policy-definitions/deny-disallowed-connections.json @microsoft-foundry/AI-Platform-Docs
