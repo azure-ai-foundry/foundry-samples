@@ -1,32 +1,24 @@
-# Basic example of hosting an agent with the `responses` API
+# What this sample demonstrates
 
-## Running the server locally
+An [Agent Framework](https://github.com/microsoft/agent-framework) agent hosted using the **Responses protocol**.
 
-### Using `azd` (Recommended)
+## How It Works
 
-```bash
-azd ai agent run
-```
+### Model Integration
 
-### Without `azd`
+The agent uses `FoundryChatClient` from the Agent Framework to create a Responses client from the project endpoint and model deployment. The agent supports both streaming (SSE events) and non-streaming (JSON) response modes.
 
-Follow the instructions in the [Environment setup](../../README.md#environment-setup-without-azd) section of the README in the parent directory to set up your environment and install dependencies.
+See [main.py](main.py) for the full implementation.
 
-Run the following command to start the server:
+### Agent Hosting
 
-```bash
-python main.py
-```
+The agent is hosted using the [Agent Framework](https://github.com/microsoft/agent-framework) with the `ResponsesHostServer`, which provisions a REST API endpoint compatible with the OpenAI Responses protocol.
 
-### Interacting with the agent
+## Interacting with the agent
+
+> Depending on how you run the agent host, you can invoke the agent using `curl` (`Invoke-WebRequest` in PowerShell) or `azd`. Please refer to the [parent README](../../README.md) for more details. Use this README for sample queries you can send to the agent.
 
 Send a POST request to the server with a JSON body containing a "message" field to interact with the agent. For example:
-
-```bash
-azd ai agent invoke --local "Hi"
-```
-
-Or use `curl`:
 
 ```bash
 curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "Hi"}'
@@ -41,3 +33,7 @@ To have a multi-turn conversation with the agent, include the previous response 
 ```bash
 curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "How are you?", "previous_response_id": "REPLACE_WITH_PREVIOUS_RESPONSE_ID"}'
 ```
+
+## Deploying the Agent to Foundry
+
+To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.

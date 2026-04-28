@@ -1,9 +1,0 @@
-{
-  "threadId": "thread-ci",
-  "runId": "run-ci",
-  "state": {},
-  "messages": [{"id": "msg-1", "role": "user", "content": "Hello!"}],
-  "tools": [],
-  "context": [],
-  "forwardedProps": {}
-}
