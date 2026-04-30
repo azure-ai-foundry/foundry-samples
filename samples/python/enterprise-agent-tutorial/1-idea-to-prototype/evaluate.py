@@ -44,7 +44,7 @@ with (
 ):
     # Create or retrieve the agent to evaluate
     agent = project_client.agents.create_version(
-        agent_name="Modern Workplace Assistant",
+        agent_name="modern-workplace-assistant",
         definition=PromptAgentDefinition(
             model=model_deployment_name,
             instructions="You are a helpful Modern Workplace Assistant that answers questions about company policies and technical guidance.",
