@@ -13,6 +13,7 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | 3 | [MCP](responses/03-mcp/) | An agent connected to a remote MCP server (GitHub), demonstrating external MCP tool provider integration. |
 | 4 | [Foundry Toolbox](responses/04-foundry-toolbox/) | An agent using Azure Foundry Toolbox, demonstrating toolbox provisioning and querying available tools at runtime. |
 | 5 | [Workflows](responses/05-workflows/) | An agent with a multi-step orchestrated workflow, demonstrating chaining prompts through an orchestrated flow. |
+| 6 | [Skills](responses/06-skills/) | An agent using native Agent Framework file-based skills, demonstrating skill discovery and a script-backed PDF travel guide skill. |
 
 ### Invocations API
 

@@ -95,6 +95,7 @@ The platform manages conversation history, streaming lifecycle, and background e
 3. **[MCP Tools](./agent-framework/responses/03-mcp/)** — Connect your agent to a remote MCP server to access tools, retrieval, and more.
 4. **[Foundry Toolbox](./agent-framework/responses/04-foundry-toolbox/)** — Wire your agent to a Foundry Toolbox for managed tool access.
 5. **[Workflows](./agent-framework/responses/05-workflows/)** — Compose multiple agents into sequential pipelines.
+6. **[Skills](./agent-framework/responses/06-skills/)** — Add native file-based skills to your agent and generate a colorful PDF travel guide.
 
 ### Invocations protocol
 
