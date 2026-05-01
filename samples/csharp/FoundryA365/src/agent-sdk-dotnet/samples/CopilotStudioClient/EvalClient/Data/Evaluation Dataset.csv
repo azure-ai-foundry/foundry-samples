@@ -1,3 +1,0 @@
-﻿Name,Test Utterance,Expected Response,Sources
-Evaluation 1 name,This is the first question asked.,This is the first, expected, optimal response or "ground truth".,https://tenant.sharepoint.com/library/Document%20Library%201/souce_document_1.pdf;https://tenant.sharepoint.com/library/Document%20Library%201/souce_document_2.pdf
-Evaluation 2 name,This is the second question asked.,This is the second, expected, optimal response or "ground truth".https://tenant.sharepoint.com/library/Document%20Library%201/souce_document_3.pdf

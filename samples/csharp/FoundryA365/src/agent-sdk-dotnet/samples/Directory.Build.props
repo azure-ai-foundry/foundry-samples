@@ -1,8 +1,0 @@
-<Project>
-    <!-- See: https://docs.microsoft.com/en-us/visualstudio/msbuild/customize-your-build?view=vs-2019#directorybuildprops-and-directorybuildtargets -->
-    <PropertyGroup>
-        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-        <IsPackable>false</IsPackable>
-        <SamplesRoot>$(MSBuildThisFileDirectory)</SamplesRoot>
-    </PropertyGroup>
-</Project>
