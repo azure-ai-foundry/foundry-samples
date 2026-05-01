@@ -14,6 +14,7 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | 4 | [mcp-tools](mcp-tools/) | An agent demonstrating client-side and server-side MCP tool integration. |
 | 5 | [text-search-rag](text-search-rag/) | A support agent with RAG capabilities using `TextSearchProvider`. |
 | 6 | [workflows](workflows/) | A multi-agent translation pipeline using `WorkflowBuilder`. |
+| 7 | [foundry-toolbox-server-side](foundry-toolbox-server-side/) | An agent that loads a Foundry Toolbox with `GetToolboxToolsAsync()` and passes its tools as server-side tools — Foundry executes them on the agent's behalf. |
 
 ### Invocations API
 

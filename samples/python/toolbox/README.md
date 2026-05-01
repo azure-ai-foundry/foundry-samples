@@ -244,6 +244,9 @@ Use the `_meta` fields to build citation links or deep-link back to the source f
 The response is a single resource content item with the synthesized answer. URL citations are in
 `result.content[].resource._meta.annotations[]`.
 
+<!-- sync-validation tire-kick: 2026-04-29 -->
+
+
 | Field | Location | Description |
 |-------|----------|-------------|
 | `text` | `resource.text` | Synthesized answer with inline Markdown source links |
