@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<LangVersion>latest</LangVersion>
+		<ComponentAreaName>CplTests.Model</ComponentAreaName>
+		<SignAssembly>true</SignAssembly>
+	</PropertyGroup>
+	<Import Project="..\..\Build.Common.core.props" />
+
+	<ItemGroup>
+	  <Compile Remove="Properties\**" />
+	  <EmbeddedResource Remove="Properties\**" />
+	  <None Remove="Properties\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+      <PackageReference Include="Microsoft.NET.Test.Sdk" />
+      <PackageReference Include="xunit" />
+      <PackageReference Include="xunit.runner.visualstudio">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+    </ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\libraries\Core\Microsoft.Agents.Core\Microsoft.Agents.Core.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="Resources\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="Resources\TestJson\ConversationAccount.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\TestJson\SubChannelAccount.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\TestJson\ChannelAccount.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+
+</Project>

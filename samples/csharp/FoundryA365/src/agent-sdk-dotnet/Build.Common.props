@@ -1,0 +1,13 @@
+<Project>
+  <!-- .NET Classic (v5.62) specific msbuild properties: -->
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+  </PropertyGroup>
+
+  <Import Project=".\Build.Shared.props" />
+
+  <!-- TODO: Import Microsoft.Common.props BEFORE any other shared .props files in order to ensure correct ordering
+   semantics that exist between Sdk-style projects and non-Sdk-style projects for Directory.Build.props files. -->
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+</Project>

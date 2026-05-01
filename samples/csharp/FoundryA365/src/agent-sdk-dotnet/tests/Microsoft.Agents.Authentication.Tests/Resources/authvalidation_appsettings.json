@@ -1,0 +1,95 @@
+{
+  "MSALConfiguration": {
+  },
+  "CertAuth": {
+    "AuthType": "Certificate",
+    "CertStoreName": "My",
+    "CertThumbprint": "<THUMBPRINT>",
+    "ValidCertificateOnly": false,
+    "SendX5C": true,
+    "AuthorityEndpoint": "https://login.microsoftonline.com/botframework.com",
+    "ClientId": "c3b0ec60-15e3-4974-bebf-0ad0bcec17be",
+    "Scopes": [
+      "https://api.botframework.com/.default"
+    ],
+    "TenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  },
+  "CertAuth_fail": {
+    "AuthType": "Certificate",
+    "CertStoreName": "My",
+    "CertThumbprint": "",
+    "ValidCertificateOnly": false,
+    "SendX5C": true,
+    "AuthorityEndpoint": "https://login.microsoftonline.com/botframework.com",
+    "ClientId": "",
+    "Scopes": [
+      "https://api.botframework.com/.default"
+    ],
+    "TenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  },
+  "CertSubjectAuth": {
+    "AuthType": "CertificateSubjectName",
+    "CertStoreName": "My",
+    "CertSubjectName": "CN=Microsoft Bot Framework Emulator Test Certificate",
+    "ValidCertificateOnly": false,
+    "SendX5C": true,
+    "AuthorityEndpoint": "https://login.microsoftonline.com/botframework.com",
+    "ClientId": "c3b0ec60-15e3-4974-bebf-0ad0bcec17be",
+    "Scopes": [
+      "https://api.botframework.com/.default"
+    ],
+    "TenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  },
+  "CertSubjectAuth_fail": {
+    "AuthType": "CertificateSubjectName",
+    "CertStoreName": "My",
+    "CertThumbprint": "<THUMBPRINT>",
+    "ValidCertificateOnly": false,
+    "SendX5C": true,
+    "AuthorityEndpoint": "https://login.microsoftonline.com/botframework.com",
+    "ClientId": "c3b0ec60-15e3-4974-bebf-0ad0bcec17be",
+    "Scopes": [
+      "https://api.botframework.com/.default"
+    ],
+    "TenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  },
+  "ClientSecretAuth": {
+    "AuthType": "ClientSecret",
+    "AuthorityEndpoint": "https://login.microsoftonline.com/botframework.com",
+    "ClientId": "c3b0ec60-15e3-4974-bebf-0ad0bcec17be",
+    "ClientSecret": "test",
+    "Scopes": [
+      "https://api.botframework.com/.default"
+    ],
+    "TenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  },
+  "ClientSecretAuth_fail": {
+    "AuthType": "ClientSecret",
+    "AuthorityEndpoint": "https://login.microsoftonline.com/botframework.com",
+    "ClientId": "c3b0ec60-15e3-4974-bebf-0ad0bcec17be",
+    "ClientSecret": "",
+    "Scopes": [
+      "https://api.botframework.com/.default"
+    ],
+    "TenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  },
+  "UserManagedIdentityAuth": {
+    "AuthType": "UserManagedIdentity",
+    "ClientId": "c3b0ec60-15e3-4974-bebf-0ad0bcec17be",
+    "Scopes": [
+      "https://api.botframework.com/.default"
+    ]
+  },
+  "UserManagedIdentityAuth_fail": {
+    "AuthType": "UserManagedIdentity",
+    "Scopes": [
+      "https://api.botframework.com/.default"
+    ]
+  },
+  "SystemManagedIdentityAuth": {
+    "AuthType": "SystemManagedIdentity",
+    "Scopes": [
+      "https://api.botframework.com/.default"
+    ]
+  }
+}

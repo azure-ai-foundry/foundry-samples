@@ -1,0 +1,71 @@
+{
+  "type": "message",
+  "id": "K43kzFuz9HGGKddXSXkBH4-us|0000003",
+  "timestamp": "2022-03-25T00:57:22.5223034\u002B00:00",
+  "localTimestamp": "2022-03-24T17:57:22.436-07:00",
+  "localTimezone": "America/Los_Angeles",
+  "serviceUrl": "https://directline.botframework.com/",
+  "channelId": "directline",
+  "from": {
+    "id": "pva_22qPwRMhGu_eee72dc1-9211-425e-ab79-bd214f0c8874",
+    "name": "C2 User",
+    "role": "user"
+  },
+  "conversation": {
+    "id": "K43kzFuz9HGGKddXSXkBH4-us"
+  },
+  "recipient": {
+    "id": "215797fa-5550-4f12-a967-c15437884964@q2PyuaVHi_0",
+    "name": "Brown"
+  },
+  "textFormat": "plain",
+  "membersAdded": [],
+  "membersRemoved": [],
+  "reactionsAdded": [],
+  "reactionsRemoved": [],
+  "locale": "en-US",
+  "text": "validation",
+  "attachments": [],
+  "entities": [
+    {
+      "type": "ClientCapabilities",
+      "requiresBotState": true,
+      "supportsListening": true,
+      "supportsTts": true
+    }
+  ],
+  "channelData": {
+    "cci_trace_id": "DlKlr",
+    "enableDiagnostics": true,
+    "clientActivityID": "16481698424364zrfbvvt1s5",
+    "clientTimestamp": "2022-03-25T00:57:22.436Z",
+    "state": "sent",
+    "testChannelDataObject": {
+      "ObjectName": "level one",
+      "TestObject": {
+        "ObjectName": "level two",
+        "TestObject": null
+      }
+    }
+  },
+  "value": {
+    "ObjectName": "level one",
+    "TestObject": {
+      "ObjectName": "level two",
+      "TestObject": null
+    }
+  },
+  "listenFor": [],
+  "textHighlights": [],
+  "cci_bot_id": "215797fa-5550-4f12-a967-c15437884964",
+  "cci_tenant_id": "9f6be790-4a16-4dd6-9850-44a0d2649aef",
+  "cci_content_version": "1286428",
+  "cci_user_token": "secret",
+  "testActivityObject": {
+    "ObjectName": "level one",
+    "TestObject": {
+      "ObjectName": "level two",
+      "TestObject": null
+    }
+  }
+}

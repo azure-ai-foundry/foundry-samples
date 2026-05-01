@@ -1,0 +1,293 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="IAccessTokenProviderNotFound" xml:space="preserve">
+    <value>An instance of IAccessTokenProvider not found for {0}</value>
+    <comment>Raised when the call get an access token provider returns null.</comment>
+  </data>
+  <data name="UserAuthorizationNotConfigured" xml:space="preserve">
+    <value>The AgentApplication.UserAuthorization feature is unavailable because no user Authorization handlers were configured in AgentApplication:UserAuthorization:Handlers.</value>
+    <comment>Raised when accessing AgentApplication.UserAuthorization but it hasn't been configured.</comment>
+  </data>
+  <data name="AttributeSelectorNotFound" xml:space="preserve">
+    <value>The RouteAttribute.Selector method '{0}' is not found.</value>
+    <comment>Raised when accessing RouteAttribute is being initialized but the indicated method isn't found on the AgentApplication or subclass.</comment>
+  </data>
+  <data name="AttributeSelectorInvalid" xml:space="preserve">
+    <value>The RouteAttribute.Selector method '{0}' does not match the RouteSelector delegate definition.</value>
+    <comment>Raised when accessing RouteAttribute is being initialized but the indicated Selector method does not have a valid signature.</comment>
+  </data>
+  <data name="UserAuthenticationRequiresAdapter" xml:space="preserve">
+    <value>AgentApplication.UserAuthorization requires AgentApplicationOptions.Adapter set.</value>
+    <comment>Raised when when initializing the AgentApplication.</comment>
+  </data>
+  <data name="StreamingResponseEnded" xml:space="preserve">
+    <value>StreamingResponse instance has already ended.</value>
+    <comment>Raised when when using the instance after it has been ended, or calling EndStream twice.</comment>
+  </data>
+  <data name="AttributeHandlerInvalid" xml:space="preserve">
+    <value>The method does not match the RouteHandler delegate definition.</value>
+    <comment>Raised when accessing RouteAttribute is being initialized but the indicated method does not have a valid signature.</comment>
+  </data>
+  <data name="AttributeMissingArgs" xml:space="preserve">
+    <value>A RouteAttribute is missing required arguments.</value>
+    <comment>Raised when a RouteAttribute was specified but missing required values.  </comment>
+  </data>
+  <data name="UserAuthorizationRequiresAdapter" xml:space="preserve">
+    <value>AgentApplication.UserAuthorization requires AgentApplicationOptions.Adapter set.</value>
+    <comment>Raised when when initializing AgentApplication.</comment>
+  </data>
+  <data name="UserAuthorizationTypeNotFound" xml:space="preserve">
+    <value>Type '{0}' not found in Assembly '{1}' or is the wrong type for '{2}'.</value>
+    <comment>0 is requested Type, 1 is assembly name, 2 is the type being saught </comment>
+  </data>
+  <data name="UserAuthorizationHandlerNotFound" xml:space="preserve">
+    <value>Handler name '{0}' not found in configuration under AgentApplication:UserAuthorization:Handlers, or AgentApplication:UserAuthorization:DefaultHandlerName is invalid.</value>
+    <comment>Raised when AgentApplication.UserAuthorization requests a handler by name that cannot be found</comment>
+  </data>
+  <data name="FailedToCreateUserAuthorizationHandler" xml:space="preserve">
+    <value>Failed to create user Authorization provider for handler name '{0}'</value>
+    <comment>Raised when a handler is found but the constructor cannot be invoked</comment>
+  </data>
+  <data name="NoUserAuthorizationHandlers" xml:space="preserve">
+    <value>No UserAuthorization Handlers were defined.</value>
+    <comment>Raised when creating the UserAuthorizationDispatcher.</comment>
+  </data>
+  <data name="UserAuthorizationFailed" xml:space="preserve">
+    <value>Error occurred while trying to authenticate user with '{0}'</value>
+    <comment>Raised when a User Authorization was initiated and encountered a critical error.</comment>
+  </data>
+  <data name="UserAuthorizationAlreadyActive" xml:space="preserve">
+    <value>UserAuthorization sign in for '{0}' is already in progress.</value>
+    <comment>Raised when user sign in is already in progress.  Only one sign in at a time can occur.</comment>
+  </data>
+  <data name="OBONotExchangeableToken" xml:space="preserve">
+    <value>OBO for '{0}' is not setup for exchangeable tokens.  For Token Service handlers, the 'Scopes' field on the Azure Bot OAuth Connection should be in the format of 'api://{{appid_uri}}/{{scopeName}}'.</value>
+    <comment>Raised when the Azure Bot OAuth Connection is not configured to return an exchangeable token.</comment>
+  </data>
+  <data name="OBONotSupported" xml:space="preserve">
+    <value>OBO not supported on '{0}'</value>
+    <comment>Raised when User Authorization is using a provider that does not support IOBOExchange</comment>
+  </data>
+  <data name="OBOExchangeFailed" xml:space="preserve">
+    <value>OBO exchange failed for connection '{0}' with scopes '{1}'.  Check your OBOConnectionName and scope(s).</value>
+    <comment>Raised when an OBO exchange was attempted.</comment>
+  </data>
+  <data name="UserAuthorizationDefaultHandlerNotFound" xml:space="preserve">
+    <value>Handler name '{0}' not found in configuration under AgentApplication:UserAuthorization:Handlers, or AgentApplication:UserAuthorization:DefaultHandlerName is invalid.</value>
+    <comment>Raised when AgentApplication:UserAuthorization:DefaultHandlerName isn't found or fails to create.</comment>
+  </data>
+  <data name="ExtensionAlreadyRegistered" xml:space="preserve">
+    <value>An instance of this extention has allready been registred for this application. {0}</value>
+  </data>
+  <data name="UserTokenClientNotAvailable" xml:space="preserve">
+    <value>An instance of IUserTokenClient is not available.  This is most likely due to the registered IChannelServiceClientFactory not creating one.</value>
+  </data>
+  <data name="ExchangeTokenUnexpectedNull" xml:space="preserve">
+    <value>ExchangeToken returned an empty token.</value>
+  </data>
+  <data name="UnexpectedAuthorizationState" xml:space="preserve">
+    <value>Unexpected state for handler '{0}' </value>
+    <comment>Raised when attempting to refresh a near expired cached token, but received a null token.</comment>
+  </data>
+  <data name="IAgenticTokenProviderNotFound" xml:space="preserve">
+    <value>An instance of IAgenticTokenProvider not found or not supported for '{0}'</value>
+    <comment>Raised when the call get an Agentic token provider returns null.</comment>
+  </data>
+  <data name="AgenticTokenProviderFailed" xml:space="preserve">
+    <value>Unable to get Agentic token for Tenant '{0}', InstanceId '{1}', UPN '{2}', Role '{3}'</value>
+    <comment>Raised when getting a token for Agentic responses.</comment>
+  </data>
+  <data name="NotAnAgenticRequest" xml:space="preserve">
+    <value>Invalid operation '{0}' on a non-Agentic request.</value>
+    <comment>Raised when an Agentic operation is attempted against a non-Agentic request.</comment>
+  </data>
+  <data name="UnexpectedConnectorRequestToken" xml:space="preserve">
+    <value>Unexpected request token for handler '{0}'.</value>
+    <comment>Raised when handling tokens supplied by Copilot Studio Connectors.</comment>
+  </data>
+  <data name="UnexpectedConnectorTokenExpiration" xml:space="preserve">
+    <value>The token for handler '{0}' has expired.</value>
+    <comment>Raised when an authorization token from a Copilot Studio Connector request has expired.</comment>
+  </data>
+  <data name="RouteSelectorAlreadyDefined" xml:space="preserve">
+    <value>A selector has already been defined for this route. Multiple selectors are not supported. Builder method '{0}'.</value>
+    <comment>Raised when using a RouteBuilder and using more than one selector method.</comment>
+  </data>
+  <data name="RouteBuilderMissingProperty" xml:space="preserve">
+    <value>RouteBuilder '{0}' missing required property '{1}'</value>
+    <comment>Raised when calling RouteBuilder.Build() and a required value was not defined.</comment>
+  </data>
+  <data name="ProactiveNotAllHandlersSignedIn" xml:space="preserve">
+    <value>Continuing the conversation with OAuth failed because the user is not signed into all handlers.</value>
+    <comment>Raised during Proactive.ContinueConversation with token handlers specified and not all handler had been signed into.</comment>
+  </data>
+  <data name="ProactiveConversationNotFound" xml:space="preserve">
+    <value>Conversation not found for conversationId '{0}'.</value>
+    <comment>Raised when the specified conversationId was not found.  Was it stored?</comment>
+  </data>
+  <data name="ProactiveConversationRequired" xml:space="preserve">
+    <value>Conversation instance required for this Proactive request</value>
+    <comment>Raised when Proactive methods requiring a Conversation were passed a null value.</comment>
+  </data>
+  <data name="ProactiveActivityRequired" xml:space="preserve">
+    <value>IActivity instance required for this Proactive request</value>
+    <comment>Raised when Proactive methods requiring a IActivity were passed a null value.</comment>
+  </data>
+  <data name="ProactiveInvalidClaims" xml:space="preserve">
+    <value>The claims supplied for the Proactive request were not supplied or missing the required `aud` value.</value>
+    <comment>Raised when using Proactive with missing or invalid claims</comment>
+  </data>
+  <data name="ProactiveInvalidChannelId" xml:space="preserve">
+    <value>The channel Id supplied to Proactive is missing or invalid.</value>
+    <comment>Raised when using Proactive with missing or invalid Channel Id</comment>
+  </data>
+  <data name="ProactiveInvalidUserId" xml:space="preserve">
+    <value>The user Id supplied to Proactive is missing or invalid.</value>
+    <comment>Raised when using Proactive with missing or invalid User Id.</comment>
+  </data>
+  <data name="ProactiveMissingMembers" xml:space="preserve">
+    <value>Proactive CreateConversation doesn't have members defined. Call WithUser if using the builder.</value>
+    <comment>Raised when using CreateConversationBuilder.Build()</comment>
+  </data>
+  <data name="ProactiveInvalidAgentClientId" xml:space="preserve">
+    <value>The Agents ClientId supplied to Proactive is missing or invalid.</value>
+    <comment>Raised when using Proactive with missing or invalid Agent ClientId</comment>
+  </data>
+  <data name="ProactiveInvalidConversationAccount" xml:space="preserve">
+    <value>The Continuation Activity for Proactive is missing a valid ConversationAccount.</value>
+    <comment>Raised when the ConversationAccount is missing or invalid.</comment>
+  </data>
+  <data name="ProactiveInvalidConversationInstance" xml:space="preserve">
+    <value>An instance of type 'Conversation' contains invalid values: {0}</value>
+    <comment>Raised when calling Proactive.ContinueConversation</comment>
+  </data>
+  <data name="ProactiveInvalidCreateConversationInstance" xml:space="preserve">
+    <value>An instance of type 'CreateConversation' contains invalid values: {0}</value>
+    <comment>Raised when calling Proactive CreateConversions</comment>
+  </data>
+  <data name="ProactiveInvalidConversationReferenceInstance" xml:space="preserve">
+    <value>An instance of type 'ConversationReference' contains invalid values: {0}</value>
+    <comment>Raised when calling Proactive</comment>
+  </data>
+  <data name="ProactiveInvalidConversationParametersInstance" xml:space="preserve">
+    <value>An instance of type 'ConversationParameters' contains invalid values: {0}</value>
+    <comment>Raised when using Proactive with missing or invalid User Id.</comment>
+  </data>
+</root>

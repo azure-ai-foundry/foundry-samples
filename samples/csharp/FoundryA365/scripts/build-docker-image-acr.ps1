@@ -10,19 +10,13 @@ dotnet publish -c Release -o "./publish"
 $authorityEndpoint = "https://login.microsoftonline.com/$($env:TENANT_ID)"
 $azureOpenAIEndpoint = "https://$($env:ACCOUNT_NAME).openai.azure.com/"
 
-$projectClientId = az ad sp show --id $env:PROJECT_PRINCIPAL_ID --query appId -o tsv
-
-# if the projectClientId is null or empty, throw an error
-if ([string]::IsNullOrEmpty($projectClientId)) {
-    throw "Failed to get project client ID for principal ID $($env:PROJECT_PRINCIPAL_ID)"
-}
 
 $acrLoginServer = $env:AZURE_CONTAINER_REGISTRY_ENDPOINT
 
 # split the login server to get the registry name
 $registryName = $acrLoginServer.Split(".")[0]
 
-$imageName = "hello-world-a365-agent:a365preview001"
+$imageName = "hello-world-a365-agent1:latest"
 
 Write-Host "Building image using ACR Build in registry: $registryName"
 
@@ -33,9 +27,9 @@ az acr build `
     --file "./foundry-infra/Dockerfile" `
     --build-arg BLUEPRINT_CLIENT_ID=$env:AGENT_IDENTITY_BLUEPRINT_ID `
     --build-arg AUTHORITY_ENDPOINT=$authorityEndpoint `
-    --build-arg FEDERATED_CLIENT_ID=$projectClientId `
     --build-arg AZURE_OPENAI_ENDPOINT=$azureOpenAIEndpoint `
-    --build-arg MODEL_DEPLOYMENT='gpt-4o' `
+    --build-arg MODEL_DEPLOYMENT='gpt-5-chat' `
+    --build-arg PROJECT_DEFAULT_INSTANCE_CLIENT_ID=$env:PROJECT_DEFAULT_INSTANCE_CLIENT_ID `
     .
 
 if ($LASTEXITCODE -ne 0) {

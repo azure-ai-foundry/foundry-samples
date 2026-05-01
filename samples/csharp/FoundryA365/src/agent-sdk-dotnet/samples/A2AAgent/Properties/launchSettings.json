@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "A2AAgent": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:64271;http://localhost:64276"
+    }
+  }
+}

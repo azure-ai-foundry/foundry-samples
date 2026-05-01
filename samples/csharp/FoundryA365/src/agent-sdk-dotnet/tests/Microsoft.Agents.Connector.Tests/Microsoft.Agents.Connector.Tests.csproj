@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<LangVersion>latest</LangVersion>
+		<ComponentAreaName>CplTests.Connector</ComponentAreaName>
+		<SignAssembly>true</SignAssembly>
+		<GenerateRuntimeConfigDevFile>true</GenerateRuntimeConfigDevFile>
+	</PropertyGroup>
+	<Import Project="..\..\Build.Common.core.props" />
+	
+	<PropertyGroup>
+		<!--    <TargetFramework>net8.0</TargetFramework> -->
+		<IsPackable>false</IsPackable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="Moq" />
+		<PackageReference Include="xunit" />
+		<PackageReference Include="xunit.runner.visualstudio" />
+		<PackageReference Include="coverlet.collector" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\libraries\Authentication\Authentication.Msal\Microsoft.Agents.Authentication.Msal.csproj" />
+		<ProjectReference Include="..\..\libraries\Builder\Microsoft.Agents.Builder.Testing\Microsoft.Agents.Builder.Testing.csproj" />
+		<ProjectReference Include="..\..\libraries\Builder\Microsoft.Agents.Builder\Microsoft.Agents.Builder.csproj" />
+		<ProjectReference Include="..\..\libraries\Client\Microsoft.Agents.Connector\Microsoft.Agents.Connector.csproj" />
+		<ProjectReference Include="..\..\libraries\Core\Microsoft.Agents.Core\Microsoft.Agents.Core.csproj" />
+		<ProjectReference Include="..\Microsoft.Agents.TestSupport\Microsoft.Agents.TestSupport.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="Resources\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+</Project>

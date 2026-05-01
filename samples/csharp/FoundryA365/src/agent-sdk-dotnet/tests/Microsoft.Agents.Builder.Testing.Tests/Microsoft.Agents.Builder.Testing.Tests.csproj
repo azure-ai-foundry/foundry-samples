@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <ComponentAreaName>CplTests.BuilderTesting</ComponentAreaName>
+    <SignAssembly>true</SignAssembly>
+  </PropertyGroup>
+  <Import Project="..\..\Build.Common.core.props" />
+
+  <ItemGroup>
+    <PackageReference Include="Moq" />
+    <PackageReference Include="xunit.extensibility.core" />
+	  <PackageReference Include="xunit" />
+	  <PackageReference Include="xunit.runner.visualstudio">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	  </PackageReference>
+	  <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+	  <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libraries\Builder\Microsoft.Agents.Builder.Testing\Microsoft.Agents.Builder.Testing.csproj" />
+    <ProjectReference Include="..\..\libraries\Builder\Microsoft.Agents.Builder\Microsoft.Agents.Builder.csproj" />
+  </ItemGroup>
+
+</Project>

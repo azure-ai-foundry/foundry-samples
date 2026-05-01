@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Proactive": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:64279;http://localhost:64283"
+    }
+  }
+}

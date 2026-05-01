@@ -1,0 +1,19 @@
+{
+  "MSALConfiguration": {
+  },
+  "ServiceConnection": {
+    "AuthType": "CertificateSubjectName",
+    "CertStoreName": "My",
+    "CertThumbprint": null,
+    "CertSubjectName": "botframeworksdk-test.microsoft.com",
+    "ValidCertificateOnly": false,
+    "SendX5C": true,
+    "ClientSecret": null,
+    "AuthorityEndpoint": "https://login.microsoftonline.com/botframework.com",
+    "ClientId": "c3b0ec60-15e3-4974-bebf-0ad0bcec17be",
+    "Scopes": [
+      "https://api.botframework.com/.default"
+    ],
+    "TenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  }
+}

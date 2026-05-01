@@ -1,0 +1,1 @@
+{"commandId":"commandId","parameters":[{"name":"name1","value":{"param1":"value1"}},{"name":"name2","value":{"param1":"value2"}}],"queryOptions":{"skip":1,"count":10},"state":"state"}

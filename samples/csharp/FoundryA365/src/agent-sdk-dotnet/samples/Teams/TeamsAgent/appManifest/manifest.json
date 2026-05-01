@@ -1,0 +1,92 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.22/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.22",
+  "version": "1.0.0",
+  "id": "${{AAD_APP_CLIENT_ID}}",
+  "developer": {
+    "name": "Microsoft, Inc.",
+    "websiteUrl": "https://example.azurewebsites.net",
+    "privacyUrl": "https://example.azurewebsites.net/privacy",
+    "termsOfUseUrl": "https://example.azurewebsites.net/termsofuse"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "Teams AgentApplication Sample",
+    "full": "Teams AgentApplication Sample"
+  },
+  "description": {
+    "short": "Sample demonstrating AgentSDK + Teams using AgentApplication.",
+    "full": "Sample demonstrating AgentSDK + Teams using AgentApplication."
+  },
+  "accentColor": "#FFFFFF",
+  "staticTabs": [
+    {
+      "entityId": "conversations",
+      "scopes": [
+        "personal"
+      ]
+    },
+    {
+      "entityId": "about",
+      "scopes": [
+        "personal"
+      ]
+    }
+  ],
+  "bots": [
+    {
+      "botId": "${{AAD_APP_CLIENT_ID}}",
+      "scopes": [
+        "personal",
+        "team",
+        "groupChat"
+      ],
+      "isNotificationOnly": false,
+      "supportsCalling": false,
+      "supportsVideo": false,
+      "supportsFiles": false
+    }
+  ],
+  "composeExtensions": [
+    {
+      "botId": "${{AAD_APP_CLIENT_ID}}",
+      "commands": [
+        {
+          "id": "findNuGetPackage",
+          "type": "query",
+          "title": "findNuGetPackage",
+          "description": "findNuGetPackage",
+          "initialRun": true,
+          "fetchTask": false,
+          "context": [
+            "commandBox",
+            "compose"
+          ],
+          "parameters": [
+            {
+              "name": "NuGetPackageName",
+              "title": "NuGetPackageName",
+              "description": "NuGetPackageName",
+              "inputType": "text"
+            }
+          ]
+        }
+      ],
+      "canUpdateConfiguration": true
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "<<BOT_DOMAIN>>"
+  ],
+  "webApplicationInfo": {
+    "id": "${{AAD_APP_CLIENT_ID}}",
+    "resource": "api://botid-${{AAD_APP_CLIENT_ID}}"
+  }
+}

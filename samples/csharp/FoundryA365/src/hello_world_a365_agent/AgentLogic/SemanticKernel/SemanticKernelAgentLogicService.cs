@@ -2,6 +2,7 @@ namespace HelloWorldA365.AgentLogic.SemanticKernel;
 
 using HelloWorldA365.AgentLogic.AuthCache;
 using HelloWorldA365.Services;
+using Microsoft.Agents.A365.Observability.Hosting.Extensions;
 using Microsoft.Agents.Builder;
 using Microsoft.Agents.Builder.State;
 using Microsoft.Agents.Core.Models;
@@ -18,7 +19,6 @@ using Microsoft.Agents.A365.Tooling.Extensions.SemanticKernel.Services;
 using Microsoft.Agents.A365.Observability.Runtime.Common;
 using Microsoft.Agents.A365.Observability.Extensions.SemanticKernel;
 using Microsoft.Agents.A365.Notifications.Models;
-using Microsoft.Agents.A365.Observability.Common;
 
 /// <summary>
 /// Semantic Kernel-based implementation of AgentLogicService.
@@ -90,7 +90,6 @@ public class SemanticKernelAgentLogicService : IAgentLogicService
     {
         var baggageScope = new BaggageBuilder()
             .FromTurnContext(turnContext)
-            .CorrelationId(turnContext.Activity.RequestId)
             .Build();
 
         var incomingText = turnContext.Activity.Text;

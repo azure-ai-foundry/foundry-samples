@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "MultiAgent": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:64277;http://localhost:64282"
+    }
+  }
+}

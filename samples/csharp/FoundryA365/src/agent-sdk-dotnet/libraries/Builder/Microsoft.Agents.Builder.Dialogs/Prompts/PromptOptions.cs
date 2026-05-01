@@ -1,0 +1,63 @@
+﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+using System.Collections.Generic;
+using Microsoft.Agents.Builder.Dialogs.Choices;
+using Microsoft.Agents.Core.Models;
+
+namespace Microsoft.Agents.Builder.Dialogs.Prompts
+{
+    /// <summary>
+    /// Contains settings to pass to a <see cref="Prompt{T}"/> when the prompt is started.
+    /// </summary>
+    public class PromptOptions
+    {
+        /// <summary>
+        /// Gets or sets the initial prompt to send the user as an <see cref="Activity"/>.
+        /// </summary>
+        /// <value>
+        /// The initial prompt to send the user as and <see cref="Activity"/>.
+        /// </value>
+        public IActivity Prompt { get; set; }
+
+        /// <summary>
+        /// Gets or sets the retry prompt to send the user as and <see cref="Activity"/>.
+        /// </summary>
+        /// <value>
+        /// The retry prompt to send the user as an <see cref="Activity"/>.
+        /// </value>
+        public IActivity RetryPrompt { get; set; }
+
+        /// <summary>
+        /// Gets or sets a list of choices for the user to choose from, for use with a <see cref="ChoicePrompt"/>.
+        /// </summary>
+        /// <value>The list of available choices.</value>
+        public IList<Choice> Choices { get; set; }
+
+        /// <summary>
+        /// Gets or sets the <see cref="ListStyle"/> for a <see cref="ChoicePrompt"/>.
+        /// </summary>
+        /// <value>The list style to use when presenting a choice prompt.</value>
+        /// <remarks>
+        /// This property can be used to override or set the value of <see cref="ChoicePrompt.Style"/> property
+        /// when the prompt is started using <see cref="DialogContext.PromptAsync"/>.
+        /// </remarks>
+        public ListStyle? Style { get; set; }
+
+        /// <summary>
+        /// Gets or sets additional options for use with any <see cref="PromptValidator{T}"/> attached to the prompt.
+        /// </summary>
+        /// <value>Additional options for use with a prompt validator.</value>
+        public object Validations { get; set; }
+
+        /// <summary>
+        /// Gets or sets the locale used for recognizing the user's choice.
+        /// </summary>
+        /// <value>The locale to be use for recognizing the utterance.</value>
+        /// <remarks>
+        /// When using a translator middleware, the user's choice is translated and it doesn't match the prompt's options.
+        /// Setting this property with the translator's target language allows the prompt to recognize the utterance.
+        /// </remarks>
+        public string RecognizeLanguage { get; set; }
+    }
+}

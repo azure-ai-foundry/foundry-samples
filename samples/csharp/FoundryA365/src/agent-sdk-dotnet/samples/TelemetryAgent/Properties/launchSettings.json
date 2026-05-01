@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "TelemetryAgent": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:64287;http://localhost:64290"
+    }
+  }
+}

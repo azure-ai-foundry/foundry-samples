@@ -1,0 +1,61 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<LangVersion>latest</LangVersion>
+		<ComponentAreaName>CplCore</ComponentAreaName>
+		<SignAssembly>true</SignAssembly>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);AddAnalyzers</TargetsForTfmSpecificContentInPackage>
+	</PropertyGroup>
+	<Import Project="..\..\..\Build.Common.core.props" />
+
+	<PropertyGroup>
+		<PackageId>Microsoft.Agents.Core</PackageId>
+		<Description>Library for creating  agents using Microsoft Agent SDK</Description>
+		<Summary>Library for building agents using Microsoft Agents SDK</Summary>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<Nullable>annotations</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+		<PackageReference Include="Microsoft.Extensions.Logging" />
+		<PackageReference Include="System.Text.Json" />
+		<PackageReference Include="Microsoft.Extensions.Http" />
+	</ItemGroup>
+
+	<!--
+	  _GetTfmSpecificContentForPackage is called for each TargetFramework in a multitargeted project from _WalkEachTargetPerFramework target.
+	  This is the time to get all the necessary project references and add them to the package.
+	-->
+	<Target Name="GetAnalyzers" BeforeTargets="_GetTfmSpecificContentForPackage" Condition="'$(TargetFramework)' == 'netstandard2.0'">
+		<MSBuild Projects="@(ProjectReference)" Condition="'%(ProjectReference.Filename)' == 'Microsoft.Agents.Core.Analyzers'" Targets="GetTargetPath">
+			<Output TaskParameter="TargetOutputs" ItemName="Analyzers" />
+		</MSBuild>
+	</Target>
+
+	<Target Name="AddAnalyzers" DependsOnTargets="GetAnalyzers" Condition="'$(TargetFramework)' == 'netstandard2.0'">
+		<ItemGroup>
+			<TfmSpecificPackageFile Include="@(Analyzers)">
+				<PackagePath>analyzers/dotnet/cs</PackagePath>
+			</TfmSpecificPackageFile>
+		</ItemGroup>
+	</Target>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!--
+	  	This project is multitargeted. Analyzer project is also "technically" multitargeted, although it has only one target.
+		There's a difference between TargetFramework and TargetFrameworks with one element.
+		In order for packing targets to work correctly in this situation - analyzer project either should have <TargetFramework> (without 's'),
+		or be referenced with Condition on a single TargetFramework.
+	   -->
+		<ProjectReference Include="..\Microsoft.Agents.Core.Analyzers\Microsoft.Agents.Core.Analyzers.csproj" ReferenceOutputAssembly="false" Condition="'$(TargetFramework)' == 'netstandard2.0'" PrivateAssets="all" />
+	</ItemGroup>
+
+</Project>

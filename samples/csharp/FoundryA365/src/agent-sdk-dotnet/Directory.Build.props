@@ -1,0 +1,19 @@
+<Project>
+  <!-- See: https://docs.microsoft.com/en-us/visualstudio/msbuild/customize-your-build?view=vs-2019#directorybuildprops-and-directorybuildtargets -->
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <IsOfficialBuild Condition="'$(IsOfficialBuild)' == ''">false</IsOfficialBuild>
+
+    <!-- Because the default value in MSBuild doesn't get set until after Directory.Build.props, and we need it, we set the default here. -->
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Build layout">
+    <!-- These variables define the object and binary roots, respectively. -->
+    <!-- The parent area folder name is intended to resolve potentially duplicate MSBuildProjectName's across the repo -->
+    <!-- <_parentAreaFolderName>$([System.IO.Path]::GetFileName( $([System.IO.Path]::GetFullPath( $([System.IO.Path]::Combine($(MSBuildProjectDirectory), "..")) )) ))</_parentAreaFolderName> -->
+    <!-- Setting the base obj folder to the root of the repo to help avoid build errors due to extremely long file paths -->
+    <!--<BaseIntermediateOutputPath>$(RepoRoot)\obj\$(_parentAreaFolderName)\$(MSBuildProjectName)\</BaseIntermediateOutputPath>-->
+  </PropertyGroup>
+
+</Project>

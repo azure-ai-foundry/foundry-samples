@@ -1,0 +1,47 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<LangVersion>latest</LangVersion>
+		<ComponentAreaName>CplTeamsAI</ComponentAreaName>
+		<SignAssembly>true</SignAssembly>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<NoWarn>NU5125;OPENAI001;CA2254;CS1574;CS1711;CS1591;CA1854</NoWarn>
+	</PropertyGroup>
+	<Import Project="..\..\..\Build.Common.core.props" />
+
+	<PropertyGroup>
+		<PackageId>Microsoft.Agents.Extensions.Teams.AI</PackageId>
+		<Description>Library for creating AI Teams agents using Microsoft Agent SDK</Description>
+		<Summary>Library for building AI Teams agents using Microsoft Agents SDK</Summary>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="AdaptiveCards" />
+		<PackageReference Include="Azure.AI.ContentSafety" />
+		<PackageReference Include="Azure.AI.OpenAI" />
+		<PackageReference Include="JsonSchema.Net" />
+		<PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+		<PackageReference Include="Microsoft.Identity.Client" />
+		<PackageReference Include="Google.Protobuf" />
+		<PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" />
+		<!-- This package is required to support gpt-3.x and gpt-4 models -->
+		<PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" />
+		<!-- This package is required to support gpt-4o models -->
+		<PackageReference Include="OpenAI" />
+		<PackageReference Include="System.Text.Json" />
+		<!-- This is here to force an updated version of Newtonsoft which is being pulled by the AdaptiveCards Transient dependency -->
+		<PackageReference Include="Newtonsoft.Json" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\Builder\Microsoft.Agents.Builder\Microsoft.Agents.Builder.csproj" />
+		<ProjectReference Include="..\Microsoft.Agents.Extensions.Teams\Microsoft.Agents.Extensions.Teams.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Include="README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+</Project>

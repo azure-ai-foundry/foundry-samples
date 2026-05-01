@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <ComponentAreaName>CplBuilderDialogs</ComponentAreaName>
+    <SignAssembly>true</SignAssembly>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <Import Project="..\..\..\Build.Common.core.props" />
+
+  <PropertyGroup>
+	<PackageId>Microsoft.Agents.Builder.Dialogs</PackageId>
+    <Description>This library implements .NET Simple Dialog classes </Description>
+    <Summary>This library implements .NET Simple Dialog classes</Summary>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Recognizers.Text.Choice" />
+    <PackageReference Include="Microsoft.Recognizers.Text.DateTime" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Client\Microsoft.Agents.Client\Microsoft.Agents.Client.csproj" />
+    <ProjectReference Include="..\Microsoft.Agents.Builder\Microsoft.Agents.Builder.csproj" />
+  </ItemGroup>
+
+	<ItemGroup>
+	  <None Include="README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+</Project>

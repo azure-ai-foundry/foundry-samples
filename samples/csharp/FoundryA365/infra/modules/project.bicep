@@ -35,18 +35,8 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   }
 }
 
-resource accountCapHost 'Microsoft.CognitiveServices/accounts/capabilityHosts@2025-10-01-preview' = {
-  name: 'accountcaphost'
-  parent: account
-  properties: {
-    capabilityHostKind: 'Agents'
-    enablePublicHostingEnvironment: true
-  }
-}
-
-
 // Cognitive Services Project (child resource)
-resource project 'Microsoft.CognitiveServices/accounts/projects@2025-09-01' = {
+resource project 'Microsoft.CognitiveServices/accounts/projects@2026-03-01' = {
   parent: account
   name: projectName
   location: location
@@ -104,21 +94,33 @@ resource cogServicesUserRoleAssignment 'Microsoft.Authorization/roleAssignments@
   }
 }
 
-resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
-  name: 'gpt-4o'
-  parent: account
-  sku: {
-    name: 'GlobalStandard'
-    capacity: 10
-  }
+
+// Role assignment: Grant AcrPull role to the project's system managed identity
+resource cogServicesUserRoleAssignmentForDefaultAAI 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(account.id, project.id, 'projectDefaultAAI', cognitiveServicesUserRoleDefinitionId)
+  scope: account
   properties: {
-    model: {
-      format: 'OpenAI'
-      name: 'gpt-4o'
-      version: '2024-11-20'
-    }
+    roleDefinitionId: cognitiveServicesUserRoleDefinitionId
+    principalId: project.properties.agentIdentity.agentIdentityId
+    principalType: 'ServicePrincipal'
   }
 }
+
+// resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+//   name: 'gpt-5.3-chat'
+//   parent: account
+//   sku: {
+//     name: 'GlobalStandard'
+//     capacity: 10
+//   }
+//   properties: {
+//     model: {
+//       format: 'OpenAI'
+//       name: 'gpt-5.3-chat'
+//       version: '2026-03-03'
+//     }
+//   }
+// }
 
 
 
@@ -127,3 +129,5 @@ output acrloginServer string = containerRegistry.properties.loginServer
 output foundryProjectEndpoint string = project.properties.endpoints['AI Foundry API']
 
 output foundryProjectPrincipalId string = project.identity.principalId
+
+output foundryProjectDefaultInstanceClientId  string = project.properties.agentIdentity.agentIdentityId
