@@ -38,7 +38,6 @@ Usage::
         -d '{"message": "What hosted agent options does it offer?"}'
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -46,8 +45,8 @@ import os
 from starlette.requests import Request
 from starlette.responses import JSONResponse, StreamingResponse
 
-from azure.ai.projects import AIProjectClient
-from azure.identity import DefaultAzureCredential
+from azure.ai.projects.aio import AIProjectClient
+from azure.identity.aio import DefaultAzureCredential
 
 from azure.ai.agentserver.invocations import InvocationAgentServerHost
 
@@ -82,7 +81,7 @@ _credential = DefaultAzureCredential()
 _project_client = AIProjectClient(endpoint=_endpoint, credential=_credential)
 
 # Use the Responses API — not chat.completions (Chat Completions API is legacy).
-_responses_client = _project_client.get_openai_client().responses
+_openai_client = _project_client.get_openai_client()
 
 _SYSTEM_PROMPT = "You are a helpful AI assistant. Be concise and informative."
 
@@ -150,7 +149,7 @@ async def handle_invoke(request: Request):
 
     async def event_generator():
         full_reply = ""
-        for event in _responses_client.create(
+        async for event in await _openai_client.responses.create(
             model=_model,
             instructions="You are a helpful AI assistant.",
             input=list(_history),
@@ -170,5 +169,5 @@ async def handle_invoke(request: Request):
         headers={"Cache-Control": "no-cache"},
     )
 
-
-app.run()
+if __name__ == "__main__":
+    app.run()
