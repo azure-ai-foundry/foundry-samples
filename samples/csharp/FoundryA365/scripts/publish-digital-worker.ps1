@@ -1,4 +1,9 @@
 #!/usr/bin/env pwsh
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$AgentGuid
+)
+
 $ErrorActionPreference = "Stop"
 
 Write-Host "Starting post-provision script..."
@@ -8,7 +13,7 @@ Write-Host "Resources were deployed to: location $env:LOCATION blueprintId $env:
 
 # Construct JSON body based on Microsoft365PublishRequest
 $body = @{
-    agentGuid           = "c2608d38-c1d2-4647-b051-0f1971bde5d6"
+    agentGuid           = $AgentGuid
     botId               = $env:AGENT_IDENTITY_BLUEPRINT_ID
     publishAsDigitalWorker = $true
     appPublishScope     = "Tenant"

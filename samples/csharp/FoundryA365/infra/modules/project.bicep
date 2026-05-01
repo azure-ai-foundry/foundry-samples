@@ -36,7 +36,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
 }
 
 // Cognitive Services Project (child resource)
-resource project 'Microsoft.CognitiveServices/accounts/projects@2025-09-01' = {
+resource project 'Microsoft.CognitiveServices/accounts/projects@2026-03-01' = {
   parent: account
   name: projectName
   location: location
@@ -94,6 +94,18 @@ resource cogServicesUserRoleAssignment 'Microsoft.Authorization/roleAssignments@
   }
 }
 
+
+// Role assignment: Grant AcrPull role to the project's system managed identity
+resource cogServicesUserRoleAssignmentForDefaultAAI 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(account.id, project.id, 'projectDefaultAAI', cognitiveServicesUserRoleDefinitionId)
+  scope: account
+  properties: {
+    roleDefinitionId: cognitiveServicesUserRoleDefinitionId
+    principalId: project.properties.agentIdentity.agentIdentityId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
 //   name: 'gpt-5.3-chat'
 //   parent: account
@@ -117,3 +129,5 @@ output acrloginServer string = containerRegistry.properties.loginServer
 output foundryProjectEndpoint string = project.properties.endpoints['AI Foundry API']
 
 output foundryProjectPrincipalId string = project.identity.principalId
+
+output foundryProjectDefaultInstanceClientId  string = project.properties.agentIdentity.agentIdentityId

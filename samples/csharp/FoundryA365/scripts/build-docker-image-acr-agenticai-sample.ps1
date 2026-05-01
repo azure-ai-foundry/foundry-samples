@@ -1,7 +1,7 @@
 # Build Docker image using Azure Container Registry (ACR) Build
 # This script uses ACR Tasks to build the image in the cloud instead of locally
 
-Set-Location "$($PSScriptRoot)/../src/hello_world_a365_agent"
+Set-Location "$($PSScriptRoot)/../src/agent-sdk-dotnet/samples/AgenticAI"
 
 Remove-Item "./publish" -Recurse -Force -ErrorAction SilentlyContinue
 
@@ -16,7 +16,7 @@ $acrLoginServer = $env:AZURE_CONTAINER_REGISTRY_ENDPOINT
 # split the login server to get the registry name
 $registryName = $acrLoginServer.Split(".")[0]
 
-$imageName = "hello-world-a365-agent1:latest"
+$imageName = "agenticai-sample:latest"
 
 Write-Host "Building image using ACR Build in registry: $registryName"
 
@@ -28,8 +28,7 @@ az acr build `
     --build-arg BLUEPRINT_CLIENT_ID=$env:AGENT_IDENTITY_BLUEPRINT_ID `
     --build-arg AUTHORITY_ENDPOINT=$authorityEndpoint `
     --build-arg AZURE_OPENAI_ENDPOINT=$azureOpenAIEndpoint `
-    --build-arg MODEL_DEPLOYMENT='gpt-5-chat' `
-    --build-arg PROJECT_DEFAULT_INSTANCE_CLIENT_ID=$env:PROJECT_DEFAULT_INSTANCE_CLIENT_ID `
+    --build-arg MODEL_DEPLOYMENT='gpt-5.3-chat' `
     .
 
 if ($LASTEXITCODE -ne 0) {

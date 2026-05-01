@@ -70,13 +70,12 @@ public sealed class SemanticKernelAgentLogicServiceFactory(
     {
         var deployment = configuration["ModelDeployment"] ?? throw new ArgumentNullException("ModelDeployment");
         var azureOpenAiEndpoint = configuration["AzureOpenAIEndpoint"] ?? throw new ArgumentNullException("AzureOpenAIEndPoint");
-        // Kept this for people who use API key in settings.
-        // var apiKey = _configuration["OpenAiApiKey"] ?? throw new ArgumentNullException("OpenAiApiKey");
+        var projectDefaultInstanceClientId = configuration["ProjectDefaultInstanceClientId"] ?? throw new ArgumentNullException("ProjectDefaultInstanceClientId");
 
         return kernelBuilder.AddAzureOpenAIChatCompletion(
             deploymentName: deployment,
             endpoint: azureOpenAiEndpoint,
-            // Ensure token is always picked up from terminal
+            // Default project agent instance Id is used to call AOAI
             new DefaultAzureCredential()
         );
     }

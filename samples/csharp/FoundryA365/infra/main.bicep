@@ -33,19 +33,19 @@ param cognitiveServicesSku string = 'S0'
 @allowed(['Basic', 'Standard', 'Premium'])
 param containerRegistrySku string = 'Basic'
 
-param agentName string = 'foundry-agent-6'
+param agentName string = 'foundry-agent-19'
 
-param maibName string = '${agentName}-maib'
+param maibName string = 'foundry-agent-7-maib'
 
 // =================================================================================================
 // Bot Service module parameters
 // =================================================================================================
 
-@description('Name of the Bot Service')
-param botName string = '${agentName}-bot'
+@description('Name of the Bot Service 1')
+param botName string = 'foundry-agent-7-bot'
 
 @description('Display name of the bot')
-param botDisplayName string = '${agentName} Bot'
+param botDisplayName string = 'foundry-agent-7 Bot'
 
 @description('SKU of the Bot Service')
 param botServiceSku string = 'F0'
@@ -139,3 +139,5 @@ output TENANT_ID string = tenant().tenantId
 output PROJECT_PRINCIPAL_ID string = project.outputs.foundryProjectPrincipalId
 
 output MAIB_NAME string = maibName
+
+output PROJECT_DEFAULT_INSTANCE_CLIENT_ID string = project.outputs.foundryProjectDefaultInstanceClientId

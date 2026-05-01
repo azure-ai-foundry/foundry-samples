@@ -11,7 +11,7 @@
   $agentCreationBody = @{
       definition = @{
           kind = "hosted"
-          image = "$($AzureContainerRegistryEndpoint)/hello-world-a365-agent:a365preview001"
+          image = "$($AzureContainerRegistryEndpoint)/hello-world-a365-agent1:latest"
           cpu = "2"
           memory = "4Gi"
           environment_variables = @{}
@@ -25,7 +25,7 @@
       metadata = @{
         enableVnextExperience = "true"
       }
-      description = "Foundry digital worker 24."
+      description = "Foundry digital worker 26."
       agent_endpoint = @{
         protocols = @("activity")
       }
@@ -67,6 +67,8 @@
 
   # Output the agent version
   $agentVersion = $response.version
+  $agentGuid = $response.agent_guid
+  Write-Host "Agent GUID: $agentGuid"
   Write-Host "Agent Version: $agentVersion"
 
   # Poll for agent version provisioning status
@@ -134,3 +136,6 @@
   Write-Host ""
   Write-Host "Patch Response:"
   $patchResponse | ConvertTo-Json -Depth 100 | Write-Host
+
+  # Return agent GUID for downstream scripts
+  return $agentGuid
