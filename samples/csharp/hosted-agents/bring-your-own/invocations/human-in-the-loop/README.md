@@ -156,7 +156,6 @@ human-in-the-loop/
 ├── .env.example              # Example environment variables
 ├── agent.yaml                # Agent deployment configuration
 ├── agent.manifest.yaml       # Agent manifest with metadata and resources
-├── test-payload.txt          # Sample request payload for testing
 └── README.md                 # This file
 ```
 
