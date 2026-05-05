@@ -253,7 +253,7 @@ public class SemanticKernelAgentLogicService : IAgentLogicService
         // For now returning a static response - can be enhanced with actual AI processing
         var responseText = "Hello this is a response to a comment notification received through Messaging.";
         var commentActivity = MessageFactory.Text(responseText);
-        turnContext.SendActivityAsync(commentActivity);
+        await turnContext.SendActivityAsync(commentActivity);
     }
 
     /// <summary>

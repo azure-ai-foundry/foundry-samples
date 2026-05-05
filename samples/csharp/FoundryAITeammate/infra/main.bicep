@@ -33,7 +33,7 @@ param cognitiveServicesSku string = 'S0'
 @allowed(['Basic', 'Standard', 'Premium'])
 param containerRegistrySku string = 'Basic'
 
-param agentName string = 'foundry-agent-27'
+param agentName string = 'foundry-agent-33'
 
 param maibName string = 'foundry-agent-7-maib'
 

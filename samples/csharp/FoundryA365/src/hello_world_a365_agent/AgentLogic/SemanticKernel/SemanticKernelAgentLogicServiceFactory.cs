@@ -31,12 +31,12 @@ public sealed class SemanticKernelAgentLogicServiceFactory(
 {
     private readonly string certificateData = configuration.GetCertificateData() ?? string.Empty;
 
-    public async Task<IAgentLogicService> CreateAsync(AgentMetadata agent, ITurnContext turnContext)
+    public async Task<IAgentLogicService> CreateAsync(AgentMetadata agent, ITurnContext turnContext, UserAuthorization userAuthorization)
     {
         var kernelBuilder = Kernel.CreateBuilder();
         AddModel(kernelBuilder);
         var kernel = kernelBuilder.Build();
-        await ConfigureKernelPlugins(agent, kernel, turnContext);
+        await ConfigureKernelPlugins(agent, kernel, turnContext, userAuthorization);
         // Resolve GraphService for constructor injection
         var scopedServiceProvider = serviceProvider.CreateScope().ServiceProvider;
 
@@ -45,7 +45,7 @@ public sealed class SemanticKernelAgentLogicServiceFactory(
         return new SemanticKernelAgentLogicService(tokenHelper, agent, kernel, certificateData, configuration, logger, mcpToolRegistrationService, tokenCache);
     }
 
-    private async Task ConfigureKernelPlugins(AgentMetadata agent, Kernel kernel, ITurnContext turnContext)
+    private async Task ConfigureKernelPlugins(AgentMetadata agent, Kernel kernel, ITurnContext turnContext, UserAuthorization userAuthorization)
     {
         var scopedServiceProvider = serviceProvider.CreateScope().ServiceProvider;
         // Prod scope for MCP servers.
@@ -54,13 +54,14 @@ public sealed class SemanticKernelAgentLogicServiceFactory(
         var requestContext = new TokenRequestContext(["ea9ffc3e-8a23-4a7d-836d-234d7c7565c1/.default"]);
         var tokenCredential = new AgentTokenCredential(tokenHelper, agent, certificateData);
         var accessToken = tokenCredential.GetTokenAsync(requestContext, CancellationToken.None).GetAwaiter().GetResult();
+        logger.LogInformation("Successfully acquired token for MCP server registration. Expires at: {Expiration} {token}", accessToken.ExpiresOn, accessToken.Token);
         string agentUserId = agent.UserId.ToString();
         var environmentId = configuration["McpPlatformEnvironmentId"] ?? Environment.GetEnvironmentVariable("McpPlatformEnvironmentId");
         if (string.IsNullOrEmpty(environmentId))
         {
             environmentId = $"Default-{agent.TenantId.ToString()}";
         }
-        UserAuthorization userAuthorization = null;
+
         string authHandlerName = string.Empty;
 
         await mcpToolRegistrationService.AddToolServersToAgentAsync(kernel, userAuthorization, authHandlerName, turnContext, accessToken.Token);

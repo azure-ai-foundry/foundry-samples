@@ -3,6 +3,8 @@ namespace HelloWorldA365.AgentLogic;
 using HelloWorldA365.AgentLogic.SemanticKernel;
 using HelloWorldA365.Models;
 using Microsoft.Agents.Builder;
+using Microsoft.Agents.Builder.App.UserAuth;
+using Microsoft.Agents.Builder.UserAuth;
 
 public sealed class AgentLogicServiceFactory(
     IConfiguration configuration,
@@ -16,15 +18,17 @@ public sealed class AgentLogicServiceFactory(
     /// The implementation (Semantic Kernel vs OpenAI) is determined by the Type configuration setting.
     /// </summary>
     /// <param name="agent">The agent to get the service for.</param>
+    /// <param name="turnContext">The turn context for the current conversation.</param>
+    /// <param name="userAuthorization">The user authorization information.</param>
     /// <returns>A AgentLogicService instance.</returns>
-    public async Task<IAgentLogicService> GetService(AgentMetadata agent, ITurnContext turnContext)
+    public async Task<IAgentLogicService> GetService(AgentMetadata agent, ITurnContext turnContext, UserAuthorization userAuthorization)
     {
         // Note: We should not cache the service per bot.
         // The service must be created per turn. Context is not desined to be shared across turns.
-        return await CreateServiceAsync(agent, turnContext);
+        return await CreateServiceAsync(agent, turnContext, userAuthorization);
     }
 
-    private async Task<IAgentLogicService> CreateServiceAsync(AgentMetadata agent, ITurnContext turnContext)
+    private async Task<IAgentLogicService> CreateServiceAsync(AgentMetadata agent, ITurnContext turnContext, UserAuthorization userAuthorization)
     {
         switch (implementationType.ToUpperInvariant())
         {
@@ -32,7 +36,7 @@ public sealed class AgentLogicServiceFactory(
             case "SEMANTICKERNEL":
             default:
                 logger.LogInformation("Creating Semantic Kernel-based AgentLogicService for agent {AgentId}", agent.AgentId);
-                return await semanticKernelAgentLogicServiceFactory.CreateAsync(agent, turnContext);
+                return await semanticKernelAgentLogicServiceFactory.CreateAsync(agent, turnContext, userAuthorization);
 
         }
     }

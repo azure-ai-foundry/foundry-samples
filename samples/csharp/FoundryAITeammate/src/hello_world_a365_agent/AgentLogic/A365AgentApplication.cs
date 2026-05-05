@@ -1,5 +1,6 @@
 namespace HelloWorldA365.AgentLogic;
 
+using HelloWorldA365.AgentLogic.ResponsesApi;
 using HelloWorldA365.Models;
 using Microsoft.Agents.Builder.App;
 using Microsoft.Agents.Core.Models;
@@ -12,13 +13,13 @@ using Microsoft.Agents.A365.Notifications.Models;
 /// </summary>
 public class A365AgentApplication : AgentApplication
 {
-    private readonly AgentLogicServiceFactory _factory;
+    private readonly ResponsesApiAgentLogicServiceFactory _factory;
     private readonly IConfiguration _configuration;
     private readonly ILogger<A365AgentApplication> _logger;
 
     public A365AgentApplication(
         AgentApplicationOptions options,
-        AgentLogicServiceFactory factory,
+        ResponsesApiAgentLogicServiceFactory factory,
         ILogger<A365AgentApplication> logger,
         IConfiguration configuration) : base(options)
     {
@@ -38,7 +39,7 @@ public class A365AgentApplication : AgentApplication
         this.OnAgenticEmailNotification(async (turnContext, turnState, agentNotificationActivity, cancellationToken) =>
         {
             var agent = await GetAgentFromRecipient(turnContext.Activity);
-            var agentService = await _factory.GetService(agent, turnContext, UserAuthorization);
+            var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
             if (agent.IsMessagingEnabled || true)
             {
                 // Use the specific email notification handler
@@ -54,7 +55,7 @@ public class A365AgentApplication : AgentApplication
         this.OnAgenticWordNotification(async (turnContext, turnState, agentNotificationActivity, cancellationToken) =>
         {
             var agent = await GetAgentFromRecipient(turnContext.Activity);
-            var agentService = await _factory.GetService(agent, turnContext, UserAuthorization);
+            var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
 
             if (agent.IsMessagingEnabled)
             {
@@ -71,7 +72,7 @@ public class A365AgentApplication : AgentApplication
         this.OnAgenticExcelNotification(async (turnContext, turnState, agentNotificationActivity, cancellationToken) =>
         {
             var agent = await GetAgentFromRecipient(turnContext.Activity);
-            var agentService = await _factory.GetService(agent, turnContext, UserAuthorization);
+            var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
 
             if (agent.IsMessagingEnabled)
             {
@@ -88,7 +89,7 @@ public class A365AgentApplication : AgentApplication
         this.OnAgenticPowerPointNotification(async (turnContext, turnState, agentNotificationActivity, cancellationToken) =>
         {
             var agent = await GetAgentFromRecipient(turnContext.Activity);
-            var agentService = await _factory.GetService(agent, turnContext, UserAuthorization);
+            var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
 
             if (agent.IsMessagingEnabled)
             {
@@ -110,7 +111,7 @@ public class A365AgentApplication : AgentApplication
                 var agent = await GetAgentFromRecipient(turnContext.Activity);
 
                 // Get agent logic service from factory
-                var agentService = await _factory.GetService(agent, turnContext, UserAuthorization);
+                var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
 
                 // Ignoring all other channel Ids to prevent duplicate notifications.
                 if (agent.IsMessagingEnabled && turnContext.Activity.ChannelId != "msteams")
@@ -139,7 +140,7 @@ public class A365AgentApplication : AgentApplication
         OnActivity(ActivityTypes.Event, async (turnContext, turnState, cancellationToken) =>
         {
             var agent = await GetAgentFromRecipient(turnContext.Activity);
-            var agentService = await _factory.GetService(agent, turnContext, UserAuthorization);
+            var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
 
             await agentService.NewActivityReceived(turnContext, turnState, cancellationToken);
         });
@@ -147,7 +148,7 @@ public class A365AgentApplication : AgentApplication
         OnActivity(ActivityTypes.InstallationUpdate, async (turnContext, turnState, cancellationToken) =>
         {
             var agent = await GetAgentFromRecipient(turnContext.Activity);
-            var agentService = await _factory.GetService(agent, turnContext, UserAuthorization);
+            var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
 
             if (agent.IsMessagingEnabled)
             {
@@ -213,7 +214,6 @@ public class A365AgentApplication : AgentApplication
             AgentId = agenticAppId,
             AgentApplicationId = recipient.Properties.TryGetValue("agenticAppBlueprintId", out var agentAppBlueprintId) ? Guid.Parse(agentAppBlueprintId.ToString()) : Guid.TryParse(recipient.Id, out var parsedId) ? parsedId : Guid.Empty,
             TenantId = tenantId,
-            AgentFriendlyName = recipient.Name,
         };
     }
 }
