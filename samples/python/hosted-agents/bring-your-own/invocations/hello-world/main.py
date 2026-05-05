@@ -90,41 +90,7 @@ app = InvocationAgentServerHost()
 
 # In-memory session store — keyed by agent_session_id.
 # WARNING: state is lost on restart. Use durable storage in production.
-_sessions: dict[str, list[dict[str, str]]] = {}
-
-
-async def _stream_reply(input_items: list[dict[str, str]]):
-    """Call the Foundry model and yield text deltas as they arrive.
-
-    The Responses SDK uses a synchronous streaming iterator. We bridge it to
-    async by running it in a thread pool and forwarding each delta through an
-    ``asyncio.Queue`` so the event loop is never blocked.
-    """
-    loop = asyncio.get_running_loop()
-    queue: asyncio.Queue[str | None] = asyncio.Queue()
-
-    def _produce() -> None:
-        """Runs in a thread: streams from the model and enqueues each delta."""
-        try:
-            for event in _responses_client.create(
-                model=_model,
-                instructions=_SYSTEM_PROMPT,
-                input=input_items,
-                store=False,  # This agent owns history — no need to store at the model level
-                stream=True,
-            ):
-                if event.type == "response.output_text.delta":
-                    loop.call_soon_threadsafe(queue.put_nowait, event.delta)
-        finally:
-            # None signals end of stream
-            loop.call_soon_threadsafe(queue.put_nowait, None)
-
-    # Start sync streaming in a background thread; yield deltas as they arrive.
-    fut = loop.run_in_executor(None, _produce)
-    while (delta := await queue.get()) is not None:
-        yield delta
-    await fut  # re-raise any exception that escaped the thread
-
+_history: list[dict[str, str]] = []
 
 # ── Required handler ──────────────────────────────────────────────────────────
 # @app.invoke_handler is the only handler you must implement. It receives every
@@ -180,37 +146,28 @@ async def handle_invoke(request: Request):
     )
 
     # Retrieve or create conversation history for this session.
-    history = _sessions.setdefault(session_id, [])
-    history.append({"role": "user", "content": user_message})
-
-    # Build the Responses API input list from history.
-    # History is stored as {role, content} dicts — the same format the API accepts.
-    input_items = list(history)
+    _history.append({"role": "user", "content": user_message})
 
     async def event_generator():
         full_reply = ""
-        try:
-            async for delta in _stream_reply(input_items):
-                full_reply += delta
-                yield f"data: {json.dumps({'type': 'token', 'content': delta})}\n\n"
-        except Exception as exc:
-            msg = f"Error calling model: {exc}"
-            logger.error(msg)
-            full_reply = msg
-            yield f"data: {json.dumps({'type': 'token', 'content': msg})}\n\n"
+        for event in _responses_client.create(
+            model=_model,
+            instructions="You are a helpful AI assistant.",
+            input=list(_history),
+            store=False,
+            stream=True,
+        ):
+            if event.type == "response.output_text.delta":
+                full_reply += event.delta
+                yield f"data: {json.dumps({'type': 'token', 'content': event.delta})}\n\n"
 
-        # Final event carries the complete text so the caller can use it
-        # without having to reassemble the token stream.
-        yield f"data: {json.dumps({'type': 'done', 'invocation_id': invocation_id, 'session_id': session_id, 'full_text': full_reply})}\n\n"
-
-        # Persist the assistant reply to history after streaming is complete.
-        if full_reply:
-            history.append({"role": "assistant", "content": full_reply})
+        yield f"data: {json.dumps({'type': 'done', 'full_text': full_reply})}\n\n"
+        _history.append({"role": "assistant", "content": full_reply})
 
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        headers={"Cache-Control": "no-cache"},
     )
 
 
