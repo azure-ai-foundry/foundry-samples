@@ -1,0 +1,4 @@
+Hello, how are you today?
+The weather is beautiful this morning.
+I love learning new programming languages.
+Coffee is the best way to start the day.
