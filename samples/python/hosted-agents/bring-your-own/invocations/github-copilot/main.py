@@ -9,6 +9,7 @@ import os
 import pathlib
 import uuid
 
+from dotenv import load_dotenv
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
@@ -18,6 +19,8 @@ from copilot import CopilotClient, SubprocessConfig
 from copilot.session import PermissionHandler
 
 from copilot.generated.session_events import SessionEventType
+
+load_dotenv(override=False)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,7 +35,9 @@ if not os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
 if not os.environ.get("GITHUB_TOKEN"):
     raise EnvironmentError(
         "GITHUB_TOKEN environment variable is not set. "
-        "Supply a GitHub fine-grained PAT with 'Copilot Requests → Read-only' permission. "
+        "For local runs, copy .env.example to .env and set GITHUB_TOKEN to a GitHub fine-grained PAT "
+        "with 'Copilot Requests → Read-only' permission. "
+        "For hosted deployments, run: azd env set GITHUB_TOKEN=\"github_pat_...\". "
         "Create one at https://github.com/settings/personal-access-tokens/new"
     )
 
