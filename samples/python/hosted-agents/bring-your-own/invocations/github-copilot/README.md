@@ -33,7 +33,14 @@ Create one at [github.com/settings/personal-access-tokens/new](https://github.co
 
 ### Using `azd` (Recommended)
 
-Add the `GITHUB_TOKEN` to the environment variables first:
+Create a local `.env` file from the sample template and set `GITHUB_TOKEN`:
+
+```bash
+cp .env.example .env
+# Edit .env and set GITHUB_TOKEN=github_pat_...
+```
+
+The sample loads `.env` automatically when running locally. If you plan to deploy with `azd`, also add the token to your azd environment so it can be injected into the hosted agent:
 
 ```bash
 azd env set GITHUB_TOKEN="github_pat_..."
@@ -51,7 +58,8 @@ The agent starts on `http://localhost:8088/`.
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env  # then set GITHUB_TOKEN
+cp .env.example .env
+# Edit .env and set GITHUB_TOKEN=github_pat_...
 python main.py
 ```
 
