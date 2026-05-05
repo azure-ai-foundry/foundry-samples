@@ -1,0 +1,1329 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.40.2.10011",
+      "templateHash": "3777570653041274440"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "eastus",
+      "allowedValues": [
+        "westus",
+        "eastus",
+        "eastus2",
+        "japaneast",
+        "francecentral",
+        "spaincentral",
+        "uaenorth",
+        "southcentralus",
+        "italynorth",
+        "germanywestcentral",
+        "brazilsouth",
+        "southafricanorth",
+        "australiaeast",
+        "swedencentral",
+        "canadaeast",
+        "westeurope",
+        "westus3",
+        "uksouth",
+        "southindia",
+        "koreacentral",
+        "polandcentral",
+        "switzerlandnorth",
+        "norwayeast"
+      ],
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "aiServices": {
+      "type": "string",
+      "defaultValue": "aiservices",
+      "metadata": {
+        "description": "Name for your AI Services resource."
+      }
+    },
+    "modelName": {
+      "type": "string",
+      "defaultValue": "gpt-4.1",
+      "metadata": {
+        "description": "The name of the model you want to deploy"
+      }
+    },
+    "modelFormat": {
+      "type": "string",
+      "defaultValue": "OpenAI",
+      "metadata": {
+        "description": "The provider of your model"
+      }
+    },
+    "modelVersion": {
+      "type": "string",
+      "defaultValue": "2025-04-14",
+      "metadata": {
+        "description": "The version of your model"
+      }
+    },
+    "modelSkuName": {
+      "type": "string",
+      "defaultValue": "GlobalStandard",
+      "metadata": {
+        "description": "The sku of your model deployment"
+      }
+    },
+    "modelCapacity": {
+      "type": "int",
+      "defaultValue": 30,
+      "metadata": {
+        "description": "The tokens per minute (TPM) of your model deployment"
+      }
+    },
+    "deploymentTimestamp": {
+      "type": "string",
+      "defaultValue": "[utcNow('yyyyMMddHHmmss')]"
+    },
+    "firstProjectName": {
+      "type": "string",
+      "defaultValue": "project",
+      "metadata": {
+        "description": "Name for your project resource."
+      }
+    },
+    "projectDescription": {
+      "type": "string",
+      "defaultValue": "A project for the AI Foundry account with network secured basic Agent",
+      "metadata": {
+        "description": "This project will be a sub-resource of your account"
+      }
+    },
+    "displayName": {
+      "type": "string",
+      "defaultValue": "network secured basic agent project",
+      "metadata": {
+        "description": "The display name of the project"
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "agent-vnet-test",
+      "metadata": {
+        "description": "Virtual Network name for the Agent to create new or existing virtual network"
+      }
+    },
+    "agentSubnetName": {
+      "type": "string",
+      "defaultValue": "agent-subnet",
+      "metadata": {
+        "description": "The name of Agents Subnet to create new or existing subnet for agents"
+      }
+    },
+    "peSubnetName": {
+      "type": "string",
+      "defaultValue": "pe-subnet",
+      "metadata": {
+        "description": "The name of Private Endpoint subnet to create new or existing subnet for private endpoints"
+      }
+    },
+    "existingVnetResourceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Existing Virtual Network name Resource ID"
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Address space for the VNet (only used for new VNet)"
+      }
+    },
+    "agentSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Address prefix for the agent subnet. The default value is 192.168.0.0/24 but you can choose any size /26 or any class like 10.0.0.0 or 172.168.0.0"
+      }
+    },
+    "peSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Address prefix for the private endpoint subnet"
+      }
+    },
+    "dnsZonesSubscriptionId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Subscription ID where existing private DNS zones are located. Leave empty to use current subscription."
+      }
+    },
+    "existingDnsZones": {
+      "type": "object",
+      "defaultValue": {
+        "privatelink.services.ai.azure.com": "",
+        "privatelink.openai.azure.com": "",
+        "privatelink.cognitiveservices.azure.com": ""
+      },
+      "metadata": {
+        "description": "Object mapping DNS zone names to their resource group, or empty string to indicate creation"
+      }
+    },
+    "projectCapHost": {
+      "type": "string",
+      "defaultValue": "caphostproj",
+      "metadata": {
+        "description": "The name of the project capability host to be created"
+      }
+    }
+  },
+  "variables": {
+    "uniqueSuffix": "[substring(uniqueString(format('{0}-{1}', resourceGroup().id, parameters('deploymentTimestamp'))), 0, 4)]",
+    "accountName": "[toLower(format('{0}{1}', parameters('aiServices'), variables('uniqueSuffix')))]",
+    "projectName": "[toLower(format('{0}{1}', parameters('firstProjectName'), variables('uniqueSuffix')))]",
+    "existingVnetPassedIn": "[not(equals(parameters('existingVnetResourceId'), ''))]",
+    "vnetParts": "[split(parameters('existingVnetResourceId'), '/')]",
+    "vnetSubscriptionId": "[if(variables('existingVnetPassedIn'), variables('vnetParts')[2], subscription().subscriptionId)]",
+    "vnetResourceGroupName": "[if(variables('existingVnetPassedIn'), variables('vnetParts')[4], resourceGroup().name)]",
+    "existingVnetName": "[if(variables('existingVnetPassedIn'), last(variables('vnetParts')), parameters('vnetName'))]",
+    "trimVnetName": "[trim(variables('existingVnetName'))]",
+    "resolvedDnsZonesSubscriptionId": "[if(empty(parameters('dnsZonesSubscriptionId')), subscription().subscriptionId, parameters('dnsZonesSubscriptionId'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}', variables('accountName'), variables('projectName'))]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "description": "[parameters('projectDescription')]",
+        "displayName": "[parameters('displayName')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-private-endpoint', variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "vnetName": {
+            "value": "[variables('trimVnetName')]"
+          },
+          "useExistingVnet": {
+            "value": "[variables('existingVnetPassedIn')]"
+          },
+          "existingVnetResourceGroupName": {
+            "value": "[variables('vnetResourceGroupName')]"
+          },
+          "agentSubnetName": {
+            "value": "[parameters('agentSubnetName')]"
+          },
+          "peSubnetName": {
+            "value": "[parameters('peSubnetName')]"
+          },
+          "vnetAddressPrefix": {
+            "value": "[parameters('vnetAddressPrefix')]"
+          },
+          "agentSubnetPrefix": {
+            "value": "[parameters('agentSubnetPrefix')]"
+          },
+          "peSubnetPrefix": {
+            "value": "[parameters('peSubnetPrefix')]"
+          },
+          "existingVnetSubscriptionId": {
+            "value": "[variables('vnetSubscriptionId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "9522150535342725348"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the deployment"
+              }
+            },
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the virtual network"
+              }
+            },
+            "useExistingVnet": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Indicates if an existing VNet should be used"
+              }
+            },
+            "existingVnetSubscriptionId": {
+              "type": "string",
+              "defaultValue": "[subscription().subscriptionId]",
+              "metadata": {
+                "description": "Subscription ID of the existing VNet (if different from current subscription)"
+              }
+            },
+            "existingVnetResourceGroupName": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().name]",
+              "metadata": {
+                "description": "Resource Group name of the existing VNet (if different from current resource group)"
+              }
+            },
+            "agentSubnetName": {
+              "type": "string",
+              "defaultValue": "agent-subnet",
+              "metadata": {
+                "description": "The name of Agents Subnet"
+              }
+            },
+            "peSubnetName": {
+              "type": "string",
+              "defaultValue": "pe-subnet",
+              "metadata": {
+                "description": "The name of Private Endpoint subnet"
+              }
+            },
+            "vnetAddressPrefix": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Address space for the VNet (only used for new VNet)"
+              }
+            },
+            "agentSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Address prefix for the agent subnet"
+              }
+            },
+            "peSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Address prefix for the private endpoint subnet"
+              }
+            }
+          },
+          "resources": [
+            {
+              "condition": "[not(parameters('useExistingVnet'))]",
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "vnet-deployment",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "location": {
+                    "value": "[parameters('location')]"
+                  },
+                  "vnetName": {
+                    "value": "[parameters('vnetName')]"
+                  },
+                  "agentSubnetName": {
+                    "value": "[parameters('agentSubnetName')]"
+                  },
+                  "peSubnetName": {
+                    "value": "[parameters('peSubnetName')]"
+                  },
+                  "vnetAddressPrefix": {
+                    "value": "[parameters('vnetAddressPrefix')]"
+                  },
+                  "agentSubnetPrefix": {
+                    "value": "[parameters('agentSubnetPrefix')]"
+                  },
+                  "peSubnetPrefix": {
+                    "value": "[parameters('peSubnetPrefix')]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.40.2.10011",
+                      "templateHash": "1725519900292599397"
+                    }
+                  },
+                  "parameters": {
+                    "location": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Azure region for the deployment"
+                      }
+                    },
+                    "vnetName": {
+                      "type": "string",
+                      "defaultValue": "agents-vnet-test",
+                      "metadata": {
+                        "description": "The name of the virtual network"
+                      }
+                    },
+                    "agentSubnetName": {
+                      "type": "string",
+                      "defaultValue": "agent-subnet",
+                      "metadata": {
+                        "description": "The name of Agents Subnet"
+                      }
+                    },
+                    "peSubnetName": {
+                      "type": "string",
+                      "defaultValue": "pe-subnet",
+                      "metadata": {
+                        "description": "The name of Hub subnet"
+                      }
+                    },
+                    "vnetAddressPrefix": {
+                      "type": "string",
+                      "defaultValue": "",
+                      "metadata": {
+                        "description": "Address space for the VNet"
+                      }
+                    },
+                    "agentSubnetPrefix": {
+                      "type": "string",
+                      "defaultValue": "",
+                      "metadata": {
+                        "description": "Address prefix for the agent subnet"
+                      }
+                    },
+                    "peSubnetPrefix": {
+                      "type": "string",
+                      "defaultValue": "",
+                      "metadata": {
+                        "description": "Address prefix for the private endpoint subnet"
+                      }
+                    }
+                  },
+                  "variables": {
+                    "defaultVnetAddressPrefix": "192.168.0.0/16",
+                    "vnetAddress": "[if(empty(parameters('vnetAddressPrefix')), variables('defaultVnetAddressPrefix'), parameters('vnetAddressPrefix'))]",
+                    "agentSubnet": "[if(empty(parameters('agentSubnetPrefix')), cidrSubnet(variables('vnetAddress'), 24, 0), parameters('agentSubnetPrefix'))]",
+                    "peSubnet": "[if(empty(parameters('peSubnetPrefix')), cidrSubnet(variables('vnetAddress'), 24, 1), parameters('peSubnetPrefix'))]"
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Network/virtualNetworks",
+                      "apiVersion": "2024-05-01",
+                      "name": "[parameters('vnetName')]",
+                      "location": "[parameters('location')]",
+                      "properties": {
+                        "addressSpace": {
+                          "addressPrefixes": [
+                            "[variables('vnetAddress')]"
+                          ]
+                        },
+                        "subnets": [
+                          {
+                            "name": "[parameters('agentSubnetName')]",
+                            "properties": {
+                              "addressPrefix": "[variables('agentSubnet')]",
+                              "delegations": [
+                                {
+                                  "name": "Microsoft.app/environments",
+                                  "properties": {
+                                    "serviceName": "Microsoft.App/environments"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "[parameters('peSubnetName')]",
+                            "properties": {
+                              "addressPrefix": "[variables('peSubnet')]"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "outputs": {
+                    "peSubnetName": {
+                      "type": "string",
+                      "value": "[parameters('peSubnetName')]"
+                    },
+                    "agentSubnetName": {
+                      "type": "string",
+                      "value": "[parameters('agentSubnetName')]"
+                    },
+                    "agentSubnetId": {
+                      "type": "string",
+                      "value": "[format('{0}/subnets/{1}', resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), parameters('agentSubnetName'))]"
+                    },
+                    "peSubnetId": {
+                      "type": "string",
+                      "value": "[format('{0}/subnets/{1}', resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), parameters('peSubnetName'))]"
+                    },
+                    "virtualNetworkName": {
+                      "type": "string",
+                      "value": "[parameters('vnetName')]"
+                    },
+                    "virtualNetworkId": {
+                      "type": "string",
+                      "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                    },
+                    "virtualNetworkResourceGroup": {
+                      "type": "string",
+                      "value": "[resourceGroup().name]"
+                    },
+                    "virtualNetworkSubscriptionId": {
+                      "type": "string",
+                      "value": "[subscription().subscriptionId]"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "condition": "[parameters('useExistingVnet')]",
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "existing-vnet-deployment",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "vnetName": {
+                    "value": "[parameters('vnetName')]"
+                  },
+                  "vnetResourceGroupName": {
+                    "value": "[parameters('existingVnetResourceGroupName')]"
+                  },
+                  "vnetSubscriptionId": {
+                    "value": "[parameters('existingVnetSubscriptionId')]"
+                  },
+                  "agentSubnetName": {
+                    "value": "[parameters('agentSubnetName')]"
+                  },
+                  "peSubnetName": {
+                    "value": "[parameters('peSubnetName')]"
+                  },
+                  "agentSubnetPrefix": {
+                    "value": "[parameters('agentSubnetPrefix')]"
+                  },
+                  "peSubnetPrefix": {
+                    "value": "[parameters('peSubnetPrefix')]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.40.2.10011",
+                      "templateHash": "12834877200138369468"
+                    }
+                  },
+                  "parameters": {
+                    "vnetName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "The name of the existing virtual network"
+                      }
+                    },
+                    "vnetSubscriptionId": {
+                      "type": "string",
+                      "defaultValue": "[subscription().subscriptionId]",
+                      "metadata": {
+                        "description": "Subscription ID of virtual network (if different from current subscription)"
+                      }
+                    },
+                    "vnetResourceGroupName": {
+                      "type": "string",
+                      "defaultValue": "[resourceGroup().name]",
+                      "metadata": {
+                        "description": "Resource Group name of the existing VNet (if different from current resource group)"
+                      }
+                    },
+                    "agentSubnetName": {
+                      "type": "string",
+                      "defaultValue": "agent-subnet",
+                      "metadata": {
+                        "description": "The name of Agents Subnet"
+                      }
+                    },
+                    "peSubnetName": {
+                      "type": "string",
+                      "defaultValue": "pe-subnet",
+                      "metadata": {
+                        "description": "The name of Private Endpoint subnet"
+                      }
+                    },
+                    "agentSubnetPrefix": {
+                      "type": "string",
+                      "defaultValue": "",
+                      "metadata": {
+                        "description": "Address prefix for the agent subnet (only needed if creating new subnet)"
+                      }
+                    },
+                    "peSubnetPrefix": {
+                      "type": "string",
+                      "defaultValue": "",
+                      "metadata": {
+                        "description": "Address prefix for the private endpoint subnet (only needed if creating new subnet)"
+                      }
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Resources/deployments",
+                      "apiVersion": "2025-04-01",
+                      "name": "[format('agent-subnet-{0}', uniqueString(deployment().name, parameters('agentSubnetName')))]",
+                      "resourceGroup": "[parameters('vnetResourceGroupName')]",
+                      "properties": {
+                        "expressionEvaluationOptions": {
+                          "scope": "inner"
+                        },
+                        "mode": "Incremental",
+                        "parameters": {
+                          "vnetName": {
+                            "value": "[parameters('vnetName')]"
+                          },
+                          "subnetName": {
+                            "value": "[parameters('agentSubnetName')]"
+                          },
+                          "addressPrefix": "[if(empty(parameters('agentSubnetPrefix')), createObject('value', cidrSubnet(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName')), '2024-05-01').addressSpace.addressPrefixes[0], 24, 0)), createObject('value', parameters('agentSubnetPrefix')))]",
+                          "delegations": {
+                            "value": [
+                              {
+                                "name": "Microsoft.App/environments",
+                                "properties": {
+                                  "serviceName": "Microsoft.App/environments"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "template": {
+                          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                          "contentVersion": "1.0.0.0",
+                          "metadata": {
+                            "_generator": {
+                              "name": "bicep",
+                              "version": "0.40.2.10011",
+                              "templateHash": "16684585228229443328"
+                            }
+                          },
+                          "parameters": {
+                            "vnetName": {
+                              "type": "string",
+                              "metadata": {
+                                "description": "Name of the virtual network"
+                              }
+                            },
+                            "subnetName": {
+                              "type": "string",
+                              "metadata": {
+                                "description": "Name of the subnet"
+                              }
+                            },
+                            "addressPrefix": {
+                              "type": "string",
+                              "metadata": {
+                                "description": "Address prefix for the subnet"
+                              }
+                            },
+                            "delegations": {
+                              "type": "array",
+                              "defaultValue": [],
+                              "metadata": {
+                                "description": "Array of subnet delegations"
+                              }
+                            }
+                          },
+                          "resources": [
+                            {
+                              "type": "Microsoft.Network/virtualNetworks/subnets",
+                              "apiVersion": "2024-05-01",
+                              "name": "[format('{0}/{1}', parameters('vnetName'), parameters('subnetName'))]",
+                              "properties": {
+                                "addressPrefix": "[parameters('addressPrefix')]",
+                                "delegations": "[parameters('delegations')]"
+                              }
+                            }
+                          ],
+                          "outputs": {
+                            "subnetId": {
+                              "type": "string",
+                              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', split(format('{0}/{1}', parameters('vnetName'), parameters('subnetName')), '/')[0], split(format('{0}/{1}', parameters('vnetName'), parameters('subnetName')), '/')[1])]"
+                            },
+                            "subnetName": {
+                              "type": "string",
+                              "value": "[parameters('subnetName')]"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "Microsoft.Resources/deployments",
+                      "apiVersion": "2025-04-01",
+                      "name": "[format('pe-subnet-{0}', uniqueString(deployment().name, parameters('peSubnetName')))]",
+                      "resourceGroup": "[parameters('vnetResourceGroupName')]",
+                      "properties": {
+                        "expressionEvaluationOptions": {
+                          "scope": "inner"
+                        },
+                        "mode": "Incremental",
+                        "parameters": {
+                          "vnetName": {
+                            "value": "[parameters('vnetName')]"
+                          },
+                          "subnetName": {
+                            "value": "[parameters('peSubnetName')]"
+                          },
+                          "addressPrefix": "[if(empty(parameters('peSubnetPrefix')), createObject('value', cidrSubnet(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName')), '2024-05-01').addressSpace.addressPrefixes[0], 24, 1)), createObject('value', parameters('peSubnetPrefix')))]",
+                          "delegations": {
+                            "value": []
+                          }
+                        },
+                        "template": {
+                          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                          "contentVersion": "1.0.0.0",
+                          "metadata": {
+                            "_generator": {
+                              "name": "bicep",
+                              "version": "0.40.2.10011",
+                              "templateHash": "16684585228229443328"
+                            }
+                          },
+                          "parameters": {
+                            "vnetName": {
+                              "type": "string",
+                              "metadata": {
+                                "description": "Name of the virtual network"
+                              }
+                            },
+                            "subnetName": {
+                              "type": "string",
+                              "metadata": {
+                                "description": "Name of the subnet"
+                              }
+                            },
+                            "addressPrefix": {
+                              "type": "string",
+                              "metadata": {
+                                "description": "Address prefix for the subnet"
+                              }
+                            },
+                            "delegations": {
+                              "type": "array",
+                              "defaultValue": [],
+                              "metadata": {
+                                "description": "Array of subnet delegations"
+                              }
+                            }
+                          },
+                          "resources": [
+                            {
+                              "type": "Microsoft.Network/virtualNetworks/subnets",
+                              "apiVersion": "2024-05-01",
+                              "name": "[format('{0}/{1}', parameters('vnetName'), parameters('subnetName'))]",
+                              "properties": {
+                                "addressPrefix": "[parameters('addressPrefix')]",
+                                "delegations": "[parameters('delegations')]"
+                              }
+                            }
+                          ],
+                          "outputs": {
+                            "subnetId": {
+                              "type": "string",
+                              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', split(format('{0}/{1}', parameters('vnetName'), parameters('subnetName')), '/')[0], split(format('{0}/{1}', parameters('vnetName'), parameters('subnetName')), '/')[1])]"
+                            },
+                            "subnetName": {
+                              "type": "string",
+                              "value": "[parameters('subnetName')]"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "outputs": {
+                    "peSubnetName": {
+                      "type": "string",
+                      "value": "[parameters('peSubnetName')]"
+                    },
+                    "agentSubnetName": {
+                      "type": "string",
+                      "value": "[parameters('agentSubnetName')]"
+                    },
+                    "agentSubnetId": {
+                      "type": "string",
+                      "value": "[format('{0}/subnets/{1}', extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName')), parameters('agentSubnetName'))]"
+                    },
+                    "peSubnetId": {
+                      "type": "string",
+                      "value": "[format('{0}/subnets/{1}', extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName')), parameters('peSubnetName'))]"
+                    },
+                    "virtualNetworkName": {
+                      "type": "string",
+                      "value": "[parameters('vnetName')]"
+                    },
+                    "virtualNetworkId": {
+                      "type": "string",
+                      "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                    },
+                    "virtualNetworkResourceGroup": {
+                      "type": "string",
+                      "value": "[parameters('vnetResourceGroupName')]"
+                    },
+                    "virtualNetworkSubscriptionId": {
+                      "type": "string",
+                      "value": "[parameters('vnetSubscriptionId')]"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "virtualNetworkName": {
+              "type": "string",
+              "value": "[if(parameters('useExistingVnet'), reference(resourceId('Microsoft.Resources/deployments', 'existing-vnet-deployment'), '2025-04-01').outputs.virtualNetworkName.value, reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.virtualNetworkName.value)]"
+            },
+            "virtualNetworkId": {
+              "type": "string",
+              "value": "[if(parameters('useExistingVnet'), reference(resourceId('Microsoft.Resources/deployments', 'existing-vnet-deployment'), '2025-04-01').outputs.virtualNetworkId.value, reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.virtualNetworkId.value)]"
+            },
+            "virtualNetworkSubscriptionId": {
+              "type": "string",
+              "value": "[if(parameters('useExistingVnet'), reference(resourceId('Microsoft.Resources/deployments', 'existing-vnet-deployment'), '2025-04-01').outputs.virtualNetworkSubscriptionId.value, reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.virtualNetworkSubscriptionId.value)]"
+            },
+            "virtualNetworkResourceGroup": {
+              "type": "string",
+              "value": "[if(parameters('useExistingVnet'), reference(resourceId('Microsoft.Resources/deployments', 'existing-vnet-deployment'), '2025-04-01').outputs.virtualNetworkResourceGroup.value, reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.virtualNetworkResourceGroup.value)]"
+            },
+            "agentSubnetName": {
+              "type": "string",
+              "value": "[parameters('agentSubnetName')]"
+            },
+            "peSubnetName": {
+              "type": "string",
+              "value": "[parameters('peSubnetName')]"
+            },
+            "agentSubnetId": {
+              "type": "string",
+              "value": "[if(parameters('useExistingVnet'), reference(resourceId('Microsoft.Resources/deployments', 'existing-vnet-deployment'), '2025-04-01').outputs.agentSubnetId.value, reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.agentSubnetId.value)]"
+            },
+            "peSubnetId": {
+              "type": "string",
+              "value": "[if(parameters('useExistingVnet'), reference(resourceId('Microsoft.Resources/deployments', 'existing-vnet-deployment'), '2025-04-01').outputs.peSubnetId.value, reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.peSubnetId.value)]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[variables('accountName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "modelName": {
+            "value": "[parameters('modelName')]"
+          },
+          "modelFormat": {
+            "value": "[parameters('modelFormat')]"
+          },
+          "modelVersion": {
+            "value": "[parameters('modelVersion')]"
+          },
+          "modelSkuName": {
+            "value": "[parameters('modelSkuName')]"
+          },
+          "modelCapacity": {
+            "value": "[parameters('modelCapacity')]"
+          },
+          "agentSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.agentSubnetId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "481468620289904255"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "modelName": {
+              "type": "string"
+            },
+            "modelFormat": {
+              "type": "string"
+            },
+            "modelVersion": {
+              "type": "string"
+            },
+            "modelSkuName": {
+              "type": "string"
+            },
+            "modelCapacity": {
+              "type": "int"
+            },
+            "agentSubnetId": {
+              "type": "string"
+            },
+            "networkInjection": {
+              "type": "string",
+              "defaultValue": "true"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[parameters('accountName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "S0"
+              },
+              "kind": "AIServices",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "allowProjectManagement": true,
+                "customSubDomainName": "[parameters('accountName')]",
+                "networkAcls": {
+                  "defaultAction": "Deny",
+                  "virtualNetworkRules": [],
+                  "ipRules": [],
+                  "bypass": "AzureServices"
+                },
+                "publicNetworkAccess": "Disabled",
+                "networkInjections": "[if(equals(parameters('networkInjection'), 'true'), createArray(createObject('scenario', 'agent', 'subnetArmId', parameters('agentSubnetId'), 'useMicrosoftManagedNetwork', false())), null())]",
+                "disableLocalAuth": false
+              }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('accountName'), parameters('modelName'))]",
+              "sku": {
+                "capacity": "[parameters('modelCapacity')]",
+                "name": "[parameters('modelSkuName')]"
+              },
+              "properties": {
+                "model": {
+                  "name": "[parameters('modelName')]",
+                  "format": "[parameters('modelFormat')]",
+                  "version": "[parameters('modelVersion')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "accountName": {
+              "type": "string",
+              "value": "[parameters('accountName')]"
+            },
+            "accountID": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+            },
+            "accountTarget": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview').endpoint]"
+            },
+            "accountPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview', 'full').identity.principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-private-endpoint', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "aiAccountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountName.value]"
+          },
+          "vnetName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.virtualNetworkName.value]"
+          },
+          "peSubnetName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.peSubnetName.value]"
+          },
+          "suffix": {
+            "value": "[variables('uniqueSuffix')]"
+          },
+          "vnetResourceGroupName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.virtualNetworkResourceGroup.value]"
+          },
+          "vnetSubscriptionId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.virtualNetworkSubscriptionId.value]"
+          },
+          "existingDnsZones": {
+            "value": "[parameters('existingDnsZones')]"
+          },
+          "dnsZonesSubscriptionId": {
+            "value": "[variables('resolvedDnsZonesSubscriptionId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "11715965448884311497"
+            }
+          },
+          "parameters": {
+            "aiAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the AI Foundry account"
+              }
+            },
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Vnet"
+              }
+            },
+            "peSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the private endpoint subnet"
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Suffix for unique resource names"
+              }
+            },
+            "vnetResourceGroupName": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().name]",
+              "metadata": {
+                "description": "Resource Group name for existing Virtual Network (if different from current resource group)"
+              }
+            },
+            "vnetSubscriptionId": {
+              "type": "string",
+              "defaultValue": "[subscription().subscriptionId]",
+              "metadata": {
+                "description": "Subscription ID for Virtual Network"
+              }
+            },
+            "existingDnsZones": {
+              "type": "object",
+              "defaultValue": {
+                "privatelink.services.ai.azure.com": "",
+                "privatelink.openai.azure.com": "",
+                "privatelink.cognitiveservices.azure.com": ""
+              },
+              "metadata": {
+                "description": "Map of DNS zone FQDNs to resource group names. If provided, reference existing DNS zones in this resource group instead of creating them."
+              }
+            },
+            "dnsZonesSubscriptionId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subscription ID where existing private DNS zones are located. Should be resolved to current subscription if empty."
+              }
+            }
+          },
+          "variables": {
+            "aiServicesDnsZoneName": "privatelink.services.ai.azure.com",
+            "openAiDnsZoneName": "privatelink.openai.azure.com",
+            "cognitiveServicesDnsZoneName": "privatelink.cognitiveservices.azure.com",
+            "aiServicesDnsZoneRG": "[parameters('existingDnsZones')[variables('aiServicesDnsZoneName')]]",
+            "openAiDnsZoneRG": "[parameters('existingDnsZones')[variables('openAiDnsZoneName')]]",
+            "cognitiveServicesDnsZoneRG": "[parameters('existingDnsZones')[variables('cognitiveServicesDnsZoneName')]]",
+            "aiServicesDnsZoneId": "[if(empty(variables('aiServicesDnsZoneRG')), resourceId('Microsoft.Network/privateDnsZones', variables('aiServicesDnsZoneName')), extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('dnsZonesSubscriptionId'), variables('aiServicesDnsZoneRG')), 'Microsoft.Network/privateDnsZones', variables('aiServicesDnsZoneName')))]",
+            "openAiDnsZoneId": "[if(empty(variables('openAiDnsZoneRG')), resourceId('Microsoft.Network/privateDnsZones', variables('openAiDnsZoneName')), extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('dnsZonesSubscriptionId'), variables('openAiDnsZoneRG')), 'Microsoft.Network/privateDnsZones', variables('openAiDnsZoneName')))]",
+            "cognitiveServicesDnsZoneId": "[if(empty(variables('cognitiveServicesDnsZoneRG')), resourceId('Microsoft.Network/privateDnsZones', variables('cognitiveServicesDnsZoneName')), extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('dnsZonesSubscriptionId'), variables('cognitiveServicesDnsZoneRG')), 'Microsoft.Network/privateDnsZones', variables('cognitiveServicesDnsZoneName')))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-private-endpoint', parameters('aiAccountName'))]",
+              "location": "[resourceGroup().location]",
+              "properties": {
+                "subnet": {
+                  "id": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('vnetSubscriptionId'), parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('peSubnetName'))]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-private-link-service-connection', parameters('aiAccountName'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiAccountName'))]",
+                      "groupIds": [
+                        "account"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "condition": "[empty(variables('aiServicesDnsZoneRG'))]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[variables('aiServicesDnsZoneName')]",
+              "location": "global"
+            },
+            {
+              "condition": "[empty(variables('openAiDnsZoneRG'))]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[variables('openAiDnsZoneName')]",
+              "location": "global"
+            },
+            {
+              "condition": "[empty(variables('cognitiveServicesDnsZoneRG'))]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[variables('cognitiveServicesDnsZoneName')]",
+              "location": "global"
+            },
+            {
+              "condition": "[empty(variables('aiServicesDnsZoneRG'))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', variables('aiServicesDnsZoneName'), format('aiServices-{0}-link', parameters('suffix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('vnetSubscriptionId'), parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('aiServicesDnsZoneName'))]"
+              ]
+            },
+            {
+              "condition": "[empty(variables('openAiDnsZoneRG'))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', variables('openAiDnsZoneName'), format('aiServicesOpenAI-{0}-link', parameters('suffix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('vnetSubscriptionId'), parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('openAiDnsZoneName'))]"
+              ]
+            },
+            {
+              "condition": "[empty(variables('cognitiveServicesDnsZoneRG'))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', variables('cognitiveServicesDnsZoneName'), format('aiServicesCognitiveServices-{0}-link', parameters('suffix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('vnetSubscriptionId'), parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('cognitiveServicesDnsZoneName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('{0}-private-endpoint', parameters('aiAccountName')), format('{0}-dns-group', parameters('aiAccountName')))]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "[format('{0}-dns-aiserv-config', parameters('aiAccountName'))]",
+                    "properties": {
+                      "privateDnsZoneId": "[variables('aiServicesDnsZoneId')]"
+                    }
+                  },
+                  {
+                    "name": "[format('{0}-dns-openai-config', parameters('aiAccountName'))]",
+                    "properties": {
+                      "privateDnsZoneId": "[variables('openAiDnsZoneId')]"
+                    }
+                  },
+                  {
+                    "name": "[format('{0}-dns-cogserv-config', parameters('aiAccountName'))]",
+                    "properties": {
+                      "privateDnsZoneId": "[variables('cognitiveServicesDnsZoneId')]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-private-endpoint', parameters('aiAccountName')))]",
+                "[resourceId('Microsoft.Network/privateDnsZones/virtualNetworkLinks', variables('aiServicesDnsZoneName'), format('aiServices-{0}-link', parameters('suffix')))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('aiServicesDnsZoneName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones/virtualNetworkLinks', variables('cognitiveServicesDnsZoneName'), format('aiServicesCognitiveServices-{0}-link', parameters('suffix')))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('cognitiveServicesDnsZoneName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones/virtualNetworkLinks', variables('openAiDnsZoneName'), format('aiServicesOpenAI-{0}-link', parameters('suffix')))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('openAiDnsZoneName'))]"
+              ]
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('capabilityHost-configuration-{0}-deployment', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountName.value]"
+          },
+          "projectName": {
+            "value": "[variables('projectName')]"
+          },
+          "projectCapHost": {
+            "value": "[parameters('projectCapHost')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "17607216443982035670"
+            }
+          },
+          "parameters": {
+            "projectName": {
+              "type": "string"
+            },
+            "accountName": {
+              "type": "string"
+            },
+            "projectCapHost": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects/capabilityHosts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), parameters('projectName'), parameters('projectCapHost'))]",
+              "properties": {
+                "capabilityHostKind": "Agents"
+              }
+            }
+          ],
+          "outputs": {
+            "projectCapHost": {
+              "type": "string",
+              "value": "[parameters('projectCapHost')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-private-endpoint', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('accountName'), variables('projectName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "accountId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountID.value]"
+    },
+    "accountName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountName.value]"
+    },
+    "projectName": {
+      "type": "string",
+      "value": "[variables('projectName')]"
+    }
+  }
+}
