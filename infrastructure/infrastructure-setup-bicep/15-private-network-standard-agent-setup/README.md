@@ -1,5 +1,5 @@
 ---
-description: This set of templates demonstrates how to set up Azure AI Agent Service with virtual network isolation with private network links to connect the agent to your secure data.
+description: This set of templates demonstrates how to set up Foundry Agent Service with virtual network isolation with private network links to connect the agent to your secure data.
 page_type: sample
 products:
 - azure
@@ -10,30 +10,51 @@ languages:
 - json
 ---
 
-# Azure AI Agent Service: Standard Agent Setup with E2E Network Isolation
+# Microsoft Foundry: Standard Agent Setup with E2E Network Isolation (without Tools behind VNET)
+
+> **NEW**
+> For support on deploying the right network isolation template, check out the [GitHub Copilot for Azure skill for private networking](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/resource/private-network/private-network.md) set-up!
 
 > **IMPORTANT**
-> 
-> Private Class A subnet support is GA and available in the following regions. **Supported regions: Australia East, Brazil South, Canada East, East US, East US 2, France Central, Germany West Central, Italy North, Japan East, South Africa North, South Central US, South India, Spain Central, Sweden Central, UAE North, UK South, West Europe, West US, West US 3.**
->
-> Private Class B and C subnet support is already GA and available in all regions supported by Azure AI Foundry Agent Service. Deployment templates and setup steps are identical for Class A, B, and C subnets. For more on the supported regions of the Azure AI Foundry Agent service, see [Models supported by Azure AI Foundry Agent Service](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/concepts/model-region-support?tabs=global-standard)
+> Please note this template does not support using Agent tools behind a VNET. Please refer to [template 19](../19-private-network-agents-tools-setup/) and the [TESTING-GUIDE.md](../19-private-network-agents-tools-setup/tests/TESTING-GUIDE.md) to ensure tool traffic also goes through your vnet. 
 
 ---
 ## Overview
-This infrastructure-as-code (IaC) solution deploys a network-secured Azure AI agent environment with private networking and role-based access control (RBAC).
+This infrastructure-as-code (IaC) solution deploys a network-secured agent environment with private networking and role-based access control (RBAC).
 
-Standard setup supports private network isolation through utilizing **Bring Your Own Virtual Network (BYO VNet)** approach, also known as **custom VNet support with subnet delegation.** 
+Standard setup supports private network isolation through utilizing **Bring Your Own Virtual Network (BYO VNet)** approach, also known as **custom VNet support with subnet delegation.** Please note this template does not support using Agent tools behind a VNET. Please use [template 19](../19-private-network-agents-tools-setup/) for this.  
 
 This implementation gives you full control over the inbound and outbound communication paths for your agent. You can restrict access to only the resources explicitly required by your agent, such as storage accounts, databases, or APIs, while blocking all other traffic by default. This approach ensures that your agent operates within a tightly scoped network boundary, reducing the risk of data leakage or unauthorized access. By default, this setup simplifies security configuration while enforcing strong isolation guarantees, ensuring that each agent deployment remains secure, compliant, and aligned with enterprise networking policies. 
 
 ---
 
-## Key Information
+## When to Use This Template
 
-**Region and Resource Placement Requirements**
-- **All Foundry workspace resources should be in the same region as the VNet**, including CosmosDB, Storage Account, AI Search, Foundry Account, Project, Managed Identity. The only exception is within the Foundry Account, you may choose to deploy your model to a different region, and any cross-region communication will be handled securely within our network infrastructure.
-  - **Note:** Your Virtual Network can be in a different resource group than your Foundry workspace resources 
+Use this template when you need:
+- **Full end-to-end network isolation** — All resources behind private endpoints with no public internet access
+- **BYO VNet control** — You manage your own virtual network, subnets, and network security groups
+- **Standard agent setup with BYO resources** — Customer-managed Storage, Cosmos DB, and AI Search for data residency and compliance
+- **System Assigned Managed Identity** — Simplified identity management with platform-managed credentials
 
+### Template Decision Guide
+
+Use the table below to choose the right infrastructure template for your scenario:
+
+| Template | Agent Type | Networking | Identity | Key Use Case |
+|----------|-----------|------------|----------|-------------|
+| [**15** (this template)](../15-private-network-standard-agent-setup/) | Standard (BYO resources) | BYO VNet + Private Endpoints | System Assigned MI | E2E network isolation with full agent capabilities |
+| [**19**](../19-private-network-agents-tools-setup/) | Standard (BYO resources) | BYO VNet + Private Endpoints | System Assigned MI | Same as 15 **plus** tools behind VNet (MCP, OpenAPI, Functions, A2A) |
+| [**17**](../17-private-network-standard-user-assigned-identity-agent-setup/) | Standard (BYO resources) | BYO VNet + Private Endpoints | **User Assigned MI** | Same as 15 but with user-managed identity |
+| [**16**](../16-private-network-standard-agent-apim-setup-preview/) | Standard (BYO resources) | BYO VNet + Private Endpoints | System Assigned MI | Same as 15 **plus** private APIM integration (preview) |
+| [**18**](../18-managed-virtual-network-preview/) | Standard (BYO resources) | **Managed VNet** (Microsoft-managed) | System Assigned MI | Network isolation without managing your own VNet (preview) |
+| [**15a**](../15a-private-network-evaluation-only-setup/) | Evaluation only | BYO VNet + Private Endpoints | System Assigned MI | Minimal setup for evaluation — no Cosmos DB, AI Search, or capability host |
+| [**11**](../11-private-network-basic-vnet/) | **Basic** (platform-managed) | BYO VNet injection | System Assigned MI | Basic agents with VNet isolation — no BYO resources needed |
+| [**41**](../41-standard-agent-setup/) | Standard (BYO resources) | **Public** (no VNet) | System Assigned MI | Standard agents without network isolation |
+| [**40**](../40-basic-agent-setup/) | **Basic** (platform-managed) | **Public** (no VNet) | System Assigned MI | Simplest setup — no BYO resources, no private networking |
+
+---
+
+## Deploy to Azure
 
 [![Deploy To Azure](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.svg?sanitize=true)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fazure-ai-foundry%2Ffoundry-samples%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Finfrastructure-setup-bicep%2F15-private-network-standard-agent-setup%2Fazuredeploy.json)
 
@@ -42,9 +63,9 @@ This implementation gives you full control over the inbound and outbound communi
 ## Prerequisites
 
 1. **Active Azure subscription with appropriate permissions**
-   - **Azure AI Account Owner**: Needed to create a cognitive services account and project 
-   - **Owner or Role Based Access Administrator**: Needed to assign RBAC to the required resources (Cosmos DB, Azure AI Search, Storage) 
-   - **Azure AI User**: Needed to create and edit agents
+  - **Azure AI Account Owner**: Needed to create the Microsoft Foundry account and project.
+  - **Owner or Role Based Access Administrator**: Needed to assign RBAC on the Azure resources used by this template.
+  - **Azure AI User**: Needed to create and use agents, projects, or evaluation workloads after deployment.
 
 1. **Register Resource Providers**
 
@@ -62,8 +83,8 @@ This implementation gives you full control over the inbound and outbound communi
 
 1. Network administrator permissions (if operating in a restricted or enterprise environment)
 
-1. Sufficient quota for all resources in your target Azure region
-    * If no parameters are passed in, this template creates an Azure AI Foundry resource, Foundry project, Azure Cosmos DB for NoSQL, Azure AI Search, and Azure Storage account
+1. Sufficient quota for all resources required by this template in the target Azure region, including model deployment quota.
+    * If no parameters are passed in, this template creates an Microsoft Foundry resource, Foundry project, Azure Cosmos DB for NoSQL, Azure AI Search, and Azure Storage account
 1. Azure CLI installed and configured on your local workstation or deployment pipeline server
 
 ---
@@ -82,9 +103,19 @@ This implementation gives you full control over the inbound and outbound communi
   > **Notes:** 
   - If you do not provide an existing virtual network, the template will create a new virtual network with the default address spaces and subnets described above. If you use an existing virtual network, make sure it already contains two subnets (Agent and Private Endpoint) before deploying the template.
   - You must ensure the Foundry account was successfully created so that underlying caphost has also succeeded. Then proceed to deploying the project caphost bicep. 
-  - You must ensure the subnet is not already in use by another account. It must be an exclusive subnet for the Foundry account.
   - You must ensure the subnet is exclusively delegated to __Microsoft.App/environments__ and cannot be used by any other Azure resources.
-  
+
+
+
+### Limitations / Known Issues
+
+1. The delegated agent subnet must be exclusively used by a single Foundry account. It cannot be shared across accounts.
+2. The Foundry resource and the virtual network must be in the same Azure region. BYO resources (Storage, Cosmos DB, AI Search) may be in different regions.
+3. For the virtual network IP range, you may use any Private Class A, B or C IP range. Private Class A IP address ranges (10.x.x.x) are only supported in the following regions: **Australia East, Brazil South, Canada East, East US, East US 2, France Central, Germany West Central, Italy North, Japan East, South Africa North, South Central US, South India, Spain Central, Sweden Central, UAE North, UK South, West US, West US 3.** Use Class B (172.16.x.x) or C (192.168.x.x) ranges for other regions. You may not use any other IP range that overlaps to the list above or uses public IP ranges. 
+4. This template does **not** support tools (MCP servers, OpenAPI tools, Azure Functions, A2A) behind the VNet. Use [template 19](../19-private-network-agents-tools-setup/) for that scenario.
+5. There is no upgrade path from BYO VNet (this template) to Managed Virtual Network (template 18). A Foundry resource redeployment is required.
+6. All projects within the same Foundry account share model deployments. Per-project model isolation is not supported.
+7. Cosmos DB is deployed as single-region. Multi-region replication must be configured manually post-deployment.
 
 ### Account Deletion Prerequisites and Cleanup Guidance
 
@@ -108,6 +139,31 @@ Note: If not provided, the following resources will be created automatically for
 - Azure Storage
 
 #### Parameters
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `location` | Azure region for deployment | `eastus` | Yes |
+| `aiServices` | Base name for the AI Services resource | `aiservices` | No |
+| `firstProjectName` | Name for the Foundry project | `project` | No |
+| `modelName` | Model to deploy | `gpt-4.1` | No |
+| `modelFormat` | Model provider | `OpenAI` | No |
+| `modelVersion` | Model version | `2025-04-14` | No |
+| `modelSkuName` | Model deployment SKU | `GlobalStandard` | No |
+| `modelCapacity` | Tokens per minute (TPM) capacity | `30` | No |
+| `vnetName` | Virtual Network name | `agent-vnet-test` | No |
+| `agentSubnetName` | Subnet name for agent workloads | `agent-subnet` | No |
+| `agentSubnetPrefix` | Address prefix for agent subnet | `192.168.0.0/24` | No |
+| `peSubnetName` | Subnet name for private endpoints | `pe-subnet` | No |
+| `peSubnetPrefix` | Address prefix for PE subnet | `192.168.1.0/24` | No |
+| `existingVnetResourceId` | Full ARM Resource ID of an existing VNet | `''` (creates new) | No |
+| `vnetAddressPrefix` | Address space for new VNet | `192.168.0.0/16` | No |
+| `aiSearchResourceId` | ARM Resource ID of existing AI Search | `''` (creates new) | No |
+| `azureStorageAccountResourceId` | ARM Resource ID of existing Storage account | `''` (creates new) | No |
+| `azureCosmosDBAccountResourceId` | ARM Resource ID of existing Cosmos DB | `''` (creates new) | No |
+| `dnsZonesSubscriptionId` | Subscription ID for existing DNS zones | `''` (current sub) | No |
+| `existingDnsZones` | Map of DNS zone names to resource groups | All empty (creates new) | No |
+
+#### BYO Resource Details
 
 1. **Use Existing Virtual Network and Subnets**
 
@@ -135,25 +191,6 @@ To use an existing VNet and subnets, set the existingVnetResourceId parameter to
 
 To use an existing Cosmos DB for NoSQL resource, set cosmosDBResourceId parameter to the full Azure Resource ID of the target Cosmos DB.
 - param azureCosmosDBAccountResourceId string =  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/{cosmosDbAccountName}
-
-> **⚠️ Important: Cosmos DB Connection Requirements**
->
-> When creating the Cosmos DB connection (e.g., via REST API or ARM), ensure the following:
-> - The `authType` **must** be set to `AAD`. This is the only supported authentication type for the Cosmos DB connection used by the Agent Service.
-> - The `metadata` section **must** include the `ResourceId` property, set to the full Azure Resource ID of your Cosmos DB account. The Agent Service relies on this property to correctly identify and connect to your Cosmos DB resource. Omitting `ResourceId` from the metadata will cause the connection to fail.
->
-> Example connection properties:
-> ```json
-> {
->   "category": "CosmosDB",
->   "authType": "AAD",
->   "metadata": {
->     "ApiType": "Azure",
->     "ResourceId": "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/{cosmosDbAccountName}",
->     "location": "{region}"
->   }
-> }
-> ```
 
 
 3. **Use an existing Azure AI Search resource**
@@ -191,15 +228,70 @@ Click the deploy to Azure button above to open the Azure portal and deploy the t
       az deployment group create --resource-group <your-resource-group> --template-file main.bicep --parameters main.bicepparam
    ```
 
-> **Note:** To access your Foundry resource securely, use either a VM, VPN, or ExpressRoute.
+> **Note:** To access a private Foundry resource securely, use one of the following:
+> - A VM or jump box on the virtual network, optionally accessed through Azure Bastion
+> - Azure VPN Gateway
+> - Azure ExpressRoute
+
+### Cleanup
+
+To delete all resources created by this template:
+
+```bash
+az group delete --name <your-resource-group> --yes --no-wait
+```
+
+> **Important**: If you need to reuse the same subnet, follow the [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance) to properly purge the account and wait for the capability host to fully unlink (~20 minutes).
 
 ---  
 
 ## Network Secured Agent Project Architecture Deep Dive
 
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Secure Access (VPN Gateway / ExpressRoute / Azure Bastion)         │
+└──────────────────────────────────┬──────────────────────────────────┘
+                                   │
+                    ┌──────────────▼──────────────┐
+                    │   Microsoft Foundry          │
+                    │   (publicNetworkAccess:      │
+                    │        DISABLED)             │
+                    │                              │
+                    │  ┌────────────────────────┐  │
+                    │  │   Foundry Project       │  │
+                    │  │   (Agent Workspace)     │  │
+                    │  └───────────┬────────────┘  │
+                    └──────────────┼──────────────┘
+                                   │ Subnet Delegation
+                    ┌──────────────▼──────────────┐
+                    │   BYO Virtual Network        │
+                    │   (192.168.0.0/16)           │
+                    │                              │
+                    │  ┌──────────────────────┐    │
+                    │  │ Agent Subnet          │   │
+                    │  │ (192.168.0.0/24)      │   │  ◄── Delegated to
+                    │  │ Microsoft.App/envs    │   │      Microsoft.App/environments
+                    │  └──────────────────────┘    │
+                    │                              │
+                    │  ┌──────────────────────┐    │
+                    │  │ PE Subnet             │   │
+                    │  │ (192.168.1.0/24)      │   │
+                    │  │                       │   │
+                    │  │ ┌────────┐ ┌────────┐ │   │
+                    │  │ │Storage │ │Cosmos  │ │   │  ◄── Private endpoints
+                    │  │ └────────┘ └────────┘ │   │      (no public access)
+                    │  │ ┌────────┐ ┌────────┐ │   │
+                    │  │ │Search  │ │Foundry │ │   │
+                    │  │ └────────┘ └────────┘ │   │
+                    │  └──────────────────────┘    │
+                    └──────────────────────────────┘
+```
+
+> **Tip:** For detailed layer-by-layer deployment diagrams, see the `diagrams/` folder.
+
 ### Core Components
 
-**Azure AI Foundry** resource
+**Microsoft Foundry** resource
 - Central orchestration point
 - Manages service connections
 - Set networking and policy configurations
@@ -216,11 +308,11 @@ Click the deploy to Azure button above to open the Azure portal and deploy the t
 - BYO Search: All vector stores created by the agent leverage the customer’s Azure AI Search resource.
 - BYO Thread Storage: All customer messages and conversation history will be stored in the customer’s own Azure Cosmos DB account.
 
-By bundling these BYO features (file storage, search, and thread storage), the standard setup guarantees that your deployment is secure by default. All data processed by Azure AI Foundry Agent Service is automatically stored at rest in your own Azure resources, helping you meet internal policies, compliance requirements, and enterprise security standards.
+By bundling these BYO features (file storage, search, and thread storage), the standard setup guarantees that your deployment is secure by default. All data processed by Microsoft Foundry Agent Service is automatically stored at rest in your own Azure resources, helping you meet internal policies, compliance requirements, and enterprise security standards.
 
 ### Azure Resources Created
 
-Azure AI Foundry (Cognitive Services)
+Microsoft Foundry (Cognitive Services)
 - Type: Microsoft.CognitiveServices/accounts
 - API version: 2025-04-01-preview
 - Kind: AIServices
@@ -291,7 +383,7 @@ Network Security
 
 **Private Endpoints** 
 Private endpoints ensure secure, internal-only connectivity. Private endpoints are created for the following:
-- Azure AI Foundry
+- Microsoft Foundry
 - Azure AI Search
 - Azure Storage
 - Azure Cosmos DB
@@ -299,7 +391,7 @@ Private endpoints ensure secure, internal-only connectivity. Private endpoints a
 **Private DNS Zones**
 | Private Link Resource Type | Sub Resource | Private DNS Zone Name | Public DNS Zone Forwarders |
 |----------------------------|--------------|------------------------|-----------------------------|
-| **Azure AI Foundry**       | account      | `privatelink.cognitiveservices.azure.com`<br>`privatelink.openai.azure.com`<br>`privatelink.services.ai.azure.com` | `cognitiveservices.azure.com`<br>`openai.azure.com`<br>`services.ai.azure.com` |
+| **Microsoft Foundry**       | account      | `privatelink.cognitiveservices.azure.com`<br>`privatelink.openai.azure.com`<br>`privatelink.services.ai.azure.com` | `cognitiveservices.azure.com`<br>`openai.azure.com`<br>`services.ai.azure.com` |
 | **Azure AI Search**        | searchService| `privatelink.search.windows.net` | `search.windows.net` |
 | **Azure Cosmos DB**        | Sql          | `privatelink.documents.azure.com` | `documents.azure.com` |
 | **Azure Storage**          | blob         | `privatelink.blob.core.windows.net` | `blob.core.windows.net` |
@@ -341,7 +433,7 @@ Private endpoints ensure secure, internal-only connectivity. Private endpoints a
 ```text
 modules-network-secured/
 ├── add-project-capability-host.bicep               # Configuring the project's capability host
-├── ai-account-identity.bicep                       # Azure AI Foundry deployment and configuration
+├── ai-account-identity.bicep                       # Microsoft Foundry deployment and configuration
 ├── ai-project-identity.bicep                       # Foundry project deployment and connection configuration           
 ├── ai-search-role-assignments.bicep                # AI Search RBAC configuration
 ├── azure-storage-account-role-assignments.bicep    # Storage Account RBAC configuration  
@@ -357,8 +449,6 @@ modules-network-secured/
 ├── validate-existing-resources.bicep               # Validate existing CosmosDB, Storage, and Search to template deployment
 └── vnet.bicep                                      # Deploying a new virtual network
 ```
-
-> **Note:** If you bring your own VNET for this template, ensure the subnet for Agents has the correct subnet delegation to `Microsoft.App/environments`. If you have not specified the delegated subnet, the template will complete this for you.
 
 ## Maintenance
 
@@ -376,7 +466,6 @@ modules-network-secured/
 3. Validate role assignments
 4. Review network security groups
 
----
 ---
 # (Optional) Adding Multiple Projects to AI Foundry Deployment
 
@@ -541,8 +630,8 @@ Each new project deployment creates:
 
 ## References
 
-- [Azure AI Foundry Networking Documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/configure-private-link?tabs=azure-portal&pivots=fdp-project)
-- [Azure AI Foundry RBAC Documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/rbac-azure-ai-foundry?pivots=fdp-project)
+- [Microsoft Foundry Networking Documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/configure-private-link?tabs=azure-portal&pivots=fdp-project)
+- [Microsoft Foundry RBAC Documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/rbac-azure-ai-foundry?pivots=fdp-project)
 - [Private Endpoint Documentation](https://learn.microsoft.com/en-us/azure/private-link/)
 - [RBAC Documentation](https://learn.microsoft.com/en-us/azure/role-based-access-control/)
 - [Network Security Best Practices](https://learn.microsoft.com/en-us/azure/security/fundamentals/network-best-practices)

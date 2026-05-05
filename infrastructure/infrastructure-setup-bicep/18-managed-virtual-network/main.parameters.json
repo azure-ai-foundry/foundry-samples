@@ -1,0 +1,76 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "eastus2"
+    },
+    "isolationMode": {
+      "value": "AllowOnlyApprovedOutbound"
+    },
+    "aiServices": {
+      "value": "aiservices"
+    },
+    "deploymentTimestamp": {
+      "value": "20260501222500"
+    },
+    "firstProjectName": {
+      "value": "project"
+    },
+    "projectDescription": {
+      "value": "A project for the AI Foundry account with managed network secured deployed Agent"
+    },
+    "displayName": {
+      "value": "project"
+    },
+    "peSubnetName": {
+      "value": "pe-subnet"
+    },
+    "existingVnetResourceId": {
+      "value": "/subscriptions/4c9044a9-7faa-4233-9745-94436400ee92/resourceGroups/mvnet-5-1-eus2/providers/Microsoft.Network/virtualNetworks/my-mvnet-5-1"
+    },
+    "vnetName": {
+      "value": ""
+    },
+    "aiSearchResourceId": {
+      "value": "/subscriptions/4c9044a9-7faa-4233-9745-94436400ee92/resourceGroups/rg-mvnet-eus2-4-1/providers/Microsoft.Search/searchServices/foundryzc3jsearch"
+    },
+    "azureStorageAccountResourceId": {
+      "value": "/subscriptions/4c9044a9-7faa-4233-9745-94436400ee92/resourceGroups/mvnet-5-1-eus2/providers/Microsoft.Storage/storageAccounts/aiservicesrw5rstorage"
+    },
+    "azureCosmosDBAccountResourceId": {
+      "value": "/subscriptions/4c9044a9-7faa-4233-9745-94436400ee92/resourceGroups/mvnet-5-1-eus2/providers/Microsoft.DocumentDB/databaseAccounts/aiservicesrw5rcosmosdb"
+    },
+    "apiManagementResourceId": {
+      "value": ""
+    },
+    "existingDnsZones": {
+      "value": {
+        "privatelink.services.ai.azure.com": "",
+        "privatelink.openai.azure.com": "",
+        "privatelink.cognitiveservices.azure.com": "",
+        "privatelink.search.windows.net": "",
+        "privatelink.blob.core.windows.net": "",
+        "privatelink.documents.azure.com": "",
+        "privatelink.azure-api.net": ""
+      }
+    },
+    "dnsZoneNames": {
+      "value": [
+        "privatelink.services.ai.azure.com",
+        "privatelink.openai.azure.com",
+        "privatelink.cognitiveservices.azure.com",
+        "privatelink.search.windows.net",
+        "privatelink.blob.core.windows.net",
+        "privatelink.documents.azure.com",
+        "privatelink.azure-api.net"
+      ]
+    },
+    "vnetAddressPrefix": {
+      "value": ""
+    },
+    "peSubnetPrefix": {
+      "value": ""
+    }
+  }
+}

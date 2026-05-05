@@ -1,0 +1,12 @@
+{
+  "$schema": "https://aka.ms/azure-quickstart-templates-metadata-schema#",
+  "type": "QuickStart",
+  "itemDisplayName": "Network Secured Basic Agent Setup with VNet Injection",
+  "description": "This template demonstrates how to set up Foundry with a basic agent configuration using VNet injection for network isolation.",
+  "summary": "This template demonstrates how to set up Foundry with a basic agent using your own virtual network for network-secured agent workloads.",
+  "githubUsername": "meerakurup",
+  "dateUpdated": "2026-05-04",
+  "environments": [
+    "AzureCloud"
+  ]
+}
