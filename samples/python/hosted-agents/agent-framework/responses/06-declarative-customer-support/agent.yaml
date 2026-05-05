@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
 kind: hosted
-name: agent-framework-agent-basic-responses
+name: agent-framework-declarative-customer-support-responses
 protocols:
   - protocol: responses
     version: 1.0.0

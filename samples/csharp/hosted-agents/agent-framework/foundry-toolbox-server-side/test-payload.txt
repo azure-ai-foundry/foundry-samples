@@ -1,0 +1,4 @@
+What tools do you have available?
+Use the code interpreter to compute the 30th Fibonacci number.
+Find the latest API version for Microsoft.CognitiveServices accounts in the azure-rest-api-specs repo.
+Plot a sine wave from 0 to 2π using the code interpreter.
