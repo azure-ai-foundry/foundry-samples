@@ -1,2 +1,2 @@
-agent-framework>=1.2.2
+agent-framework
 agent-framework-foundry-hosting

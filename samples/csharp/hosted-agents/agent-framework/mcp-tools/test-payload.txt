@@ -1,0 +1,4 @@
+How do I authenticate to Azure using DefaultAzureCredential in C#?
+Search Microsoft Learn for guidance on deploying an Azure Container App.
+What is Microsoft Foundry and how do I get started?
+Find documentation on the Agent Framework Responses protocol.
