@@ -23,6 +23,11 @@ resource projectCapabilityHost 'Microsoft.CognitiveServices/accounts/projects/ca
   name: projectCapHost
   parent: project
   properties: {
+    // Bicep type definitions for capabilityHosts are stale and reject
+    // `capabilityHostKind`, but the ARM API REQUIRES it (without it the
+    // capability host is created with no kind and downstream agents fail).
+    // Suppressing the false-positive BCP037 since runtime validation passes.
+    #disable-next-line BCP037
     capabilityHostKind: 'Agents'
     vectorStoreConnections: vectorStoreConnections
     storageConnections: storageConnections

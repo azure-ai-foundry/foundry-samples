@@ -97,6 +97,22 @@ param peSubnetPrefix string = ''
 @description('When true and existingVnetResourceId is set, the template will NOT modify your existing subnets.')
 param reuseExistingSubnets bool = false
 
+// True BYO Foundry account.
+// When set, the template references the existing AI Foundry account instead of
+// creating a new one with a deterministic suffix (which orphans on re-runs).
+@description('Optional. Full ARM resource ID of an existing AI Foundry (CognitiveServices/accounts kind=AIServices) account to reuse. When set, the template will NOT create a new account.')
+param existingAiFoundryAccountResourceId string = ''
+
+@description('Optional. When true, skip the model deployment. Recommended when reusing an existing account that already has the required model deployments.')
+param skipModelDeployment bool = false
+
+// Re-derive BYO account context at main.bicep level so we can scope the
+// account-level capabilityHost module to the right RG/subscription.
+var useExistingAccount = !empty(existingAiFoundryAccountResourceId)
+var existingAccountIdParts = split(existingAiFoundryAccountResourceId, '/')
+var existingAccountSubscriptionId = useExistingAccount ? existingAccountIdParts[2] : subscription().subscriptionId
+var existingAccountResourceGroupName = useExistingAccount ? existingAccountIdParts[4] : resourceGroup().name
+
 @description('The AI Search Service full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
 param aiSearchResourceId string = ''
 @description('The AI Storage Account full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
@@ -220,6 +236,8 @@ module aiAccount 'modules-network-secured/ai-account-identity.bicep' = {
     modelSkuName: modelSkuName
     modelCapacity: modelCapacity
     agentSubnetId: vnet.outputs.agentSubnetId
+    existingAccountResourceId: existingAiFoundryAccountResourceId
+    skipModelDeployment: skipModelDeployment
   }
 }
 /*
@@ -398,6 +416,21 @@ module aiSearchRoleAssignments 'modules-network-secured/ai-search-role-assignmen
   ]
 }
 
+// Account-level capabilityHost (bootstraps before project caphost).
+// The current sample relies on createCapHost.sh being run manually; making it
+// declarative keeps the flow idempotent and works for both new and BYO accounts.
+module addAccountCapabilityHost 'modules-network-secured/add-account-capability-host.bicep' = {
+  name: 'account-caphost-${uniqueSuffix}-deployment'
+  scope: resourceGroup(existingAccountSubscriptionId, existingAccountResourceGroupName)
+  params: {
+    accountName: aiAccount.outputs.accountName
+    agentSubnetResourceId: vnet.outputs.agentSubnetId
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+  ]
+}
+
 // This module creates the capability host for the project and account
 module addProjectCapabilityHost 'modules-network-secured/add-project-capability-host.bicep' = {
   name: 'capabilityHost-configuration-${uniqueSuffix}-deployment'
@@ -410,6 +443,7 @@ module addProjectCapabilityHost 'modules-network-secured/add-project-capability-
     projectCapHost: projectCapHost
   }
   dependsOn: [
+     addAccountCapabilityHost  // account caphost must exist first
      aiSearch      // Ensure AI Search exists
      storage       // Ensure Storage exists
      cosmosDB
