@@ -1,10 +1,13 @@
 
-## Outbound Rules CLI
+## Outbound Rules az rest CLI
+
+Please follow this documentation to run `az rest` commands to create outbound rules. Please follow the other document in this folder for `az cognitiveservices` commands to create the managed network and create outbound rules. 
 
 ### Outbound Rule for Storage account 
 
 Below is the CLI command to create an outbound rule from the managed VNET to your storage account. In the sample template we create the managed VNET PE for storage, but you will need two more for your CosmosDB resource and your Search resource. 
 
+```bash
 az rest --method PUT --url 'https://management.azure.com/subscriptions/{sub-id}/resourceGroups/{rg-name}/providers/Microsoft.CognitiveServices/accounts/{foundry-account}/managedNetworks/default/outboundRules/test-rule?api-version=2025-10-01-preview' \
 --body '{
   "id": "/subscriptions/{sub-id}/resourceGroups/{rg-name}/providers/Microsoft.CognitiveServices/accounts/{foundry-account}/managedNetworks/default/outboundRules/test-rule-str",
@@ -19,11 +22,13 @@ az rest --method PUT --url 'https://management.azure.com/subscriptions/{sub-id}/
     "category": "UserDefined"
   }
 }'
+```
 
 ### Outbound Rule for CDB account 
 
 Below is the CLI command to create an outbound rule from the managed VNET to your CDB account. 
 
+```bash
 az rest --method PUT --url 'https://management.azure.com/subscriptions/{sub-id}/resourceGroups/{rg-name}/providers/Microsoft.CognitiveServices/accounts/{foundry-account}/managedNetworks/default/outboundRules/test-rule?api-version=2025-10-01-preview' \
 --body '{
   "id": "/subscriptions/{sub-id}/resourceGroups/{rg-name}/providers/Microsoft.CognitiveServices/accounts/{foundry-account}/managedNetworks/default/outboundRules/test-rule-cdb",
@@ -38,11 +43,13 @@ az rest --method PUT --url 'https://management.azure.com/subscriptions/{sub-id}/
     "category": "UserDefined"
   }
 }'
+```
 
 ### Outbound Rule for Search account 
 
 Below is the CLI command to create an outbound rule from the managed VNET to your Search account. 
 
+```bash
 az rest --method PUT --url 'https://management.azure.com/subscriptions/{sub-id}/resourceGroups/{rg-name}/providers/Microsoft.CognitiveServices/accounts/{foundry-account}/managedNetworks/default/outboundRules/test-rule?api-version=2025-10-01-preview' \
 --body '{
   "id": "/subscriptions/{sub-id}/resourceGroups/{rg-name}/providers/Microsoft.CognitiveServices/accounts/{foundry-account}/managedNetworks/default/outboundRules/test-rule-search",
@@ -57,6 +64,7 @@ az rest --method PUT --url 'https://management.azure.com/subscriptions/{sub-id}/
     "category": "UserDefined"
   }
 }'
+```
 
 # Batch Outbound Rules CLI
 
@@ -101,3 +109,48 @@ az rest --method POST --uri $uri --body $body
 - Run this after the main Bicep deployment completes
 - The managed network must already exist before running this command
 
+### batch-outbound-rules.json
+
+```json
+{
+  "id": "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.CognitiveServices/accounts/{accountName}/managedNetworks/default",
+  "name": "default",
+  "type": "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules",
+  "properties": {
+    "IsolationMode": "AllowOnlyApprovedOutbound",
+    "outboundRules": {
+      "storage-rule": {
+        "type": "PrivateEndpoint",
+        "destination": {
+          "serviceResourceId": "/subscriptions/{storageSubscriptionId}/resourceGroups/{storageResourceGroupName}/providers/Microsoft.Storage/storageAccounts/{storageName}",
+          "subresourceTarget": "blob",
+          "sparkEnabled": false,
+          "sparkStatus": "Inactive"
+        },
+        "category": "UserDefined"
+      },
+      "aisearch-rule": {
+        "type": "PrivateEndpoint",
+        "destination": {
+          "serviceResourceId": "/subscriptions/{aiSearchSubscriptionId}/resourceGroups/{aiSearchResourceGroupName}/providers/Microsoft.Search/searchServices/{aiSearchName}",
+          "subresourceTarget": "searchService",
+          "sparkEnabled": false,
+          "sparkStatus": "Inactive"
+        },
+        "category": "UserDefined"
+      },
+      "cosmosdb-rule": {
+        "type": "PrivateEndpoint",
+        "destination": {
+          "serviceResourceId": "/subscriptions/{cosmosDBSubscriptionId}/resourceGroups/{cosmosDBResourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/{cosmosDBName}",
+          "subresourceTarget": "Sql",
+          "sparkEnabled": false,
+          "sparkStatus": "Inactive"
+        },
+        "category": "UserDefined"
+      }
+    },
+    "managedNetworkKind": "V2"
+  }
+}
+```
