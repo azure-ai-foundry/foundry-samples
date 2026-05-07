@@ -28,6 +28,10 @@ param agentSubnetPrefix string = ''
 @description('Address prefix for the private endpoint subnet')
 param peSubnetPrefix string = ''
 
+// Non-destructive subnet handling. See existing-vnet.bicep.
+@description('When true and useExistingVnet=true, do NOT modify the existing subnets, reference them as-is.')
+param reuseExistingSubnets bool = false
+
 // Create new VNet if needed
 module newVNet 'vnet.bicep' = if (!useExistingVnet) {
   name: 'vnet-deployment'
@@ -53,6 +57,7 @@ module existingVNet 'existing-vnet.bicep' = if (useExistingVnet) {
     peSubnetName: peSubnetName
     agentSubnetPrefix: agentSubnetPrefix
     peSubnetPrefix: peSubnetPrefix
+    reuseExistingSubnets: reuseExistingSubnets
   }
 }
 
