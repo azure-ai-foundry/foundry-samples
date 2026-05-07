@@ -488,7 +488,7 @@ modules-network-secured/
 4. Review network security groups
 
 ---
-# (Optional) Adding Multiple Projects to AI Foundry Deployment
+# (Optional) Adding Multiple Projects to Foundry Deployment
 
 This guide explains how to add additional projects to your existing AI Foundry deployment with network security and capability hosts.
 
