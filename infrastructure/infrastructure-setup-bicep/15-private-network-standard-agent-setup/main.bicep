@@ -62,8 +62,14 @@ param projectDescription string = 'A project for the AI Foundry account with net
 param displayName string = 'network secured agent project'
 
 // Existing Virtual Network parameters
-@description('Virtual Network name for the Agent to create new or existing virtual network')
-param vnetName string = 'agent-vnet-test'
+// vnetName precedence + UX clarity.
+// When existingVnetResourceId is set, vnetName is IGNORED and the actual name
+// is derived from the resource ID (`last(vnetParts)`). The original default
+// 'agent-vnet-test' was misleading: users who copied it as-is alongside
+// existingVnetResourceId thought they were targeting a specific VNet but the
+// resource ID won, hiding mistakes. Default is now empty.
+@description('Virtual Network name. Required ONLY when creating a NEW VNet (existingVnetResourceId is empty). When existingVnetResourceId is set, this value is IGNORED, the name is derived from the resource ID. If you supply both they should match; otherwise the resource ID wins.')
+param vnetName string = ''
 
 @description('The name of Agents Subnet to create new or existing subnet for agents')
 param agentSubnetName string = 'agent-subnet'
@@ -83,6 +89,13 @@ param agentSubnetPrefix string = ''
 
 @description('Address prefix for the private endpoint subnet')
 param peSubnetPrefix string = ''
+
+// Non-destructive subnet handling.
+// Set to true when bringing your own pre-configured subnets (NSG/RT/PE policies
+// already set by your platform team). Prevents the template from doing a PUT
+// that would reset privateEndpointNetworkPolicies and trip tenant policies.
+@description('When true and existingVnetResourceId is set, the template will NOT modify your existing subnets.')
+param reuseExistingSubnets bool = false
 
 @description('The AI Search Service full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
 param aiSearchResourceId string = ''
@@ -160,8 +173,16 @@ var vnetResourceGroupName = existingVnetPassedIn ? vnetParts[4] : resourceGroup(
 var existingVnetName = existingVnetPassedIn ? last(vnetParts) : vnetName
 var trimVnetName = trim(existingVnetName)
 
-// Resolve DNS zones subscription ID - use current subscription if not specified
-var resolvedDnsZonesSubscriptionId = empty(dnsZonesSubscriptionId) ? subscription().subscriptionId : dnsZonesSubscriptionId
+// Resolve DNS zones subscription ID - use current subscription if not specified.
+// Accept either form: bare GUID or "/subscriptions/<guid>".
+// The full ARM path form previously broke the existing-zone cross-sub references
+// silently (the subscriptionId field needs the bare GUID).
+var normalizedDnsZonesSubscriptionId = empty(dnsZonesSubscriptionId)
+  ? ''
+  : (startsWith(toLower(dnsZonesSubscriptionId), '/subscriptions/')
+      ? split(dnsZonesSubscriptionId, '/')[2]
+      : dnsZonesSubscriptionId)
+var resolvedDnsZonesSubscriptionId = empty(normalizedDnsZonesSubscriptionId) ? subscription().subscriptionId : normalizedDnsZonesSubscriptionId
 
 @description('The name of the project capability host to be created')
 param projectCapHost string = 'caphostproj'
@@ -180,6 +201,7 @@ module vnet 'modules-network-secured/network-agent-vnet.bicep' = {
     agentSubnetPrefix: agentSubnetPrefix
     peSubnetPrefix: peSubnetPrefix
     existingVnetSubscriptionId: vnetSubscriptionId
+    reuseExistingSubnets: reuseExistingSubnets
   }
 }
 

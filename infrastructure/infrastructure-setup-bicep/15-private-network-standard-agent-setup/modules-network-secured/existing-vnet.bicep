@@ -35,6 +35,18 @@ param agentSubnetPrefix string = ''
 @description('Address prefix for the private endpoint subnet (only needed if creating new subnet)')
 param peSubnetPrefix string = ''
 
+// Non-destructive subnet handling.
+// When the caller already has correctly-configured subnets (delegations, NSGs,
+// route tables, privateEndpointNetworkPolicies), the original template would
+// PUT a slim subnet body (only addressPrefix + delegations) and ARM would
+// silently RESET privateEndpointNetworkPolicies (and clobber NSG/RT references)
+// to defaults. In tenants that enforce a policy on those properties, this
+// fails with RequestDisallowedByPolicy.
+// When reuseExistingSubnets=true we skip the subnet PUT entirely and just
+// reference the existing subnet IDs in the outputs.
+@description('When true, do NOT modify the existing subnets, reference them as-is. Recommended when the caller manages subnet config (NSG/RT/PE policies) outside this template.')
+param reuseExistingSubnets bool = false
+
 // Get the address space (array of CIDR strings)
 var vnetAddressSpace = existingVNet.properties.addressSpace.addressPrefixes[0]
 
@@ -48,7 +60,7 @@ resource existingVNet 'Microsoft.Network/virtualNetworks@2024-05-01' existing = 
 }
 
 // Create the agent subnet if requested
-module agentSubnet 'subnet.bicep' = {
+module agentSubnet 'subnet.bicep' = if (!reuseExistingSubnets) {
   name: 'agent-subnet-${uniqueString(deployment().name, agentSubnetName)}'
   scope: resourceGroup(vnetResourceGroupName)
   params: {
@@ -67,7 +79,7 @@ module agentSubnet 'subnet.bicep' = {
 }
 
 // Create the private endpoint subnet if requested
-module peSubnet 'subnet.bicep' = {
+module peSubnet 'subnet.bicep' = if (!reuseExistingSubnets) {
   name: 'pe-subnet-${uniqueString(deployment().name, peSubnetName)}'
   scope: resourceGroup(vnetResourceGroupName)
   params: {
