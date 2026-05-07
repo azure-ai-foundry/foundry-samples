@@ -164,7 +164,7 @@ az cognitiveservices account managed-network outbound-rule remove \
 
 This section walks through the full sequence of commands to deploy a Foundry resource with a managed virtual network using the CLI. Each step must be completed in order.
 
-> **Important:** The `az cognitiveservices account managed-network` CLI commands require a CLI extension that may not yet be available in your Azure CLI version. If the commands are not recognized, use the equivalent `az rest` commands shown below.
+> **Important:** The `az cognitiveservices account managed-network` CLI commands require a CLI extension. Please update to version 2.86.0. If the commands are not recognized, use the equivalent `az rest` commands shown below.
 
 ### Prerequisites
 
