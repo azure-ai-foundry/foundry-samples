@@ -120,9 +120,20 @@ param dnsZoneNames array = [
 
 
 var projectName = toLower('${firstProjectName}${uniqueSuffix}')
-var cosmosDBName = toLower('${aiServices}${uniqueSuffix}cosmosdb')
+// Sanitize aiServices for storage account name: lowercase, no hyphens, max 24 chars total.
+// Reserve last 6 chars for `${uniqueSuffix}st` so uniqueness is preserved when prefix is truncated.
+var aiServicesSanitized = toLower(replace(aiServices, '-', ''))
+var storagePrefixMax = 18 // 24 total - 4 (uniqueSuffix) - 2 ('st' marker)
+var storagePrefix = length(aiServicesSanitized) > storagePrefixMax
+  ? substring(aiServicesSanitized, 0, storagePrefixMax)
+  : aiServicesSanitized
+var azureStorageName = '${storagePrefix}${uniqueSuffix}st'
+
+// Cosmos DB allows hyphens but enforces 44-char max. Cap defensively.
+var cosmosDBNameRaw = toLower('${aiServices}${uniqueSuffix}cosmosdb')
+var cosmosDBName = length(cosmosDBNameRaw) > 44 ? substring(cosmosDBNameRaw, 0, 44) : cosmosDBNameRaw
+
 var aiSearchName = toLower('${aiServices}${uniqueSuffix}search')
-var azureStorageName = toLower('${aiServices}${uniqueSuffix}storage')
 
 // Check if existing resources have been passed in
 var storagePassedIn = azureStorageAccountResourceId != ''
