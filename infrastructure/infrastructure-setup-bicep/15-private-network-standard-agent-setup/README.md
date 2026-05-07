@@ -102,7 +102,7 @@ Use the table below to choose the right infrastructure template for your scenari
   
   > **Notes:** 
   - If you do not provide an existing virtual network, the template will create a new virtual network with the default address spaces and subnets described above. If you use an existing virtual network, make sure it already contains two subnets (Agent and Private Endpoint) before deploying the template.
-  - You must ensure the Foundry account was successfully created so that underlying caphost has also succeeded. Then proceed to deploying the project caphost bicep. 
+  - The account-level capability host is now provisioned declaratively by `modules-network-secured/add-account-capability-host.bicep` as part of `main.bicep`. The standalone `createCapHost.sh` script is no longer required for first-time deployments; it remains in the folder only to support the cleanup-then-recreate flow described in the [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance).
   - You must ensure the subnet is exclusively delegated to __Microsoft.App/environments__ and cannot be used by any other Azure resources.
 
 
@@ -116,6 +116,7 @@ Use the table below to choose the right infrastructure template for your scenari
 5. There is no upgrade path from BYO VNet (this template) to Managed Virtual Network (template 18). A Foundry resource redeployment is required.
 6. All projects within the same Foundry account share model deployments. Per-project model isolation is not supported.
 7. Cosmos DB is deployed as single-region. Multi-region replication must be configured manually post-deployment.
+8. When reusing an existing Foundry account (`existingAiFoundryAccountResourceId`), the template will not create a new model deployment if `skipModelDeployment` is set to `true`. The required model deployment(s) must already exist on the BYO account.
 
 ### Account Deletion Prerequisites and Cleanup Guidance
 
@@ -126,6 +127,8 @@ Before deleting an **Account** resource, it is essential to first delete the ass
 **1. Full Account Removal**: To completely remove an account, you must delete and purge the account. Simply deleting the account is not sufficient, you must purge so that deletion of the associated capability host is triggered. The service will automatically handle the removal of the capability host and any linked resources in the background. To purge the account, use the following [link](https://learn.microsoft.com/en-us/azure/ai-services/recover-purge-resources?tabs=azure-portal#purge-a-deleted-resource). Please allow approximately max of 20 minutes for all resources to be fully unlinked from the account.
  
 **2. Retain Account, Remove Capability Host**: If you intend to retain the account but remove the capability host, execute the script `deleteCaphost.sh` located in this folder. After deletion, allow approximately max of 20 minutes for all resources to be fully unlinked from the account. To recreate the capability host for the account, use the script `createCaphost.sh` located in the same folder.
+
+> **Note**: The account-level capability host is created declaratively by `main.bicep` (via `modules-network-secured/add-account-capability-host.bicep`) on first deployment. The `createCapHost.sh` script is intended for this cleanup-then-recreate scenario only; it is not required for an initial deployment.
 
 
 > **Important**: Before deleting the account capability host, ensure that the **project capability host** is deleted.
@@ -150,17 +153,20 @@ Note: If not provided, the following resources will be created automatically for
 | `modelVersion` | Model version | `2025-04-14` | No |
 | `modelSkuName` | Model deployment SKU | `GlobalStandard` | No |
 | `modelCapacity` | Tokens per minute (TPM) capacity | `30` | No |
-| `vnetName` | Virtual Network name | `agent-vnet-test` | No |
+| `skipModelDeployment` | When `true`, skip creating a model deployment. Recommended when reusing an existing Foundry account that already has the required model deployments. | `false` | No |
+| `vnetName` | Virtual Network name. When `existingVnetResourceId` is set, the name is derived from that resource ID and this parameter is ignored. When creating a new VNet, leave empty to use the generated default. | `''` | No |
 | `agentSubnetName` | Subnet name for agent workloads | `agent-subnet` | No |
 | `agentSubnetPrefix` | Address prefix for agent subnet | `192.168.0.0/24` | No |
 | `peSubnetName` | Subnet name for private endpoints | `pe-subnet` | No |
 | `peSubnetPrefix` | Address prefix for PE subnet | `192.168.1.0/24` | No |
 | `existingVnetResourceId` | Full ARM Resource ID of an existing VNet | `''` (creates new) | No |
+| `reuseExistingSubnets` | When `true` and `existingVnetResourceId` is set, the template will reference your existing subnets without modifying them. Use this when your subnets are already configured by your platform team (NSG, route tables, private endpoint network policies) and tenant policies forbid changes. | `false` | No |
 | `vnetAddressPrefix` | Address space for new VNet | `192.168.0.0/16` | No |
 | `aiSearchResourceId` | ARM Resource ID of existing AI Search | `''` (creates new) | No |
 | `azureStorageAccountResourceId` | ARM Resource ID of existing Storage account | `''` (creates new) | No |
 | `azureCosmosDBAccountResourceId` | ARM Resource ID of existing Cosmos DB | `''` (creates new) | No |
-| `dnsZonesSubscriptionId` | Subscription ID for existing DNS zones | `''` (current sub) | No |
+| `existingAiFoundryAccountResourceId` | Full ARM Resource ID of an existing Microsoft Foundry (Cognitive Services / AIServices) account to reuse. When set, the template will not create a new account. | `''` (creates new) | No |
+| `dnsZonesSubscriptionId` | Subscription ID for existing DNS zones. Accepts either a bare GUID (`<subscription-id>`) or a full ARM subscription path (`/subscriptions/<subscription-id>`); the template normalizes the value internally. | `''` (current sub) | No |
 | `existingDnsZones` | Map of DNS zone names to resource groups | All empty (creates new) | No |
 
 #### BYO Resource Details
@@ -182,7 +188,9 @@ To use an existing VNet and subnets, set the existingVnetResourceId parameter to
 
 💡 If subnets information is provided then make sure it exist within the specified VNet to avoid deployment errors. If subnet information is not provided, the template will create subnets with the default address space.
 
-💡 **Cross-Subscription DNS Zones**: All DNS zones specified in `existingDnsZones` will be referenced from the subscription specified in `dnsZonesSubscriptionId`. Leave this parameter empty (default) to use the current deployment subscription, or set it to a subscription ID if your DNS zones are located in a different subscription.
+💡 **Reuse pre-configured subnets**: If your subnets are already configured by your platform team (NSG, route tables, `privateEndpointNetworkPolicies` set per tenant policy), set `reuseExistingSubnets = true`. This tells the template to reference the subnets without re-applying their configuration, which prevents an inadvertent reset of subnet properties on redeploy.
+
+💡 **Cross-Subscription DNS Zones**: All DNS zones specified in `existingDnsZones` will be referenced from the subscription specified in `dnsZonesSubscriptionId`. Leave this parameter empty (default) to use the current deployment subscription, or set it to a subscription ID if your DNS zones are located in a different subscription. The parameter accepts either a bare subscription GUID or a full ARM subscription path (`/subscriptions/<subscription-id>`); the template normalizes the value internally.
 
 ⚠️ **Important**: When `dnsZonesSubscriptionId` is set to a different subscription, ALL DNS zones in `existingDnsZones` must have resource groups specified (non-empty values). The template does not support creating new DNS zones in a different subscription. Empty resource groups are only allowed when creating zones in the current deployment subscription.
 
@@ -203,6 +211,18 @@ To use an existing Azure AI Search resource, set aiSearchServiceResourceId param
 
 To use an existing Azure Storage account, set aiStorageAccountResourceId parameter to the full Azure resource Id of the target Azure Storage account resource. 
 - param aiStorageAccountResourceId string = /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{storageAccountName}
+
+
+5. **Use an existing Microsoft Foundry account**
+
+To reuse an existing Microsoft Foundry (Cognitive Services / AIServices kind) account instead of creating a new one, set `existingAiFoundryAccountResourceId` to the full Azure Resource ID of the target account. The template will reference the existing account, scope the account-level capability host to its resource group and subscription, and skip the deterministic-suffix account creation path (which would otherwise create a new account on every redeploy).
+
+- param existingAiFoundryAccountResourceId string = '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.CognitiveServices/accounts/{accountName}'
+- param skipModelDeployment bool = true  // recommended when the BYO account already has the required model deployment(s)
+
+💡 **When to use this**: bring-your-own-account is intended for scenarios where the Foundry account is provisioned ahead of time by a platform team or landing zone, and the workload deployment must reuse it (for compliance, naming standards, or to avoid orphaned accounts on retry).
+
+⚠️ **Important**: When `existingAiFoundryAccountResourceId` is set, the required model deployment(s) must already exist on the BYO account if `skipModelDeployment = true`. The agent service depends on at least one model deployment matching `modelName` / `modelVersion` to function.
 
 ---
 
@@ -432,8 +452,9 @@ Private endpoints ensure secure, internal-only connectivity. Private endpoints a
 
 ```text
 modules-network-secured/
+├── add-account-capability-host.bicep               # Declarative account-level capability host (replaces createCapHost.sh for first-time deployments)
 ├── add-project-capability-host.bicep               # Configuring the project's capability host
-├── ai-account-identity.bicep                       # Microsoft Foundry deployment and configuration
+├── ai-account-identity.bicep                       # Microsoft Foundry deployment and configuration (supports BYO existing account)
 ├── ai-project-identity.bicep                       # Foundry project deployment and connection configuration           
 ├── ai-search-role-assignments.bicep                # AI Search RBAC configuration
 ├── azure-storage-account-role-assignments.bicep    # Storage Account RBAC configuration  
