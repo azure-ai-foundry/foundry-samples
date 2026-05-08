@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: openai-agents-sdk-invocations
+displayName: "OpenAI Agents SDK (Responses)"
+description: >
+  A getting-started agent that uses the OpenAI Agents SDK (openai-agents) with
+  Foundry Azure credential flow — no OPENAI_API_KEY required. The SDK's Agent
+  and Runner drive the agent loop through the Responses protocol, with
+  multi-turn conversation history managed by the platform.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - OpenAI SDK
+    - Responses Protocol
+    - Bring Your Own
+template:
+  name: openai-agents-sdk-invocations
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT and APPLICATIONINSIGHTS_CONNECTION_STRING
+    # are injected by the platform (hosted) and translated by azd (local)
+    # — do NOT declare them here.
+    #
+    # Model deployment name — resolved from the resources section below.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+parameters:
+  properties: []
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
