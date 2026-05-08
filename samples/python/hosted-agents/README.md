@@ -166,6 +166,34 @@ azd down
 | [VS Code Foundry extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode) | One-click invoke from the editor |
 | `curl` | Each sample README includes curl examples |
 
+## Voice Live integration
+
+For **Responses** protocol agents, once the agent is deployed to Microsoft Foundry, you can interact with it using real-time voice through the [Azure VoiceLive SDK](https://pypi.org/project/azure-ai-voicelive/). The shared Voice Live client sample, [voicelive_client.py](bring-your-own/voicelive/client/voicelive_client.py), demonstrates how to connect to your deployed agent and have a voice conversation.
+
+```bash
+python voicelive_client.py \
+  --endpoint "https://<your-foundry-resource>.services.ai.azure.com" \
+  --agent-name "<your-agent-name>" \
+  --project-name "<your-foundry-project-name>"
+```
+
+The client authenticates using `DefaultAzureCredential` — make sure you are logged in (`az login`).
+
+For **Invocations** protocol agents, to make the agent work with Voice Live, the agent needs:
+* The agent can process voice live transcription input: `{"type": "input_audio.transcription", "input": "example voice input"}`
+* The agent should output the text to be read as the following SSE, Voice Live will generate audio for the the `delta` text in the `output_audio_transcription.delta` event:
+    ```
+    data: {"type": "output_audio_transcription.delta", "delta": "The weather "}
+    data: {"type": "output_audio_transcription.delta", "delta": "in Seattle "}
+    data: {"type": "output_audio_transcription.delta", "delta": "is 52°F "}
+    data: {"type": "output_audio_transcription.delta", "delta": "and partly cloudy."}
+    data: {"type": "output_audio_transcription.done", "text": "The weather in Seattle is 52°F and partly cloudy."}
+    data: {"type": "done"}
+    ```
+* The agent manifest must declare `voiceLiveCompatible: "true"` in the metadata section to indicate compatibility with Voice Live.
+
+Here is a hosted agent sample with Invocations protocol that is compatible with Voice Live: [hello-world-invocations-voicelive](bring-your-own/voicelive/hello-world-invocations-voicelive/).
+
 ## Prerequisites
 
 - **Azure subscription** with access to Microsoft Foundry
