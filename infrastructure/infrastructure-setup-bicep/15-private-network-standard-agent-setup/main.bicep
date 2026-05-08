@@ -62,8 +62,14 @@ param projectDescription string = 'A project for the AI Foundry account with net
 param displayName string = 'network secured agent project'
 
 // Existing Virtual Network parameters
-@description('Virtual Network name for the Agent to create new or existing virtual network')
-param vnetName string = 'agent-vnet-test'
+// vnetName precedence + UX clarity.
+// When existingVnetResourceId is set, vnetName is IGNORED and the actual name
+// is derived from the resource ID (`last(vnetParts)`). The original default
+// 'agent-vnet-test' was misleading: users who copied it as-is alongside
+// existingVnetResourceId thought they were targeting a specific VNet but the
+// resource ID won, hiding mistakes. Default is now empty.
+@description('Virtual Network name. Required ONLY when creating a NEW VNet (existingVnetResourceId is empty). When existingVnetResourceId is set, this value is IGNORED, the name is derived from the resource ID. If you supply both they should match; otherwise the resource ID wins.')
+param vnetName string = ''
 
 @description('The name of Agents Subnet to create new or existing subnet for agents')
 param agentSubnetName string = 'agent-subnet'
@@ -83,6 +89,29 @@ param agentSubnetPrefix string = ''
 
 @description('Address prefix for the private endpoint subnet')
 param peSubnetPrefix string = ''
+
+// Non-destructive subnet handling.
+// Set to true when bringing your own pre-configured subnets (NSG/RT/PE policies
+// already set by your platform team). Prevents the template from doing a PUT
+// that would reset privateEndpointNetworkPolicies and trip tenant policies.
+@description('When true and existingVnetResourceId is set, the template will NOT modify your existing subnets.')
+param reuseExistingSubnets bool = false
+
+// True BYO Foundry account.
+// When set, the template references the existing AI Foundry account instead of
+// creating a new one with a deterministic suffix (which orphans on re-runs).
+@description('Optional. Full ARM resource ID of an existing AI Foundry (CognitiveServices/accounts kind=AIServices) account to reuse. When set, the template will NOT create a new account.')
+param existingAiFoundryAccountResourceId string = ''
+
+@description('Optional. When true, skip the model deployment. Recommended when reusing an existing account that already has the required model deployments.')
+param skipModelDeployment bool = false
+
+// Re-derive BYO account context at main.bicep level so we can scope the
+// account-level capabilityHost module to the right RG/subscription.
+var useExistingAccount = !empty(existingAiFoundryAccountResourceId)
+var existingAccountIdParts = split(existingAiFoundryAccountResourceId, '/')
+var existingAccountSubscriptionId = useExistingAccount ? existingAccountIdParts[2] : subscription().subscriptionId
+var existingAccountResourceGroupName = useExistingAccount ? existingAccountIdParts[4] : resourceGroup().name
 
 @description('The AI Search Service full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
 param aiSearchResourceId string = ''
@@ -120,9 +149,20 @@ param dnsZoneNames array = [
 
 
 var projectName = toLower('${firstProjectName}${uniqueSuffix}')
-var cosmosDBName = toLower('${aiServices}${uniqueSuffix}cosmosdb')
+// Sanitize aiServices for storage account name: lowercase, no hyphens, max 24 chars total.
+// Reserve last 6 chars for `${uniqueSuffix}st` so uniqueness is preserved when prefix is truncated.
+var aiServicesSanitized = toLower(replace(aiServices, '-', ''))
+var storagePrefixMax = 18 // 24 total - 4 (uniqueSuffix) - 2 ('st' marker)
+var storagePrefix = length(aiServicesSanitized) > storagePrefixMax
+  ? substring(aiServicesSanitized, 0, storagePrefixMax)
+  : aiServicesSanitized
+var azureStorageName = '${storagePrefix}${uniqueSuffix}st'
+
+// Cosmos DB allows hyphens but enforces 44-char max. Cap defensively.
+var cosmosDBNameRaw = toLower('${aiServices}${uniqueSuffix}cosmosdb')
+var cosmosDBName = length(cosmosDBNameRaw) > 44 ? substring(cosmosDBNameRaw, 0, 44) : cosmosDBNameRaw
+
 var aiSearchName = toLower('${aiServices}${uniqueSuffix}search')
-var azureStorageName = toLower('${aiServices}${uniqueSuffix}storage')
 
 // Check if existing resources have been passed in
 var storagePassedIn = azureStorageAccountResourceId != ''
@@ -149,8 +189,16 @@ var vnetResourceGroupName = existingVnetPassedIn ? vnetParts[4] : resourceGroup(
 var existingVnetName = existingVnetPassedIn ? last(vnetParts) : vnetName
 var trimVnetName = trim(existingVnetName)
 
-// Resolve DNS zones subscription ID - use current subscription if not specified
-var resolvedDnsZonesSubscriptionId = empty(dnsZonesSubscriptionId) ? subscription().subscriptionId : dnsZonesSubscriptionId
+// Resolve DNS zones subscription ID - use current subscription if not specified.
+// Accept either form: bare GUID or "/subscriptions/<guid>".
+// The full ARM path form previously broke the existing-zone cross-sub references
+// silently (the subscriptionId field needs the bare GUID).
+var normalizedDnsZonesSubscriptionId = empty(dnsZonesSubscriptionId)
+  ? ''
+  : (startsWith(toLower(dnsZonesSubscriptionId), '/subscriptions/')
+      ? split(dnsZonesSubscriptionId, '/')[2]
+      : dnsZonesSubscriptionId)
+var resolvedDnsZonesSubscriptionId = empty(normalizedDnsZonesSubscriptionId) ? subscription().subscriptionId : normalizedDnsZonesSubscriptionId
 
 @description('The name of the project capability host to be created')
 param projectCapHost string = 'caphostproj'
@@ -169,6 +217,7 @@ module vnet 'modules-network-secured/network-agent-vnet.bicep' = {
     agentSubnetPrefix: agentSubnetPrefix
     peSubnetPrefix: peSubnetPrefix
     existingVnetSubscriptionId: vnetSubscriptionId
+    reuseExistingSubnets: reuseExistingSubnets
   }
 }
 
@@ -187,6 +236,8 @@ module aiAccount 'modules-network-secured/ai-account-identity.bicep' = {
     modelSkuName: modelSkuName
     modelCapacity: modelCapacity
     agentSubnetId: vnet.outputs.agentSubnetId
+    existingAccountResourceId: existingAiFoundryAccountResourceId
+    skipModelDeployment: skipModelDeployment
   }
 }
 /*
@@ -365,6 +416,21 @@ module aiSearchRoleAssignments 'modules-network-secured/ai-search-role-assignmen
   ]
 }
 
+// Account-level capabilityHost (bootstraps before project caphost).
+// The current sample relies on createCapHost.sh being run manually; making it
+// declarative keeps the flow idempotent and works for both new and BYO accounts.
+module addAccountCapabilityHost 'modules-network-secured/add-account-capability-host.bicep' = {
+  name: 'account-caphost-${uniqueSuffix}-deployment'
+  scope: resourceGroup(existingAccountSubscriptionId, existingAccountResourceGroupName)
+  params: {
+    accountName: aiAccount.outputs.accountName
+    agentSubnetResourceId: vnet.outputs.agentSubnetId
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+  ]
+}
+
 // This module creates the capability host for the project and account
 module addProjectCapabilityHost 'modules-network-secured/add-project-capability-host.bicep' = {
   name: 'capabilityHost-configuration-${uniqueSuffix}-deployment'
@@ -377,6 +443,7 @@ module addProjectCapabilityHost 'modules-network-secured/add-project-capability-
     projectCapHost: projectCapHost
   }
   dependsOn: [
+     addAccountCapabilityHost  // account caphost must exist first
      aiSearch      // Ensure AI Search exists
      storage       // Ensure Storage exists
      cosmosDB

@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.40.2.10011",
-      "templateHash": "10213309447334439675"
+      "version": "0.43.8.12551",
+      "templateHash": "4437106568758821389"
     }
   },
   "parameters": {
@@ -110,9 +110,9 @@
     },
     "vnetName": {
       "type": "string",
-      "defaultValue": "agent-vnet-test",
+      "defaultValue": "",
       "metadata": {
-        "description": "Virtual Network name for the Agent to create new or existing virtual network"
+        "description": "Virtual Network name. Required ONLY when creating a NEW VNet (existingVnetResourceId is empty). When existingVnetResourceId is set, this value is IGNORED, the name is derived from the resource ID. If you supply both they should match; otherwise the resource ID wins."
       }
     },
     "agentSubnetName": {
@@ -155,6 +155,27 @@
       "defaultValue": "",
       "metadata": {
         "description": "Address prefix for the private endpoint subnet"
+      }
+    },
+    "reuseExistingSubnets": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "When true and existingVnetResourceId is set, the template will NOT modify your existing subnets."
+      }
+    },
+    "existingAiFoundryAccountResourceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional. Full ARM resource ID of an existing AI Foundry (CognitiveServices/accounts kind=AIServices) account to reuse. When set, the template will NOT create a new account."
+      }
+    },
+    "skipModelDeployment": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Optional. When true, skip the model deployment. Recommended when reusing an existing account that already has the required model deployments."
       }
     },
     "aiSearchResourceId": {
@@ -224,10 +245,18 @@
   "variables": {
     "uniqueSuffix": "[substring(uniqueString(format('{0}-{1}', resourceGroup().id, parameters('deploymentTimestamp'))), 0, 4)]",
     "accountName": "[toLower(format('{0}{1}', parameters('aiServices'), variables('uniqueSuffix')))]",
+    "useExistingAccount": "[not(empty(parameters('existingAiFoundryAccountResourceId')))]",
+    "existingAccountIdParts": "[split(parameters('existingAiFoundryAccountResourceId'), '/')]",
+    "existingAccountSubscriptionId": "[if(variables('useExistingAccount'), variables('existingAccountIdParts')[2], subscription().subscriptionId)]",
+    "existingAccountResourceGroupName": "[if(variables('useExistingAccount'), variables('existingAccountIdParts')[4], resourceGroup().name)]",
     "projectName": "[toLower(format('{0}{1}', parameters('firstProjectName'), variables('uniqueSuffix')))]",
-    "cosmosDBName": "[toLower(format('{0}{1}cosmosdb', parameters('aiServices'), variables('uniqueSuffix')))]",
+    "aiServicesSanitized": "[toLower(replace(parameters('aiServices'), '-', ''))]",
+    "storagePrefixMax": 18,
+    "storagePrefix": "[if(greater(length(variables('aiServicesSanitized')), variables('storagePrefixMax')), substring(variables('aiServicesSanitized'), 0, variables('storagePrefixMax')), variables('aiServicesSanitized'))]",
+    "azureStorageName": "[format('{0}{1}st', variables('storagePrefix'), variables('uniqueSuffix'))]",
+    "cosmosDBNameRaw": "[toLower(format('{0}{1}cosmosdb', parameters('aiServices'), variables('uniqueSuffix')))]",
+    "cosmosDBName": "[if(greater(length(variables('cosmosDBNameRaw')), 44), substring(variables('cosmosDBNameRaw'), 0, 44), variables('cosmosDBNameRaw'))]",
     "aiSearchName": "[toLower(format('{0}{1}search', parameters('aiServices'), variables('uniqueSuffix')))]",
-    "azureStorageName": "[toLower(format('{0}{1}storage', parameters('aiServices'), variables('uniqueSuffix')))]",
     "storagePassedIn": "[not(equals(parameters('azureStorageAccountResourceId'), ''))]",
     "searchPassedIn": "[not(equals(parameters('aiSearchResourceId'), ''))]",
     "cosmosPassedIn": "[not(equals(parameters('azureCosmosDBAccountResourceId'), ''))]",
@@ -246,7 +275,8 @@
     "vnetResourceGroupName": "[if(variables('existingVnetPassedIn'), variables('vnetParts')[4], resourceGroup().name)]",
     "existingVnetName": "[if(variables('existingVnetPassedIn'), last(variables('vnetParts')), parameters('vnetName'))]",
     "trimVnetName": "[trim(variables('existingVnetName'))]",
-    "resolvedDnsZonesSubscriptionId": "[if(empty(parameters('dnsZonesSubscriptionId')), subscription().subscriptionId, parameters('dnsZonesSubscriptionId'))]"
+    "normalizedDnsZonesSubscriptionId": "[if(empty(parameters('dnsZonesSubscriptionId')), '', if(startsWith(toLower(parameters('dnsZonesSubscriptionId')), '/subscriptions/'), split(parameters('dnsZonesSubscriptionId'), '/')[2], parameters('dnsZonesSubscriptionId')))]",
+    "resolvedDnsZonesSubscriptionId": "[if(empty(variables('normalizedDnsZonesSubscriptionId')), subscription().subscriptionId, variables('normalizedDnsZonesSubscriptionId'))]"
   },
   "resources": [
     {
@@ -288,6 +318,9 @@
           },
           "existingVnetSubscriptionId": {
             "value": "[variables('vnetSubscriptionId')]"
+          },
+          "reuseExistingSubnets": {
+            "value": "[parameters('reuseExistingSubnets')]"
           }
         },
         "template": {
@@ -296,8 +329,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "9522150535342725348"
+              "version": "0.43.8.12551",
+              "templateHash": "1854398928287753773"
             }
           },
           "parameters": {
@@ -368,6 +401,13 @@
               "metadata": {
                 "description": "Address prefix for the private endpoint subnet"
               }
+            },
+            "reuseExistingSubnets": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "When true and useExistingVnet=true, do NOT modify the existing subnets, reference them as-is."
+              }
             }
           },
           "resources": [
@@ -410,8 +450,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.40.2.10011",
-                      "templateHash": "1725519900292599397"
+                      "version": "0.43.8.12551",
+                      "templateHash": "6615847355060514198"
                     }
                   },
                   "parameters": {
@@ -575,6 +615,9 @@
                   },
                   "peSubnetPrefix": {
                     "value": "[parameters('peSubnetPrefix')]"
+                  },
+                  "reuseExistingSubnets": {
+                    "value": "[parameters('reuseExistingSubnets')]"
                   }
                 },
                 "template": {
@@ -583,8 +626,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.40.2.10011",
-                      "templateHash": "12834877200138369468"
+                      "version": "0.43.8.12551",
+                      "templateHash": "8011604849876491209"
                     }
                   },
                   "parameters": {
@@ -635,10 +678,18 @@
                       "metadata": {
                         "description": "Address prefix for the private endpoint subnet (only needed if creating new subnet)"
                       }
+                    },
+                    "reuseExistingSubnets": {
+                      "type": "bool",
+                      "defaultValue": false,
+                      "metadata": {
+                        "description": "When true, do NOT modify the existing subnets, reference them as-is. Recommended when the caller manages subnet config (NSG/RT/PE policies) outside this template."
+                      }
                     }
                   },
                   "resources": [
                     {
+                      "condition": "[not(parameters('reuseExistingSubnets'))]",
                       "type": "Microsoft.Resources/deployments",
                       "apiVersion": "2025-04-01",
                       "name": "[format('agent-subnet-{0}', uniqueString(deployment().name, parameters('agentSubnetName')))]",
@@ -673,8 +724,8 @@
                           "metadata": {
                             "_generator": {
                               "name": "bicep",
-                              "version": "0.40.2.10011",
-                              "templateHash": "16684585228229443328"
+                              "version": "0.43.8.12551",
+                              "templateHash": "11349014942847443024"
                             }
                           },
                           "parameters": {
@@ -729,6 +780,7 @@
                       }
                     },
                     {
+                      "condition": "[not(parameters('reuseExistingSubnets'))]",
                       "type": "Microsoft.Resources/deployments",
                       "apiVersion": "2025-04-01",
                       "name": "[format('pe-subnet-{0}', uniqueString(deployment().name, parameters('peSubnetName')))]",
@@ -756,8 +808,8 @@
                           "metadata": {
                             "_generator": {
                               "name": "bicep",
-                              "version": "0.40.2.10011",
-                              "templateHash": "16684585228229443328"
+                              "version": "0.43.8.12551",
+                              "templateHash": "11349014942847443024"
                             }
                           },
                           "parameters": {
@@ -920,6 +972,12 @@
           },
           "agentSubnetId": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.agentSubnetId.value]"
+          },
+          "existingAccountResourceId": {
+            "value": "[parameters('existingAiFoundryAccountResourceId')]"
+          },
+          "skipModelDeployment": {
+            "value": "[parameters('skipModelDeployment')]"
           }
         },
         "template": {
@@ -928,8 +986,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "481468620289904255"
+              "version": "0.43.8.12551",
+              "templateHash": "2832622634761787610"
             }
           },
           "parameters": {
@@ -960,10 +1018,32 @@
             "networkInjection": {
               "type": "string",
               "defaultValue": "true"
+            },
+            "existingAccountResourceId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional. Full ARM resource ID of an existing AI Foundry (CognitiveServices/accounts kind=AIServices) account to reuse. When set, the template will NOT create a new account."
+              }
+            },
+            "skipModelDeployment": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Optional. When true, skip the model deployment. Recommended when reusing an existing account that already has the required model deployments."
+              }
             }
+          },
+          "variables": {
+            "useExistingAccount": "[not(empty(parameters('existingAccountResourceId')))]",
+            "existingParts": "[split(parameters('existingAccountResourceId'), '/')]",
+            "existingAccountSub": "[if(variables('useExistingAccount'), variables('existingParts')[2], subscription().subscriptionId)]",
+            "existingAccountRg": "[if(variables('useExistingAccount'), variables('existingParts')[4], resourceGroup().name)]",
+            "existingAccountName": "[if(variables('useExistingAccount'), last(variables('existingParts')), parameters('accountName'))]"
           },
           "resources": [
             {
+              "condition": "[not(variables('useExistingAccount'))]",
               "type": "Microsoft.CognitiveServices/accounts",
               "apiVersion": "2025-04-01-preview",
               "name": "[parameters('accountName')]",
@@ -990,6 +1070,7 @@
               }
             },
             {
+              "condition": "[and(not(variables('useExistingAccount')), not(parameters('skipModelDeployment')))]",
               "type": "Microsoft.CognitiveServices/accounts/deployments",
               "apiVersion": "2025-04-01-preview",
               "name": "[format('{0}/{1}', parameters('accountName'), parameters('modelName'))]",
@@ -1012,19 +1093,19 @@
           "outputs": {
             "accountName": {
               "type": "string",
-              "value": "[parameters('accountName')]"
+              "value": "[if(variables('useExistingAccount'), variables('existingAccountName'), parameters('accountName'))]"
             },
             "accountID": {
               "type": "string",
-              "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+              "value": "[if(variables('useExistingAccount'), extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('existingAccountSub'), variables('existingAccountRg')), 'Microsoft.CognitiveServices/accounts', variables('existingAccountName')), resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')))]"
             },
             "accountTarget": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview').endpoint]"
+              "value": "[if(variables('useExistingAccount'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('existingAccountSub'), variables('existingAccountRg')), 'Microsoft.CognitiveServices/accounts', variables('existingAccountName')), '2025-04-01-preview').endpoint, reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview').endpoint)]"
             },
             "accountPrincipalId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview', 'full').identity.principalId]"
+              "value": "[if(variables('useExistingAccount'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('existingAccountSub'), variables('existingAccountRg')), 'Microsoft.CognitiveServices/accounts', variables('existingAccountName')), '2025-04-01-preview', 'full').identity.principalId, reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview', 'full').identity.principalId)]"
             }
           }
         }
@@ -1068,8 +1149,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "13265653374239491155"
+              "version": "0.43.8.12551",
+              "templateHash": "680740366057404341"
             }
           },
           "parameters": {
@@ -1226,8 +1307,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "1228922674432785221"
+              "version": "0.43.8.12551",
+              "templateHash": "14267398792843698911"
             }
           },
           "parameters": {
@@ -1509,8 +1590,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "6108847882161636110"
+              "version": "0.43.8.12551",
+              "templateHash": "16240696292444732987"
             }
           },
           "parameters": {
@@ -2044,8 +2125,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "1007872875847158534"
+              "version": "0.43.8.12551",
+              "templateHash": "5316230502381000043"
             }
           },
           "parameters": {
@@ -2219,8 +2300,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "12606978205101260380"
+              "version": "0.43.8.12551",
+              "templateHash": "16292565234555392040"
             }
           },
           "parameters": {
@@ -2274,8 +2355,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15991712531324316353"
+              "version": "0.43.8.12551",
+              "templateHash": "10985949897065090550"
             }
           },
           "parameters": {
@@ -2332,8 +2413,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "7256419427588810161"
+              "version": "0.43.8.12551",
+              "templateHash": "17331576029113373855"
             }
           },
           "parameters": {
@@ -2396,8 +2477,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15867124606695536257"
+              "version": "0.43.8.12551",
+              "templateHash": "15580039133385622424"
             }
           },
           "parameters": {
@@ -2449,6 +2530,81 @@
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
+      "name": "[format('account-caphost-{0}-deployment', variables('uniqueSuffix'))]",
+      "subscriptionId": "[variables('existingAccountSubscriptionId')]",
+      "resourceGroup": "[variables('existingAccountResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountName.value]"
+          },
+          "agentSubnetResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.agentSubnetId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.43.8.12551",
+              "templateHash": "18033747207003499362"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the AI Foundry (Cognitive Services) account"
+              }
+            },
+            "accountCapHost": {
+              "type": "string",
+              "defaultValue": "caphostacct",
+              "metadata": {
+                "description": "Name of the account-level capabilityHost"
+              }
+            },
+            "agentSubnetResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "ARM resource ID of the customer agent subnet (delegated to Microsoft.App/environments)"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts/capabilityHosts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('accountName'), parameters('accountCapHost'))]",
+              "properties": {
+                "capabilityHostKind": "Agents",
+                "customerSubnet": "[parameters('agentSubnetResourceId')]"
+              }
+            }
+          ],
+          "outputs": {
+            "accountCapHostName": {
+              "type": "string",
+              "value": "[parameters('accountCapHost')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-private-endpoint', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
       "name": "[format('capabilityHost-configuration-{0}-deployment', variables('uniqueSuffix'))]",
       "properties": {
         "expressionEvaluationOptions": {
@@ -2481,8 +2637,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "687161311666023487"
+              "version": "0.43.8.12551",
+              "templateHash": "9752585897450875181"
             }
           },
           "parameters": {
@@ -2538,6 +2694,7 @@
         }
       },
       "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('existingAccountSubscriptionId'), variables('existingAccountResourceGroupName')), 'Microsoft.Resources/deployments', format('account-caphost-{0}-deployment', variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('projectName'), variables('uniqueSuffix')))]",
@@ -2575,8 +2732,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "3625425571119261380"
+              "version": "0.43.8.12551",
+              "templateHash": "13556924300142468207"
             }
           },
           "parameters": {
@@ -2654,8 +2811,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "14722474518981746838"
+              "version": "0.43.8.12551",
+              "templateHash": "9820545713493490823"
             }
           },
           "parameters": {

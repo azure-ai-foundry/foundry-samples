@@ -41,8 +41,8 @@ import os
 from datetime import datetime, timezone
 from typing import Annotated
 
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-from langchain_openai import ChatOpenAI
+from azure.identity import DefaultAzureCredential
+from langchain_azure_ai.chat_models import AzureAIOpenAIApiChatModel
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
@@ -88,10 +88,6 @@ if not AZURE_AI_MODEL_DEPLOYMENT_NAME:
         "Set it to your model deployment name as declared in agent.manifest.yaml."
     )
 
-_token_provider = get_bearer_token_provider(
-    DefaultAzureCredential(), "https://ai.azure.com/.default"
-)
-
 
 # ── Tools ────────────────────────────────────────────────────────────
 @tool
@@ -120,11 +116,10 @@ class State(TypedDict):
 
 def _build_graph() -> StateGraph:
     """Build and compile the LangGraph agent graph."""
-    llm = ChatOpenAI(
-        base_url=f"{FOUNDRY_PROJECT_ENDPOINT}/openai/v1",
-        api_key=_token_provider,
+    llm = AzureAIOpenAIApiChatModel(
+        project_endpoint=FOUNDRY_PROJECT_ENDPOINT,
+        credential=DefaultAzureCredential(),
         model=AZURE_AI_MODEL_DEPLOYMENT_NAME,
-        use_responses_api=True,
         streaming=True,
     )
     llm_with_tools = llm.bind_tools(TOOLS)

@@ -42,9 +42,7 @@ def pytest_configure(config: pytest.Config) -> None:
     # Validate that mutually exclusive options haven't been provided
     mutually_exclusive_options = (WORKING_TREE_CHANGES_OPTION, PR_CHANGES_OPTION)
     if sum(bool(config.getoption(opt_var(o))) for o in mutually_exclusive_options) > 1:
-        raise pytest.UsageError(
-            f"{' and '.join(mutually_exclusive_options)} are mutually exclusive"
-        )
+        raise pytest.UsageError(f"{' and '.join(mutually_exclusive_options)} are mutually exclusive")
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -70,9 +68,7 @@ def pytest_collection(session: pytest.Session) -> None:
     del config.stash[DIFF_PATH_TRIE_KEY]
 
 
-def pytest_ignore_collect(
-    collection_path: Path, config: pytest.Config
-) -> Optional[bool]:
+def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> Optional[bool]:
     """Ignore paths that were not touched by the current git diff."""
     if DIFF_PATH_TRIE_KEY not in config.stash:
         # Occurs when calling `pytest --fixtures`
@@ -99,9 +95,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         session.exitstatus = pytest.ExitCode.OK
 
 
-def get_diff_paths_function(
-    config: pytest.Config,
-) -> Optional[Callable[[], Iterable[Path]]]:
+def get_diff_paths_function(config: pytest.Config) -> Optional[Callable[[], Iterable[Path]]]:
     """Get the function that returns paths present in a diff specfied by cmdline arguments
 
     :param pytest.Config config: The pytest config
