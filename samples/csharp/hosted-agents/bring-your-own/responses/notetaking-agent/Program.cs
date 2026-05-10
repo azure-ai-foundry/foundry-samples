@@ -4,12 +4,12 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Azure.AI.AgentServer.Responses;
 using Azure.AI.AgentServer.Responses.Models;
-using Azure.AI.OpenAI;
+using Azure.AI.Extensions.OpenAI;
+using Azure.AI.Projects;
 using Azure.Identity;
 using Microsoft.Extensions.DependencyInjection;
-using OpenAI.Chat;
+using OpenAI.Responses;
 
-// Derive Azure OpenAI endpoint from the auto-injected Foundry project endpoint
 if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
     Console.Error.WriteLine(
         "[WARNING] APPLICATIONINSIGHTS_CONNECTION_STRING not set — traces will not be sent " +
@@ -18,18 +18,19 @@ if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS
 
 var foundryEndpoint = Environment.GetEnvironmentVariable("FOUNDRY_PROJECT_ENDPOINT")
     ?? throw new InvalidOperationException("FOUNDRY_PROJECT_ENDPOINT environment variable is not set.");
-var azureOpenAIEndpoint = new Uri(foundryEndpoint).GetLeftPart(UriPartial.Authority);
 var deployment = Environment.GetEnvironmentVariable("AZURE_AI_MODEL_DEPLOYMENT_NAME")
     ?? throw new InvalidOperationException("AZURE_AI_MODEL_DEPLOYMENT_NAME environment variable is not set.");
 
-var aoaiClient = new AzureOpenAIClient(
-    new Uri(azureOpenAIEndpoint),
-    new DefaultAzureCredential());
-var chatClient = aoaiClient.GetChatClient(deployment);
+var projectClient = new AIProjectClient(new Uri(foundryEndpoint), new DefaultAzureCredential());
+
+// Use the Responses API via the Foundry project client — replaces the legacy
+// Azure.AI.OpenAI / AzureOpenAIClient pattern.
+var responsesClient = projectClient.ProjectOpenAIClient
+    .GetProjectResponsesClientForModel(deployment);
 
 ResponsesServer.Run<NoteTakingHandler>(configure: builder =>
 {
-    builder.Services.AddSingleton(new LlmConfig(chatClient));
+    builder.Services.AddSingleton(responsesClient);
 });
 
 // ──────────────────────────────────────────────────────────────────
@@ -38,9 +39,48 @@ ResponsesServer.Run<NoteTakingHandler>(configure: builder =>
 
 public class NoteTakingHandler : ResponseHandler
 {
-    private readonly LlmConfig _llm;
+    // Maximum number of tool-call rounds before giving up. Bounds API cost and
+    // request latency if the model gets stuck in a tool-call feedback loop.
+    private const int MaxToolRounds = 5;
 
-    public NoteTakingHandler(LlmConfig llm) => _llm = llm;
+    private const string SystemPrompt =
+        "You are a helpful note-taking assistant. You can save notes and retrieve them. " +
+        "When the user asks to save a note, extract the note content and call save_note. " +
+        "When the user asks to see their notes, call get_notes. " +
+        "Always respond in a friendly, concise manner.";
+
+    private static readonly OpenAI.Responses.FunctionTool s_saveNoteTool = ResponseTool.CreateFunctionTool(
+        functionName: "save_note",
+        functionDescription: "Save a note with the current timestamp. Use this when the user asks to save, add, or create a note.",
+        functionParameters: BinaryData.FromString("""
+        {
+            "type": "object",
+            "properties": {
+                "note": {
+                    "type": "string",
+                    "description": "The note text to save"
+                }
+            },
+            "required": ["note"]
+        }
+        """),
+        strictModeEnabled: false);
+
+    private static readonly OpenAI.Responses.FunctionTool s_getNotesTool = ResponseTool.CreateFunctionTool(
+        functionName: "get_notes",
+        functionDescription: "Retrieve all saved notes. Use this when the user asks to get, list, show, or view their notes.",
+        functionParameters: BinaryData.FromString("""
+        {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+        """),
+        strictModeEnabled: false);
+
+    private readonly ProjectResponsesClient _responsesClient;
+
+    public NoteTakingHandler(ProjectResponsesClient responsesClient) => _responsesClient = responsesClient;
 
     public override IAsyncEnumerable<ResponseStreamEvent> CreateAsync(
         CreateResponse request,
@@ -59,129 +99,69 @@ public class NoteTakingHandler : ResponseHandler
         var userMessage = await context.GetInputTextAsync(cancellationToken: cancellationToken) ?? "";
         var sessionId = request.AgentSessionId ?? "default";
 
-        await foreach (var token in ProcessWithLlmAsync(userMessage, sessionId, cancellationToken))
-        {
-            yield return token;
-        }
-    }
+        var options = new CreateResponseOptions { Instructions = SystemPrompt };
+        options.Tools.Add(s_saveNoteTool);
+        options.Tools.Add(s_getNotesTool);
+        options.InputItems.Add(ResponseItem.CreateUserMessageItem(userMessage));
 
-    // ── LLM mode: Azure OpenAI with function calling ──
-
-    private async IAsyncEnumerable<string> ProcessWithLlmAsync(
-        string userMessage,
-        string sessionId,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        var tools = new ChatTool[]
+        // Function-call loop: keep asking the model until it returns a final
+        // assistant message with no further function calls. Each round, append
+        // the model's output items and any tool results to InputItems so the
+        // next call has the full context.
+        for (int round = 0; round < MaxToolRounds; round++)
         {
-            ChatTool.CreateFunctionTool(
-                "save_note",
-                "Save a note with the current timestamp. Use this when the user asks to save, add, or create a note.",
-                BinaryData.FromString("""
+            var result = await _responsesClient.CreateResponseAsync(options, cancellationToken);
+            bool functionCalled = false;
+
+            foreach (var responseItem in result.Value.OutputItems)
+            {
+                options.InputItems.Add(responseItem);
+                if (responseItem is FunctionCallResponseItem functionCall)
                 {
-                    "type": "object",
-                    "properties": {
-                        "note": {
-                            "type": "string",
-                            "description": "The note text to save"
-                        }
-                    },
-                    "required": ["note"]
+                    var toolOutput = ExecuteToolCall(
+                        functionCall.FunctionName,
+                        functionCall.FunctionArguments,
+                        sessionId);
+                    options.InputItems.Add(
+                        ResponseItem.CreateFunctionCallOutputItem(functionCall.CallId, toolOutput));
+                    functionCalled = true;
                 }
-                """)),
-            ChatTool.CreateFunctionTool(
-                "get_notes",
-                "Retrieve all saved notes. Use this when the user asks to get, list, show, or view their notes.",
-                BinaryData.FromString("""
-                {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
-                """))
-        };
-
-        var messages = new List<ChatMessage>
-        {
-            new SystemChatMessage(
-                "You are a helpful note-taking assistant. You can save notes and retrieve them. " +
-                "When the user asks to save a note, extract the note content and call save_note. " +
-                "When the user asks to see their notes, call get_notes. " +
-                "Always respond in a friendly, concise manner."),
-            new UserChatMessage(userMessage)
-        };
-
-        var options = new ChatCompletionOptions();
-        foreach (var tool in tools)
-            options.Tools.Add(tool);
-
-        // First call — may return tool calls
-        var completion = await _llm.ChatClient.CompleteChatAsync(messages, options, cancellationToken);
-
-        // If tool calls are requested, execute them and send results back
-        if (completion.Value.FinishReason == ChatFinishReason.ToolCalls)
-        {
-            messages.Add(new AssistantChatMessage(completion.Value));
-
-            foreach (var toolCall in completion.Value.ToolCalls)
-            {
-                var result = ExecuteToolCall(toolCall.FunctionName, toolCall.FunctionArguments, sessionId);
-                messages.Add(new ToolChatMessage(toolCall.Id, result));
             }
 
-            // Second call — get natural language response
-            var finalCompletion = await _llm.ChatClient.CompleteChatAsync(messages, options, cancellationToken);
-
-            var response = finalCompletion.Value.Content[0].Text ?? "";
-            foreach (var word in SplitIntoTokens(response))
+            if (!functionCalled)
             {
-                yield return word;
-                await Task.Delay(30, cancellationToken);
+                yield return result.Value.GetOutputText() ?? "";
+                yield break;
             }
         }
-        else
-        {
-            // Direct text response (no tool calls)
-            var response = completion.Value.Content[0].Text ?? "";
-            foreach (var word in SplitIntoTokens(response))
-            {
-                yield return word;
-                await Task.Delay(30, cancellationToken);
-            }
-        }
+
+        yield return $"(Tool-call loop exceeded {MaxToolRounds} rounds without producing a final response.)";
     }
-
-    // ── Helpers ──
 
     private static string ExecuteToolCall(string functionName, BinaryData arguments, string sessionId)
     {
-        if (functionName == "save_note")
+        try
         {
-            var args = JsonSerializer.Deserialize<JsonElement>(arguments);
-            var noteText = args.GetProperty("note").GetString() ?? "";
-            var entry = NoteStore.SaveNote(sessionId, noteText);
-            return JsonSerializer.Serialize(new { status = "saved", note = entry.Note, timestamp = entry.Timestamp });
-        }
-        else if (functionName == "get_notes")
-        {
-            var notes = NoteStore.GetNotes(sessionId);
-            return JsonSerializer.Serialize(new { count = notes.Count, notes = notes.Select(n => new { n.Note, n.Timestamp }) });
-        }
-        return JsonSerializer.Serialize(new { error = $"Unknown function: {functionName}" });
-    }
+            if (functionName == "save_note")
+            {
+                var args = JsonSerializer.Deserialize<JsonElement>(arguments);
+                if (!args.TryGetProperty("note", out var noteProp))
+                    return JsonSerializer.Serialize(new { error = "Missing required 'note' argument" });
 
-    private static IEnumerable<string> SplitIntoTokens(string text)
-    {
-        var words = text.Split(' ');
-        for (int i = 0; i < words.Length; i++)
+                var noteText = noteProp.GetString() ?? "";
+                var entry = NoteStore.SaveNote(sessionId, noteText);
+                return JsonSerializer.Serialize(new { status = "saved", note = entry.Note, timestamp = entry.Timestamp });
+            }
+            else if (functionName == "get_notes")
+            {
+                var notes = NoteStore.GetNotes(sessionId);
+                return JsonSerializer.Serialize(new { count = notes.Count, notes = notes.Select(n => new { n.Note, n.Timestamp }) });
+            }
+            return JsonSerializer.Serialize(new { error = $"Unknown function: {functionName}" });
+        }
+        catch (JsonException ex)
         {
-            yield return i == 0 ? words[i] : $" {words[i]}";
+            return JsonSerializer.Serialize(new { error = $"Invalid tool arguments: {ex.Message}" });
         }
     }
 }
-
-// ──────────────────────────────────────────────────────────────────
-// Config record for DI
-// ──────────────────────────────────────────────────────────────────
-
-public record LlmConfig(ChatClient ChatClient);
