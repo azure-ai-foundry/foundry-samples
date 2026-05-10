@@ -54,16 +54,15 @@ def _byok_provider() -> tuple[ProviderConfig | None, str | None]:
     if not endpoint or not model:
         return None, None
 
-    base_url = f"{endpoint.rstrip('/')}/openai/v1"
-
     from azure.identity import DefaultAzureCredential
     token = DefaultAzureCredential().get_token(
         "https://ai.azure.com/.default"
     ).token
 
     provider = ProviderConfig(
-        type="openai",
-        base_url=base_url,
+        type="azure",
+        base_url=endpoint,
+        wire_api="responses",
         bearer_token=token,
     )
     return provider, model
