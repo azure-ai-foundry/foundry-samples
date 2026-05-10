@@ -1,12 +1,19 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-"""Getting-started: GitHub Copilot SDK with the Foundry invocations protocol."""
+"""Getting-started: GitHub Copilot SDK with the Foundry invocations protocol.
+
+Supports two auth modes selected automatically by environment variables:
+  - GITHUB_TOKEN set → uses the GitHub Copilot model (quickest start)
+  - FOUNDRY_PROJECT_ENDPOINT + AZURE_AI_MODEL_DEPLOYMENT_NAME set
+        → uses a BYOK Foundry model via Managed Identity (no token needed)
+"""
 
 import asyncio
 import json
 import logging
 import os
 import pathlib
+import sys
 import uuid
 
 from dotenv import load_dotenv
@@ -16,7 +23,7 @@ from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from azure.ai.agentserver.invocations import InvocationAgentServerHost
 from copilot import CopilotClient, SubprocessConfig
-from copilot.session import PermissionHandler
+from copilot.session import PermissionHandler, ProviderConfig
 
 from copilot.generated.session_events import SessionEventType
 
@@ -25,28 +32,44 @@ load_dotenv(override=False)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-if not os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
-    logger.warning(
-        "APPLICATIONINSIGHTS_CONNECTION_STRING not set — traces will not be sent to "
-        "Application Insights. Set it to enable local telemetry. "
-        "(This variable is auto-injected in hosted Foundry containers — do not declare it in agent.manifest.yaml.)"
-    )
-
-if not os.environ.get("GITHUB_TOKEN"):
-    raise EnvironmentError(
-        "GITHUB_TOKEN environment variable is not set. "
-        "For local runs, copy .env.example to .env and set GITHUB_TOKEN to a GitHub fine-grained PAT "
-        "with 'Copilot Requests → Read-only' permission. "
-        "For hosted deployments, run: azd env set GITHUB_TOKEN=\"github_pat_...\". "
-        "Create one at https://github.com/settings/personal-access-tokens/new"
-    )
-
 app = InvocationAgentServerHost()
 
 _client: CopilotClient | None = None
 _session = None
 _session_id: str | None = None
 _skills_dir = str(pathlib.Path(__file__).parent / "skills")
+
+
+# ── BYOK helpers ─────────────────────────────────────────────────────────────
+
+
+def _byok_provider() -> tuple[ProviderConfig | None, str | None]:
+    """Return (provider, model) for BYOK mode, or (None, None) for Copilot mode.
+
+    Uses the FOUNDRY_PROJECT_ENDPOINT directly as a project-level OpenAI
+    endpoint (e.g. https://<resource>.services.ai.azure.com/api/projects/<proj>/openai/v1).
+    """
+    endpoint = os.environ.get("FOUNDRY_PROJECT_ENDPOINT", "")
+    model = os.environ.get("AZURE_AI_MODEL_DEPLOYMENT_NAME", "")
+    if not endpoint or not model:
+        return None, None
+
+    base_url = f"{endpoint.rstrip('/')}/openai/v1"
+
+    from azure.identity import DefaultAzureCredential
+    token = DefaultAzureCredential().get_token(
+        "https://ai.azure.com/.default"
+    ).token
+
+    provider = ProviderConfig(
+        type="openai",
+        base_url=base_url,
+        bearer_token=token,
+    )
+    return provider, model
+
+
+# ── Session management ───────────────────────────────────────────────────────
 
 
 async def _ensure_session():
@@ -61,31 +84,39 @@ async def _ensure_session():
         logger.warning(
             "FOUNDRY_AGENT_SESSION_ID not set, using: %s", _session_id)
 
-    _client = CopilotClient(
-        SubprocessConfig(github_token=os.environ["GITHUB_TOKEN"]),
-        auto_start=False,
-    )
+    github_token = os.environ.get("GITHUB_TOKEN")
+    provider, model = _byok_provider()
+
+    if provider:
+        # BYOK mode: Foundry model via Managed Identity — no token needed.
+        _client = CopilotClient(auto_start=False)
+    elif github_token:
+        # Copilot mode: use GitHub token.
+        _client = CopilotClient(
+            SubprocessConfig(github_token=github_token), auto_start=False)
+    else:
+        raise RuntimeError(
+            "Set GITHUB_TOKEN (Copilot model) or "
+            "FOUNDRY_PROJECT_ENDPOINT + AZURE_AI_MODEL_DEPLOYMENT_NAME "
+            "(BYOK Foundry model)")
     await _client.start()
 
     working_dir = os.environ.get("HOME", "/home")
 
+    common = dict(
+        on_permission_request=PermissionHandler.approve_all,
+        streaming=True,
+        skill_directories=[_skills_dir],
+        working_directory=working_dir,
+        provider=provider,
+        model=model,
+    )
+
     try:
-        _session = await _client.resume_session(
-            _session_id,
-            on_permission_request=PermissionHandler.approve_all,
-            streaming=True,
-            skill_directories=[_skills_dir],
-            working_directory=working_dir,
-        )
+        _session = await _client.resume_session(_session_id, **common)
         logger.info("Resumed session: %s", _session_id)
     except Exception:
-        _session = await _client.create_session(
-            session_id=_session_id,
-            on_permission_request=PermissionHandler.approve_all,
-            streaming=True,
-            skill_directories=[_skills_dir],
-            working_directory=working_dir,
-        )
+        _session = await _client.create_session(session_id=_session_id, **common)
         logger.info("Created session: %s", _session_id)
 
 
@@ -148,4 +179,14 @@ async def handle_invoke(request: Request) -> Response:
 
 
 if __name__ == "__main__":
+    has_token = bool(os.environ.get("GITHUB_TOKEN"))
+    has_byok = bool(
+        os.environ.get("FOUNDRY_PROJECT_ENDPOINT")
+        and os.environ.get("AZURE_AI_MODEL_DEPLOYMENT_NAME")
+    )
+    if not has_token and not has_byok:
+        sys.exit(
+            "Error: Set GITHUB_TOKEN (Copilot model) or "
+            "FOUNDRY_PROJECT_ENDPOINT + AZURE_AI_MODEL_DEPLOYMENT_NAME "
+            "(BYOK Foundry model)")
     app.run()

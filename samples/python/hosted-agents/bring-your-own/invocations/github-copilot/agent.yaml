@@ -5,8 +5,15 @@ protocols:
   - protocol: invocations
     version: 1.0.0
 resources:
-  cpu: "0.25"
+  cpu: '0.25'
   memory: 0.5Gi
 environment_variables:
-  - name: GITHUB_TOKEN
-    value: ${GITHUB_TOKEN}
+  # Recommended — use a Foundry BYOK model with Managed Identity (no secrets needed).
+  # FOUNDRY_PROJECT_ENDPOINT is auto-injected by the platform — do not set it here.
+  - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+    value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+  #
+  # Alternative — set GITHUB_TOKEN to use the GitHub Copilot model instead.
+  # If both are set, the Foundry model is used and GITHUB_TOKEN is ignored.
+  # - name: GITHUB_TOKEN
+  #   value: ${GITHUB_TOKEN}
