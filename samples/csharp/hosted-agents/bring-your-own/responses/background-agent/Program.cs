@@ -3,10 +3,11 @@
 using System.Runtime.CompilerServices;
 using Azure.AI.AgentServer.Responses;
 using Azure.AI.AgentServer.Responses.Models;
-using Azure.AI.OpenAI;
+using Azure.AI.Extensions.OpenAI;
+using Azure.AI.Projects;
 using Azure.Identity;
 using Microsoft.Extensions.DependencyInjection;
-using OpenAI.Chat;
+using OpenAI.Responses;
 
 if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
     Console.Error.WriteLine(
@@ -14,21 +15,21 @@ if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS
         "to Application Insights. Set it to enable local telemetry. " +
         "(This variable is auto-injected in hosted Foundry containers — do not declare it in agent.manifest.yaml.)");
 
-// Derive Azure OpenAI endpoint from the auto-injected Foundry project endpoint
 var foundryEndpoint = Environment.GetEnvironmentVariable("FOUNDRY_PROJECT_ENDPOINT")
-    ?? throw new InvalidOperationException("FOUNDRY_PROJECT_ENDPOINT environment variable is required.");
-var azureOpenAIEndpoint = new Uri(foundryEndpoint).GetLeftPart(UriPartial.Authority);
+    ?? throw new InvalidOperationException("FOUNDRY_PROJECT_ENDPOINT environment variable is not set.");
 var deployment = Environment.GetEnvironmentVariable("AZURE_AI_MODEL_DEPLOYMENT_NAME")
-    ?? throw new InvalidOperationException("AZURE_AI_MODEL_DEPLOYMENT_NAME environment variable is required.");
+    ?? throw new InvalidOperationException("AZURE_AI_MODEL_DEPLOYMENT_NAME environment variable is not set.");
 
-var aoaiClient = new AzureOpenAIClient(
-    new Uri(azureOpenAIEndpoint),
-    new DefaultAzureCredential());
-var chatClient = aoaiClient.GetChatClient(deployment);
+var projectClient = new AIProjectClient(new Uri(foundryEndpoint), new DefaultAzureCredential());
+
+// Use the Responses API via the Foundry project client — replaces the legacy
+// Azure.AI.OpenAI / AzureOpenAIClient pattern.
+var responsesClient = projectClient.ProjectOpenAIClient
+    .GetProjectResponsesClientForModel(deployment);
 
 ResponsesServer.Run<BackgroundResearchHandler>(configure: builder =>
 {
-    builder.Services.AddSingleton(chatClient);
+    builder.Services.AddSingleton(responsesClient);
 });
 
 // ──────────────────────────────────────────────────────────────────
@@ -36,9 +37,9 @@ ResponsesServer.Run<BackgroundResearchHandler>(configure: builder =>
 // ──────────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Background research agent using the responses protocol with Azure OpenAI.
-/// Processes requests asynchronously — the SDK handles background mode,
-/// polling, and cancellation automatically.
+/// Background research agent using the responses protocol with the Foundry
+/// Responses API. Processes requests asynchronously — the SDK handles
+/// background mode, polling, and cancellation automatically.
 /// </summary>
 public class BackgroundResearchHandler : ResponseHandler
 {
@@ -52,9 +53,9 @@ public class BackgroundResearchHandler : ResponseHandler
         "5. Conclusion\n\n" +
         "Be detailed and substantive. Target 500-800 words.";
 
-    private readonly ChatClient _chatClient;
+    private readonly ProjectResponsesClient _responsesClient;
 
-    public BackgroundResearchHandler(ChatClient chatClient) => _chatClient = chatClient;
+    public BackgroundResearchHandler(ProjectResponsesClient responsesClient) => _responsesClient = responsesClient;
 
     public override IAsyncEnumerable<ResponseStreamEvent> CreateAsync(
         CreateResponse request,
@@ -72,20 +73,15 @@ public class BackgroundResearchHandler : ResponseHandler
         var userInput = await context.GetInputTextAsync(cancellationToken: cancellationToken)
             ?? "General AI trends analysis";
 
-        var messages = new List<ChatMessage>
-        {
-            new SystemChatMessage(SystemPrompt),
-            new UserChatMessage($"Research topic: {userInput}")
-        };
+        var options = new CreateResponseOptions { Instructions = SystemPrompt };
+        options.InputItems.Add(ResponseItem.CreateUserMessageItem($"Research topic: {userInput}"));
 
-        await foreach (var update in _chatClient.CompleteChatStreamingAsync(messages, cancellationToken: cancellationToken))
+        await foreach (var update in _responsesClient.CreateResponseStreamingAsync(options, cancellationToken))
         {
-            foreach (var part in update.ContentUpdate)
+            if (update is StreamingResponseOutputTextDeltaUpdate delta
+                && !string.IsNullOrEmpty(delta.Delta))
             {
-                if (!string.IsNullOrEmpty(part.Text))
-                {
-                    yield return part.Text;
-                }
+                yield return delta.Delta;
             }
         }
     }
