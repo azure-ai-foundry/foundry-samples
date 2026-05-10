@@ -2,13 +2,13 @@
 
 using System.Text.Json;
 using Azure.AI.AgentServer.Invocations;
-using Azure.AI.OpenAI;
+using Azure.AI.Extensions.OpenAI;
+using Azure.AI.Projects;
 using Azure.Identity;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using OpenAI.Chat;
+using OpenAI.Responses;
 
-// Derive Azure OpenAI endpoint from the auto-injected Foundry project endpoint
 if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
     Console.Error.WriteLine(
         "[WARNING] APPLICATIONINSIGHTS_CONNECTION_STRING not set — traces will not be sent " +
@@ -17,18 +17,19 @@ if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS
 
 var foundryEndpoint = Environment.GetEnvironmentVariable("FOUNDRY_PROJECT_ENDPOINT")
     ?? throw new InvalidOperationException("FOUNDRY_PROJECT_ENDPOINT environment variable is not set.");
-var azureOpenAIEndpoint = new Uri(foundryEndpoint).GetLeftPart(UriPartial.Authority);
 var deployment = Environment.GetEnvironmentVariable("AZURE_AI_MODEL_DEPLOYMENT_NAME")
     ?? throw new InvalidOperationException("AZURE_AI_MODEL_DEPLOYMENT_NAME environment variable is not set.");
 
-var aoaiClient = new AzureOpenAIClient(
-    new Uri(azureOpenAIEndpoint),
-    new DefaultAzureCredential());
-var chatClient = aoaiClient.GetChatClient(deployment);
+var projectClient = new AIProjectClient(new Uri(foundryEndpoint), new DefaultAzureCredential());
+
+// Use the Responses API via the Foundry project client — replaces the legacy
+// Azure.AI.OpenAI / AzureOpenAIClient pattern.
+var responsesClient = projectClient.ProjectOpenAIClient
+    .GetProjectResponsesClientForModel(deployment);
 
 InvocationsServer.Run<NoteTakingHandler>(configure: builder =>
 {
-    builder.Services.AddSingleton(chatClient);
+    builder.Services.AddSingleton(responsesClient);
 });
 
 // ──────────────────────────────────────────────────────────────────
@@ -36,14 +37,54 @@ InvocationsServer.Run<NoteTakingHandler>(configure: builder =>
 // ──────────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Note-taking agent using the invocations protocol with Azure OpenAI function calling.
-/// Streams responses as SSE events with per-session JSONL persistence.
+/// Note-taking agent using the invocations protocol with the Foundry Responses
+/// API for function calling. Streams the final reply as SSE events with
+/// per-session JSONL persistence.
 /// </summary>
 public class NoteTakingHandler : InvocationHandler
 {
-    private readonly ChatClient _chatClient;
+    // Maximum number of tool-call rounds before giving up. Bounds API cost and
+    // request latency if the model gets stuck in a tool-call feedback loop.
+    private const int MaxToolRounds = 5;
 
-    public NoteTakingHandler(ChatClient chatClient) => _chatClient = chatClient;
+    private const string SystemPrompt =
+        "You are a helpful note-taking assistant. You can save notes and retrieve them. " +
+        "When the user asks to save a note, extract the note content and call save_note. " +
+        "When the user asks to see their notes, call get_notes. " +
+        "Always respond in a friendly, concise manner.";
+
+    private static readonly OpenAI.Responses.FunctionTool s_saveNoteTool = ResponseTool.CreateFunctionTool(
+        functionName: "save_note",
+        functionDescription: "Save a note with the current timestamp. Use this when the user asks to save, add, or create a note.",
+        functionParameters: BinaryData.FromString("""
+        {
+            "type": "object",
+            "properties": {
+                "note": {
+                    "type": "string",
+                    "description": "The note text to save"
+                }
+            },
+            "required": ["note"]
+        }
+        """),
+        strictModeEnabled: false);
+
+    private static readonly OpenAI.Responses.FunctionTool s_getNotesTool = ResponseTool.CreateFunctionTool(
+        functionName: "get_notes",
+        functionDescription: "Retrieve all saved notes. Use this when the user asks to get, list, show, or view their notes.",
+        functionParameters: BinaryData.FromString("""
+        {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+        """),
+        strictModeEnabled: false);
+
+    private readonly ProjectResponsesClient _responsesClient;
+
+    public NoteTakingHandler(ProjectResponsesClient responsesClient) => _responsesClient = responsesClient;
 
     public override async Task HandleAsync(
         HttpRequest request,
@@ -78,135 +119,77 @@ public class NoteTakingHandler : InvocationHandler
         response.ContentType = "text/event-stream";
         response.Headers.CacheControl = "no-cache";
 
-        // Define tools for Azure OpenAI function calling
-        var tools = new ChatTool[]
+        var options = new CreateResponseOptions { Instructions = SystemPrompt };
+        options.Tools.Add(s_saveNoteTool);
+        options.Tools.Add(s_getNotesTool);
+        options.InputItems.Add(ResponseItem.CreateUserMessageItem(userMessage));
+
+        // Function-call loop: non-streaming rounds while the model emits tool
+        // calls; once tools have been executed, the final reply is streamed
+        // token-by-token to the client as SSE events.
+        string finalText = "";
+        bool toolsExecuted = false;
+        for (int round = 0; round < MaxToolRounds; round++)
         {
-            ChatTool.CreateFunctionTool(
-                "save_note",
-                "Save a note with the current timestamp. Use this when the user asks to save, add, or create a note.",
-                BinaryData.FromString("""
-                {
-                    "type": "object",
-                    "properties": {
-                        "note": {
-                            "type": "string",
-                            "description": "The note text to save"
-                        }
-                    },
-                    "required": ["note"]
-                }
-                """)),
-            ChatTool.CreateFunctionTool(
-                "get_notes",
-                "Retrieve all saved notes. Use this when the user asks to get, list, show, or view their notes.",
-                BinaryData.FromString("""
-                {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
-                """))
-        };
-
-        var messages = new List<ChatMessage>
-        {
-            new SystemChatMessage(
-                "You are a helpful note-taking assistant. You can save notes and retrieve them. " +
-                "When the user asks to save a note, extract the note content and call save_note. " +
-                "When the user asks to see their notes, call get_notes. " +
-                "Always respond in a friendly, concise manner."),
-            new UserChatMessage(userMessage)
-        };
-
-        var options = new ChatCompletionOptions();
-        foreach (var tool in tools)
-            options.Tools.Add(tool);
-
-        // First call — may return tool calls
-        var completion = await _chatClient.CompleteChatAsync(messages, options, cancellationToken);
-
-        // If tool calls are requested, execute them and send results back
-        if (completion.Value.FinishReason == ChatFinishReason.ToolCalls)
-        {
-            messages.Add(new AssistantChatMessage(completion.Value));
-
-            foreach (var toolCall in completion.Value.ToolCalls)
+            if (toolsExecuted)
             {
-                var result = ExecuteToolCall(toolCall.FunctionName, toolCall.FunctionArguments, sessionId);
-                messages.Add(new ToolChatMessage(toolCall.Id, result));
+                await foreach (var update in _responsesClient.CreateResponseStreamingAsync(options, cancellationToken))
+                {
+                    if (update is StreamingResponseOutputTextDeltaUpdate delta
+                        && !string.IsNullOrEmpty(delta.Delta))
+                    {
+                        finalText += delta.Delta;
+                        var tokenEvent = JsonSerializer.Serialize(new { type = "token", content = delta.Delta });
+                        await response.WriteAsync($"data: {tokenEvent}\n\n", cancellationToken);
+                        await response.Body.FlushAsync(cancellationToken);
+                    }
+                }
+                break;
             }
 
-            // Second call — stream natural language response
-            await StreamResponseAsync(messages, options, response, context, cancellationToken);
-        }
-        else
-        {
-            // Direct text response (no tool calls) — stream it
-            var text = completion.Value.Content?.FirstOrDefault()?.Text ?? "";
-            await StreamTextAsync(text, response, context, cancellationToken);
-        }
-    }
+            var result = await _responsesClient.CreateResponseAsync(options, cancellationToken);
+            bool functionCalled = false;
 
-    // ── Streaming helpers ──
-
-    private async Task StreamResponseAsync(
-        List<ChatMessage> messages,
-        ChatCompletionOptions options,
-        HttpResponse response,
-        InvocationContext context,
-        CancellationToken cancellationToken)
-    {
-        var fullText = "";
-
-        await foreach (var update in _chatClient.CompleteChatStreamingAsync(messages, options, cancellationToken))
-        {
-            foreach (var part in update.ContentUpdate)
+            foreach (var responseItem in result.Value.OutputItems)
             {
-                if (!string.IsNullOrEmpty(part.Text))
+                options.InputItems.Add(responseItem);
+                if (responseItem is FunctionCallResponseItem functionCall)
                 {
-                    fullText += part.Text;
-                    var tokenEvent = JsonSerializer.Serialize(new { type = "token", content = part.Text });
-                    await response.WriteAsync($"data: {tokenEvent}\n\n", cancellationToken);
-                    await response.Body.FlushAsync(cancellationToken);
+                    var toolOutput = ExecuteToolCall(
+                        functionCall.FunctionName,
+                        functionCall.FunctionArguments,
+                        sessionId);
+                    options.InputItems.Add(
+                        ResponseItem.CreateFunctionCallOutputItem(functionCall.CallId, toolOutput));
+                    functionCalled = true;
                 }
             }
+
+            if (!functionCalled)
+            {
+                // No tool calls — emit the complete first-round reply as one token event.
+                finalText = result.Value.GetOutputText() ?? "";
+                var tokenEvent = JsonSerializer.Serialize(new { type = "token", content = finalText });
+                await response.WriteAsync($"data: {tokenEvent}\n\n", cancellationToken);
+                break;
+            }
+
+            toolsExecuted = true;
         }
 
-        // Send completion event
-        var doneEvent = JsonSerializer.Serialize(new
+        if (string.IsNullOrEmpty(finalText))
         {
-            type = "done",
-            invocation_id = context.InvocationId,
-            session_id = context.SessionId,
-            full_text = fullText
-        });
-        await response.WriteAsync($"data: {doneEvent}\n\n", cancellationToken);
-        await response.Body.FlushAsync(cancellationToken);
-    }
-
-    private static async Task StreamTextAsync(
-        string text,
-        HttpResponse response,
-        InvocationContext context,
-        CancellationToken cancellationToken)
-    {
-        var words = text.Split(' ');
-        for (int i = 0; i < words.Length; i++)
-        {
-            var token = i == 0 ? words[i] : $" {words[i]}";
-            var tokenEvent = JsonSerializer.Serialize(new { type = "token", content = token });
+            finalText = "(No final response produced — tool-call loop may have exceeded the limit.)";
+            var tokenEvent = JsonSerializer.Serialize(new { type = "token", content = finalText });
             await response.WriteAsync($"data: {tokenEvent}\n\n", cancellationToken);
-            await response.Body.FlushAsync(cancellationToken);
-            await Task.Delay(30, cancellationToken);
         }
 
-        // Send completion event
         var doneEvent = JsonSerializer.Serialize(new
         {
             type = "done",
             invocation_id = context.InvocationId,
             session_id = context.SessionId,
-            full_text = text
+            full_text = finalText
         });
         await response.WriteAsync($"data: {doneEvent}\n\n", cancellationToken);
         await response.Body.FlushAsync(cancellationToken);
