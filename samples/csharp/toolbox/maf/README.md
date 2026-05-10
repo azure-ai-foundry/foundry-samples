@@ -19,7 +19,7 @@ It is the .NET counterpart to the Python Agent Framework toolbox sample in
 ## Features
 
 - **Toolbox MCP integration**: Connects to toolbox endpoints in Microsoft Foundry via MCP HTTP
-- **Azure OpenAI function calling**: Discovered MCP tools are exposed as OpenAI function tools
+- **Foundry function calling**: Discovered MCP tools are exposed as function tools via the Responses API
 - **Bearer token authentication**: Acquires an Azure AD token for the toolbox endpoint
   using `DefaultAzureCredential`
 - **Multi-round tool calling**: Supports up to 5 rounds of LLM ↔ tool interaction per request
@@ -29,7 +29,7 @@ It is the .NET counterpart to the Python Agent Framework toolbox sample in
 
 1. The agent connects to a toolbox MCP endpoint using a custom `ToolboxMcpClient`
 2. It discovers available tools via MCP `tools/list`
-3. Tools are converted to Azure OpenAI `ChatTool` function definitions
+3. Tools are converted to Foundry Responses API function tool definitions
 4. User messages are processed with the LLM; when the model requests a tool call,
    it is forwarded to the toolbox MCP endpoint via `tools/call`
 5. The final text response is streamed back via the Responses protocol
@@ -147,7 +147,7 @@ This sample uses the **Responses Protocol** via `Azure.AI.AgentServer.Responses`
 - OpenAI-compatible `/responses` endpoint
 - Streaming SSE support
 - Multi-turn conversation via `previous_response_id`
-- Tool calling through Azure OpenAI function tools
+- Tool calling through Foundry Responses API function tools
 
 ## Troubleshooting
 
