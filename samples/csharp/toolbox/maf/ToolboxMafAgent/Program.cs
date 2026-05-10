@@ -1,9 +1,9 @@
-// Agent Framework toolbox agent using toolbox MCP endpoint in Microsoft Foundry.
+// Toolbox agent using a toolbox MCP endpoint in Microsoft Foundry.
 //
-// Connects to an toolbox MCP endpoint in Microsoft Foundry, discovers tools via
-// tools/list, and exposes them through Azure OpenAI function calling. Incoming
-// user messages are processed with the LLM, and when the model requests a tool
-// call, it is forwarded to the toolbox MCP endpoint via tools/call.
+// Connects to a toolbox MCP endpoint, discovers tools via tools/list, and
+// exposes them through the Foundry Responses API for function calling. When
+// the model requests a tool call, it is forwarded to the toolbox MCP endpoint
+// via tools/call.
 //
 // Usage:
 //   export FOUNDRY_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project>
@@ -17,10 +17,11 @@ using System.Text;
 using System.Text.Json;
 using Azure.AI.AgentServer.Responses;
 using Azure.AI.AgentServer.Responses.Models;
-using Azure.AI.OpenAI;
+using Azure.AI.Extensions.OpenAI;
+using Azure.AI.Projects;
 using Azure.Identity;
 using Microsoft.Extensions.DependencyInjection;
-using OpenAI.Chat;
+using OpenAI.Responses;
 
 // ── Configuration ─────────────────────────────────────────────────────────
 
@@ -30,20 +31,17 @@ var deployment = Environment.GetEnvironmentVariable("MODEL_DEPLOYMENT_NAME")
     ?? throw new InvalidOperationException("Set MODEL_DEPLOYMENT_NAME");
 var toolboxEndpoint = Environment.GetEnvironmentVariable("TOOLBOX_ENDPOINT");
 
-// Derive Azure OpenAI endpoint from the project endpoint (strip /api/projects/...)
-var projectUri = new Uri(projectEndpoint);
-var openAiEndpoint = $"{projectUri.Scheme}://{projectUri.Host}";
-
 if (string.IsNullOrEmpty(toolboxEndpoint))
     Console.Error.WriteLine(
         "WARNING: TOOLBOX_ENDPOINT is not set. The agent will run without toolbox tools. "
         + "Set this variable (platform-injected at runtime) to enable toolbox integration.");
 
-// ── Azure OpenAI client ──────────────────────────────────────────────────
+// ── Foundry Responses API client ─────────────────────────────────────────
 
 var credential = new DefaultAzureCredential();
-var aoaiClient = new AzureOpenAIClient(new Uri(openAiEndpoint), credential);
-var chatClient = aoaiClient.GetChatClient(deployment);
+var projectClient = new AIProjectClient(new Uri(projectEndpoint), credential);
+var responsesClient = projectClient.ProjectOpenAIClient
+    .GetProjectResponsesClientForModel(deployment);
 
 // ── Toolbox MCP client ───────────────────────────────────────────────────
 
@@ -53,19 +51,23 @@ var toolboxClient = !string.IsNullOrEmpty(toolboxEndpoint)
 
 ResponsesServer.Run<ToolboxHandler>(configure: builder =>
 {
-    builder.Services.AddSingleton(new AgentConfig(chatClient, toolboxClient));
+    builder.Services.AddSingleton(new AgentConfig(responsesClient, toolboxClient));
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Config record
 // ═══════════════════════════════════════════════════════════════════════════
-public record AgentConfig(ChatClient ChatClient, ToolboxMcpClient? ToolboxClient);
+public record AgentConfig(ProjectResponsesClient ResponsesClient, ToolboxMcpClient? ToolboxClient);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Response handler
 // ═══════════════════════════════════════════════════════════════════════════
 public class ToolboxHandler : ResponseHandler
 {
+    // Maximum number of tool-call rounds before giving up. Bounds API cost and
+    // request latency if the model gets stuck in a tool-call feedback loop.
+    private const int MaxToolRounds = 5;
+
     private readonly AgentConfig _config;
 
     public ToolboxHandler(AgentConfig config) => _config = config;
@@ -85,57 +87,51 @@ public class ToolboxHandler : ResponseHandler
     {
         var userMessage = await context.GetInputTextAsync(cancellationToken: cancellationToken) ?? "Hello!";
 
-        // Discover tools from the toolbox MCP endpoint
-        var chatTools = _config.ToolboxClient != null
-            ? await _config.ToolboxClient.GetChatToolsAsync()
-            : new List<ChatTool>();
+        var functionTools = _config.ToolboxClient != null
+            ? await _config.ToolboxClient.GetFunctionToolsAsync(cancellationToken)
+            : new List<OpenAI.Responses.FunctionTool>();
 
-        var messages = new List<ChatMessage>
+        var options = new CreateResponseOptions
         {
-            new SystemChatMessage(
+            Instructions =
                 "You are a helpful assistant with access to toolbox tools in Microsoft Foundry. " +
-                "Use the available tools to help answer user questions."),
-            new UserChatMessage(userMessage),
+                "Use the available tools to help answer user questions.",
         };
-
-        var options = new ChatCompletionOptions();
-        foreach (var tool in chatTools)
+        foreach (var tool in functionTools)
             options.Tools.Add(tool);
+        options.InputItems.Add(ResponseItem.CreateUserMessageItem(userMessage));
 
-        // Tool-calling loop (max 5 rounds)
-        for (int round = 0; round < 5; round++)
+        for (int round = 0; round < MaxToolRounds; round++)
         {
-            var completion = await _config.ChatClient.CompleteChatAsync(messages, options, cancellationToken);
-            var result = completion.Value;
+            var result = await _config.ResponsesClient.CreateResponseAsync(options, cancellationToken);
+            bool functionCalled = false;
 
-            if (result.FinishReason == ChatFinishReason.ToolCalls)
+            foreach (var responseItem in result.Value.OutputItems)
             {
-                var assistantMsg = new AssistantChatMessage(result);
-                messages.Add(assistantMsg);
-
-                foreach (var toolCall in result.ToolCalls)
+                options.InputItems.Add(responseItem);
+                if (responseItem is FunctionCallResponseItem functionCall)
                 {
-                    Console.WriteLine($"  Tool call: {toolCall.FunctionName}({toolCall.FunctionArguments})");
+                    Console.WriteLine($"  Tool call: {functionCall.FunctionName}({functionCall.FunctionArguments})");
                     var toolResult = _config.ToolboxClient != null
                         ? await _config.ToolboxClient.CallToolAsync(
-                            toolCall.FunctionName,
-                            toolCall.FunctionArguments.ToString())
+                            functionCall.FunctionName,
+                            functionCall.FunctionArguments.ToString(),
+                            cancellationToken)
                         : "{\"error\": \"Toolbox not configured\"}";
-                    messages.Add(new ToolChatMessage(toolCall.Id, toolResult));
+                    options.InputItems.Add(
+                        ResponseItem.CreateFunctionCallOutputItem(functionCall.CallId, toolResult));
+                    functionCalled = true;
                 }
-                continue;
             }
 
-            // Final text response
-            foreach (var part in result.Content)
+            if (!functionCalled)
             {
-                if (part.Kind == ChatMessageContentPartKind.Text)
-                    yield return part.Text;
+                yield return result.Value.GetOutputText() ?? "";
+                yield break;
             }
-            yield break;
         }
 
-        yield return "Reached maximum tool-calling rounds.";
+        yield return $"(Tool-call loop exceeded {MaxToolRounds} rounds without producing a final response.)";
     }
 }
 
@@ -154,31 +150,32 @@ public class ToolboxMcpClient
         _credential = credential;
     }
 
-    private async Task<string> GetTokenAsync()
+    private async Task<string> GetTokenAsync(CancellationToken cancellationToken)
     {
         var result = await _credential.GetTokenAsync(
-            new Azure.Core.TokenRequestContext(new[] { "https://ai.azure.com/.default" }));
+            new Azure.Core.TokenRequestContext(new[] { "https://ai.azure.com/.default" }),
+            cancellationToken);
         return result.Token;
     }
 
-    private async Task<HttpClient> CreateHttpClientAsync()
+    private async Task<HttpClient> CreateHttpClientAsync(CancellationToken cancellationToken)
     {
         var http = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
-        var token = await GetTokenAsync();
+        var token = await GetTokenAsync(cancellationToken);
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         http.DefaultRequestHeaders.Add("Foundry-Features", "Toolboxes=V1Preview");
         return http;
     }
 
-    public async Task<List<ChatTool>> GetChatToolsAsync()
+    public async Task<List<OpenAI.Responses.FunctionTool>> GetFunctionToolsAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(_endpoint))
-            return new List<ChatTool>();
+            return new List<OpenAI.Responses.FunctionTool>();
 
         if (_cachedTools != null)
-            return _cachedTools.Select(t => t.ToChatTool()).ToList();
+            return _cachedTools.Select(t => t.ToFunctionTool()).ToList();
 
-        using var http = await CreateHttpClientAsync();
+        using var http = await CreateHttpClientAsync(cancellationToken);
         var payload = JsonSerializer.Serialize(new
         {
             jsonrpc = "2.0",
@@ -188,10 +185,11 @@ public class ToolboxMcpClient
         });
 
         var resp = await http.PostAsync(_endpoint,
-            new StringContent(payload, Encoding.UTF8, "application/json"));
+            new StringContent(payload, Encoding.UTF8, "application/json"),
+            cancellationToken);
         resp.EnsureSuccessStatusCode();
 
-        var body = await resp.Content.ReadAsStringAsync();
+        var body = await resp.Content.ReadAsStringAsync(cancellationToken);
         var doc = JsonDocument.Parse(body);
         var tools = doc.RootElement
             .GetProperty("result")
@@ -205,15 +203,15 @@ public class ToolboxMcpClient
         foreach (var t in tools)
             Console.WriteLine($"  - {t.Name}: {t.Description}");
 
-        return tools.Select(t => t.ToChatTool()).ToList();
+        return tools.Select(t => t.ToFunctionTool()).ToList();
     }
 
-    public async Task<string> CallToolAsync(string toolName, string argumentsJson)
+    public async Task<string> CallToolAsync(string toolName, string argumentsJson, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(_endpoint))
             return "Toolbox endpoint not configured";
 
-        using var http = await CreateHttpClientAsync();
+        using var http = await CreateHttpClientAsync(cancellationToken);
         var args = JsonDocument.Parse(argumentsJson).RootElement;
         var payload = JsonSerializer.Serialize(new
         {
@@ -224,10 +222,11 @@ public class ToolboxMcpClient
         });
 
         var resp = await http.PostAsync(_endpoint,
-            new StringContent(payload, Encoding.UTF8, "application/json"));
+            new StringContent(payload, Encoding.UTF8, "application/json"),
+            cancellationToken);
         resp.EnsureSuccessStatusCode();
 
-        var body = await resp.Content.ReadAsStringAsync();
+        var body = await resp.Content.ReadAsStringAsync(cancellationToken);
         var doc = JsonDocument.Parse(body);
         var content = doc.RootElement
             .GetProperty("result")
@@ -247,7 +246,7 @@ public class ToolboxMcpClient
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MCP tool definition → ChatTool converter
+// MCP tool definition → Responses FunctionTool converter
 // ═══════════════════════════════════════════════════════════════════════════
 public class McpToolDefinition
 {
@@ -265,32 +264,26 @@ public class McpToolDefinition
         };
     }
 
-    public ChatTool ToChatTool()
+    public OpenAI.Responses.FunctionTool ToFunctionTool()
     {
-        // Ensure schema always has "type":"object" and "properties"
-        // Azure OpenAI rejects function schemas without these fields
+        // Ensure the schema always has "type":"object" and "properties" — the
+        // Responses API rejects function schemas missing these fields.
         string schemaJson;
-        if (InputSchema.HasValue)
+        if (InputSchema.HasValue
+            && InputSchema.Value.ValueKind == JsonValueKind.Object
+            && InputSchema.Value.TryGetProperty("properties", out _))
         {
-            var raw = InputSchema.Value.GetRawText();
-            var schemaDoc = JsonDocument.Parse(raw);
-            var root = schemaDoc.RootElement;
-
-            // Check if properties is present
-            if (!root.TryGetProperty("properties", out _))
-            {
-                schemaJson = """{"type":"object","properties":{}}""";
-            }
-            else
-            {
-                schemaJson = raw;
-            }
+            schemaJson = InputSchema.Value.GetRawText();
         }
         else
         {
             schemaJson = """{"type":"object","properties":{}}""";
         }
 
-        return ChatTool.CreateFunctionTool(Name, Description, BinaryData.FromString(schemaJson));
+        return ResponseTool.CreateFunctionTool(
+            functionName: Name,
+            functionDescription: Description,
+            functionParameters: BinaryData.FromString(schemaJson),
+            strictModeEnabled: false);
     }
 }
