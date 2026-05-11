@@ -75,7 +75,7 @@ def main():
         credential=DefaultAzureCredential(),
     )
 
-    skills_provider = SkillsProvider(
+    skills_provider = SkillsProvider.from_paths(
         skill_paths=Path(__file__).parent / "skills",
         script_runner=run_local_skill_script,
     )
