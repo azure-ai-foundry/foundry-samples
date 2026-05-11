@@ -1,0 +1,28 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+display_name: cli-training-job-sample
+description: Sample training job using AZD Foundry Training CLI
+command: python ${{inputs.code_dataset}}/train.py --input-folder ${{inputs.train_data}} --input-file-name "sample.jsonl" --result-file ${{outputs.result_file}}
+identity: <user to add>
+environment: <user to add>
+compute: <user to add>
+resources:
+  instance_count: 1
+  instance_type: <user to add>
+  properties:
+    AISuperComputer:
+      imageVersion: ""
+      slaTier: <user to add>
+      priority: <user to add>
+inputs:
+  train_data:
+    type: uri_folder
+    path: .\train_data
+    mode: download
+  code_dataset:
+    type: uri_folder
+    path: .\src
+    mode: download
+outputs:
+  result_file:
+    type: uri_folder
