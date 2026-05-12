@@ -24,18 +24,18 @@ Read on to pick the right sample for your scenario, or jump to the [learning pat
 
 Hosted agents support two protocols. Pick the one that matches your scenario.
 
-| Scenario | Protocol | Why |
-|----------|----------|-----|
-| Conversational chatbot or assistant | **Responses** | The platform manages conversation history, streaming events, and session lifecycle — use any OpenAI-compatible SDK as the client. |
-| Agent published to Teams or M365 | **Responses** + **Activity** | The Responses protocol powers the agent logic; the Activity protocol handles the Teams channel integration. |
-| Multi-turn Q&A with RAG or tools | **Responses** | Built-in `conversation_id` threading and tool result handling. |
-| Background / async processing | **Responses** | `background: true` with platform-managed polling and cancellation — no custom code needed. |
-| Webhook receiver (GitHub, Stripe, Jira, etc.) | **Invocations** | The external system sends its own payload format — you can't change it to match `/responses`. |
-| Non-conversational processing (classification, extraction, batch) | **Invocations** | The input is structured data, not a chat message. Arbitrary JSON in, arbitrary JSON out. |
-| Custom streaming protocol (AG-UI, etc.) | **Invocations** | AG-UI and other agent-UI protocols aren't OpenAI-compatible — you need raw SSE control. |
-| Async job with custom progress, polling, or non-OpenAI callers | **Invocations** | Custom progress reporting, intermediate results, and polling semantics beyond what Responses `background: true` provides. |
-| Protocol bridge (GitHub Copilot, proprietary systems) | **Invocations** | The caller has its own protocol that doesn't map to `/responses`. |
-| Inter-service orchestration (Durable Functions, Logic Apps) | **Invocations** | The caller sends structured task payloads, not chat messages. |
+| Scenario                                                          | Protocol                     | Why                                                                                                                               |
+| ----------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Conversational chatbot or assistant                               | **Responses**                | The platform manages conversation history, streaming events, and session lifecycle — use any OpenAI-compatible SDK as the client. |
+| Agent published to Teams or M365                                  | **Responses** + **Activity** | The Responses protocol powers the agent logic; the Activity protocol handles the Teams channel integration.                       |
+| Multi-turn Q&A with RAG or tools                                  | **Responses**                | Built-in `conversation_id` threading and tool result handling.                                                                    |
+| Background / async processing                                     | **Responses**                | `background: true` with platform-managed polling and cancellation — no custom code needed.                                        |
+| Webhook receiver (GitHub, Stripe, Jira, etc.)                     | **Invocations**              | The external system sends its own payload format — you can't change it to match `/responses`.                                     |
+| Non-conversational processing (classification, extraction, batch) | **Invocations**              | The input is structured data, not a chat message. Arbitrary JSON in, arbitrary JSON out.                                          |
+| Custom streaming protocol (AG-UI, etc.)                           | **Invocations**              | AG-UI and other agent-UI protocols aren't OpenAI-compatible — you need raw SSE control.                                           |
+| Async job with custom progress, polling, or non-OpenAI callers    | **Invocations**              | Custom progress reporting, intermediate results, and polling semantics beyond what Responses `background: true` provides.         |
+| Protocol bridge (GitHub Copilot, proprietary systems)             | **Invocations**              | The caller has its own protocol that doesn't map to `/responses`.                                                                 |
+| Inter-service orchestration (Durable Functions, Logic Apps)       | **Invocations**              | The caller sends structured task payloads, not chat messages.                                                                     |
 
 > **Still not sure?** Start with **Responses**. You can always add an Invocations endpoint later — a hosted agent can support both protocols simultaneously by listing both in `agent.yaml`.
 
@@ -44,16 +44,16 @@ Hosted agents support two protocols. Pick the one that matches your scenario.
 <details>
 <summary><strong>Protocol comparison details</strong></summary>
 
-| | **Responses** | **Invocations** |
-|---|---|---|
-| **Best for** | Most agents — the platform manages conversation history, streaming lifecycle, and background polling | Agents that need full HTTP control, custom payloads, or custom async workflows |
-| **Payload** | OpenAI-compatible `/responses` contract | Arbitrary JSON via `/invocations` — you define the schema |
-| **Client SDK** | Any OpenAI-compatible SDK (Python, JS, C#) works out of the box | Custom client — you define the contract |
-| **Session history** | Framework-managed via `conversation_id` | You manage sessions (in-memory, Cosmos DB, etc.) |
-| **Streaming** | Framework-managed `ResponseEventStream` with lifecycle events (`created`, `in_progress`, `delta`, `completed`) | Raw SSE — you format and write events directly |
-| **Background / long-running** | Built-in (`background: true` + platform-managed polling) | Manual task tracking and custom polling endpoints |
-| **Server SDK** | `azure-ai-agentserver-responses` | `azure-ai-agentserver-invocations` |
-| **agent.yaml** | `protocol: responses`, `version: v0.1.0` | `protocol: invocations`, `version: v0.0.1` |
+|                               | **Responses**                                                                                                  | **Invocations**                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **Best for**                  | Most agents — the platform manages conversation history, streaming lifecycle, and background polling           | Agents that need full HTTP control, custom payloads, or custom async workflows |
+| **Payload**                   | OpenAI-compatible `/responses` contract                                                                        | Arbitrary JSON via `/invocations` — you define the schema                      |
+| **Client SDK**                | Any OpenAI-compatible SDK (Python, JS, C#) works out of the box                                                | Custom client — you define the contract                                        |
+| **Session history**           | Framework-managed via `conversation_id`                                                                        | You manage sessions (in-memory, Cosmos DB, etc.)                               |
+| **Streaming**                 | Framework-managed `ResponseEventStream` with lifecycle events (`created`, `in_progress`, `delta`, `completed`) | Raw SSE — you format and write events directly                                 |
+| **Background / long-running** | Built-in (`background: true` + platform-managed polling)                                                       | Manual task tracking and custom polling endpoints                              |
+| **Server SDK**                | `azure-ai-agentserver-responses`                                                                               | `azure-ai-agentserver-invocations`                                             |
+| **agent.yaml**                | `protocol: responses`, `version: v0.1.0`                                                                       | `protocol: invocations`, `version: v0.0.1`                                     |
 
 </details>
 
@@ -63,14 +63,14 @@ Hosted agents support two protocols. Pick the one that matches your scenario.
 
 Hosted agents run any code you can put in a container. These samples cover three frameworks — pick the one that matches where you are.
 
-| | **Agent Framework** | **LangGraph** | **Bring Your Own** |
-|---|---|---|---|
-| **Best for** | Starting fresh on Foundry — also supports AutoGen and Semantic Kernel | Already using LangChain / LangGraph | Already built with CrewAI or your own stack |
-| **SDK** | `agent-framework-foundry-hosting` (includes core, openai, foundry, orchestrations) | `azure-ai-agentserver-responses` / `azure-ai-agentserver-invocations` | `azure-ai-agentserver-responses` / `azure-ai-agentserver-invocations`, or `azure-ai-agentserver-core` for fully custom HTTP |
-| **Foundry integration** | Native — sessions, tools, memory, streaming all built in | Adapter — sessions and tools wired through LangGraph adapter | Core adapter hosts the web server and exposes `/invocations` and `/responses` endpoints; you supply the agent logic |
-| **Protocols** | Responses and Invocations | Responses and Invocations | Responses and Invocations |
-| **Language support** | Python and C# | Python only | Any language (Python and C# samples provided) |
-| **Start here** | [Basic Agent →](agent-framework/responses/01-basic/) | [LangGraph Chat →](bring-your-own/responses/langgraph-chat/) | [Hello World →](bring-your-own/responses/hello-world/) |
+|                         | **Agent Framework**                                                                | **LangGraph**                                                         | **Bring Your Own**                                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Best for**            | Starting fresh on Foundry — also supports AutoGen and Semantic Kernel              | Already using LangChain / LangGraph                                   | Already built with CrewAI or your own stack                                                                                 |
+| **SDK**                 | `agent-framework-foundry-hosting` (includes core, openai, foundry, orchestrations) | `azure-ai-agentserver-responses` / `azure-ai-agentserver-invocations` | `azure-ai-agentserver-responses` / `azure-ai-agentserver-invocations`, or `azure-ai-agentserver-core` for fully custom HTTP |
+| **Foundry integration** | Native — sessions, tools, memory, streaming all built in                           | Adapter — sessions and tools wired through LangGraph adapter          | Core adapter hosts the web server and exposes `/invocations` and `/responses` endpoints; you supply the agent logic         |
+| **Protocols**           | Responses and Invocations                                                          | Responses and Invocations                                             | Responses and Invocations                                                                                                   |
+| **Language support**    | Python and C#                                                                      | Python only                                                           | Any language (Python and C# samples provided)                                                                               |
+| **Start here**          | [Basic Agent →](agent-framework/responses/01-basic/)                               | [LangGraph Chat →](bring-your-own/responses/langgraph-chat/)          | [Hello World →](bring-your-own/responses/hello-world/)                                                                      |
 
 > **Which should I choose?** If you're building a new agent — or already using AutoGen or Semantic Kernel — start with **Agent Framework**. It has the tightest Foundry integration, supports those orchestrators natively, and has the most samples to learn from. If you already have LangGraph code, use the **LangGraph** adapter to bring it to Foundry. If you have an existing agent in another framework (e.g., CrewAI), **Bring Your Own** shows how to containerize and deploy it unchanged.
 
@@ -95,8 +95,10 @@ The platform manages conversation history, streaming lifecycle, and background e
 3. **[MCP Tools](./agent-framework/responses/03-mcp/)** — Connect your agent to a remote MCP server to access tools, retrieval, and more.
 4. **[Foundry Toolbox](./agent-framework/responses/04-foundry-toolbox/)** — Wire your agent to a Foundry Toolbox for managed tool access.
 5. **[Workflows](./agent-framework/responses/05-workflows/)** — Compose multiple agents into sequential pipelines.
-6. **[Declarative Customer Support](./agent-framework/responses/06-declarative-customer-support/)** — Define and host a multi-turn customer-support triage workflow with YAML.
+6. **[Files](./agent-framework/responses/06-files/)** — Agent capable of manipulating files uploaded to the session.
 7. **[Skills](./agent-framework/responses/07-skills/)** — Add native file-based skills to your agent and generate a colorful PDF travel guide.
+8. **[Observability](./agent-framework/responses/08-observability/)** — Add logging, metrics, and distributed tracing to your agent and visualize them in Foundry.
+9. **[Declarative Workflows](./agent-framework/responses/09-declarative-customer-support/)** — A multi-turn customer-support triage workflow defined entirely in YAML and hosted as an agent, demonstrating declarative workflow authoring with `InvokeAzureAgent` calls to specialist Foundry-hosted agents and conversation-aware routing.
 
 ### Invocations protocol
 
@@ -104,8 +106,8 @@ Full control over the HTTP request/response cycle. You define the payload schema
 
 > **Every capability works with both protocols.** Tools, RAG, memory, evaluations, Teams publishing, multi-agent — all of these work with Invocations. The Invocations samples below focus on the protocol mechanics (how you handle requests, streaming, sessions, and long-running tasks). To add a capability like knowledge grounding or tools, learn the Invocations pattern from these samples, then adapt the relevant Responses sample — the capability code is the same, only the HTTP handler differs.
 
-| Sample | What it shows |
-|--------|---------------|
+| Sample                                                                 | What it shows                                                                           |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | **[Basic Invocations Agent](./agent-framework/invocations/01-basic/)** | Minimal invocations agent — shows the invocations handler pattern with Agent Framework. |
 
 ---
@@ -115,6 +117,7 @@ Full control over the HTTP request/response cycle. You define the payload schema
 LangGraph samples are included in the **Bring Your Own** section below — see [`bring-your-own/responses/langgraph-chat/`](bring-your-own/responses/langgraph-chat/) and [`bring-your-own/invocations/langgraph-chat/`](bring-your-own/invocations/langgraph-chat/).
 
 ---
+
 ## Bring Your Own Framework samples
 
 Already built an agent with CrewAI or your own code? The protocol SDKs (`azure-ai-agentserver-responses` / `azure-ai-agentserver-invocations`) give you the hosted agent HTTP contract — they host the web server, expose the right endpoint, and handle request parsing — so you just plug in your agent logic. This is the recommended path for BYO to ensure your agent stays aligned with the platform contract as new endpoints are added. For lower-level control, the **Core adapter** (`azure-ai-agentserver-core`) gives you managed hosting, OpenTelemetry tracing, and health endpoints, but you handle the protocol details yourself.
@@ -123,25 +126,25 @@ Already built an agent with CrewAI or your own code? The protocol SDKs (`azure-a
 
 ### Responses protocol
 
-| Sample | What it shows |
-|--------|--------------|
-| **[Hello World](bring-your-own/responses/hello-world/)** | Minimal agent — calls a Foundry model via the Responses API and returns the reply. The simplest possible BYO starting point. |
-| **[LangGraph Chat](bring-your-own/responses/langgraph-chat/)** | LangGraph conversational agent hosted on Foundry with multi-turn history via the Responses protocol. |
-| **[Notetaking Agent](bring-your-own/responses/notetaking-agent/)** | Agent that takes and retrieves notes using a custom tool. |
-| **[Toolbox](bring-your-own/responses/toolbox/)** | BYO agent wired to a Foundry Toolbox MCP endpoint for tool access. |
-| **[Background Agent](bring-your-own/responses/background-agent/)** | Long-running background processing with async execution. |
+| Sample                                                             | What it shows                                                                                                                |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| **[Hello World](bring-your-own/responses/hello-world/)**           | Minimal agent — calls a Foundry model via the Responses API and returns the reply. The simplest possible BYO starting point. |
+| **[LangGraph Chat](bring-your-own/responses/langgraph-chat/)**     | LangGraph conversational agent hosted on Foundry with multi-turn history via the Responses protocol.                         |
+| **[Notetaking Agent](bring-your-own/responses/notetaking-agent/)** | Agent that takes and retrieves notes using a custom tool.                                                                    |
+| **[Toolbox](bring-your-own/responses/toolbox/)**                   | BYO agent wired to a Foundry Toolbox MCP endpoint for tool access.                                                           |
+| **[Background Agent](bring-your-own/responses/background-agent/)** | Long-running background processing with async execution.                                                                     |
 
 ### Invocations protocol
 
-| Sample | What it shows |
-|--------|--------------|
-| **[Hello World](bring-your-own/invocations/hello-world/)** | Minimal agent — arbitrary JSON in, streaming SSE out. The simplest possible BYO invocations starting point. |
-| **[LangGraph Chat](bring-your-own/invocations/langgraph-chat/)** | LangGraph conversational agent over the Invocations protocol with client-managed sessions. |
-| **[Notetaking Agent](bring-your-own/invocations/notetaking-agent/)** | Note-taking agent with the Invocations protocol. |
-| **[Toolbox](bring-your-own/invocations/toolbox/)** | BYO invocations agent wired to a Foundry Toolbox MCP endpoint. |
-| **[AG-UI](bring-your-own/invocations/ag-ui/)** | Agent using the AG-UI streaming protocol via the Invocations endpoint. |
-| **[GitHub Copilot](bring-your-own/invocations/github-copilot/)** | Agent that integrates with GitHub Copilot as the AI backbone. |
-| **[Human-in-the-Loop](bring-your-own/invocations/human-in-the-loop/)** | Long-running agent that pauses for human approval before continuing. |
+| Sample                                                                 | What it shows                                                                                               |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **[Hello World](bring-your-own/invocations/hello-world/)**             | Minimal agent — arbitrary JSON in, streaming SSE out. The simplest possible BYO invocations starting point. |
+| **[LangGraph Chat](bring-your-own/invocations/langgraph-chat/)**       | LangGraph conversational agent over the Invocations protocol with client-managed sessions.                  |
+| **[Notetaking Agent](bring-your-own/invocations/notetaking-agent/)**   | Note-taking agent with the Invocations protocol.                                                            |
+| **[Toolbox](bring-your-own/invocations/toolbox/)**                     | BYO invocations agent wired to a Foundry Toolbox MCP endpoint.                                              |
+| **[AG-UI](bring-your-own/invocations/ag-ui/)**                         | Agent using the AG-UI streaming protocol via the Invocations endpoint.                                      |
+| **[GitHub Copilot](bring-your-own/invocations/github-copilot/)**       | Agent that integrates with GitHub Copilot as the AI backbone.                                               |
+| **[Human-in-the-Loop](bring-your-own/invocations/human-in-the-loop/)** | Long-running agent that pauses for human approval before continuing.                                        |
 
 ## Deploy any sample
 
@@ -162,11 +165,11 @@ azd down
 
 ### Other ways to invoke your agent
 
-| Method | When to use |
-|--------|------------|
-| `azd ai agent invoke` | Quick CLI test after deploy |
-| [VS Code Foundry extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode) | One-click invoke from the editor |
-| `curl` | Each sample README includes curl examples |
+| Method                                                                                                                                | When to use                               |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `azd ai agent invoke`                                                                                                                 | Quick CLI test after deploy               |
+| [VS Code Foundry extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode) | One-click invoke from the editor          |
+| `curl`                                                                                                                                | Each sample README includes curl examples |
 
 ## Voice Live integration
 
@@ -182,17 +185,18 @@ python voicelive_client.py \
 The client authenticates using `DefaultAzureCredential` — make sure you are logged in (`az login`).
 
 For **Invocations** protocol agents, to make the agent work with Voice Live, the agent needs:
-* The agent can process voice live transcription input: `{"type": "input_audio.transcription", "input": "example voice input"}`
-* The agent should output the text to be read as the following SSE, Voice Live will generate audio for the the `delta` text in the `output_audio_transcription.delta` event:
-    ```
-    data: {"type": "output_audio_transcription.delta", "delta": "The weather "}
-    data: {"type": "output_audio_transcription.delta", "delta": "in Seattle "}
-    data: {"type": "output_audio_transcription.delta", "delta": "is 52°F "}
-    data: {"type": "output_audio_transcription.delta", "delta": "and partly cloudy."}
-    data: {"type": "output_audio_transcription.done", "text": "The weather in Seattle is 52°F and partly cloudy."}
-    data: {"type": "done"}
-    ```
-* The agent manifest must declare `voiceLiveCompatible: "true"` in the metadata section to indicate compatibility with Voice Live.
+
+- The agent can process voice live transcription input: `{"type": "input_audio.transcription", "input": "example voice input"}`
+- The agent should output the text to be read as the following SSE, Voice Live will generate audio for the the `delta` text in the `output_audio_transcription.delta` event:
+  ```
+  data: {"type": "output_audio_transcription.delta", "delta": "The weather "}
+  data: {"type": "output_audio_transcription.delta", "delta": "in Seattle "}
+  data: {"type": "output_audio_transcription.delta", "delta": "is 52°F "}
+  data: {"type": "output_audio_transcription.delta", "delta": "and partly cloudy."}
+  data: {"type": "output_audio_transcription.done", "text": "The weather in Seattle is 52°F and partly cloudy."}
+  data: {"type": "done"}
+  ```
+- The agent manifest must declare `voiceLiveCompatible: "true"` in the metadata section to indicate compatibility with Voice Live.
 
 Here is a hosted agent sample with Invocations protocol that is compatible with Voice Live: [hello-world-invocations-voicelive](bring-your-own/voicelive/hello-world-invocations-voicelive/).
 
