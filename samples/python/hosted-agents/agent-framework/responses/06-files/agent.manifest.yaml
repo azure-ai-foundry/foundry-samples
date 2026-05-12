@@ -1,6 +1,6 @@
-name: agent-framework-agent-with-foundry-toolbox-responses
+name: agent-framework-agent-files-responses
 description: >
-  An Agent Framework agent with Foundry Toolbox integration.
+  An Agent Framework agent that can work with files hosted by Foundry.
 metadata:
   tags:
     - Agent Framework
@@ -9,7 +9,7 @@ metadata:
     - Responses Protocol
     - Streaming
 template:
-  name: agent-framework-agent-with-foundry-toolbox-responses
+  name: agent-framework-agent-files-responses
   kind: hosted
   protocols:
     - protocol: responses
