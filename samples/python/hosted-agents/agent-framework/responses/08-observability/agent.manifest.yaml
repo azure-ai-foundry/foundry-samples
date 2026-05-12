@@ -1,6 +1,6 @@
-name: agent-framework-agent-with-foundry-toolbox-responses
+name: agent-framework-agent-observability-responses
 description: >
-  An Agent Framework agent with Foundry Toolbox integration.
+  A basic Agent Framework agent hosted by Foundry.
 metadata:
   tags:
     - Agent Framework
@@ -9,7 +9,7 @@ metadata:
     - Responses Protocol
     - Streaming
 template:
-  name: agent-framework-agent-with-foundry-toolbox-responses
+  name: agent-framework-agent-observability-responses
   kind: hosted
   protocols:
     - protocol: responses
@@ -17,16 +17,11 @@ template:
   environment_variables:
     - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
       value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
-    - name: TOOLBOX_NAME
-      value: "agent-tools"
+    - name: ENABLE_INSTRUMENTATION
+      value: true
+    - name: ENABLE_SENSITIVE_DATA
+      value: true
 resources:
   - kind: model
     id: gpt-4.1-mini
     name: AZURE_AI_MODEL_DEPLOYMENT_NAME
-  - kind: toolbox
-    name: agent-tools
-    tools:
-      - type: web_search
-        name: web_search
-      - type: code_interpreter
-        name: code_interpreter
