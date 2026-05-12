@@ -4,7 +4,7 @@ import asyncio
 import httpx
 import os
 
-from agent_framework import Agent, MCPStreamableHTTPTool
+from agent_framework import Agent, MCPStreamableHTTPTool, tool
 from agent_framework.foundry import FoundryChatClient
 from agent_framework_foundry_hosting import ResponsesHostServer
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
@@ -26,6 +26,34 @@ class ToolboxAuth(httpx.Auth):
     def auth_flow(self, request):
         request.headers["Authorization"] = f"Bearer {self._get_token()}"
         yield request
+
+
+@tool(description="Get the current working directory.", approval_mode="never_require")
+def get_cwd() -> str:
+    """Get the current working directory."""
+    try:
+        return os.getcwd()
+    except Exception as e:
+        return f"Error getting current working directory: {e}"
+
+
+@tool(description="List files in a directory.", approval_mode="never_require")
+def list_files(directory: str) -> list[str]:
+    """List files in a directory."""
+    try:
+        return os.listdir(directory)
+    except Exception as e:
+        return [f"Error listing files in {directory}: {e}"]
+
+
+@tool(description="Read the contents of a file.", approval_mode="never_require")
+def read_file(file_path: str) -> str:
+    """Read the contents of a file."""
+    try:
+        with open(file_path) as f:
+            return f.read()
+    except Exception as e:
+        return f"Error reading file {file_path}: {e}"
 
 
 async def main():
@@ -58,8 +86,12 @@ async def main():
 
     async with Agent(
         client=client,
-        instructions="You are a friendly assistant. Keep your answers brief.",
-        tools=toolbox,
+        instructions=(
+            "You are a friendly assistant. Keep your answers brief. "
+            "Make sure all mathematical calculations are performed using the code interpreter "
+            "instead of mental arithmetic."
+        ),
+        tools=[get_cwd, list_files, read_file, toolbox],
         # History will be managed by the hosting infrastructure, thus there
         # is no need to store history by the service. Learn more at:
         # https://developers.openai.com/api/reference/resources/responses/methods/create

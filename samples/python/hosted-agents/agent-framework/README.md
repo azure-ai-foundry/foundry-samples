@@ -6,21 +6,23 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 
 ### Responses API
 
-| # | Sample | Description |
-|---|--------|-------------|
-| 1 | [Basic](responses/01-basic/) | A minimal agent demonstrating basic request/response interaction and multi-turn conversations using `previous_response_id`. |
-| 2 | [Tools](responses/02-tools/) | An agent with local tools (e.g., weather lookup), demonstrating how to register and invoke custom tool functions alongside the LLM. |
-| 3 | [MCP](responses/03-mcp/) | An agent connected to a remote MCP server (GitHub), demonstrating external MCP tool provider integration. |
-| 4 | [Foundry Toolbox](responses/04-foundry-toolbox/) | An agent using Azure Foundry Toolbox, demonstrating toolbox provisioning and querying available tools at runtime. |
-| 5 | [Workflows](responses/05-workflows/) | An agent with a multi-step orchestrated workflow, demonstrating chaining prompts through an orchestrated flow. |
-| 6 | [Declarative Customer Support](responses/06-declarative-customer-support/) | A multi-turn customer-support triage workflow defined entirely in YAML and hosted as an agent, demonstrating declarative workflow authoring with `InvokeAzureAgent` calls to specialist Foundry-hosted agents and conversation-aware routing. |
-| 7 | [Skills](responses/07-skills/) | An agent using native Agent Framework file-based skills, demonstrating skill discovery and a script-backed PDF travel guide skill. |
+| #   | Sample                                                                     | Description                                                                                                                                                                                                                                   |
+| --- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | [Basic](responses/01-basic/)                                               | A minimal agent demonstrating basic request/response interaction and multi-turn conversations using `previous_response_id`.                                                                                                                   |
+| 2   | [Tools](responses/02-tools/)                                               | An agent with local tools (e.g., weather lookup), demonstrating how to register and invoke custom tool functions alongside the LLM.                                                                                                           |
+| 3   | [MCP](responses/03-mcp/)                                                   | An agent connected to a remote MCP server (GitHub), demonstrating external MCP tool provider integration.                                                                                                                                     |
+| 4   | [Foundry Toolbox](responses/04-foundry-toolbox/)                           | An agent using Azure Foundry Toolbox, demonstrating toolbox provisioning and querying available tools at runtime.                                                                                                                             |
+| 5   | [Workflows](responses/05-workflows/)                                       | An agent with a multi-step orchestrated workflow, demonstrating chaining prompts through an orchestrated flow.                                                                                                                                |
+| 6   | [Files](responses/06-files/)                                               | An agent capable of handling files uploaded by users.                                                                                                                                                                                         |
+| 7   | [Skills](responses/07-skills/)                                             | An agent using native Agent Framework file-based skills, demonstrating skill discovery and a script-backed PDF travel guide skill.                                                                                                            |
+| 8   | [Observability](responses/08-observability/)                               | An agent demonstrating observability features, including logging, metrics, and tracing.                                                                                                                                                       |
+| 9   | [Declarative Customer Support](responses/09-declarative-customer-support/) | A multi-turn customer-support triage workflow defined entirely in YAML and hosted as an agent, demonstrating declarative workflow authoring with `InvokeAzureAgent` calls to specialist Foundry-hosted agents and conversation-aware routing. |
 
 ### Invocations API
 
-| # | Sample | Description |
-|---|--------|-------------|
-| 1 | [Basic](invocations/01-basic/) | A minimal agent demonstrating session state management via `agent_session_id` in URL params/response headers. |
+| #   | Sample                         | Description                                                                                                   |
+| --- | ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| 1   | [Basic](invocations/01-basic/) | A minimal agent demonstrating session state management via `agent_session_id` in URL params/response headers. |
 
 ## Running the Agent Host Locally
 
@@ -29,9 +31,8 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 #### Prerequisites
 
 1. **Azure Developer CLI (`azd`)**
-
-    - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) and the AI agent extension: `azd ext install azure.ai.agents`
-    - Authenticated: `azd auth login`
+   - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) and the AI agent extension: `azd ext install azure.ai.agents`
+   - Authenticated: `azd auth login`
 
 2. **Azure Subscription**
 
