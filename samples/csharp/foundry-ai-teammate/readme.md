@@ -11,10 +11,9 @@
 Ensure you have the following installed:
 
 | Requirement | Description |
-|------------|-------------|
+|-------------|-------------|
 | [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) | Infrastructure deployment tool |
 | [.NET 9.0 SDK](https://dotnet.microsoft.com/download) | Development framework |
-
 
 ### 🔐 Required Permissions
 
@@ -28,26 +27,21 @@ Ensure you have the following installed:
 
 ### Step 1: Authenticate
 
-Login to your Azure tenant and authenticate with Azure Developer CLI:
-
-Based on tenant security settings, sometimes just az login might be sufficient, sometimes one will need to login to each scope that is used in these scripts.
+Login to your Azure tenant and authenticate with Azure Developer CLI. Depending on your tenant's security settings, `az login` alone may be sufficient, or you may need to additionally sign in for the specific scopes used by the deployment scripts.
 
 ```powershell
 # Login to Azure CLI
 az login
 
-az login --scope https://ai.azure.com/.default
-
-az login --scope https://graph.microsoft.com//.default
-
-az login --scope https://management.azure.com/.default
 # Login to Azure Developer CLI
 azd auth login
 ```
 
 ### Step 2: Deploy Everything
 
-**Note:** Hosted agents are only available in the **North Central US** region. All resources must be created in this region.
+> **📍 Region availability:** This sample uses [Foundry hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd). Your Foundry account and other resources must be in a region where hosted agents are available. At the time of writing, supported regions are:
+>
+> Australia East, Brazil South, Canada Central, Canada East, East US, East US 2, France Central, Germany West Central, Italy North, Japan East, Korea Central, North Central US, Norway East, Poland Central, South Africa North, South Central US, South India, Southeast Asia, Spain Central, Sweden Central, Switzerland North, UAE North, UK South, West Central US, West US, West US 3.
 
 #### Optional: Customize Your Agent
 
@@ -112,7 +106,7 @@ After configuring the agent blueprint in Teams Developer Portal, you can now cre
 
 ## 🏗️ Architecture Overview
 
-This deployment orchestrates six key components to create a fully functional A365 agent:
+This deployment orchestrates five key components to create a fully functional A365 agent:
 
 ### 1️⃣ Creating a Foundry Project
 
@@ -120,33 +114,26 @@ Creates a Foundry project configured to support hosted agents with appropriate p
 
 📚 [Learn more about prerequisites](https://github.com/microsoft/container_agents_docs?tab=readme-ov-file#11---prerequisites)
 
-### 2️⃣ Creating an Application
-
-Applications provide stable endpoints and identity for exposing your agent to users while maintaining development flexibility within Foundry. The application is configured to accept requests from Azure Bot Service.
-
-### 3️⃣ Setting up Azure Bot Service
+### 2️⃣ Setting up Azure Bot Service
 
 Azure Bot Service acts as a relay between M365 ecosystem interactions and the Foundry application. The bot is configured with:
 
-- Application endpoint
-- Application's agent blueprint identity as the appId
+- Agent endpoint
+- Agent's blueprint identity as the appId
 
-### 4️⃣ Building a Hosted Agent
+### 3️⃣ Building a Hosted Agent Docker Image
 
 Compiles the sample code into a Docker container and registers it as a hosted agent with the Foundry project.
 
 📚 [Learn more about building agents](https://github.com/microsoft/container_agents_docs?tab=readme-ov-file#14---build-agent-image)
 
-### 5️⃣ Deploying the Agent
+### 4️⃣ Creating the Agent
 
-Deploys the hosted agent to the application, granting it:
-
-- Access to the application's identity
-- Configuration to serve application requests
+Creates the hosted agent using the Docker image above.
 
 📚 [Learn more about agent deployment](https://github.com/microsoft/container_agents_docs?tab=readme-ov-file#step-2-deploy-agent)
 
-### 6️⃣ Publishing to Your Organization
+### 5️⃣ Publishing to Your Organization
 
 Publishes the application to Microsoft 365 via Foundry API, creating a hireable digital worker with:
 
@@ -154,7 +141,22 @@ Publishes the application to Microsoft 365 via Foundry API, creating a hireable 
 - Agent blueprint ID
 - Digital worker designation
 
-> **⚠️ Important**: The agent requires [admin approval](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/review-admin-consent-requests#review-and-take-action-on-admin-consent-requests-1) before becoming available for hiring.
+> **⚠️ Important:** The agent requires [admin approval](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/review-admin-consent-requests#review-and-take-action-on-admin-consent-requests-1) before becoming available for hiring.
+
+---
+
+## 📜 Hosted Agent Logs
+
+If you receive an error, the response will include a `FOUNDRY_AGENT_SESSION_ID`. Use it to stream the hosted agent's session logs:
+
+```bash
+curl -N \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: text/event-stream" \
+  -H "Cache-Control: no-cache" \
+  -H "Foundry-Features: HostedAgents=V1Preview" \
+  "https://$ACCOUNT_NAME.services.ai.azure.com/api/projects/$PROJECT_NAME/agents/$AGENT_NAME/sessions/$SESSION_NAME:logstream?api-version=2025-11-15-preview"
+```
 
 ---
 
