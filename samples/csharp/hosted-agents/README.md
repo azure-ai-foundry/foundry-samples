@@ -96,6 +96,7 @@ The platform manages conversation history, streaming lifecycle, and background e
 | Use client-side or server-side MCP patterns | [MCP Tools](agent-framework/mcp-tools/) | Tools, Knowledge Grounding |
 | Answer questions from my own documents | [Knowledge Grounding](agent-framework/text-search-rag/) | Tools |
 | Build a multi-agent workflow with routing | [Workflows](agent-framework/workflows/) | Agent-to-Agent |
+| Ground answers in files bundled with the agent or uploaded per session | [File Tools](agent-framework/file-tools/) | Tools |
 
 #### Learning path
 
@@ -110,6 +111,7 @@ The platform manages conversation history, streaming lifecycle, and background e
 4. **[Knowledge Grounding](agent-framework/text-search-rag/)** — Ground answers in your own documents with TextSearchProvider.
 5. **[MCP Tools](agent-framework/mcp-tools/)** — Connect to MCP servers using client-side and server-side MCP patterns.
 6. **[Workflows](agent-framework/workflows/)** — Compose multiple agents into sequential pipelines.
+7. **[File Tools](agent-framework/file-tools/)** — Ground answers in files bundled with the agent (image-baked) or uploaded per session (`$HOME`), with security-scoped tool pairs per source.
 
 ### Invocations protocol
 
@@ -167,6 +169,7 @@ Already built an agent with your own .NET code? The protocol SDKs (`Azure.AI.Age
 | Local function tools | [Tools](agent-framework/local-tools/) | — |
 | RAG / knowledge grounding | [Knowledge Grounding](agent-framework/text-search-rag/) | — |
 | Multi-agent workflow | [Workflows](agent-framework/workflows/) | — |
+| Bundled + session file knowledge | [File Tools](agent-framework/file-tools/) | — |
 | BYO agent (any framework) | [BYO Hello World](bring-your-own/responses/HelloWorld/) | [BYO Hello World](bring-your-own/invocations/HelloWorld/) |
 | Observability (App Insights, OpenTelemetry, traces) | Every sample — enabled by default | Every sample — enabled by default |
 
@@ -206,6 +209,7 @@ samples/dotnet/hosted-agents/
 │   ├── mcp-tools/
 │   ├── text-search-rag/
 │   ├── workflows/
+│   ├── file-tools/
 │   └── invocations-echo-agent/
 └── bring-your-own/
     ├── responses/
