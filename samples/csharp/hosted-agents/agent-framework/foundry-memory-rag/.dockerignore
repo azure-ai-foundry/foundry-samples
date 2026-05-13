@@ -1,0 +1,20 @@
+# Build artefacts
+**/bin/
+**/obj/
+
+# IDE settings
+.vscode/
+.idea/
+
+# Version control
+.git/
+.gitignore
+
+# Docker files
+.dockerignore
+
+# Docs
+README.md
+
+# Local environment (never bake credentials into the image)
+.env
