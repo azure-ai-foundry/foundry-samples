@@ -1,0 +1,2 @@
+GREENFIELD-7421 - magic token used to verify session-file round trip.
+Add whatever notes you like here; ask the agent to read them after uploading via 'azd ai agent files upload'.
