@@ -1,0 +1,14 @@
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local config
+.env
+.azure/
+*.log
