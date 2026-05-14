@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.azure/
+**/.idea/
+**/*.user
+**/.env
+**/.env.local
+.dockerignore
+.gitignore
+README.md
