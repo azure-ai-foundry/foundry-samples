@@ -85,17 +85,29 @@ if not _model:
         "Set it to your model deployment name as declared in agent.manifest.yaml."
     )
 
-# Platform injects TOOLBOX_{NAME}_MCP_ENDPOINT for declared toolbox resources.
-# Fall back to TOOLBOX_ENDPOINT for local dev (.env).
-TOOLBOX_ENDPOINT = (
-    os.environ.get("TOOLBOX_WEB_SEARCH_TOOLS_MCP_ENDPOINT")
-    or os.environ.get("TOOLBOX_ENDPOINT", "")
-)
+# Toolbox MCP endpoint resolution (in priority order):
+#   1. TOOLBOX_ENDPOINT — explicit full URL override (CI / local).
+#   2. TOOLBOX_<NAME>_MCP_ENDPOINT — azd auto-injects this per toolbox declared
+#      in azure.yaml. Variable name = upper(name) with dashes -> underscores.
+#   3. Construct from FOUNDRY_PROJECT_ENDPOINT + TOOLBOX_NAME as a final fallback.
+_TOOLBOX_ENDPOINT_OVERRIDE = os.environ.get("TOOLBOX_ENDPOINT", "")
+_TOOLBOX_NAME = os.environ.get("TOOLBOX_NAME", "")
+if _TOOLBOX_ENDPOINT_OVERRIDE:
+    TOOLBOX_ENDPOINT = _TOOLBOX_ENDPOINT_OVERRIDE
+elif _TOOLBOX_NAME:
+    _azd_injected_var = (
+        f"TOOLBOX_{_TOOLBOX_NAME.upper().replace('-', '_')}_MCP_ENDPOINT"
+    )
+    TOOLBOX_ENDPOINT = os.environ.get(_azd_injected_var) or (
+        f"{_endpoint.rstrip('/')}/toolboxes/{_TOOLBOX_NAME}/mcp?api-version=v1"
+    )
+else:
+    TOOLBOX_ENDPOINT = ""
 if not TOOLBOX_ENDPOINT:
     raise EnvironmentError(
-        "TOOLBOX_ENDPOINT environment variable is not set. "
-        "Set it to your toolbox MCP endpoint URL, or declare the toolbox "
-        "in agent.manifest.yaml resources."
+        "Neither TOOLBOX_ENDPOINT nor TOOLBOX_NAME is set. "
+        "Set TOOLBOX_NAME (and declare a matching toolbox in agent.manifest.yaml "
+        "resources) or set TOOLBOX_ENDPOINT to a full toolbox MCP URL."
     )
 # Ensure api-version query param is present.
 if "api-version=" not in TOOLBOX_ENDPOINT:

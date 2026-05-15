@@ -39,3 +39,33 @@ curl -X POST http://localhost:8088/responses -H "Content-Type: application/json"
 ## Deploying the Agent to Foundry
 
 To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
+
+---
+
+## Supported Scenarios
+
+The sample toolbox can be configured for any of these 14 scenarios. For each scenario, create a `agent.manifest.yaml` file (see examples below) and pass it to `azd ai agent init -m <manifest-file>`.
+
+<details>
+<summary><strong>View all 14 supported scenarios</strong></summary>
+
+Refer to [`samples/python/toolbox/azd/README.md`](../../../../toolbox/azd/README.md#supported-scenarios) for complete inline documentation of all scenarios including:
+
+1. **Web Search** — Bing web search (no auth required)
+2. **File Search** — Vector store RAG search
+3. **Code Interpreter** — Python code execution
+4. **MCP Key-Auth (GitHub)** — GitHub MCP with PAT
+5. **MCP No-Auth** — Public MCP servers
+6. **MCP OAuth (Managed)** — Foundry-managed OAuth
+7. **MCP OAuth (Custom)** — Bring-your-own OAuth app
+8. **MCP Agent Identity** — Entra ID agent identity
+9. **Azure AI Search** — Search index queries
+10. **A2A (Agent-to-Agent)** — Remote agent delegation
+11. **Bing Custom Search** — Scoped web search
+12. **OpenAPI Key-Auth** — REST API integration
+13. **MCP OAuth (Entra Passthrough)** — User identity delegation
+14. **Multi-Tool Toolbox** — Web search + GitHub MCP combined
+
+Each scenario includes a complete `agent.manifest.yaml` example with parameter definitions and resource configurations.
+
+</details>
