@@ -1,0 +1,15 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+display_name: cli-hello-world-sample
+description: Sample hello world job using AZD Foundry Training CLI
+command: echo "hello world"
+environment: <user to add>
+compute: <user to add>
+resources:
+  instance_count: 1
+  instance_type: <user to add>
+  properties:
+    AISuperComputer:
+      imageVersion: ""
+      slaTier: <user to add>
+      priority: <user to add>

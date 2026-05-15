@@ -28,3 +28,5 @@ resources:
     tools:
       - type: web_search
         name: web_search
+      - type: code_interpreter
+        name: code_interpreter

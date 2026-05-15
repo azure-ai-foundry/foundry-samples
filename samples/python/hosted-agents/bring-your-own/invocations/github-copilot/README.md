@@ -15,10 +15,19 @@ A minimal getting-started agent using the [GitHub Copilot SDK](https://pypi.org/
 
 ## Environment Variables
 
+This agent supports two LLM backends. Configure one of the following:
+
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GITHUB_TOKEN` | Yes | GitHub fine-grained PAT with **Copilot Requests → Read-only** permission |
+| `GITHUB_TOKEN` | For Copilot model | GitHub fine-grained PAT with **Copilot Requests → Read-only** permission |
+| `FOUNDRY_PROJECT_ENDPOINT` | For Foundry model | Azure AI Foundry project endpoint URL. Auto-injected when hosted — only needed locally |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | For Foundry model | Model deployment name (e.g. `gpt-4o`) |
 | `FOUNDRY_AGENT_SESSION_ID` | No | Session ID for persistence/resume. If unset, a UUID is generated |
+
+**How the agent selects its LLM backend:**
+- If `FOUNDRY_PROJECT_ENDPOINT` and `AZURE_AI_MODEL_DEPLOYMENT_NAME` are set → uses your **Foundry model** via Managed Identity (no `GITHUB_TOKEN` needed)
+- If only `GITHUB_TOKEN` is set → uses the **GitHub Copilot model** (quickest way to get started)
+- If both are set → the **Foundry model takes precedence**
 
 ## Running Locally
 
@@ -104,6 +113,18 @@ data: {"type": "assistant.message_delta", "data": {"delta_content": " a programm
 event: done
 data: {"invocation_id": "...", "session_id": "..."}
 ```
+
+## Using Your Own Foundry Model
+
+To use your own Azure AI Foundry model instead of the Copilot model, set the Foundry variables (no `GITHUB_TOKEN` needed):
+
+```bash
+FOUNDRY_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project> \
+AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4o \
+python main.py
+```
+
+Authentication uses Managed Identity via `DefaultAzureCredential`. When deployed as a hosted agent, `FOUNDRY_PROJECT_ENDPOINT` is auto-injected by the platform — you only need to set `AZURE_AI_MODEL_DEPLOYMENT_NAME` in `agent.yaml`.
 
 ## Deploying the Agent to Microsoft Foundry
 
