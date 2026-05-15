@@ -332,9 +332,9 @@ try {
         if ($exitCode -eq 1) {
             Write-Host ""
             Write-Host "${Yellow}🔐 If you saw 401/403 errors, check your RBAC role assignments:${Reset}"
-            Write-Host "   • Reading assistants/agents : ${Blue}Azure AI User${Reset} on the resource (minimum for Foundry)"
-            Write-Host "   • Creating/writing agents   : ${Blue}Azure AI User${Reset} on the resource"
-            Write-Host "   • Uploading/downloading files: ${Blue}Azure AI User${Reset} on the resource"
+            Write-Host "   • Reading assistants/agents : ${Blue}Foundry User${Reset} on the resource (minimum for Foundry)"
+            Write-Host "   • Creating/writing agents   : ${Blue}Foundry User${Reset} on the resource"
+            Write-Host "   • Uploading/downloading files: ${Blue}Foundry User${Reset} on the resource"
             Write-Host "   • Managing connections (ARM) : ${Blue}Contributor${Reset} on the resource"
             Write-Host ""
             Write-Host "   Assign via: Azure portal → Resource → Access control (IAM) → Add role assignment"

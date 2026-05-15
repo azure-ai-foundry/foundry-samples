@@ -23,7 +23,7 @@ This is the canonical **event-driven Azure** pattern for hosted agents. It compl
 
 ### Authentication
 
-Event Grid supports [delivery with managed identity](https://learn.microsoft.com/en-us/azure/event-grid/managed-service-identity): each event POST carries an AAD bearer token minted from a managed identity attached to the topic. By enabling a **system-assigned managed identity (SAMI)** on the system topic, setting the delivery audience to `https://ai.azure.com`, and giving that SAMI the **Azure AI User** role on the Foundry project, the agent's invocations endpoint accepts the call as if it came from any other Foundry caller — no separate identity resource, no shared secrets, and no agent-side code to verify the EG handshake header.
+Event Grid supports [delivery with managed identity](https://learn.microsoft.com/en-us/azure/event-grid/managed-service-identity): each event POST carries an AAD bearer token minted from a managed identity attached to the topic. By enabling a **system-assigned managed identity (SAMI)** on the system topic, setting the delivery audience to `https://ai.azure.com`, and giving that SAMI the **Foundry User** role on the Foundry project, the agent's invocations endpoint accepts the call as if it came from any other Foundry caller — no separate identity resource, no shared secrets, and no agent-side code to verify the EG handshake header.
 
 ### The handler
 
@@ -90,7 +90,7 @@ The per-agent identity needs three role assignments:
 
 - **Storage Blob Data Reader** on the **input** container — to download the uploaded blob.
 - **Storage Blob Data Contributor** on the **summary** container — to write `<name>.summary.json`.
-- **Azure AI User** on the **Foundry project** — to call the Responses API that produces the summary. The agent calls the Foundry project data plane with its own MI; without this role the call is rejected with `401 PermissionDenied: Principal does not have access to API/Operation`.
+- **Foundry User** on the **Foundry project** — to call the Responses API that produces the summary. The agent calls the Foundry project data plane with its own MI; without this role the call is rejected with `401 PermissionDenied: Principal does not have access to API/Operation`.
 
 `azd ai agent show` returns the per-agent identity's object id under `instance_identity.principal_id`; capture it together with the storage account and project scopes, then reuse them in the assignment commands below.
 
@@ -113,7 +113,7 @@ az role assignment create \
 
 az role assignment create \
   --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
-  --role "Azure AI User" --scope "$PROJECT_ID"
+  --role "Foundry User" --scope "$PROJECT_ID"
 ```
 
 PowerShell:
@@ -135,14 +135,14 @@ az role assignment create `
 
 az role assignment create `
   --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
-  --role "Azure AI User" --scope $PROJECT_ID
+  --role "Foundry User" --scope $PROJECT_ID
 ```
 
 Role assignments take a minute or two to propagate.
 
 ## 3. Create the Event Grid system topic with a system-assigned identity
 
-Create the topic on the storage account with **SAMI enabled**, then grant the topic's identity **Azure AI User** on the Foundry project so the bearer tokens it mints for the `https://ai.azure.com` audience are accepted by the agent's invocations endpoint.
+Create the topic on the storage account with **SAMI enabled**, then grant the topic's identity **Foundry User** on the Foundry project so the bearer tokens it mints for the `https://ai.azure.com` audience are accepted by the agent's invocations endpoint.
 
 Bash:
 
@@ -161,7 +161,7 @@ PROJECT_ID="$(az cognitiveservices account show -n "$FOUNDRY_ACCOUNT_NAME" -g "$
 
 az role assignment create \
   --assignee-object-id "$TOPIC_PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
-  --role "Azure AI User" --scope "$PROJECT_ID"
+  --role "Foundry User" --scope "$PROJECT_ID"
 ```
 
 PowerShell:
@@ -181,7 +181,7 @@ $PROJECT_ID = "$(az cognitiveservices account show -n $FOUNDRY_ACCOUNT_NAME -g $
 
 az role assignment create `
   --assignee-object-id $TOPIC_PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
-  --role "Azure AI User" --scope $PROJECT_ID
+  --role "Foundry User" --scope $PROJECT_ID
 ```
 
 ## 4. Create the event subscription with SAMI delivery
@@ -329,10 +329,10 @@ Expected payload:
 
 | Symptom | Likely cause |
 |---|---|
-| EG subscription provisioning fails with `Webhook validation handshake failed` | The agent didn't return the `validationResponse`. Confirm the deployed `main.py` includes the `_extract_subscription_validation_event` branch (`azd deploy`), and that the system topic's SAMI has **Azure AI User** on the Foundry project so EG's token is accepted. |
-| `401 Unauthorized` from the agent on real events | The system topic's SAMI is missing **Azure AI User** on the Foundry project, or the subscription is configured with the wrong audience (must be `https://ai.azure.com`) or wrong tenant id. |
+| EG subscription provisioning fails with `Webhook validation handshake failed` | The agent didn't return the `validationResponse`. Confirm the deployed `main.py` includes the `_extract_subscription_validation_event` branch (`azd deploy`), and that the system topic's SAMI has **Foundry User** on the Foundry project so EG's token is accepted. |
+| `401 Unauthorized` from the agent on real events | The system topic's SAMI is missing **Foundry User** on the Foundry project, or the subscription is configured with the wrong audience (must be `https://ai.azure.com`) or wrong tenant id. |
 | `az eventgrid system-topic show --query identity.principalId` is empty | SAMI wasn't enabled on the topic. Re-run `az eventgrid system-topic create ... --identity systemassigned` (or `az eventgrid system-topic update --identity systemassigned`) and recheck. |
-| Agent trace shows `401 PermissionDenied: Principal does not have access to API/Operation` | Per-agent identity is missing **Azure AI User** on the Foundry project (needed to call the Responses API that summarizes). Assign it in step 2. |
+| Agent trace shows `401 PermissionDenied: Principal does not have access to API/Operation` | Per-agent identity is missing **Foundry User** on the Foundry project (needed to call the Responses API that summarizes). Assign it in step 2. |
 | Agent returns `AuthorizationPermissionMismatch` reading the blob | Per-agent identity is missing **Storage Blob Data Reader** on the input container. |
 | Summary blob is never written | Per-agent identity is missing **Storage Blob Data Contributor** on the summary container, or the container does not exist. |
 | Agent fires twice per upload | Summary is being written into the **same** container the EG subscription watches — set `AZURE_STORAGE_SUMMARY_CONTAINER_NAME` to a different container. |

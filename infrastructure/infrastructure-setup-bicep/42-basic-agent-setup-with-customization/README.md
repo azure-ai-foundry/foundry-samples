@@ -11,8 +11,8 @@ All agents created in this project will automatically use Microsoft-managed, mul
 ## Prerequisites
 
 1. **Azure roles**  
-   - To deploy the template: **Azure AI Account Owner** or **Contributor**  
-   - To create your first agent: **Azure AI User**
+   - To deploy the template: **Foundry Account Owner** or **Contributor**  
+   - To create your first agent: **Foundry User**
 2. **Existing Azure OpenAI resource** – you must already have one.  
 
     Get the resource id in **Azure Portal**

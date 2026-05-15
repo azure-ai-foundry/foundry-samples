@@ -73,7 +73,7 @@ azd deploy
 
 ## ⚠️ CRITICAL: RBAC Configuration After Deployment
 
-**IMPORTANT!** After running `azd deploy`, you **MUST** assign the `Azure AI User` role at the **account scope** to your agent's runtime identity. Without this, your agent will fail with a `401 Unauthorized` error when attempting to invoke the Claude model.
+**IMPORTANT!** After running `azd deploy`, you **MUST** assign the `Foundry User` role at the **account scope** to your agent's runtime identity. Without this, your agent will fail with a `401 Unauthorized` error when attempting to invoke the Claude model.
 
 ### Why This Is Required
 
@@ -82,7 +82,7 @@ Azure AI Foundry enforces authorization at two levels:
 1. **Project Scope**: Controls agent orchestration and project operations
 2. **Account Scope**: Controls model inference API calls (required for Claude SDK calls)
 
-Without the account-level `Azure AI User` role, your agent will initialize but fail when trying to call the model API.
+Without the account-level `Foundry User` role, your agent will initialize but fail when trying to call the model API.
 
 ### Step-by-Step RBAC Setup
 
@@ -122,7 +122,7 @@ azd env get-values
 
 From the `azd env get-values` output, find the line with `AZURE_AI_ACCOUNT_NAME` and copy that value. Do not leave `myFoundryAccount` in the command examples below; replace it with your actual Azure AI account name.
 
-#### Step 3: Assign Azure AI User Role at Account Scope
+#### Step 3: Assign Foundry User Role at Account Scope
 
 Run this command, replacing the placeholders with your values:
 
@@ -132,14 +132,14 @@ Run this command, replacing the placeholders with your values:
 az role assignment create \
   --assignee-object-id <PRINCIPAL_ID> \
   --assignee-principal-type ServicePrincipal \
-  --role "Azure AI User" \
+  --role "Foundry User" \
   --scope /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.CognitiveServices/accounts/<ACCOUNT_NAME>
 ```
 
 **For PowerShell (Windows):**
 
 ```powershell
-az role assignment create --assignee-object-id <PRINCIPAL_ID> --assignee-principal-type ServicePrincipal --role "Azure AI User" --scope "/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.CognitiveServices/accounts/<ACCOUNT_NAME>"
+az role assignment create --assignee-object-id <PRINCIPAL_ID> --assignee-principal-type ServicePrincipal --role "Foundry User" --scope "/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.CognitiveServices/accounts/<ACCOUNT_NAME>"
 ```
 
 #### Step 4: Verify the Role Assignment
@@ -160,8 +160,8 @@ az role assignment list --assignee-object-id <PRINCIPAL_ID> --all -o table
 
 You should see both:
 
-- `Azure AI User` at the project scope
-- `Azure AI User` at the account scope (this is the critical one)
+- `Foundry User` at the project scope
+- `Foundry User` at the account scope (this is the critical one)
 
 #### Step 5: Wait for RBAC Propagation
 

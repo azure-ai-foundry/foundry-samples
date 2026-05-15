@@ -18,7 +18,7 @@
     },
     "prerequisites": [
         "Azure subscription with Owner or Contributor role",
-        "Azure AI Account Owner role for creating AI Services",
+        "Foundry Account Owner role for creating AI Services",
         "Sufficient quota for gpt-4o-mini model deployment"
     ],
     "resources_created": [

@@ -269,7 +269,7 @@ module storageAccountRoleAssignment 'modules-network-secured/azure-storage-accou
 }
 
 /*
-  Assigns the project SMI the Azure AI User role on the AI Services account
+  Assigns the project SMI the Foundry User role on the AI Services account
 */
 module aiAccountRoleAssignment 'modules-network-secured/ai-account-role-assignment.bicep' = {
   name: 'ai-account-ra-${uniqueSuffix}-deployment'

@@ -1,4 +1,4 @@
-// Assigns the Azure AI User role to the project managed identity on the AI Services account
+// Assigns the Foundry User role to the project managed identity on the AI Services account
 
 @description('Name of the AI Services account')
 param accountName string
@@ -11,7 +11,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' exist
   scope: resourceGroup()
 }
 
-// Azure AI User: 53ca6127-db72-4b80-b1b0-d745d6d5456d
+// Foundry User: 53ca6127-db72-4b80-b1b0-d745d6d5456d
 resource azureAIUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   name: '53ca6127-db72-4b80-b1b0-d745d6d5456d'
   scope: resourceGroup()
