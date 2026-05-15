@@ -64,9 +64,9 @@ Use the table below to choose the right Terraform infrastructure template for yo
   - **Workload Subscription**
     - **Role Based Access Control Administrator**: Needed over the resource group to create relevant role assignments
     - **Network Contributor**: Needed over the resource group to create the Private Endpoints
-    - **Azure AI Account Owner**: Needed to create a cognitive services account and project 
+    - **Foundry Account Owner**: Needed to create a cognitive services account and project 
     - **Owner or Role Based Access Administrator**: Needed to assign RBAC to the required resources (Cosmos DB, Azure AI Search, Storage) 
-    - **Azure AI User**: Needed to create and edit agents
+    - **Foundry User**: Needed to create and edit agents
 
 2. **Register Resource Providers**
 
@@ -298,7 +298,7 @@ The deployment creates an isolated network environment:
 
 ### Post Deployment
 
-1. Once all resources are provisioned, assign all developers who want to create/edit agents in the project the role: Azure AI User on the project scope.
+1. Once all resources are provisioned, assign all developers who want to create/edit agents in the project the role: Foundry User on the project scope.
 
 ### Core Components
 

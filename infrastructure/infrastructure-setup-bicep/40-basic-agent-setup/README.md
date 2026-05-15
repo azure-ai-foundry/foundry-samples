@@ -9,9 +9,9 @@ All agents created in this project will automatically use Microsoft managed, mul
 
 ### Prerequisites
 1. To deploy the template, you must have the following roles:
-    * **Azure AI Account Owner** or **Contributor** 
+    * **Foundry Account Owner** or **Contributor** 
 1. To create your first agent you must have the permissions:
-    * **Azure AI User**
+    * **Foundry User**
 
 For more information, [see the getting started guide.](https://learn.microsoft.com/en-us/azure/ai-services/agents/environment-setup)
  

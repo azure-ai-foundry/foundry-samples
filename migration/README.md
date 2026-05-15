@@ -72,7 +72,7 @@ Ready-to-run:
 
 ## RBAC — Required permissions
 
-The signed-in user needs **Azure AI User** on the AI Services resource.  
+The signed-in user needs **Foundry User** on the AI Services resource.  
 Without this role you will see `401` or `403` errors.
 
 ### Check your current roles
@@ -87,7 +87,7 @@ az role assignment list --assignee "nikhowlett@microsoft.com" `
 
 ```powershell
 az role assignment create `
-  --role "Azure AI User" `
+  --role "Foundry User" `
   --assignee "nikhowlett@microsoft.com" `
   --scope "/subscriptions/47f1c914-e299-4953-a99d-3e34644cfe1c/resourceGroups/rg-nikhowlett-6102/providers/Microsoft.CognitiveServices/accounts/nikhowlett-6102-resource"
 ```
@@ -158,8 +158,8 @@ Linux / macOS: use `./migrate.sh` with the same flags.
 | `failed to connect to the docker API` | Docker Desktop is not running — start it and wait for the whale icon |
 | `AADSTS53003` or `You don't have access to this` | Corporate Conditional Access blocked sign-in inside Linux containers — use host Azure CLI login; `migrate-docker.ps1` now does this automatically |
 | `az : The term 'az' is not recognized` | Install Azure CLI, or rerun `migrate-docker.ps1` on Windows and let it install Azure CLI with `winget` |
-| `401 Unauthorized` | Check RBAC — you need **Azure AI User** on the resource (see above) |
-| `403 Forbidden` | Assign **Azure AI User** role (see RBAC section above) |
+| `401 Unauthorized` | Check RBAC — you need **Foundry User** on the resource (see above) |
+| `403 Forbidden` | Assign **Foundry User** role (see RBAC section above) |
 | `Could not switch to subscription` | Run `az login --tenant 72f988bf-86f1-41af-91ab-2d7cd011db47` |
 | Items missing from `--list` | Both endpoints are checked; if still missing the item may have been deleted |
 | Docker Desktop crashes on startup | Delete `%USERPROFILE%\.docker\contexts\meta` and restart |
