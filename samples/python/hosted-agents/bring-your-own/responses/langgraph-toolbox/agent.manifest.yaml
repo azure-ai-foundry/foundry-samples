@@ -21,11 +21,29 @@ template:
       value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
     - name: TOOLBOX_NAME
       value: "agent-tools"
+# parameters: secret values prompted at init time (or set via azd env).
+# azd uppercases the param name to find the env var: github_pat → GITHUB_PAT.
+parameters:
+  github_pat:
+    secret: true
+    description: GitHub Personal Access Token (classic ghp_... or fine-grained github_pat_...)
+
+# resources: connections and toolboxes scaffolded into azure.yaml by azd ai agent init.
 resources:
-  - kind: model
-    id: gpt-4.1-mini
-    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: github-mcp-conn
+    target: https://api.githubcopilot.com/mcp
+    category: remoteTool
+    credentials:
+      type: CustomKeys
+      keys:
+        Authorization: "Bearer {{ github_pat }}"
+
   - kind: toolbox
     name: agent-tools
     tools:
       - type: web_search
+      - type: mcp
+        server_label: github
+        server_url: https://api.githubcopilot.com/mcp
+        project_connection_id: github-mcp-conn

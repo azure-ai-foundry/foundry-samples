@@ -320,6 +320,30 @@ async def _get_agent():
         if _agent is not None:
             return _agent
 
+        # Retry transient cold-start errors / empty tool lists: the toolbox
+        # MCP proxy can briefly return zero tools while the upstream toolbox
+        # container is still starting.
+        last_exc: Exception | None = None
+        for attempt in range(1, 6):
+            try:
+                agent, mcp_client = await quickstart()
+                bound_tools = getattr(agent, "tools", None) or []
+                if not bound_tools:
+                    logger.warning(
+                        "Toolbox returned 0 tools on attempt %d; retrying", attempt,
+                    )
+                    await asyncio.sleep(min(2 ** attempt, 15))
+                    continue
+                _agent, _mcp_client = agent, mcp_client
+                return _agent
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                logger.warning(
+                    "Toolbox connect attempt %d failed: %s; retrying", attempt, exc,
+                )
+                await asyncio.sleep(min(2 ** attempt, 15))
+        if last_exc is not None:
+            raise last_exc
         _agent, _mcp_client = await quickstart()
         return _agent
 
