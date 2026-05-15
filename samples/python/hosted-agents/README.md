@@ -99,6 +99,7 @@ The platform manages conversation history, streaming lifecycle, and background e
 7. **[Skills](./agent-framework/responses/07-skills/)** — Add native file-based skills to your agent and generate a colorful PDF travel guide.
 8. **[Observability](./agent-framework/responses/08-observability/)** — Add logging, metrics, and distributed tracing to your agent and visualize them in Foundry.
 9. **[Declarative Workflows](./agent-framework/responses/09-declarative-customer-support/)** — A multi-turn customer-support triage workflow defined entirely in YAML and hosted as an agent, demonstrating declarative workflow authoring with `InvokeAzureAgent` calls to specialist Foundry-hosted agents and conversation-aware routing.
+10. **[Downstream Azure services](./agent-framework/responses/09-downstream-azure/)** — Call Azure Blob Storage and Service Bus from the agent using its per-agent Microsoft Entra identity (no connection strings).
 
 ### Invocations protocol
 
