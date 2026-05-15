@@ -78,9 +78,9 @@ Use the table below to choose the right infrastructure template for your scenari
 ## Prerequisites
 
 1. **Active Azure subscription with appropriate permissions**
-  - **Azure AI Account Owner**: Needed to create the Microsoft Foundry account and project.
+  - **Foundry Account Owner**: Needed to create the Microsoft Foundry account and project.
   - **Owner or Role Based Access Administrator**: Needed to assign RBAC on the Azure resources used by this template.
-  - **Azure AI User**: Needed to create and use agents, projects, or evaluation workloads after deployment.
+  - **Foundry User**: Needed to create and use agents, projects, or evaluation workloads after deployment.
 
 1. **Register Resource Providers**
 

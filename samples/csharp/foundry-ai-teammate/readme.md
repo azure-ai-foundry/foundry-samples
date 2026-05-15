@@ -18,7 +18,7 @@ Ensure you have the following installed:
 ### 🔐 Required Permissions
 
 - **Owner** role on the Azure subscription
-- **Azure AI User** or **Cognitive Services User** role at subscription or resource group level
+- **Foundry User** or **Cognitive Services User** role at subscription or resource group level
 - **Tenant Admin** role for organization-wide configuration
 
 ---

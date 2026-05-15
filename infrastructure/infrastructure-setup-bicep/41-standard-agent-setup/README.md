@@ -2,7 +2,7 @@
 
 ## Required Permissions
 1. To deploy this template and create a Standard Setup project you need the follow permissions:
-    * **Azure AI Account Owner**
+    * **Foundry Account Owner**
     * **Role Based Access Administrator**
 
 For more information on the setup process, [see the getting started documentation.](https://learn.microsoft.com/en-us/azure/ai-services/agents/environment-setup)
