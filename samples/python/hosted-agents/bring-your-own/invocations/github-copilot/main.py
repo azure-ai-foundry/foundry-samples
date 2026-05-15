@@ -177,6 +177,34 @@ async def handle_invoke(request: Request) -> Response:
     )
 
 
+# ── Graceful shutdown ────────────────────────────────────────────────────────
+
+
+@app.shutdown_handler
+async def on_shutdown():
+    """Gracefully tear down the CopilotClient on SIGTERM.
+
+    Calls ``client.stop()`` which destroys all active sessions (persisting
+    their state so they can be resumed later via ``resume_session``), closes
+    the JSON-RPC connection, and terminates the CLI subprocess.  Falls back
+    to ``force_stop()`` if graceful cleanup fails.
+    """
+    global _client, _session
+    if _client is None:
+        return
+    try:
+        errors = await _client.stop()
+        for err in errors:
+            logger.warning("Shutdown cleanup error: %s", err.message)
+        logger.info("CopilotClient stopped gracefully")
+    except Exception:
+        logger.exception("Graceful stop failed, forcing shutdown")
+        await _client.force_stop()
+    finally:
+        _client = None
+        _session = None
+
+
 if __name__ == "__main__":
     has_token = bool(os.environ.get("GITHUB_TOKEN"))
     has_byok = bool(
