@@ -464,3 +464,11 @@ samples/microsoft/developer-journey-stage-1-idea-to-prototype.md
 
 # oh-my-claudecode local state
 .omc/
+
+# Generated cloud E2E artifacts
+logs_latest/
+logs_maf/
+logs_new/
+
+# Playwright MCP browser session snapshots
+.playwright-mcp/

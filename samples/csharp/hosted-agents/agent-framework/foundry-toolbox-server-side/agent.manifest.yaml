@@ -30,14 +30,12 @@ template:
       value: "agent-tools"
 resources:
   - kind: model
-    id: gpt-4.1-mini
+    id: gpt-4.1
     name: AZURE_AI_MODEL_DEPLOYMENT_NAME
   - kind: toolbox
     name: agent-tools
     tools:
+      - type: web_search
+        name: web_search
       - type: code_interpreter
-        container:
-          type: auto
-      - type: mcp
-        server_label: api_specs
-        server_url: "https://gitmcp.io/Azure/azure-rest-api-specs"
+        name: code_interpreter
