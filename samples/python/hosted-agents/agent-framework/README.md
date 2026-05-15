@@ -17,6 +17,7 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | 7   | [Skills](responses/07-skills/)                                             | An agent using native Agent Framework file-based skills, demonstrating skill discovery and a script-backed PDF travel guide skill.                                                                                                            |
 | 8   | [Observability](responses/08-observability/)                               | An agent demonstrating observability features, including logging, metrics, and tracing.                                                                                                                                                       |
 | 9   | [Declarative Customer Support](responses/09-declarative-customer-support/) | A multi-turn customer-support triage workflow defined entirely in YAML and hosted as an agent, demonstrating declarative workflow authoring with `InvokeAzureAgent` calls to specialist Foundry-hosted agents and conversation-aware routing. |
+| 10  | [Downstream Azure services](responses/09-downstream-azure/)                | An agent that performs data-plane operations on Azure Blob Storage and Service Bus using its per-agent Microsoft Entra identity, demonstrating the per-agent identity + Azure RBAC pattern with no connection strings or shared keys. |
 
 ### Invocations API
 
