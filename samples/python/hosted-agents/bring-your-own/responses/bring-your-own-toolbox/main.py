@@ -57,6 +57,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 
 import httpx
 from dotenv import load_dotenv
@@ -90,15 +91,24 @@ if not _model:
         "Set it to your model deployment name as declared in agent.manifest.yaml."
     )
 
-# TOOLBOX_NAME is declared in agent.manifest.yaml and resolved from the toolbox
-# resource at deploy time. The full MCP URL is constructed from the project endpoint.
-# Falls back to TOOLBOX_ENDPOINT for local testing / explicit override.
+# Toolbox MCP endpoint resolution (in priority order):
+#   1. TOOLBOX_ENDPOINT — explicit full URL override (CI / local).
+#   2. TOOLBOX_<NAME>_MCP_ENDPOINT — azd auto-injects this per toolbox declared
+#      in azure.yaml. Variable name = upper(name) with dashes -> underscores.
+#   3. Construct from FOUNDRY_PROJECT_ENDPOINT + TOOLBOX_NAME as a final fallback.
+_TOOLBOX_ENDPOINT_OVERRIDE = os.getenv("TOOLBOX_ENDPOINT", "")
 _TOOLBOX_NAME = os.getenv("TOOLBOX_NAME", "")
-TOOLBOX_ENDPOINT = (
-    f"{_endpoint.rstrip('/')}/toolboxes/{_TOOLBOX_NAME}/mcp?api-version=v1"
-    if _TOOLBOX_NAME
-    else os.getenv("TOOLBOX_ENDPOINT", "")
-)
+if _TOOLBOX_ENDPOINT_OVERRIDE:
+    TOOLBOX_ENDPOINT = _TOOLBOX_ENDPOINT_OVERRIDE
+elif _TOOLBOX_NAME:
+    _azd_injected_var = (
+        f"TOOLBOX_{_TOOLBOX_NAME.upper().replace('-', '_')}_MCP_ENDPOINT"
+    )
+    TOOLBOX_ENDPOINT = os.getenv(_azd_injected_var) or (
+        f"{_endpoint.rstrip('/')}/toolboxes/{_TOOLBOX_NAME}/mcp?api-version=v1"
+    )
+else:
+    TOOLBOX_ENDPOINT = ""
 if not TOOLBOX_ENDPOINT:
     logger.warning(
         "TOOLBOX_NAME is not set — agent will start without toolbox tools. "
@@ -238,9 +248,32 @@ def _ensure_tools():
         _tools_initialized = True
         return
     logger.info("Connecting to toolbox: %s", TOOLBOX_ENDPOINT)
-    _mcp_client = _McpToolboxClient(TOOLBOX_ENDPOINT, _token_provider)
-    server_name = _mcp_client.initialize()
-    mcp_tools = _mcp_client.list_tools()
+    # Retry transient cold-start errors: the toolbox MCP proxy can briefly
+    # return empty tool lists or transient errors while the upstream toolbox
+    # container is still starting. Retry a few times before giving up.
+    mcp_tools: list[dict] = []
+    server_name = "unknown"
+    last_exc: Exception | None = None
+    for attempt in range(1, 6):
+        try:
+            _mcp_client = _McpToolboxClient(TOOLBOX_ENDPOINT, _token_provider)
+            server_name = _mcp_client.initialize()
+            mcp_tools = _mcp_client.list_tools()
+            if mcp_tools:
+                break
+            logger.warning(
+                "Toolbox '%s' returned 0 tools on attempt %d; retrying", server_name, attempt,
+            )
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            logger.warning(
+                "Toolbox connect attempt %d failed: %s; retrying", attempt, exc,
+            )
+        time.sleep(min(2 ** attempt, 15))
+    if not mcp_tools and last_exc is not None:
+        # All attempts failed — propagate so the request returns a 5xx
+        # rather than silently caching an empty tool set.
+        raise last_exc
     logger.info("Toolbox '%s' connected: %d tool(s) discovered",
                 server_name, len(mcp_tools))
     for t in mcp_tools:
@@ -250,7 +283,10 @@ def _ensure_tools():
             "description": t.get("description", ""),
             "parameters": t.get("inputSchema", {"type": "object", "properties": {}}),
         })
-    _tools_initialized = True
+    # Only mark initialized once we actually have tools — otherwise leave the
+    # flag False so the next inbound request retries.
+    if _tool_definitions:
+        _tools_initialized = True
 
 # ── Agentic loop ──────────────────────────────────────────────────────────────
 
@@ -385,13 +421,34 @@ async def handler(
         yield stream.emit_completed()
         return
 
-    history = await context.get_history()
+    # Conversation history retrieval can fail (transient store errors,
+    # missing conversation context, etc.). Treat history as best-effort —
+    # an empty list still produces a coherent single-turn reply.
+    try:
+        history = await context.get_history()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("get_history failed; continuing without history: %s", exc)
+        history = []
     input_items = _build_input(user_input, history)
 
     logger.info("Processing request %s", context.response_id)
 
     loop = asyncio.get_running_loop()
-    assistant_reply = await loop.run_in_executor(None, _run_agent_loop, input_items)
+    try:
+        assistant_reply = await asyncio.wait_for(
+            loop.run_in_executor(None, _run_agent_loop, input_items),
+            timeout=240.0,
+        )
+    except asyncio.TimeoutError:
+        assistant_reply = (
+            "I could not complete this request within the local timeout. "
+            "Please retry with a simpler prompt."
+        )
+    except asyncio.CancelledError:
+        assistant_reply = "The request was cancelled before completion. Please retry."
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Agent loop failed: %s", exc)
+        assistant_reply = f"Agent loop failed: {exc}"
 
     message_item = stream.add_output_item_message()
     yield message_item.emit_added()

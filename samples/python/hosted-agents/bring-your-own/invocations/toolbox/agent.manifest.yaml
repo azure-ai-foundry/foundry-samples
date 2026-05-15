@@ -26,8 +26,10 @@ template:
     # Model deployment name — resolved from the resources section below.
     - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
       value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
-    - name: TOOLBOX_ENDPOINT
-      value: "{{TOOLBOX_ENDPOINT}}"
+    # Toolbox name — main.py derives the azd-injected
+    # TOOLBOX_<NAME>_MCP_ENDPOINT variable from this.
+    - name: TOOLBOX_NAME
+      value: "web-search-tools"
 resources:
   - kind: model
     id: gpt-4.1

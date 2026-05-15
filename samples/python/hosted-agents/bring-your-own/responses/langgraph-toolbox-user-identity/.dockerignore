@@ -1,0 +1,14 @@
+# Exclude files not needed in the container image
+.env
+.env.*
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+.agent.log
+.agent.pid
+.foundry-agent.json
+.foundry-agent-build.log
+node_modules
+
