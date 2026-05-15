@@ -1,39 +1,82 @@
-# What this sample demonstrates
+# Basic Hosted Agent (Responses Protocol)
 
-An [Agent Framework](https://github.com/microsoft/agent-framework) agent hosted using the **Responses protocol**.
+A minimal [Agent Framework](https://github.com/microsoft/agent-framework) agent hosted on Microsoft Foundry using the **Responses protocol**. This sample demonstrates basic request/response interaction and multi-turn conversations.
 
-## How It Works
+## Prerequisites
 
-### Model Integration
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the AI agent extension:
+   ```bash
+   azd ext install azure.ai.agents
+   ```
+3. Authenticate:
+   ```bash
+   azd auth login
+   ```
 
-The agent uses `FoundryChatClient` from the Agent Framework to create a Responses client from the project endpoint and model deployment. The agent supports both streaming (SSE events) and non-streaming (JSON) response modes.
+## Quickstart
 
-See [main.py](main.py) for the full implementation.
+### Initialize the agent project
 
-### Agent Hosting
-
-The agent is hosted using the [Agent Framework](https://github.com/microsoft/agent-framework) with the `ResponsesHostServer`, which provisions a REST API endpoint compatible with the OpenAI Responses protocol.
-
-## Interacting with the agent
-
-> Depending on how you run the agent host, you can invoke the agent using `curl` (`Invoke-WebRequest` in PowerShell) or `azd`. Please refer to the [parent README](../../README.md) for more details. Use this README for sample queries you can send to the agent.
-
-Send a POST request to the server with a JSON body containing a "message" field to interact with the agent. For example:
-
-```bash
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "Hi"}'
-```
-
-The server will respond with a JSON object containing the response text and a response ID. You can use this response ID to continue the conversation in subsequent requests.
-
-### Multi-turn conversation
-
-To have a multi-turn conversation with the agent, include the previous response id in the request body. For example:
+No cloning required. Create a new folder and initialize from the manifest:
 
 ```bash
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "How are you?", "previous_response_id": "REPLACE_WITH_PREVIOUS_RESPONSE_ID"}'
+mkdir my-basic-agent && cd my-basic-agent
+
+azd ai agent init -m https://github.com/microsoft/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/01-basic/agent.manifest.yaml
 ```
 
-## Deploying the Agent to Foundry
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
 
-To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
+### Provision Azure resources (if needed)
+
+If you don't already have a Foundry project and model deployment:
+
+```bash
+azd provision
+```
+
+### Run the agent locally
+
+```bash
+azd ai agent run
+```
+
+The agent host will start on `http://localhost:8088`.
+
+### Invoke the local agent
+
+In a separate terminal, from the project directory:
+
+```bash
+azd ai agent invoke --local "Hi"
+```
+
+## Deploy to Foundry
+
+Once tested locally, deploy to Microsoft Foundry:
+
+```bash
+azd deploy
+```
+
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
+
+### Invoke the deployed agent
+
+```bash
+azd ai agent invoke "Hi"
+```
+
+## How it works
+
+The agent uses `FoundryChatClient` from the Agent Framework and is served via `ResponsesHostServer`, which exposes a REST API compatible with the OpenAI Responses protocol. See [main.py](main.py) for the implementation.
+
+## Next steps
+
+- [Quickstart: Create a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent) — end-to-end walkthrough using `azd`
+- [Tool catalog](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/tool-catalog) — browse available tools to extend your agent (Bing Search, Azure AI Search, file search, code interpreter, and more)
+- [Manage hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/manage-hosted-agent) — monitor and manage deployed agents
+- [Add tools to your agent](../02-tools/) — sample with local tool functions
+- [Connect to MCP servers](../03-mcp/) — sample using remote MCP tool providers
+- [Use Foundry Toolbox](../04-foundry-toolbox/) — sample with Azure Foundry Toolbox integration
