@@ -146,7 +146,7 @@ Error calling Azure OpenAI: Error code: 401 - {'error': {'code': 'PermissionDeni
 The identity running the agent does not have the required RBAC roles on the Azure AI Foundry project. Assign the following roles:
 
 - **Cognitive Services OpenAI User**
-- **Azure AI User**
+- **Foundry User**
 
 Use the Azure CLI to assign them:
 
@@ -163,10 +163,10 @@ az role assignment create \
   --role "Cognitive Services OpenAI User" \
   --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.MachineLearningServices/workspaces/$PROJECT_NAME"
 
-# Assign "Azure AI User" role
+# Assign "Foundry User" role
 az role assignment create \
   --assignee "$PRINCIPAL_ID" \
-  --role "Azure AI User" \
+  --role "Foundry User" \
   --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.MachineLearningServices/workspaces/$PROJECT_NAME"
 ```
 

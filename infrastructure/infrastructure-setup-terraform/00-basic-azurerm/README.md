@@ -23,9 +23,9 @@ This infrastructure-as-code (IaC) solution deploys Microsoft Foundry with public
   - **Workload Subscription**
     - **Role Based Access Control Administrator**: Needed over the resource group to create the relevant role assignments
     - **Network Contributor**: Needed over the resource group to create virtual network and Private Endpoint resources
-    - **Azure AI Account Owner**: Needed to create a cognitive services account and project 
+    - **Foundry Account Owner**: Needed to create a cognitive services account and project 
     - **Owner or Role Based Access Administrator**: Needed to assign RBAC to the required resources (Cosmos DB, Azure AI Search, Storage) 
-    - **Azure AI User**: Needed to create and edit agents
+    - **Foundry User**: Needed to create and edit agents
 
 2. **Register Resource Providers**
 
