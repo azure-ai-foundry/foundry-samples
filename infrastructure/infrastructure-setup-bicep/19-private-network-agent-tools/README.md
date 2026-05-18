@@ -46,7 +46,7 @@ Use the table below to choose the right infrastructure template for your scenari
 | Template | Agent Type | Networking | Identity | Key Use Case |
 |----------|-----------|------------|----------|-------------|
 | [**15**](../15-private-network-standard-agent-setup/) | Standard (BYO resources) | BYO VNet + Private Endpoints | System Assigned MI | E2E network isolation with full agent capabilities |
-| [**19** (this template)](../19-private-network-agents-tools-setup/) | Standard (BYO resources) | BYO VNet + Private Endpoints | System Assigned MI | Same as 15 **plus** tools behind VNet (MCP, OpenAPI, Functions, A2A) |
+| [**19** (this template)](../19-private-network-agent-tools/) | Standard (BYO resources) | BYO VNet + Private Endpoints | System Assigned MI | Same as 15 **plus** tools behind VNet (MCP, OpenAPI, Functions, A2A) |
 | [**17**](../17-private-network-standard-user-assigned-identity-agent-setup/) | Standard (BYO resources) | BYO VNet + Private Endpoints | **User Assigned MI** | Same as 15 but with user-managed identity |
 | [**16**](../16-private-network-standard-agent-apim-setup-preview/) | Standard (BYO resources) | BYO VNet + Private Endpoints | System Assigned MI | Same as 15 **plus** private APIM integration (preview) |
 | [**18**](../18-managed-virtual-network-preview/) | Standard (BYO resources) | **Managed VNet** (Microsoft-managed) | System Assigned MI | Network isolation without managing your own VNet (preview) |
@@ -70,7 +70,9 @@ Use the table below to choose the right infrastructure template for your scenari
 
 ## Deploy to Azure
 
-[![Deploy To Azure](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.svg?sanitize=true)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fazure-ai-foundry%2Ffoundry-samples%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Finfrastructure-setup-bicep%2F19-private-network-agents-tools-setup%2Fazuredeploy.json)
+[![Deploy To Azure](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.svg?sanitize=true)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fazure-ai-foundry%2Ffoundry-samples%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Finfrastructure-setup-bicep%2F19-private-network-agent-tools%2Fazuredeploy.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Fazure-ai-foundry%2Ffoundry-samples%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Finfrastructure-setup-bicep%2F19-private-network-agent-tools%2FcreateUiDefinition.json)
+
+> The "Deploy to Azure" button uses [`createUiDefinition.json`](./createUiDefinition.json) to render a guided wizard in the Azure Portal: real VNet/subnet pickers, resource pickers for AI Search / Cosmos / Storage, and per-field validation \u2014 instead of the default flat list of 27 text boxes.
 
 
 ---
@@ -200,69 +202,113 @@ Note: If not provided, the following resources will be created automatically for
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
 | `location` | Azure region for deployment | `eastus2` | Yes |
-| `aiServices` | Base name for the AI Services resource | `aiservices` | No |
+| `aiServices` | Base name for the AI Services resource (2-40 lowercase chars) | `contoso` | No |
 | `firstProjectName` | Name for the Foundry project | `project` | No |
 | `modelName` | Model to deploy | `gpt-4o-mini` | No |
 | `modelFormat` | Model provider | `OpenAI` | No |
 | `modelVersion` | Model version | `2024-07-18` | No |
 | `modelSkuName` | Model deployment SKU | `GlobalStandard` | No |
 | `modelCapacity` | Tokens per minute (TPM) capacity | `30` | No |
-| `vnetName` | Virtual Network name | `agent-vnet-test` | No |
-| `agentSubnetName` | Subnet name for agent workloads | `agent-subnet` | No |
-| `agentSubnetPrefix` | Address prefix for agent subnet | `''` | No |
-| `peSubnetName` | Subnet name for private endpoints | `pe-subnet` | No |
-| `peSubnetPrefix` | Address prefix for PE subnet | `''` | No |
-| `mcpSubnetName` | Subnet name for MCP servers / tools | `mcp-subnet` | No |
-| `mcpSubnetPrefix` | Address prefix for MCP subnet | `''` | No |
+| `vnetName` | Virtual Network name (ignored when `existingVnetResourceId` is set) | `agent-vnet` | No |
+| `agentSubnetName` | Agent subnet name (ignored when `existingAgentSubnetResourceId` is set) | `agent-subnet` | No |
+| `agentSubnetPrefix` | Address prefix for agent subnet | `''` (auto) | No |
+| `peSubnetName` | Private endpoint subnet name (ignored when `existingPeSubnetResourceId` is set) | `pe-subnet` | No |
+| `peSubnetPrefix` | Address prefix for PE subnet | `''` (auto) | No |
+| `mcpSubnetName` | MCP subnet name (ignored when `existingMcpSubnetResourceId` is set) | `mcp-subnet` | No |
+| `mcpSubnetPrefix` | Address prefix for MCP subnet | `''` (auto) | No |
 | `existingVnetResourceId` | Full ARM Resource ID of an existing VNet | `''` (creates new) | No |
+| `existingAgentSubnetResourceId` | Full ARM ID of an existing agent subnet to reuse as-is | `''` (creates) | No |
+| `existingPeSubnetResourceId` | Full ARM ID of an existing PE subnet to reuse as-is | `''` (creates) | No |
+| `existingMcpSubnetResourceId` | Full ARM ID of an existing MCP subnet to reuse as-is | `''` (creates) | No |
 | `vnetAddressPrefix` | Address space for new VNet | `''` | No |
-| `aiSearchResourceId` | ARM Resource ID of existing AI Search | `''` (creates new) | No |
-| `azureStorageAccountResourceId` | ARM Resource ID of existing Storage account | `''` (creates new) | No |
-| `azureCosmosDBAccountResourceId` | ARM Resource ID of existing Cosmos DB | `''` (creates new) | No |
-| `fabricWorkspaceResourceId` | ARM Resource ID of existing Fabric workspace | `''` | No |
-| `existingDnsZones` | Map of DNS zone names to resource groups | All empty (creates new) | No |
+| `existingAiSearchResourceId` | ARM Resource ID of existing AI Search | `''` (creates new) | No |
+| `existingAzureStorageAccountResourceId` | ARM Resource ID of existing Storage account | `''` (creates new) | No |
+| `existingAzureCosmosDBAccountResourceId` | ARM Resource ID of existing Cosmos DB | `''` (creates new) | No |
+| `existingFabricWorkspaceResourceId` | ARM Resource ID of existing Fabric workspace | `''` | No |
+| `existingDnsZones` | Map of `'<zoneFqdn>': { subscriptionId, resourceGroup }` — see [Use existing Private DNS zones](#5-use-existing-private-dns-zones-cross-rg--cross-subscription) | All `{ subscriptionId: '', resourceGroup: '' }` (creates new) | No |
+
+> **Naming change (May 2026):** `aiSearchResourceId`, `azureStorageAccountResourceId`, `azureCosmosDBAccountResourceId`, and `fabricWorkspaceResourceId` were renamed to `existingAiSearchResourceId`, `existingAzureStorageAccountResourceId`, `existingAzureCosmosDBAccountResourceId`, and `existingFabricWorkspaceResourceId` for consistency with the `existing*ResourceId` pattern used by VNet and subnet params. Update existing parameter files accordingly.
 
 #### BYO Resource Details
 
 1. **Use Existing Virtual Network and Subnets**
 
-To use an existing VNet and subnets, set the existingVnetResourceId parameter to the full Azure Resource ID of the target VNet and its address range, and provide the names of the three required subnets. If the existing VNet is associated with private DNS zones, set the existingDnsZones parameter to the resource group name in which the zones are located. For example:
-- param existingVnetResourceId = "/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>/providers/Microsoft.Network/virtualNetworks/<vnet-name>"
-- param agentSubnetName string = 'agent-subnet' //optional, default is 'agent-subnet'
-- param agentSubnetPrefix string = '192.168.0.0/24' //optional
-- param peSubnetName string = 'pe-subnet' //optional, default is 'pe-subnet'
-- param peSubnetPrefix string = '192.168.1.0/24' //optional
-- param mcpSubnetName string = 'mcp-subnet' //optional, default is 'mcp-subnet'
-- param mcpSubnetPrefix string = '192.168.2.0/24' //optional
-- param existingDnsZones = {
+To use an existing VNet and subnets, set the `existingVnetResourceId` parameter to the full ARM ID of the target VNet. Provide the names (or, recommended, the full ARM IDs) of the three subnets you want to use.
 
-         'privatelink.services.ai.azure.com': 'privzoneRG' //add resource group name where your private DNS zone is located
+There are two levels of "existing" support:
 
-         'privatelink.openai.azure.com': '' //Leave empty to create new private dns zone... }
+* **Existing VNet, let the template manage subnets** — set only `existingVnetResourceId` and the per-subnet `*Name` / `*Prefix` params. The template will look up the VNet and create/update the three subnets inside it.
+* **Existing VNet AND existing subnets (recommended for shared / production VNets)** — also set `existingAgentSubnetResourceId`, `existingPeSubnetResourceId`, and/or `existingMcpSubnetResourceId` to the full ARM IDs of subnets you already have. When set, those subnets are referenced as-is and **not created or modified** — preserving their existing NSGs, route tables, and delegations.
+
+Example:
+
+```bicep
+param existingVnetResourceId        = '/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>'
+param existingAgentSubnetResourceId = '/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/agent-subnet'
+param existingPeSubnetResourceId    = '/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/pe-subnet'
+param existingMcpSubnetResourceId   = '/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/mcp-subnet'
+param existingDnsZones = {
+  'privatelink.services.ai.azure.com': { subscriptionId: '', resourceGroup: 'shared-dns-rg' }   // existing zone, same sub, different RG
+  'privatelink.openai.azure.com':      { subscriptionId: '', resourceGroup: '' }                // create a new zone in this deployment’s RG
+  // ... etc
+}
+```
+
+💡 **When to use which**:
+* If the VNet is yours and the subnets are empty/unused → just set `existingVnetResourceId`.
+* If the VNet is shared with other workloads → always set the `existing*SubnetResourceId` params too. Otherwise, the template will issue subnet PUTs that can fail with `AnotherOperationInProgress` or, worse, succeed and overwrite settings managed by another team.
 
 💡 If subnets information is provided then make sure it exist within the specified VNet to avoid deployment errors. If subnet information is not provided, the template will create subnets with the default address space.
-
-💡 **Cross-Subscription DNS Zones**: All DNS zones specified in `existingDnsZones` will be referenced from the subscription specified in `dnsZonesSubscriptionId`. Leave this parameter empty (default) to use the current deployment subscription, or set it to a subscription ID if your DNS zones are located in a different subscription.
-
-⚠️ **Important**: When `dnsZonesSubscriptionId` is set to a different subscription, ALL DNS zones in `existingDnsZones` must have resource groups specified (non-empty values). The template does not support creating new DNS zones in a different subscription. Empty resource groups are only allowed when creating zones in the current deployment subscription.
 
 
 2. **Use an existing Azure Cosmos DB for NoSQL**
 
-To use an existing Cosmos DB for NoSQL resource, set cosmosDBResourceId parameter to the full Azure Resource ID of the target Cosmos DB.
-- param azureCosmosDBAccountResourceId string =  /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/{cosmosDbAccountName}
+To use an existing Cosmos DB for NoSQL resource, set `existingAzureCosmosDBAccountResourceId` to the full Azure Resource ID of the target Cosmos DB.
+- `param existingAzureCosmosDBAccountResourceId = '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/{cosmosDbAccountName}'`
 
 
 3. **Use an existing Azure AI Search resource**
 
-To use an existing Azure AI Search resource, set aiSearchServiceResourceId parameter to the full Azure resource Id of the target Azure AI Search resource.
- - param aiSearchResourceId string = /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}
+To use an existing Azure AI Search resource, set `existingAiSearchResourceId` to the full ARM ID of the target search service.
+ - `param existingAiSearchResourceId = '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}'`
 
 
 4. **Use an existing Azure Storage account**
 
-To use an existing Azure Storage account, set aiStorageAccountResourceId parameter to the full Azure resource Id of the target Azure Storage account resource.
-- param aiStorageAccountResourceId string = /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{storageAccountName}
+To use an existing Azure Storage account, set `existingAzureStorageAccountResourceId` to the full ARM ID of the target storage account.
+- `param existingAzureStorageAccountResourceId = '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{storageAccountName}'`
+
+5. **Use existing Private DNS zones (cross-RG / cross-subscription)**
+
+The `existingDnsZones` parameter controls, **per zone**, whether the template creates a new private DNS zone in this deployment’s resource group or references an existing one (optionally in another resource group and/or subscription).
+
+Each map value is an object with two optional properties:
+
+| Property | Meaning |
+|---|---|
+| `resourceGroup` | RG holding the existing zone. **Empty `''` → create a new zone in this deployment’s RG.** Non-empty → reference the existing zone in that RG. |
+| `subscriptionId` | Subscription holding the existing zone. Empty `''` defaults to the current subscription. Only used when `resourceGroup` is non-empty. |
+
+Three usage modes:
+
+```bicep
+param existingDnsZones = {
+  // (a) Create a new zone in this deployment's RG (default behavior)
+  'privatelink.blob.core.windows.net':       { subscriptionId: '', resourceGroup: '' }
+
+  // (b) Reference an existing zone in another RG, SAME subscription
+  'privatelink.openai.azure.com':            { subscriptionId: '', resourceGroup: 'shared-dns-rg' }
+
+  // (c) Reference an existing zone in another RG and ANOTHER subscription
+  'privatelink.search.windows.net':          { subscriptionId: '11111111-2222-3333-4444-555555555555', resourceGroup: 'hub-dns-rg' }
+}
+```
+
+> ⚠️ **You must pre-link the VNet to any referenced zone.** When the template references an existing zone (modes b and c), it intentionally **does not create the `virtualNetworkLinks` resource** — the deployment identity may not have write rights in the zone’s RG/subscription. Ensure the zone is already linked to the VNet hosting the private endpoints, otherwise name resolution will fail even though the deployment succeeds.
+
+> ⚠️ **Cross-subscription RBAC.** The deployment principal needs `Private DNS Zone Contributor` (or at least `reader` + permission to write zone groups) on each referenced zone’s scope. For mode (c), grant this in the target subscription.
+
+> 💡 **Migrating from the old string format.** Earlier versions accepted `'<zone>': '<rgName>'`. Replace each value with `{ subscriptionId: '', resourceGroup: '<rgName>' }` (or `{ subscriptionId: '', resourceGroup: '' }` to create new).
 
 ---
 

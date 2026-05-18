@@ -15,21 +15,21 @@ param azureStorageName string
 @description('Name of the new Cosmos DB account')
 param cosmosDBName string
 
-@description('The AI Search Service full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
-param aiSearchResourceId string
+@description('The AI Search Service full ARM Resource ID. Optional — leave empty to create a new one.')
+param existingAiSearchResourceId string
 
-@description('The AI Storage Account full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
-param azureStorageAccountResourceId string
+@description('The AI Storage Account full ARM Resource ID. Optional — leave empty to create a new one.')
+param existingAzureStorageAccountResourceId string
 
-@description('The Cosmos DB Account full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
-param cosmosDBResourceId string
+@description('The Cosmos DB Account full ARM Resource ID. Optional — leave empty to create a new one.')
+param existingCosmosDBResourceId string
 
 // param aiServiceExists bool
 param aiSearchExists bool
 param azureStorageExists bool
 param cosmosDBExists bool
 
-var cosmosParts = split(cosmosDBResourceId, '/')
+var cosmosParts = split(existingCosmosDBResourceId, '/')
 
 resource existingCosmosDB 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' existing = if (cosmosDBExists) {
   name: cosmosParts[8]
@@ -64,7 +64,7 @@ resource cosmosDB 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = if(!cosmo
   }
 }
 
-var acsParts = split(aiSearchResourceId, '/')
+var acsParts = split(existingAiSearchResourceId, '/')
 
 resource existingSearchService 'Microsoft.Search/searchServices@2024-06-01-preview' existing = if (aiSearchExists) {
   name: acsParts[8]
@@ -100,7 +100,7 @@ resource aiSearch 'Microsoft.Search/searchServices@2024-06-01-preview' = if(!aiS
   }
 }
 
-var azureStorageParts = split(azureStorageAccountResourceId, '/')
+var azureStorageParts = split(existingAzureStorageAccountResourceId, '/')
 
 resource existingAzureStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = if (azureStorageExists) {
   name: azureStorageParts[8]
