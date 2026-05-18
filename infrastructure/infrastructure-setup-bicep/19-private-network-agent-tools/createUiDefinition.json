@@ -1,0 +1,288 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "config": {
+      "isWizard": true,
+      "basics": {
+        "description": "Deploy a network-isolated Microsoft Foundry account with private endpoints for AI Search, Cosmos DB, and Storage, plus a delegated subnet for tools (MCP, OpenAPI, Functions, A2A) running on a VNet.",
+        "location": {
+          "label": "Region",
+          "allowedValues": [
+            "westus", "westus2", "westus3", "eastus", "eastus2", "southcentralus", "canadaeast",
+            "westeurope", "uksouth", "swedencentral", "francecentral", "germanywestcentral", "italynorth", "spaincentral", "norwayeast", "polandcentral", "switzerlandnorth",
+            "japaneast", "koreacentral", "australiaeast", "southindia",
+            "uaenorth", "southafricanorth", "brazilsouth"
+          ]
+        }
+      }
+    },
+    "basics": [],
+    "steps": [
+      {
+        "name": "foundry",
+        "label": "Foundry account & project",
+        "elements": [
+          {
+            "name": "aiServices",
+            "type": "Microsoft.Common.TextBox",
+            "label": "AI Services name prefix",
+            "defaultValue": "aifoundry",
+            "toolTip": "2-40 lowercase letters or digits. A 4-character random suffix is appended to make the resource name unique.",
+            "constraints": {
+              "required": true,
+              "regex": "^[a-z0-9]{2,40}$",
+              "validationMessage": "2-40 lowercase letters or digits."
+            }
+          },
+          {
+            "name": "firstProjectName",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Project name prefix",
+            "defaultValue": "project",
+            "constraints": {
+              "required": true,
+              "regex": "^[a-z0-9]{2,40}$",
+              "validationMessage": "2-40 lowercase letters or digits."
+            }
+          },
+          {
+            "name": "displayName",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Project display name",
+            "defaultValue": "network secured agent project"
+          },
+          {
+            "name": "projectDescription",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Project description",
+            "defaultValue": "A project for the AI Foundry account with network secured deployed Agent",
+            "multiLine": true
+          }
+        ]
+      },
+      {
+        "name": "model",
+        "label": "Model deployment",
+        "elements": [
+          {
+            "name": "modelName",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Model",
+            "defaultValue": "gpt-4o-mini",
+            "constraints": {
+              "required": true,
+              "allowedValues": [
+                { "label": "gpt-4o-mini", "value": "gpt-4o-mini" },
+                { "label": "gpt-4o",      "value": "gpt-4o" },
+                { "label": "gpt-4",       "value": "gpt-4" }
+              ]
+            }
+          },
+          {
+            "name": "modelVersion",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Model version",
+            "defaultValue": "2024-07-18",
+            "toolTip": "API version of the selected model."
+          },
+          {
+            "name": "modelSkuName",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Deployment SKU",
+            "defaultValue": "GlobalStandard",
+            "constraints": {
+              "allowedValues": [
+                { "label": "GlobalStandard", "value": "GlobalStandard" },
+                { "label": "Standard",       "value": "Standard" }
+              ]
+            }
+          },
+          {
+            "name": "modelCapacity",
+            "type": "Microsoft.Common.Slider",
+            "label": "Capacity (TPM x 1000)",
+            "min": 1,
+            "max": 300,
+            "defaultValue": 30,
+            "showStepMarkers": false
+          }
+        ]
+      },
+      {
+        "name": "network",
+        "label": "Networking",
+        "elements": [
+          {
+            "name": "vnetMode",
+            "type": "Microsoft.Common.OptionsGroup",
+            "label": "Virtual Network",
+            "defaultValue": "Create new",
+            "toolTip": "Create a brand-new VNet, or use an existing one (recommended for shared/enterprise environments).",
+            "constraints": {
+              "required": true,
+              "allowedValues": [
+                { "label": "Create new",   "value": "new" },
+                { "label": "Use existing", "value": "existing" }
+              ]
+            }
+          },
+
+          {
+            "name": "newVnetName",
+            "type": "Microsoft.Common.TextBox",
+            "label": "VNet name",
+            "defaultValue": "agent-vnet",
+            "visible": "[equals(steps('network').vnetMode, 'new')]",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "newVnetAddressPrefix",
+            "type": "Microsoft.Common.TextBox",
+            "label": "VNet address space",
+            "defaultValue": "192.168.0.0/16",
+            "visible": "[equals(steps('network').vnetMode, 'new')]",
+            "constraints": {
+              "required": true,
+              "regex": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$",
+              "validationMessage": "Must be a valid CIDR (e.g. 192.168.0.0/16)."
+            }
+          },
+          {
+            "name": "newAgentSubnetPrefix",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Agent subnet prefix",
+            "defaultValue": "192.168.0.0/24",
+            "visible": "[equals(steps('network').vnetMode, 'new')]"
+          },
+          {
+            "name": "newPeSubnetPrefix",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Private-endpoint subnet prefix",
+            "defaultValue": "192.168.1.0/24",
+            "visible": "[equals(steps('network').vnetMode, 'new')]"
+          },
+          {
+            "name": "newMcpSubnetPrefix",
+            "type": "Microsoft.Common.TextBox",
+            "label": "MCP subnet prefix",
+            "defaultValue": "192.168.2.0/24",
+            "visible": "[equals(steps('network').vnetMode, 'new')]"
+          },
+
+          {
+            "name": "existingVnet",
+            "type": "Microsoft.Network.VirtualNetworkCombo",
+            "label": {
+              "virtualNetwork": "Existing VNet",
+              "subnets": "Subnets"
+            },
+            "visible": "[equals(steps('network').vnetMode, 'existing')]",
+            "scope": {
+              "subscriptionId": "[subscription().subscriptionId]"
+            },
+            "subnets": {
+              "agentSubnet": {
+                "label": "Agent subnet",
+                "constraints": { "minAddressCount": 32, "requireContiguousAddresses": true }
+              },
+              "peSubnet": {
+                "label": "Private-endpoint subnet",
+                "constraints": { "minAddressCount": 32, "requireContiguousAddresses": true }
+              },
+              "mcpSubnet": {
+                "label": "MCP subnet",
+                "constraints": { "minAddressCount": 32, "requireContiguousAddresses": true }
+              }
+            }
+          },
+          {
+            "name": "existingSubnetReuseInfo",
+            "type": "Microsoft.Common.InfoBox",
+            "visible": "[equals(steps('network').vnetMode, 'existing')]",
+            "options": {
+              "icon": "Info",
+              "text": "When using an existing VNet, the subnets you select above will be referenced as-is. Their existing NSGs, route tables, and delegations are preserved."
+            }
+          }
+        ]
+      },
+      {
+        "name": "byo",
+        "label": "Bring-your-own backing resources",
+        "elements": [
+          {
+            "name": "byoInfo",
+            "type": "Microsoft.Common.InfoBox",
+            "options": {
+              "icon": "Info",
+              "text": "Optional. Leave any of these unselected to have the template create a brand-new resource for you."
+            }
+          },
+          {
+            "name": "aiSearch",
+            "type": "Microsoft.Solutions.ResourceSelector",
+            "label": "Existing AI Search service (optional)",
+            "resourceType": "Microsoft.Search/searchServices",
+            "options": {
+              "filter": { "subscription": "onePerLine" }
+            }
+          },
+          {
+            "name": "cosmos",
+            "type": "Microsoft.Solutions.ResourceSelector",
+            "label": "Existing Cosmos DB account (optional)",
+            "resourceType": "Microsoft.DocumentDB/databaseAccounts"
+          },
+          {
+            "name": "storage",
+            "type": "Microsoft.Solutions.ResourceSelector",
+            "label": "Existing Storage account (optional)",
+            "resourceType": "Microsoft.Storage/storageAccounts"
+          },
+          {
+            "name": "fabric",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Microsoft Fabric workspace ARM ID (optional)",
+            "toolTip": "Full ARM resource ID of an existing Fabric workspace. Leave empty to skip Fabric private link.",
+            "constraints": {
+              "regex": "^$|^/subscriptions/.+/resourceGroups/.+/providers/Microsoft.Fabric/.+$",
+              "validationMessage": "Must be empty or a valid Microsoft.Fabric ARM resource ID."
+            }
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "location":         "[location()]",
+
+      "aiServices":         "[steps('foundry').aiServices]",
+      "firstProjectName":   "[steps('foundry').firstProjectName]",
+      "displayName":        "[steps('foundry').displayName]",
+      "projectDescription": "[steps('foundry').projectDescription]",
+
+      "modelName":      "[steps('model').modelName]",
+      "modelFormat":    "OpenAI",
+      "modelVersion":   "[steps('model').modelVersion]",
+      "modelSkuName":   "[steps('model').modelSkuName]",
+      "modelCapacity":  "[steps('model').modelCapacity]",
+
+      "vnetName":           "[if(equals(steps('network').vnetMode, 'new'), steps('network').newVnetName, 'agent-vnet')]",
+      "vnetAddressPrefix":  "[if(equals(steps('network').vnetMode, 'new'), steps('network').newVnetAddressPrefix, '')]",
+      "agentSubnetPrefix":  "[if(equals(steps('network').vnetMode, 'new'), steps('network').newAgentSubnetPrefix, '')]",
+      "peSubnetPrefix":     "[if(equals(steps('network').vnetMode, 'new'), steps('network').newPeSubnetPrefix, '')]",
+      "mcpSubnetPrefix":    "[if(equals(steps('network').vnetMode, 'new'), steps('network').newMcpSubnetPrefix, '')]",
+
+      "existingVnetResourceId":         "[if(equals(steps('network').vnetMode, 'existing'), steps('network').existingVnet.virtualNetwork.id,        '')]",
+      "existingAgentSubnetResourceId":  "[if(equals(steps('network').vnetMode, 'existing'), steps('network').existingVnet.subnets.agentSubnet.id,   '')]",
+      "existingPeSubnetResourceId":     "[if(equals(steps('network').vnetMode, 'existing'), steps('network').existingVnet.subnets.peSubnet.id,      '')]",
+      "existingMcpSubnetResourceId":    "[if(equals(steps('network').vnetMode, 'existing'), steps('network').existingVnet.subnets.mcpSubnet.id,     '')]",
+
+      "existingAiSearchResourceId":             "[coalesce(steps('byo').aiSearch.id, '')]",
+      "existingAzureCosmosDBAccountResourceId": "[coalesce(steps('byo').cosmos.id,   '')]",
+      "existingAzureStorageAccountResourceId":  "[coalesce(steps('byo').storage.id,  '')]",
+      "existingFabricWorkspaceResourceId":      "[steps('byo').fabric]"
+    }
+  }
+}

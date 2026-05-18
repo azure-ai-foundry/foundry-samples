@@ -40,6 +40,15 @@ param peSubnetPrefix string = ''
 @description('Address prefix for the MCP subnet (only needed if creating new subnet)')
 param mcpSubnetPrefix string = ''
 
+@description('Set to true to reference the agent subnet as existing (do not create or modify it)')
+param agentSubnetExists bool = false
+
+@description('Set to true to reference the private endpoint subnet as existing (do not create or modify it)')
+param peSubnetExists bool = false
+
+@description('Set to true to reference the MCP subnet as existing (do not create or modify it)')
+param mcpSubnetExists bool = false
+
 // Get the address space (array of CIDR strings)
 var vnetAddressSpace = existingVNet.properties.addressSpace.addressPrefixes[0]
 
@@ -53,7 +62,9 @@ resource existingVNet 'Microsoft.Network/virtualNetworks@2024-05-01' existing = 
   scope: resourceGroup(vnetResourceGroupName)
 }
 
-// Create the agent subnet if requested
+// Create (or reference) the agent subnet
+// Subnet writes against the same VNet are serialized by ARM, so the three subnet
+// modules below are explicitly chained via dependsOn to avoid AnotherOperationInProgress.
 module agentSubnet 'subnet.bicep' = {
   name: 'agent-subnet-${uniqueString(deployment().name, agentSubnetName)}'
   scope: resourceGroup(vnetResourceGroupName)
@@ -61,6 +72,7 @@ module agentSubnet 'subnet.bicep' = {
     vnetName: vnetName
     subnetName: agentSubnetName
     addressPrefix: agentSubnetSpaces
+    subnetExists: agentSubnetExists
     delegations: [
       {
         name: 'Microsoft.App/environments'
@@ -72,7 +84,7 @@ module agentSubnet 'subnet.bicep' = {
   }
 }
 
-// Create the private endpoint subnet if requested
+// Create (or reference) the private endpoint subnet
 module peSubnet 'subnet.bicep' = {
   name: 'pe-subnet-${uniqueString(deployment().name, peSubnetName)}'
   scope: resourceGroup(vnetResourceGroupName)
@@ -80,11 +92,15 @@ module peSubnet 'subnet.bicep' = {
     vnetName: vnetName
     subnetName: peSubnetName
     addressPrefix: peSubnetSpaces
+    subnetExists: peSubnetExists
     delegations: []
   }
+  dependsOn: [
+    agentSubnet
+  ]
 }
 
-// Create the MCP subnet for user-deployed Container Apps
+// Create (or reference) the MCP subnet for user-deployed Container Apps
 module mcpSubnet 'subnet.bicep' = {
   name: 'mcp-subnet-${uniqueString(deployment().name, mcpSubnetName)}'
   scope: resourceGroup(vnetResourceGroupName)
@@ -92,6 +108,7 @@ module mcpSubnet 'subnet.bicep' = {
     vnetName: vnetName
     subnetName: mcpSubnetName
     addressPrefix: mcpSubnetSpaces
+    subnetExists: mcpSubnetExists
     delegations: [
       {
         name: 'Microsoft.App/environments'
@@ -101,15 +118,20 @@ module mcpSubnet 'subnet.bicep' = {
       }
     ]
   }
+  dependsOn: [
+    peSubnet
+  ]
 }
 
 // Output variables
 output peSubnetName string = peSubnetName
 output agentSubnetName string = agentSubnetName
 output mcpSubnetName string = mcpSubnetName
-output agentSubnetId string = '${existingVNet.id}/subnets/${agentSubnetName}'
-output peSubnetId string = '${existingVNet.id}/subnets/${peSubnetName}'
-output mcpSubnetId string = '${existingVNet.id}/subnets/${mcpSubnetName}'
+// Use module outputs (not string concatenation) so consumers get an implicit dependency
+// on the subnet modules and don't race ahead while subnets are still being written.
+output agentSubnetId string = agentSubnet.outputs.subnetId
+output peSubnetId string = peSubnet.outputs.subnetId
+output mcpSubnetId string = mcpSubnet.outputs.subnetId
 output virtualNetworkName string = existingVNet.name
 output virtualNetworkId string = existingVNet.id
 output virtualNetworkResourceGroup string = vnetResourceGroupName
