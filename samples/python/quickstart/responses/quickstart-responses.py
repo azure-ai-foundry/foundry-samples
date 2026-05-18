@@ -13,7 +13,7 @@ openai = project.get_openai_client()
 
 # Run a responses API call
 response = openai.responses.create(
-    model="gpt-5-mini",  # supports all Foundry direct models
+    model="gpt-5-mini",
     input="What is the size of France in square miles?",
 )
 print(f"Response output: {response.output_text}")
