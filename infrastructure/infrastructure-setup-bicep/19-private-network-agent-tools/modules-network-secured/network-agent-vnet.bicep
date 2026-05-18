@@ -34,6 +34,15 @@ param peSubnetPrefix string = ''
 @description('Address prefix for the MCP subnet')
 param mcpSubnetPrefix string = ''
 
+@description('Set to true to reference the agent subnet as existing (do not create or modify it)')
+param agentSubnetExists bool = false
+
+@description('Set to true to reference the private endpoint subnet as existing (do not create or modify it)')
+param peSubnetExists bool = false
+
+@description('Set to true to reference the MCP subnet as existing (do not create or modify it)')
+param mcpSubnetExists bool = false
+
 // Create new VNet if needed
 module newVNet 'vnet.bicep' = if (!useExistingVnet) {
   name: 'vnet-deployment'
@@ -63,25 +72,28 @@ module existingVNet 'existing-vnet.bicep' = if (useExistingVnet) {
     agentSubnetPrefix: agentSubnetPrefix
     peSubnetPrefix: peSubnetPrefix
     mcpSubnetPrefix: mcpSubnetPrefix
+    agentSubnetExists: agentSubnetExists
+    peSubnetExists: peSubnetExists
+    mcpSubnetExists: mcpSubnetExists
   }
 }
 
 // Provide unified outputs regardless of which module was used
 output virtualNetworkName string = useExistingVnet
-  ? existingVNet.outputs.virtualNetworkName
-  : newVNet.outputs.virtualNetworkName
+  ? existingVNet!.outputs.virtualNetworkName
+  : newVNet!.outputs.virtualNetworkName
 output virtualNetworkId string = useExistingVnet
-  ? existingVNet.outputs.virtualNetworkId
-  : newVNet.outputs.virtualNetworkId
+  ? existingVNet!.outputs.virtualNetworkId
+  : newVNet!.outputs.virtualNetworkId
 output virtualNetworkSubscriptionId string = useExistingVnet
-  ? existingVNet.outputs.virtualNetworkSubscriptionId
-  : newVNet.outputs.virtualNetworkSubscriptionId
+  ? existingVNet!.outputs.virtualNetworkSubscriptionId
+  : newVNet!.outputs.virtualNetworkSubscriptionId
 output virtualNetworkResourceGroup string = useExistingVnet
-  ? existingVNet.outputs.virtualNetworkResourceGroup
-  : newVNet.outputs.virtualNetworkResourceGroup
+  ? existingVNet!.outputs.virtualNetworkResourceGroup
+  : newVNet!.outputs.virtualNetworkResourceGroup
 output agentSubnetName string = agentSubnetName
 output peSubnetName string = peSubnetName
 output mcpSubnetName string = mcpSubnetName
-output agentSubnetId string = useExistingVnet ? existingVNet.outputs.agentSubnetId : newVNet.outputs.agentSubnetId
-output peSubnetId string = useExistingVnet ? existingVNet.outputs.peSubnetId : newVNet.outputs.peSubnetId
-output mcpSubnetId string = useExistingVnet ? existingVNet.outputs.mcpSubnetId : newVNet.outputs.mcpSubnetId
+output agentSubnetId string = useExistingVnet ? existingVNet!.outputs.agentSubnetId : newVNet!.outputs.agentSubnetId
+output peSubnetId string = useExistingVnet ? existingVNet!.outputs.peSubnetId : newVNet!.outputs.peSubnetId
+output mcpSubnetId string = useExistingVnet ? existingVNet!.outputs.mcpSubnetId : newVNet!.outputs.mcpSubnetId
