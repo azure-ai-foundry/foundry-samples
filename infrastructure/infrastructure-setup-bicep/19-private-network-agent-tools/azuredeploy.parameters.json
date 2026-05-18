@@ -56,13 +56,31 @@
     "peSubnetPrefix": {
       "value": ""
     },
-    "aiSearchResourceId": {
+    "existingAiSearchResourceId": {
       "value": ""
     },
-    "azureStorageAccountResourceId": {
+    "existingAzureStorageAccountResourceId": {
       "value": ""
     },
-    "azureCosmosDBAccountResourceId": {
+    "existingAzureCosmosDBAccountResourceId": {
+      "value": ""
+    },
+    "existingFabricWorkspaceResourceId": {
+      "value": ""
+    },
+    "existingPeSubnetResourceId": {
+      "value": ""
+    },
+    "existingAgentSubnetResourceId": {
+      "value": ""
+    },
+    "existingMcpSubnetResourceId": {
+      "value": ""
+    },
+    "mcpSubnetName": {
+      "value": ""
+    },
+    "mcpSubnetPrefix": {
       "value": ""
     },
     "projectCapHost": {
@@ -70,12 +88,13 @@
     },
     "existingDnsZones": {
       "value": {
-        "privatelink.services.ai.azure.com": "",
-        "privatelink.openai.azure.com": "",
-        "privatelink.cognitiveservices.azure.com": "",
-        "privatelink.search.windows.net": "",
-        "privatelink.blob.core.windows.net": "",
-        "privatelink.documents.azure.com": ""
+        "privatelink.services.ai.azure.com":       { "subscriptionId": "", "resourceGroup": "" },
+        "privatelink.openai.azure.com":            { "subscriptionId": "", "resourceGroup": "" },
+        "privatelink.cognitiveservices.azure.com": { "subscriptionId": "", "resourceGroup": "" },
+        "privatelink.search.windows.net":          { "subscriptionId": "", "resourceGroup": "" },
+        "privatelink.blob.core.windows.net":       { "subscriptionId": "", "resourceGroup": "" },
+        "privatelink.documents.azure.com":         { "subscriptionId": "", "resourceGroup": "" },
+        "privatelink.fabric.microsoft.com":        { "subscriptionId": "", "resourceGroup": "" }
       }
     }
   }
