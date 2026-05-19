@@ -18,7 +18,7 @@ public class CreateResponse {
         // Run a responses API call
         ResponseCreateParams responseRequest = new ResponseCreateParams.Builder()
                 .input("What is the size of France in square miles?")
-                .model("gpt-5-mini")  // supports all Foundry direct models
+                .model("gpt-5-mini")
                 .build();
         Response response = responsesClient.getResponseService().create(responseRequest);
         System.out.println(response.output());
