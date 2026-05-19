@@ -11,7 +11,7 @@ async function main(): Promise<void> {
 
     // Run a responses API call
     const response = await openai.responses.create({
-        model: "gpt-5-mini", // supports all Foundry direct models
+        model: "gpt-5-mini",
         input: "What is the size of France in square miles?",
     });
     console.log(`Response output: ${response.output_text}`);
