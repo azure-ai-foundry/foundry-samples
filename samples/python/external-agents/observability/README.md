@@ -41,10 +41,10 @@ start here:
 | File | Purpose |
 | --- | --- |
 | [weather_agent.py](weather_agent.py) | LangChain weather agent + Microsoft OTel distro, exposed as a FastAPI HTTP service. This is the "external runtime". |
+| [.env.example](.env.example) | Placeholder environment template for local configuration. |
 | [Dockerfile](Dockerfile) | Container image for the weather agent. |
-| [deploy.sh](deploy.sh) / [deploy.ps1](deploy.ps1) | Build, push to ACR, deploy to ACA, drive traffic, validate spans. |
+| [deploy.sh](deploy.sh) / [deploy.ps1](deploy.ps1) | Build, push to ACR, deploy to ACA, and generate traffic. |
 | [generate_traffic.py](generate_traffic.py) | Hits the deployed agent with a handful of weather questions. |
-| [validate_spans.py](validate_spans.py) | Queries Application Insights and asserts spans tagged with the expected `gen_ai.agent.id` arrived. |
 | [register_external_agent.py](register_external_agent.py) | Registers the runtime in Foundry as `kind=external` via the `azure-ai-projects` SDK. |
 | [run_trace_eval.py](run_trace_eval.py) | Runs a one-off trace-based eval over the registered agent and prints scores. |
 | [requirements.txt](requirements.txt) | Python deps for both the runtime and the helper scripts. |
@@ -59,11 +59,11 @@ start here:
                                                                     │
                               register_external_agent.py            │ trace view
                                        │                            ▼
-                                       ▼                   ┌─────────────────────┐
-                              ┌────────────────────┐       │   Foundry Portal    │
-                              │  Foundry Project   │ ◀──── │  Agents → traces    │
-                              │  agent kind=external│      │  Evaluations        │
-                              └────────────────────┘       └─────────────────────┘
+                                       ▼                     ┌─────────────────────┐
+                              ┌─────────────────────┐        │   Foundry Portal    │
+                              │  Foundry Project    │ ◀────  │  Agents → traces    │
+                              │  agent kind=external│        │  Evaluations        │
+                              └─────────────────────┘        └─────────────────────┘
 ```
 
 ## Prerequisites
@@ -82,35 +82,27 @@ start here:
 
 ## Step 1 — Configure environment
 
-```bash
-# Common
-export AGENT_NAME="weather-agent"
-# Value emitted on OTel spans as gen_ai.agent.id and used as the
-# Foundry external-agent registration's otel_agent_id. It does NOT
-# have to match AGENT_NAME -- here we use a versioned id to show that
-# the runtime's stable OTel id can differ from the Foundry agent name.
-export OTEL_AGENT_ID="weather-agent-v1"
-export FOUNDRY_PROJECT_ENDPOINT="https://<resource>.services.ai.azure.com/api/projects/<project>"
+Start from [.env.example](.env.example), create a local `.env`, and
+load those values into your shell before running the scripts. The local
+`.env` file is ignored by git.
 
-# Deploy
+```bash
+export AZURE_SUBSCRIPTION_ID="<subscription-id>"
+export FOUNDRY_PROJECT_ENDPOINT="https://<resource>.services.ai.azure.com/api/projects/<project>"
 export RESOURCE_GROUP="..."
 export LOCATION="eastus2"
 export ACA_ENV="..."
 export ACR_NAME="..."
-
-# Observability
 export APPLICATIONINSIGHTS_CONNECTION_STRING="InstrumentationKey=...;IngestionEndpoint=..."
-export APPINSIGHTS_RESOURCE_ID="/subscriptions/<sub>/resourceGroups/<rg>/providers/microsoft.insights/components/<name>"
-
-# Agent LLM
 export AZURE_OPENAI_ENDPOINT="https://<aoai>.openai.azure.com"
 export AZURE_OPENAI_DEPLOYMENT="gpt-4o-mini"
-export AZURE_OPENAI_API_KEY="..."   # optional if the ACA identity has access
+export AZURE_OPENAI_API_VERSION="2024-10-21"
+export AZURE_OPENAI_API_KEY="..."
 ```
 
 PowerShell users: set the same names with `$env:NAME = "..."`.
 
-## Step 2 — Deploy the external runtime to ACA + validate spans
+## Step 2 — Deploy the external runtime to ACA and generate traffic
 
 ```bash
 cd samples/python/external-agents/observability
@@ -124,13 +116,8 @@ The script will:
 3. Wait for `/healthz`.
 4. Run [generate_traffic.py](generate_traffic.py) to ask several weather
    questions.
-5. Sleep ~90s so the OTel exporter flushes.
-6. Run [validate_spans.py](validate_spans.py), which KQL-queries App
-   Insights and asserts spans with `customDimensions["gen_ai.agent.id"]
-   == "weather-agent"` are present.
-
-If validation fails, instrumentation is misconfigured before you ever
-involve Foundry — fix it here.
+5. Wait for OTel export and ingestion. Override the default 90 seconds
+   with `TRACE_INGEST_WAIT_SECS` if needed.
 
 ## Step 3 — Register the external agent in Foundry
 
@@ -141,8 +128,8 @@ python register_external_agent.py
 This calls `project_client.agents.create_version(...)` with an
 `ExternalAgentDefinition`, which atomically creates the Foundry agent
 record on first call (per the spec, external agents are versionless
-from the user's perspective). After it succeeds, open the Foundry
-portal:
+from the user's perspective). After registration succeeds, open the
+Foundry portal:
 
 > **Project → Agents → `weather-agent` → Traces**
 

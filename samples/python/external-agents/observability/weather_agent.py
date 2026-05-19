@@ -9,11 +9,9 @@ spans this process emits.
 Reference for the LangChain + distro setup:
 https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/langchain/sample_langchain_instrumentation.py
 
-Note: today the Microsoft distro does not yet accept ``otel_agent_id`` as
-an input (https://github.com/microsoft/opentelemetry-distro-python/issues/148).
-Until that ships, ``gen_ai.agent.id`` falls back to whatever the
-LangChain instrumentation emits. The Foundry registration uses the same
-agent name so the trace view still resolves once the distro fix lands.
+The Microsoft distro is configured with an explicit LangChain
+``agent_id`` so emitted spans line up with the Foundry external-agent
+registration.
 """
 
 from __future__ import annotations
@@ -21,26 +19,33 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 
+# --- OTel: configure the Microsoft distro BEFORE importing anything that
+# should be instrumented at runtime. ----------------------------------------
+from microsoft.opentelemetry import use_microsoft_opentelemetry  # type: ignore
+
+AGENT_NAME = os.environ.get("AGENT_NAME", "weather-agent")
+# Emitted on every OTel span as gen_ai.agent.id.
+OTEL_AGENT_ID = os.environ.get("OTEL_AGENT_ID", AGENT_NAME)
+
+use_microsoft_opentelemetry(
+    enable_azure_monitor=True,
+    sampling_ratio=1.0,
+    instrumentation_options={
+        "fastapi": {"enabled": False},
+        "langchain": {
+            "enabled": True,
+            "agent_id": OTEL_AGENT_ID,
+            "agent_name": AGENT_NAME,
+        },
+    },
+)
+
 from fastapi import FastAPI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_openai import AzureChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel
-
-# --- OTel: configure the Microsoft distro BEFORE importing anything that
-# should be instrumented at runtime. ----------------------------------------
-from microsoft.opentelemetry.distro import configure  # type: ignore
-
-configure()  # reads APPLICATIONINSIGHTS_CONNECTION_STRING from env
-
-AGENT_NAME = os.environ.get("AGENT_NAME", "weather-agent")
-# Emitted on every OTel span as gen_ai.agent.id. Once the Microsoft
-# distro accepts an explicit otel_agent_id
-# (https://github.com/microsoft/opentelemetry-distro-python/issues/148)
-# this value will be wired into configure(...). Until then it's read
-# here only so the rest of the sample can stay consistent.
-OTEL_AGENT_ID = os.environ.get("OTEL_AGENT_ID", AGENT_NAME)
 
 
 # --- Tools -----------------------------------------------------------------

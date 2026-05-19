@@ -15,7 +15,10 @@ from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
 
 AGENT_NAME = os.environ.get("AGENT_NAME", "weather-agent")
-EVAL_DEPLOYMENT = os.environ.get("EVAL_MODEL_DEPLOYMENT", "gpt-4o-mini")
+EVAL_DEPLOYMENT = os.environ.get(
+    "EVAL_MODEL_DEPLOYMENT",
+    os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini"),
+)
 LOOKBACK_HOURS = int(os.environ.get("LOOKBACK_HOURS", "24"))
 POLL_TIMEOUT_SECS = int(os.environ.get("EVAL_POLL_TIMEOUT_SECS", "900"))
 

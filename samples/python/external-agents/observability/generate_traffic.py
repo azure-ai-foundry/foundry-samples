@@ -1,5 +1,5 @@
-"""Hit the deployed weather agent with a handful of varied questions so
-there are spans in Application Insights for the eval run to score.
+"""Hit the deployed weather agent with varied questions so there are
+spans in Application Insights for the eval run to score.
 """
 
 from __future__ import annotations
@@ -25,11 +25,11 @@ def main() -> None:
 
     base_url = base_url.rstrip("/")
     with httpx.Client(timeout=60.0) as client:
-        for q in QUESTIONS:
-            print(f"\n>>> {q}")
-            r = client.post(f"{base_url}/ask", json={"question": q})
-            r.raise_for_status()
-            print(r.json().get("answer"))
+        for question in QUESTIONS:
+            print(f"\n>>> {question}")
+            response = client.post(f"{base_url}/ask", json={"question": question})
+            response.raise_for_status()
+            print(response.json().get("answer"))
 
 
 if __name__ == "__main__":

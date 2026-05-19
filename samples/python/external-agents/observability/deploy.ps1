@@ -1,7 +1,6 @@
 <#
 .SYNOPSIS
-  Deploy the weather agent to Azure Container Apps, generate traffic,
-  and validate spans in Application Insights.
+  Deploy the weather agent to Azure Container Apps and generate traffic.
 
 .DESCRIPTION
   Mirrors deploy.sh for Windows / PowerShell users. Requires the
@@ -9,11 +8,13 @@
 
 .NOTES
   Required env vars:
+    AZURE_SUBSCRIPTION_ID,
     RESOURCE_GROUP, LOCATION, ACA_ENV, ACR_NAME,
-    APPLICATIONINSIGHTS_CONNECTION_STRING, APPINSIGHTS_RESOURCE_ID,
+    APPLICATIONINSIGHTS_CONNECTION_STRING,
     AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT
   Optional:
-    AZURE_OPENAI_API_KEY, AGENT_NAME (default weather-agent), IMAGE_TAG (default latest)
+    AZURE_OPENAI_API_KEY, AGENT_NAME (default weather-agent), IMAGE_TAG (default current timestamp),
+    TRACE_INGEST_WAIT_SECS (default 90)
 #>
 
 $ErrorActionPreference = "Stop"
@@ -25,18 +26,23 @@ function Require-Env($name) {
 }
 
 foreach ($v in @(
+  "AZURE_SUBSCRIPTION_ID",
   "RESOURCE_GROUP","LOCATION","ACA_ENV","ACR_NAME",
   "APPLICATIONINSIGHTS_CONNECTION_STRING",
   "AZURE_OPENAI_ENDPOINT","AZURE_OPENAI_DEPLOYMENT"
 )) { Require-Env $v }
 
+Write-Host "==> Selecting Azure subscription"
+az account set --subscription $env:AZURE_SUBSCRIPTION_ID --only-show-errors
+
 $AgentName  = if ($env:AGENT_NAME)    { $env:AGENT_NAME }    else { "weather-agent" }
 $OtelAgentId = if ($env:OTEL_AGENT_ID) { $env:OTEL_AGENT_ID } else { $AgentName }
-$ImageTag   = if ($env:IMAGE_TAG)     { $env:IMAGE_TAG }     else { "latest" }
+$ImageTag   = if ($env:IMAGE_TAG)     { $env:IMAGE_TAG }     else { Get-Date -Format "yyyyMMddHHmmss" }
+$TraceIngestWaitSecs = if ($env:TRACE_INGEST_WAIT_SECS) { [int]$env:TRACE_INGEST_WAIT_SECS } else { 90 }
 $Image     = "$($env:ACR_NAME).azurecr.io/${AgentName}:${ImageTag}"
 
 Write-Host "==> Building and pushing image to ACR"
-az acr build --registry $env:ACR_NAME --image "${AgentName}:${ImageTag}" . | Out-Null
+az acr build --registry $env:ACR_NAME --image "${AgentName}:${ImageTag}" --no-logs --only-show-errors . | Out-Null
 
 Write-Host "==> Deploying to Azure Container Apps"
 $envVars = @(
@@ -45,12 +51,18 @@ $envVars = @(
   "APPLICATIONINSIGHTS_CONNECTION_STRING=$($env:APPLICATIONINSIGHTS_CONNECTION_STRING)",
   "AZURE_OPENAI_ENDPOINT=$($env:AZURE_OPENAI_ENDPOINT)",
   "AZURE_OPENAI_DEPLOYMENT=$($env:AZURE_OPENAI_DEPLOYMENT)",
+  "AZURE_OPENAI_API_VERSION=$(if ($env:AZURE_OPENAI_API_VERSION) { $env:AZURE_OPENAI_API_VERSION } else { '2024-10-21' })",
   "AZURE_OPENAI_API_KEY=$($env:AZURE_OPENAI_API_KEY)"
 )
 
-$exists = az containerapp show -n $AgentName -g $env:RESOURCE_GROUP 2>$null
+$exists = az containerapp show -n $AgentName -g $env:RESOURCE_GROUP --only-show-errors 2>$null
 if ($LASTEXITCODE -eq 0 -and $exists) {
-  az containerapp update -n $AgentName -g $env:RESOURCE_GROUP --image $Image | Out-Null
+  az containerapp update `
+    -n $AgentName `
+    -g $env:RESOURCE_GROUP `
+    --image $Image `
+    --set-env-vars $envVars `
+    --only-show-errors | Out-Null
 } else {
   az containerapp create `
     --name $AgentName `
@@ -61,17 +73,20 @@ if ($LASTEXITCODE -eq 0 -and $exists) {
     --ingress external `
     --min-replicas 1 --max-replicas 2 `
     --registry-server "$($env:ACR_NAME).azurecr.io" `
-    --env-vars $envVars | Out-Null
+    --system-assigned `
+    --registry-identity system `
+    --env-vars $envVars `
+    --only-show-errors | Out-Null
 }
 
 $Fqdn = az containerapp show -n $AgentName -g $env:RESOURCE_GROUP `
-          --query properties.configuration.ingress.fqdn -o tsv
+        --query properties.configuration.ingress.fqdn -o tsv --only-show-errors
 $AgentUrl = "https://$Fqdn"
 Write-Host "==> Agent URL: $AgentUrl"
 
 Write-Host "==> Waiting for /healthz"
 for ($i = 0; $i -lt 30; $i++) {
-  try { Invoke-WebRequest -UseBasicParsing -Uri "$AgentUrl/healthz" | Out-Null; break }
+  try { Invoke-WebRequest -UseBasicParsing -Uri "$AgentUrl/healthz" -TimeoutSec 10 | Out-Null; break }
   catch { Start-Sleep -Seconds 5 }
 }
 
@@ -81,10 +96,10 @@ $env:AGENT_NAME = $AgentName
 $env:OTEL_AGENT_ID = $OtelAgentId
 python generate_traffic.py
 
-Write-Host "==> Waiting 90s for OTel export to flush to App Insights"
-Start-Sleep -Seconds 90
+if ($TraceIngestWaitSecs -gt 0) {
+  Write-Host "==> Waiting ${TraceIngestWaitSecs}s for OTel export and ingestion"
+  Start-Sleep -Seconds $TraceIngestWaitSecs
+}
 
-Write-Host "==> Validating spans landed in App Insights"
-python validate_spans.py
-
-Write-Host "==> Done. Now run: python register_external_agent.py"
+Write-Host "==> Done. Agent URL: $AgentUrl"
+Write-Host "==> Then run: python register_external_agent.py; python run_trace_eval.py"
