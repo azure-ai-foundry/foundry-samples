@@ -2,6 +2,6 @@ curl -X POST https://YOUR-FOUNDRY-RESOURCE-NAME.services.ai.azure.com/api/projec
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $AZURE_AI_AUTH_TOKEN" \
 -d '{
-        "model": "gpt-4.1-mini",
+        "model": "gpt-5.1-mini",
         "input": "What is the size of France in square miles?"
 }'
