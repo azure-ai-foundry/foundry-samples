@@ -1,0 +1,12 @@
+{
+  "test_id": "ground_score3",
+  "evaluator": "groundedness",
+  "expected_score": 3,
+  "description": "Agent only asks clarifying questions and greets — zero factual propositions about the world",
+  "messages": [
+    {"role": "user", "content": "Hi there."},
+    {"role": "assistant", "content": "Hello! How can I help you today?"},
+    {"role": "user", "content": "I have a question."},
+    {"role": "assistant", "content": "Of course! What would you like to know?"}
+  ]
+}

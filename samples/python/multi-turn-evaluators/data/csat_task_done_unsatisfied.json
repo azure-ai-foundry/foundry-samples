@@ -1,0 +1,18 @@
+{
+  "test_id": "csat_task_done_unsatisfied",
+  "evaluator": "customer_satisfaction",
+  "expected_score": [1, 2],
+  "description": "Task technically completed but experience was poor — agent was curt, dismissive, and user expressed dissatisfaction",
+  "messages": [
+    {"role": "user", "content": "I need to update my shipping address for order #55123."},
+    {"role": "assistant", "content": "What's the new address?"},
+    {"role": "user", "content": "742 Evergreen Terrace, Springfield, IL 62704"},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "update_shipping_address", "arguments": "{\"order_id\": \"55123\", \"address\": \"742 Evergreen Terrace, Springfield, IL 62704\"}"}}]},
+    {"role": "tool", "tool_call_id": "call_1", "content": "Address updated successfully. Order #55123 will now ship to: 742 Evergreen Terrace, Springfield, IL 62704."},
+    {"role": "assistant", "content": "Done."},
+    {"role": "user", "content": "Can you confirm when the order will arrive at the new address?"},
+    {"role": "assistant", "content": "Check your email."},
+    {"role": "user", "content": "That's not very helpful. Could you at least tell me the estimated delivery date?"},
+    {"role": "assistant", "content": "It ships when it ships. Anything else?"}
+  ]
+}

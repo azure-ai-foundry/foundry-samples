@@ -1,0 +1,14 @@
+{
+  "test_id": "csat_score3",
+  "evaluator": "customer_satisfaction",
+  "expected_score": [2, 3],
+  "description": "Agent provides basic help but misses proactive solutions; customer left without full resolution",
+  "messages": [
+    {"role": "user", "content": "I can't log into my account. I keep getting an error when I try to reset my password."},
+    {"role": "assistant", "content": "I'm sorry to hear that. What error message are you seeing when you try to reset your password?"},
+    {"role": "user", "content": "It says 'Too many reset attempts. Account temporarily locked.' I've been locked out for 2 hours now."},
+    {"role": "assistant", "content": "Account locks from too many reset attempts typically expire after 30 minutes. Since it's been 2 hours, it should be unlocked by now. Please try the password reset again and let me know if you still see the error."},
+    {"role": "user", "content": "I just tried again and it's still showing the same locked message."},
+    {"role": "assistant", "content": "That's unusual. The lock should have expired by now. I'd suggest trying the following:\n1. Clear your browser cache and cookies\n2. Try using a different browser or incognito mode\n3. If that doesn't work, you may need to wait a bit longer\n\nIf none of these work, you can contact our technical support team at support@example.com for further assistance."}
+  ]
+}

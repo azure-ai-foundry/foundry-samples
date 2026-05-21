@@ -1,0 +1,12 @@
+{
+  "test_id": "ground_score2",
+  "evaluator": "groundedness",
+  "expected_score": [1, 2],
+  "description": "Agent fabricates specific facts not in tool result — invents a 60-day policy, system lookup capability, and free shipping that contradict the actual policy",
+  "messages": [
+    {"role": "user", "content": "What's the return policy for electronics?"},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "get_return_policy", "arguments": "{\"category\": \"electronics\"}"}}]},
+    {"role": "tool", "tool_call_id": "call_1", "content": "Electronics return policy: 30-day return window. Receipt required. Item must be in original packaging with all accessories. Restocking fee of 15% applies to opened items."},
+    {"role": "assistant", "content": "Our electronics return policy gives you a generous 60-day return window. No receipt needed — we can look up any purchase using your phone number, and we keep records going back 5 years. Returns are completely free with no restocking fees, and we'll even cover return shipping costs. Just bring the item to any store location."}
+  ]
+}

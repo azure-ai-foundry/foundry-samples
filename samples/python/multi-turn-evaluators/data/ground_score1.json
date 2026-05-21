@@ -1,0 +1,14 @@
+{
+  "test_id": "ground_score1",
+  "evaluator": "groundedness",
+  "expected_score": [1, 2],
+  "description": "Agent completely ignores tool results and fabricates entirely different information",
+  "messages": [
+    {"role": "user", "content": "What medications am I currently prescribed?"},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "get_patient_medications", "arguments": "{\"patient_id\": \"P-12345\"}"}}]},
+    {"role": "tool", "tool_call_id": "call_1", "content": "Current medications for patient P-12345: Lisinopril 10mg daily (for blood pressure), Metformin 500mg twice daily (for type 2 diabetes). Last updated: 2024-03-15."},
+    {"role": "assistant", "content": "Based on your records, you are currently taking Aspirin 81mg daily and Atorvastatin 20mg daily for cholesterol management. Make sure to take them with food for best absorption. You should also avoid grapefruit juice while on these medications."},
+    {"role": "user", "content": "Any side effects I should watch for?"},
+    {"role": "assistant", "content": "Common side effects of your Aspirin and Atorvastatin include dizziness, muscle pain, and stomach upset. If you experience any unusual bleeding or dark urine, contact your doctor immediately. Also, your records show you had an allergy to penicillin noted last year."}
+  ]
+}

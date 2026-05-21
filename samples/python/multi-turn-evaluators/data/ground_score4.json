@@ -1,0 +1,12 @@
+{
+  "test_id": "ground_score4",
+  "evaluator": "groundedness",
+  "expected_score": 4,
+  "description": "Agent states only 2 of 8 features correctly — everything said is grounded but major details are omitted",
+  "messages": [
+    {"role": "user", "content": "Tell me everything about the Enterprise plan."},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "get_plan_details", "arguments": "{\"plan\": \"enterprise\"}"}}]},
+    {"role": "tool", "tool_call_id": "call_1", "content": "Enterprise plan ($499/mo): unlimited storage, priority 24/7 support, custom domains, advanced analytics dashboard, team collaboration (up to 200 members), SSO/SAML integration, dedicated account manager, 99.99% SLA guarantee."},
+    {"role": "assistant", "content": "The Enterprise plan includes unlimited storage and priority 24/7 support."}
+  ]
+}

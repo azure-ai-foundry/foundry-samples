@@ -1,0 +1,12 @@
+{
+  "test_id": "tc_false_evolving",
+  "evaluator": "task_completion",
+  "expected_score": "FALSE",
+  "description": "User refines requirements mid-conversation; agent answers old version, ignoring the refinement",
+  "messages": [
+    {"role": "user", "content": "Write me a Python function that converts temperatures from Celsius to Fahrenheit."},
+    {"role": "assistant", "content": "Here's a simple conversion function:\n\n```python\ndef celsius_to_fahrenheit(celsius):\n    return (celsius * 9/5) + 32\n```\n\nExample usage:\n```python\nprint(celsius_to_fahrenheit(100))  # Output: 212.0\nprint(celsius_to_fahrenheit(0))    # Output: 32.0\n```"},
+    {"role": "user", "content": "Actually, I need it to handle both directions — Celsius to Fahrenheit AND Fahrenheit to Celsius — and also include Kelvin. Make it a class with methods for all conversions."},
+    {"role": "assistant", "content": "Sure! Here's the updated function:\n\n```python\ndef celsius_to_fahrenheit(celsius):\n    \"\"\"Convert Celsius to Fahrenheit.\"\"\"\n    return (celsius * 9/5) + 32\n\ndef fahrenheit_to_celsius(fahrenheit):\n    \"\"\"Convert Fahrenheit to Celsius.\"\"\"\n    return (fahrenheit - 32) * 5/9\n```\n\nNow you have both directions covered! Let me know if you need anything else."}
+  ]
+}

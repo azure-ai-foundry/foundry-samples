@@ -1,0 +1,14 @@
+{
+  "test_id": "csat_score1",
+  "evaluator": "customer_satisfaction",
+  "expected_score": [1, 2],
+  "description": "Agent dismisses user, provides no real help, user explicitly frustrated",
+  "messages": [
+    {"role": "user", "content": "My package was marked as delivered 3 days ago but I never received it. Order #88712."},
+    {"role": "assistant", "content": "Our records show the package was delivered on Tuesday. Have you checked with your neighbors or your building's mail room?"},
+    {"role": "user", "content": "Yes, I've checked everywhere. I need a replacement or a refund. This is a $200 item."},
+    {"role": "assistant", "content": "Since the tracking shows the package as delivered, we unfortunately cannot issue a refund or replacement. You may want to file a claim with the carrier or file a police report for stolen packages."},
+    {"role": "user", "content": "That's completely unacceptable. I paid $200 and received nothing. This is useless support."},
+    {"role": "assistant", "content": "I understand your frustration. Our policy is that once a package is marked as delivered, the responsibility shifts to the carrier. I'd recommend contacting FedEx directly to dispute the delivery status. Is there anything else I can help you with today?"}
+  ]
+}

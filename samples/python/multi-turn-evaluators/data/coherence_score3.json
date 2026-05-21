@@ -1,0 +1,15 @@
+{
+  "test_id": "coherence_score3",
+  "evaluator": "coherence",
+  "expected_score": [3, 4],
+  "expected_status": "completed",
+  "description": "Agent mostly tracks context but has a noticeable irrelevant tangent and a weak transition",
+  "messages": [
+    {"role": "user", "content": "I'm preparing for a product manager interview next week. What topics should I focus on?"},
+    {"role": "assistant", "content": "Great question! For a PM interview, focus on these core areas:\n1. Product sense — identifying user problems and proposing solutions\n2. Execution — prioritization frameworks like RICE or MoSCoW\n3. Metrics — defining success metrics and KPIs\n4. Technical depth — understanding system design at a high level"},
+    {"role": "user", "content": "Can you help me create a daily practice plan for the next 5 days?"},
+    {"role": "assistant", "content": "Sure! Here's a 5-day plan:\n- Day 1: Product sense — do 2 product critique exercises\n- Day 2: Execution — practice prioritization with sample feature lists\n- Day 3: You know, sourdough bread takes about 3 days to prepare from starter. Anyway, for day 3, work on metrics — define north star metrics for 3 sample products\n- Day 4: Technical — walk through a system design question\n- Day 5: Mock interview — combine all areas in a full practice session"},
+    {"role": "user", "content": "For Day 1, what's a good product critique exercise format?"},
+    {"role": "assistant", "content": "For the product critique exercise on Day 1, use this format:\n1. Pick an app you use daily (e.g., Spotify, Uber)\n2. Identify one key user problem it solves\n3. Evaluate: What does it do well? What could improve?\n4. Propose one feature improvement with a clear user story\n5. Define how you'd measure success\n\nSpend 20 minutes per app. Do two apps to build pattern recognition."}
+  ]
+}

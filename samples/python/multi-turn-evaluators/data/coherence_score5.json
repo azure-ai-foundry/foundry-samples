@@ -1,0 +1,15 @@
+{
+  "test_id": "coherence_score5",
+  "evaluator": "coherence",
+  "expected_score": [4,5],
+  "expected_status": "completed",
+  "description": "Perfect logical flow: agent tracks migration plan across turns, builds on each phase",
+  "messages": [
+    {"role": "user", "content": "I need to migrate our production database from MySQL 5.7 to PostgreSQL 15. Can you outline the key phases?"},
+    {"role": "assistant", "content": "Here is a 4-phase migration plan:\n\nPhase 1: Schema conversion — map MySQL types to PostgreSQL equivalents (e.g., TINYINT to SMALLINT, AUTO_INCREMENT to SERIAL).\nPhase 2: Data migration rehearsal — export with mysqldump, transform, and load into a staging PostgreSQL instance.\nPhase 3: Application code changes — update ORM configs, replace MySQL-specific SQL syntax.\nPhase 4: Cutover — final data sync, DNS switch, rollback plan."},
+    {"role": "user", "content": "Good. For Phase 2, what tools should we use for the data export and transform step?"},
+    {"role": "assistant", "content": "For Phase 2, I recommend:\n\n1. **pgloader** — handles the MySQL-to-PostgreSQL ETL in one step, including type mapping and index recreation.\n2. **AWS DMS** (if you're on AWS) — for continuous replication during the rehearsal window.\n3. For custom transforms, write Python scripts using `psycopg2` to handle edge cases like ENUM columns or spatial data.\n\nStart with pgloader for a baseline rehearsal, then layer in custom scripts for any columns that need special handling."},
+    {"role": "user", "content": "What about Phase 3 — which parts of our Django app would need changes?"},
+    {"role": "assistant", "content": "For Phase 3, here are the Django-specific changes you'll need:\n\n1. **settings.py** — switch `ENGINE` from `django.db.backends.mysql` to `django.db.backends.postgresql`.\n2. **Raw SQL queries** — audit for MySQL-specific syntax like backtick quoting, `LIMIT x, y` (use `LIMIT y OFFSET x` instead), and `GROUP_CONCAT` (use `STRING_AGG`).\n3. **Migrations** — regenerate with `makemigrations` against the new backend; check for any MySQL-specific field options.\n4. **Full-text search** — if you use MySQL FULLTEXT indexes, switch to PostgreSQL's `tsvector`/`tsquery` or `django.contrib.postgres.search`.\n\nI'd recommend running your test suite against the staging PostgreSQL from Phase 2 to catch any remaining incompatibilities before cutover."}
+  ]
+}

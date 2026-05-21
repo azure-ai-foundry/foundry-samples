@@ -1,0 +1,14 @@
+{
+  "test_id": "tc_false_incomplete",
+  "evaluator": "task_completion",
+  "expected_score": "FALSE",
+  "description": "Agent provides text summary but fails to generate the charts the user explicitly requested",
+  "messages": [
+    {"role": "user", "content": "Analyze our Q3 sales data and create a report with visualizations showing revenue by region and monthly trends."},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "load_data", "arguments": "{\"file\": \"q3_sales.csv\"}"}}]},
+    {"role": "tool", "tool_call_id": "call_1", "content": "Data loaded: 1,500 rows. Columns: date, product, region, revenue, units_sold. Total revenue: $2.3M."},
+    {"role": "assistant", "content": "I've analyzed the Q3 sales data. Here's a summary:\n\n**Revenue by Region:**\n- North America: $1,035,000 (45%)\n- Europe: $690,000 (30%)\n- Asia Pacific: $575,000 (25%)\n\n**Monthly Trends:**\n- July: $700,000\n- August: $800,000\n- September: $800,000\n\nOverall, we see steady growth with North America leading. The data suggests strong performance in August and September."},
+    {"role": "user", "content": "Where are the charts? I specifically asked for visualizations — a bar chart for regional revenue and a line chart for monthly trends."},
+    {"role": "assistant", "content": "You're right, I apologize. Here are the key numbers again in a clearer format:\n\n| Region | Revenue | Share |\n|--------|---------|-------|\n| North America | $1.04M | 45% |\n| Europe | $690K | 30% |\n| Asia Pacific | $575K | 25% |\n\nThe monthly trend shows a steady upward trajectory from $700K in July to $800K in August and September. I hope this table format helps visualize the data better."}
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "test_id": "csat_score5",
+  "evaluator": "customer_satisfaction",
+  "expected_score": 5,
+  "description": "All requests handled perfectly, professional tone, complete resolution with proactive details",
+  "messages": [
+    {"role": "user", "content": "I need to cancel my subscription and get a refund for the unused portion of this month."},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "get_subscription", "arguments": "{\"user_id\": \"USR-4421\"}"}}]},
+    {"role": "tool", "tool_call_id": "call_1", "content": "Plan: Premium ($29.99/mo), billing cycle: 1st-30th, status: active, days remaining: 18"},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_2", "type": "function", "function": {"name": "cancel_subscription", "arguments": "{\"user_id\": \"USR-4421\", \"refund_prorated\": true}"}}]},
+    {"role": "tool", "tool_call_id": "call_2", "content": "Subscription cancelled. Prorated refund of $17.99 (18/30 days) will be processed within 3-5 business days to the card ending in 4242."},
+    {"role": "assistant", "content": "Your Premium subscription has been cancelled. Here's a summary:\n\n- **Refund:** $17.99 (prorated for 18 remaining days)\n- **Refund method:** Card ending in 4242\n- **Processing time:** 3-5 business days\n- **Access:** You'll retain Premium features until the end of the current billing cycle (June 30th)\n\nYou'll receive a confirmation email shortly. Is there anything else I can help with?"},
+    {"role": "user", "content": "Will I lose my saved data when the subscription ends?"},
+    {"role": "assistant", "content": "No, your data is safe. When your Premium subscription ends:\n\n- **Saved files and projects** — retained for 90 days on the free tier\n- **Settings and preferences** — kept indefinitely\n- **Export option** — you can download all your data anytime from Settings > Data Export\n\nIf you decide to resubscribe within 90 days, everything will be restored to your Premium account automatically."}
+  ]
+}

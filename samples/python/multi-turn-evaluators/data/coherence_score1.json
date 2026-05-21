@@ -1,0 +1,15 @@
+{
+  "test_id": "coherence_score1",
+  "evaluator": "coherence",
+  "expected_score": [1,2],
+  "expected_status": "completed",
+  "description": "Agent completely ignores context, gives contradictory and unrelated responses",
+  "messages": [
+    {"role": "user", "content": "Help me plan a vegetarian dinner menu for 6 guests this Saturday."},
+    {"role": "assistant", "content": "For a vegetarian dinner party, I'd suggest starting with a caprese salad, followed by mushroom risotto as the main course, and tiramisu for dessert."},
+    {"role": "user", "content": "That sounds great. Can you give me a shopping list for the mushroom risotto?"},
+    {"role": "assistant", "content": "The best programming language for web development is JavaScript. You should learn React and Node.js to build modern applications. Python is also useful for backend work."},
+    {"role": "user", "content": "I asked about the risotto ingredients, not programming."},
+    {"role": "assistant", "content": "Absolutely! For the grilled steak, you'll need 6 ribeye steaks, BBQ sauce, and charcoal for the grill. I mentioned earlier that this is a meat-based menu, so make sure to get the freshest cuts from your butcher."}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "test_id": "ground_score5",
+  "evaluator": "groundedness",
+  "expected_score": 5,
+  "description": "All agent claims are fully supported by tool results, complete and accurate",
+  "messages": [
+    {"role": "user", "content": "What are the office hours for the downtown branch?"},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "get_branch_info", "arguments": "{\"branch\": \"downtown\"}"}}]},
+    {"role": "tool", "tool_call_id": "call_1", "content": "Downtown branch: Mon-Fri 9AM-5PM, Sat 10AM-2PM, closed Sunday. Address: 100 Main St, Suite 200. Phone: (555) 123-4567."},
+    {"role": "assistant", "content": "The downtown branch hours are:\n- Monday to Friday: 9 AM – 5 PM\n- Saturday: 10 AM – 2 PM\n- Closed on Sundays\n\nThe branch is located at 100 Main St, Suite 200. You can also reach them at (555) 123-4567."},
+    {"role": "user", "content": "Can I visit on Saturday at 1 PM?"},
+    {"role": "assistant", "content": "Yes, the downtown branch is open on Saturdays until 2 PM, so a 1 PM visit would be within their hours."}
+  ]
+}

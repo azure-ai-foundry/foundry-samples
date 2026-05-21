@@ -1,0 +1,5 @@
+azure-ai-projects>=2.0.0
+azure-identity>=1.17.0
+openai>=1.99.0
+python-dotenv>=1.0.0
+pandas>=2.0.0

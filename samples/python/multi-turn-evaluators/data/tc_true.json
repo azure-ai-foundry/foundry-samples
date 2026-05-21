@@ -1,0 +1,19 @@
+{
+  "test_id": "tc_true",
+  "evaluator": "task_completion",
+  "expected_score": "TRUE",
+  "description": "Agent fully completes a multi-turn task with refinements — flight booked and hotel found",
+  "messages": [
+    {"role": "user", "content": "I need to book a flight from San Francisco to Tokyo for December 15th."},
+    {"role": "assistant", "content": "I found several options for SFO to NRT on December 15th:\n\n1. **ANA Flight NH7** — Direct, departs 11:30 AM, arrives 3:30 PM+1, $890\n2. **United UA837** — Direct, departs 1:15 PM, arrives 5:10 PM+1, $920\n3. **JAL JL1** — Direct, departs 5:00 PM, arrives 9:00 PM+1, $950\n\nWhich flight would you prefer, or should I filter by specific criteria?"},
+    {"role": "user", "content": "Book the ANA flight. Also, can you book a hotel near Shinjuku station for 5 nights? Something under $150/night."},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "book_flight", "arguments": "{\"flight\": \"NH7\", \"date\": \"2024-12-15\", \"passengers\": 1}"}}]},
+    {"role": "tool", "tool_call_id": "call_1", "content": "Booking confirmed. Confirmation: ANA-NH7-DEC15-XK42M. E-ticket sent to your email."},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_2", "type": "function", "function": {"name": "search_hotels", "arguments": "{\"location\": \"Shinjuku Station, Tokyo\", \"check_in\": \"2024-12-16\", \"nights\": 5, \"max_price\": 150}"}}]},
+    {"role": "tool", "tool_call_id": "call_2", "content": "Found: 1) Hotel Gracery Shinjuku - $130/night, 0.2mi from station. 2) Citadines Shinjuku - $110/night, 0.3mi from station."},
+    {"role": "assistant", "content": "I found two options under $150/night. I'll book the Hotel Gracery Shinjuku since it's closest to the station."},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_3", "type": "function", "function": {"name": "book_hotel", "arguments": "{\"hotel\": \"Hotel Gracery Shinjuku\", \"check_in\": \"2024-12-16\", \"nights\": 5}"}}]},
+    {"role": "tool", "tool_call_id": "call_3", "content": "Hotel booked. Confirmation: HGS-DEC16-5N-RK91. Check-in after 3 PM."},
+    {"role": "assistant", "content": "All booked! Here's your trip summary:\n\n**Flight:** ANA NH7, SFO→NRT, Dec 15, 11:30 AM. Confirmation: ANA-NH7-DEC15-XK42M.\n\n**Hotel:** Hotel Gracery Shinjuku, 5 nights (Dec 16–21), $130/night ($650 total), 0.2 mi from Shinjuku Station. Confirmation: HGS-DEC16-5N-RK91. Check-in after 3 PM.\n\n**Total trip cost:** $890 (flight) + $650 (hotel) = $1,540. Confirmation emails have been sent for both bookings."}
+  ]
+}
