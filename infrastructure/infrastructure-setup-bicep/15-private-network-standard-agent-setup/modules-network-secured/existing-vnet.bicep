@@ -88,6 +88,9 @@ module peSubnet 'subnet.bicep' = if (!reuseExistingSubnets) {
     addressPrefix: peSubnetSpaces
     delegations: []
   }
+  dependsOn: [
+    agentSubnet
+  ]
 }
 
 // Output variables

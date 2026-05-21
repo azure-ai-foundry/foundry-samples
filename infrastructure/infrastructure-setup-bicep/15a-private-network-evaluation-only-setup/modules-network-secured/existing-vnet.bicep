@@ -76,13 +76,16 @@ module peSubnet 'subnet.bicep' = {
     addressPrefix: peSubnetSpaces
     delegations: []
   }
+  dependsOn: [
+    agentSubnet
+  ]
 }
 
 // Output variables
 output peSubnetName string = peSubnetName
 output agentSubnetName string = agentSubnetName
-output agentSubnetId string = '${existingVNet.id}/subnets/${agentSubnetName}'
-output peSubnetId string = '${existingVNet.id}/subnets/${peSubnetName}'
+output agentSubnetId string = agentSubnet.outputs.subnetId
+output peSubnetId string = peSubnet.outputs.subnetId
 output virtualNetworkName string = existingVNet.name
 output virtualNetworkId string = existingVNet.id
 output virtualNetworkResourceGroup string = vnetResourceGroupName
