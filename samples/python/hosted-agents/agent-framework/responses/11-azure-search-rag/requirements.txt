@@ -1,0 +1,10 @@
+# Install the narrow Foundry / Azure AI Search subpackages directly required
+# by this sample (FoundryChatClient, AzureAISearchContextProvider,
+# ResponsesHostServer) instead of the bare ``agent-framework`` meta-package,
+# which pulls in the full ``agent-framework-core[all]`` set — including
+# Linux-x86_64-only packages such as ``agent-framework-hyperlight`` — and is
+# prone to pip resolution failures during the ``python:3.12-slim`` container
+# build.
+agent-framework-foundry
+agent-framework-azure-ai-search
+agent-framework-foundry-hosting
