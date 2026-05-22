@@ -68,11 +68,11 @@ To host the agent on Foundry, follow the instructions in the [Deploying the Agen
 After your agent is deployed and you've tried it in the Playground, the
 next question is *"is it actually any good at multi-turn conversations?"*
 **Evaluation** answers that — you run the agent against test conversations
-and let built-in evaluators (small LLM judges) grade each conversation on
-things like *task completion*, *coherence*, and *groundedness*. New to
-evaluation? Skim the **What is evaluation?** section in
-[`../14-evaluation/README.md`](../14-evaluation/README.md) first — this
-section assumes you've seen it.
+and let built-in evaluators (automated scorers, themselves LLM-backed)
+grade each conversation on things like *task completion*, *coherence*,
+and *groundedness*. New to evaluation? Skim the **What is evaluation?**
+section in [`../14-evaluation/README.md`](../14-evaluation/README.md)
+first — this section assumes you've seen it.
 
 Two scripts in this folder let you evaluate multi-turn behavior end-to-end
 without leaving the `01-basic` sample:
