@@ -196,3 +196,8 @@ az role assignment create \
 ```
 
 > **Note:** It may take a few minutes for role assignments to propagate. Retry the request after waiting.
+
+
+## Related
+
+**Evaluate this agent:** see [`../../../agent-framework/responses/14-evaluation/`](../../../agent-framework/responses/14-evaluation/) for the general evaluation flow — **Custom Rubric Evaluator** ⭐, built-in single- and multi-turn evaluators, dataset generation, scheduled / continuous evaluation, and red-team / safety. The evaluators target any deployed hosted agent — set `EVAL_AGENT_NAME` and `EVAL_AGENT_VERSION` to point them at this sample's deployment. For multi-turn evaluation scripts you can run end-to-end, see [`../../../agent-framework/responses/01-basic/`](../../../agent-framework/responses/01-basic/#evaluating-multi-turn-conversations).

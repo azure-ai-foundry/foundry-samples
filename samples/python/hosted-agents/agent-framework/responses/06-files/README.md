@@ -138,3 +138,8 @@ Once the session is created, you can grab the session ID and use `azd ai agent f
 Or you can upload files directly through the Foundry portal by navigating to Files tab in the agent playground:
 
 ![alt text](./resources/file-upload-portal.png)
+
+
+## Related
+
+**Evaluate this agent:** see [`../14-evaluation/`](../14-evaluation/) for the general evaluation flow — **Custom Rubric Evaluator** ⭐, built-in single- and multi-turn evaluators, dataset generation, scheduled / continuous evaluation, and red-team / safety. For multi-turn evaluation against this agent's deployment, the scripts in [`../01-basic/`](../01-basic/#evaluating-multi-turn-conversations) are the simplest starting point.

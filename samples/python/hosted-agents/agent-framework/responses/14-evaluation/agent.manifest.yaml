@@ -1,0 +1,33 @@
+name: agent-framework-agent-evaluation-responses
+description: >
+  An Agent Framework agent hosted by Foundry with tracing enabled by default,
+  paired with a set of evaluation scripts (Custom Rubric Evaluator, built-in
+  single- and multi-turn evaluators, dataset generation from traces or
+  synthetic seeds, scheduled / continuous eval, and red-team / safety eval).
+metadata:
+  tags:
+    - Agent Framework
+    - AI Agent Hosting
+    - Azure AI AgentServer
+    - Responses Protocol
+    - Streaming
+    - Evaluation
+template:
+  name: agent-framework-agent-evaluation-responses
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    # Tracing is on by default so the trace-driven evaluators in this sample
+    # work out of the box. See README → "Tracing is on by default".
+    - name: ENABLE_INSTRUMENTATION
+      value: true
+    - name: ENABLE_SENSITIVE_DATA
+      value: true
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME

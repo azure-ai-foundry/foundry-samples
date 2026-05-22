@@ -79,3 +79,8 @@ To host the agent on Foundry, follow the instructions in the [Deploying the Agen
    - Pick a **CPU and Memory** size.
    - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
+
+
+## Related
+
+**Evaluate this agent:** see [`../../responses/14-evaluation/`](../../responses/14-evaluation/) for the general evaluation flow — **Custom Rubric Evaluator** ⭐, built-in single- and multi-turn evaluators, dataset generation, scheduled / continuous evaluation, and red-team / safety. The patterns work for Invocations agents too — only the target shape changes from the agent name (`EVAL_AGENT_NAME` / `EVAL_AGENT_VERSION`). For multi-turn evaluation scripts you can run end-to-end, see [`../../responses/01-basic/`](../../responses/01-basic/#evaluating-multi-turn-conversations).

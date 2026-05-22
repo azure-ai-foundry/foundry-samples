@@ -135,3 +135,7 @@ If it is not set, running `azd ai agent init -m <agent.manifest.yaml>` will prom
 The deployed agent's Managed Identity needs **Azure AI User** on the Foundry project to download skills at startup. Make sure you have run `provision_skills.py` against the same Foundry project before deploying — otherwise the agent will fail to start with HTTP 404 on the skill download.
 
 > The `skills/` source folder is **not** deployed to Foundry — only the downloaded skills are used at runtime. The `provision_skills.py` step is required to upload the skills to Foundry before the agent can download them.
+
+## Related
+
+**Evaluate this agent:** see [`../14-evaluation/`](../14-evaluation/) for the general evaluation flow — **Custom Rubric Evaluator** ⭐, built-in single- and multi-turn evaluators, dataset generation, scheduled / continuous evaluation, and red-team / safety. For multi-turn evaluation against this agent's deployment, the scripts in [`../01-basic/`](../01-basic/#evaluating-multi-turn-conversations) are the simplest starting point.

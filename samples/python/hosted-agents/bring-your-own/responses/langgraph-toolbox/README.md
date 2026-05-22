@@ -344,3 +344,8 @@ This project welcomes contributions and suggestions.
 
 This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft trademarks or logos is subject to and must follow [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general). Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship. Any use of third-party trademarks or logos are subject to those third-party's policies.
 
+
+
+## Related
+
+**Evaluate this agent:** see [`../../../agent-framework/responses/14-evaluation/`](../../../agent-framework/responses/14-evaluation/) for the general evaluation flow — **Custom Rubric Evaluator** ⭐, built-in single- and multi-turn evaluators, dataset generation, scheduled / continuous evaluation, and red-team / safety. The evaluators target any deployed hosted agent — set `EVAL_AGENT_NAME` and `EVAL_AGENT_VERSION` to point them at this sample's deployment. For multi-turn evaluation scripts you can run end-to-end, see [`../../../agent-framework/responses/01-basic/`](../../../agent-framework/responses/01-basic/#evaluating-multi-turn-conversations).

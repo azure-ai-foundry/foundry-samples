@@ -1,0 +1,7 @@
+# Dev-only deps for the evaluate_multiturn_*.py scripts in this folder.
+# These are NOT shipped in the deployed agent's container; they only need to
+# be installed locally where you run the eval scripts.
+azure-ai-projects>=2.0.0b3
+azure-identity>=1.17
+openai>=1.54
+python-dotenv>=1.0

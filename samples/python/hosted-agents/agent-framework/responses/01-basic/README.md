@@ -62,3 +62,72 @@ To host the agent on Foundry, follow the instructions in the [Deploying the Agen
    - Pick a **CPU and Memory** size.
    - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
+
+## Evaluating multi-turn conversations
+
+After your agent is deployed and you've tried it in the Playground, the
+next question is *"is it actually any good at multi-turn conversations?"*
+**Evaluation** answers that — you run the agent against test conversations
+and let built-in evaluators (small LLM judges) grade each conversation on
+things like *task completion*, *coherence*, and *groundedness*. New to
+evaluation? Skim the **What is evaluation?** section in
+[`../14-evaluation/README.md`](../14-evaluation/README.md) first — this
+section assumes you've seen it.
+
+Two scripts in this folder let you evaluate multi-turn behavior end-to-end
+without leaving the `01-basic` sample:
+
+* **[`evaluate_multiturn_simulation.py`](./evaluate_multiturn_simulation.py)** —
+  drives the deployed agent through simulated multi-turn conversations
+  seeded from [`data/test-scenarios.jsonl`](./data/test-scenarios.jsonl)
+  and scores them with the 4 built-in conversation-level evaluators
+  (`customer_satisfaction`, `groundedness`, `coherence`, `task_completion`).
+  No traces required — pick this if you haven't enabled tracing yet.
+* **[`evaluate_multiturn_traces.py`](./evaluate_multiturn_traces.py)** —
+  same 4 evaluators, but scored against **real conversations captured as
+  traces**. Use this once your agent is receiving real traffic.
+
+> **Tracing prerequisite for `evaluate_multiturn_traces.py`** — this sample
+> does **not** enable tracing by default. Before running the trace-based
+> script, copy `ENABLE_INSTRUMENTATION=true` and `ENABLE_SENSITIVE_DATA=true`
+> from [`../08-observability/agent.yaml`](../08-observability/agent.yaml) onto
+> your `01-basic` deployment, **then redeploy the agent** (changes to
+> `agent.yaml` don't take effect until the next `azd up`),
+> or just use `evaluate_multiturn_simulation.py` instead.
+
+> ⚠ **About `ENABLE_SENSITIVE_DATA=true`** — that flag means user inputs
+> and model outputs (including any PII) are written verbatim to your
+> Application Insights workspace, so trace-based evaluation can score the
+> content. Fine for dev / demos; for anything customer-facing, decide
+> deliberately and treat the trace workspace as customer data.
+
+### Run a script
+
+```bash
+pip install -r requirements-eval.txt
+az login
+# Required:
+export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
+export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+# Optional overrides (defaults shown):
+export EVAL_AGENT_NAME="agent-framework-agent-basic-responses"
+export EVAL_AGENT_VERSION="1"
+
+python evaluate_multiturn_simulation.py
+# or
+python evaluate_multiturn_traces.py
+```
+
+> Windows / PowerShell? Replace `export FOO=bar` with `$env:FOO = "bar"`.
+
+Each script prints the eval ID, run ID, a `result_counts` summary, and a
+**Foundry portal report URL** — open the URL to drill into per-row scores
+and rationales.
+
+### See also
+
+These scripts are co-located here for the **multi-turn learning path**. For
+the broader evaluation story — **Custom Rubric Evaluator** ⭐, built-in
+single-turn evaluators, dataset generation (traces / synthetic), scheduled /
+continuous evaluation, and red-team / safety evaluation — see
+[`../14-evaluation/`](../14-evaluation/).

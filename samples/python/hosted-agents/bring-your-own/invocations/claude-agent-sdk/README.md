@@ -205,3 +205,8 @@ If successful, you'll see the Claude model's response streaming through. If it s
 - Check the account scope path is correct
 - Ensure you've waited 5+ minutes for role propagation
 - Verify the role assignment: `az role assignment list --assignee-object-id <PRINCIPAL_ID> --all -o table`
+
+
+## Related
+
+**Evaluate this agent:** see [`../../../agent-framework/responses/14-evaluation/`](../../../agent-framework/responses/14-evaluation/) for the general evaluation flow — **Custom Rubric Evaluator** ⭐, built-in single- and multi-turn evaluators, dataset generation, scheduled / continuous evaluation, and red-team / safety. The evaluators target any deployed hosted agent — set `EVAL_AGENT_NAME` and `EVAL_AGENT_VERSION` to point them at this sample's deployment. For multi-turn evaluation scripts you can run end-to-end, see [`../../../agent-framework/responses/01-basic/`](../../../agent-framework/responses/01-basic/#evaluating-multi-turn-conversations).

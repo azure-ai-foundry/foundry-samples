@@ -21,6 +21,7 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | 11  | [Azure AI Search RAG](responses/11-azure-search-rag/)                      | An agent with Retrieval Augmented Generation (RAG) capabilities backed by Azure AI Search, grounding answers in documents indexed in a pre-provisioned search index.                                                                          |
 | 12  | [Foundry Skills](responses/12-foundry-skills/)                             | An agent that uploads `SKILL.md` files to the Foundry Skills REST API and downloads them at startup, decoupling tone/policy guidelines from agent code.                                                                                       |
 | 13  | [Foundry Memory](responses/13-foundry-memory/)                             | An agent with persistent semantic memory backed by an Azure AI Foundry Memory Store, using `FoundryMemoryProvider` to remember user facts across sessions.                                                                                    |
+| 14  | [Evaluation](responses/14-evaluation/)                                     | Evaluate a deployed hosted agent end-to-end: **Custom Rubric Evaluator** ⭐, built-in single- and multi-turn evaluators, dataset generation from traces / synthetic seeds, scheduled / continuous evaluation, and red-team / safety evaluation. |
 
 ### Invocations API
 

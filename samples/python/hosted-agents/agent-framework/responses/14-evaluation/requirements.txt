@@ -1,0 +1,10 @@
+# Hosted agent runtime
+agent-framework>=1.2.2
+agent-framework-foundry-hosting
+
+# Evaluation scripts (evaluate_*.py, generate_dataset_*.py)
+azure-ai-projects>=2.0.0b3
+azure-identity>=1.17
+openai>=1.54
+python-dotenv>=1.0
+requests>=2.32

@@ -342,3 +342,8 @@ Expected payload:
 
 - [Deliver events using managed identity](https://learn.microsoft.com/en-us/azure/event-grid/managed-service-identity) — the Event Grid docs for the managed-identity delivery pattern this sample uses.
 - [`09-downstream-azure`](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/09-downstream-azure/README.md) — the per-agent-identity + Azure RBAC pattern in a chat-driven (not event-driven) agent.
+
+
+## Related
+
+**Evaluate this agent:** see [`../../../agent-framework/responses/14-evaluation/`](../../../agent-framework/responses/14-evaluation/) for the general evaluation flow — **Custom Rubric Evaluator** ⭐, built-in single- and multi-turn evaluators, dataset generation, scheduled / continuous evaluation, and red-team / safety. The evaluators target any deployed hosted agent — set `EVAL_AGENT_NAME` and `EVAL_AGENT_VERSION` to point them at this sample's deployment. For multi-turn evaluation scripts you can run end-to-end, see [`../../../agent-framework/responses/01-basic/`](../../../agent-framework/responses/01-basic/#evaluating-multi-turn-conversations).

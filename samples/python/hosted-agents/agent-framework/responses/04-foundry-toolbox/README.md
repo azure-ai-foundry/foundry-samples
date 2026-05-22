@@ -94,3 +94,8 @@ Refer to [`samples/python/toolbox/azd/README.md`](../../../../toolbox/azd/README
 Each scenario includes a complete `agent.manifest.yaml` example with parameter definitions and resource configurations.
 
 </details>
+
+
+## Related
+
+**Evaluate this agent:** see [`../14-evaluation/`](../14-evaluation/) for the general evaluation flow — **Custom Rubric Evaluator** ⭐, built-in single- and multi-turn evaluators, dataset generation, scheduled / continuous evaluation, and red-team / safety. For multi-turn evaluation against this agent's deployment, the scripts in [`../01-basic/`](../01-basic/#evaluating-multi-turn-conversations) are the simplest starting point.
