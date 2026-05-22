@@ -6,6 +6,15 @@ Samples for building, deploying, and managing hosted agents on [Microsoft Foundr
 
 ### Quickstart
 
+Pick the tool that matches your workflow — both deploy the same sample image to the same Foundry runtime, so you can switch between them at any point.
+
+| Tool | Best for | Get started |
+| --- | --- | --- |
+| **Azure Developer CLI (`azd`)** | Command-line workflows, scripting, and CI/CD. Auto-provisions a Foundry project + model + ACR from a manifest. | [Deploy with `azd` →](#deploy-with-the-azure-developer-cli-azd) |
+| **Foundry Toolkit VS Code Extension** | Integrated editor experience with an **Agent Inspector** for chatting with a running agent and a guided **Deploy Hosted Agent** flow. | [Deploy with the Foundry Toolkit VS Code Extension →](#deploy-with-the-foundry-toolkit-vscode-extension) |
+
+#### Deploy with the Azure Developer CLI (`azd`)
+
 > **Prerequisites:** Install the Azure Developer CLI with the Foundry AI extension. See [Set up azd for hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd) if you haven't already.
 
 ```bash
@@ -14,7 +23,18 @@ azd ai agent init -m ../agent-framework/responses/01-basic/agent.manifest.yaml
 azd up
 ```
 
-You'll have a running agent in minutes. Or, if you prefer VS Code, use the [Foundry extension quickstart](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode) to build and deploy directly from the editor.
+You'll have a running agent in minutes.
+
+#### Deploy with the Foundry Toolkit VS Code Extension
+
+> **Prerequisites:** Install the Foundry Toolkit VS Code extension and sign in to Azure.
+
+1. Clone this repo and open a sample folder under `samples/python/hosted-agents/` in VS Code.
+2. Start the agent locally following the sample's run instructions (e.g. `azd ai agent run` or `python main.py`).
+3. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector** to chat with the running agent.
+4. When you're ready to deploy, run **Foundry Toolkit: Deploy Hosted Agent** to build the container image in ACR, register the agent version, and assign the required RBAC roles automatically.
+
+See the [VS Code quickstart](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode) for the full walkthrough.
 
 Read on to pick the right sample for your scenario, or jump to the [learning path](#learning-path) for a guided walkthrough.
 
@@ -150,7 +170,18 @@ Already built an agent with CrewAI or your own code? The protocol SDKs (`azure-a
 
 ## Deploy any sample
 
-Every sample deploys the same way. You need the [Azure Developer CLI (azd)](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) and a Foundry project with a model deployment.
+Every sample deploys the same way and supports two equivalent paths. Pick the one that matches your workflow.
+
+| | **Azure Developer CLI (`azd`)** | **Foundry Toolkit VS Code Extension** |
+| --- | --- | --- |
+| **Install** | [Install `azd`](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) + `azd ext install azure.ai.agents` | Install the Foundry Toolkit VS Code extension |
+| **Open the sample** | `azd ai agent init -m <agent.manifest.yaml>` — generates Bicep, `azure.yaml`, `agent.yaml`, env config | Clone the repo and open the sample folder in VS Code |
+| **Run locally** | `azd ai agent run` (or `python main.py`) | Same as `azd`/manual, then open **Foundry Toolkit: Open Agent Inspector** to chat with the running agent |
+| **Provision Azure resources** | `azd provision` (creates Foundry project, model deployment, ACR, App Insights if needed) | Guided dialog in **Foundry Toolkit: Deploy Hosted Agent** — reuses existing project or provisions a new one |
+| **Deploy to Foundry** | `azd deploy` (or `azd up` to provision + deploy) | **Foundry Toolkit: Deploy Hosted Agent** — builds image in ACR, registers the agent version, assigns RBAC |
+| **Tear down** | `azd down` | Delete the agent in the Foundry portal or with `az` CLI |
+
+### Using `azd`
 
 ```bash
 mkdir my-agent && cd my-agent
@@ -165,12 +196,28 @@ azd up
 azd down
 ```
 
+### Using the Foundry Toolkit VS Code Extension
+
+The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open any sample directly from the extension without cloning this repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
+
+Or, if you've already cloned this repository:
+
+1. Open a sample folder under `samples/python/hosted-agents/` in VS Code.
+2. Start the agent locally with `azd ai agent run` or `python main.py` (see the sample README for details). The agent runs on `http://localhost:8088/`.
+3. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector** to chat with the running agent.
+4. When you're ready to deploy, run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based wizard and reads `agent.yaml` to auto-populate what it can:
+   - If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
+   - On the **Basics** tab, choose a **Deployment Method** (**Code** ZIP or **Container** image), pick a Code packaging option (**Remote** / **Local**) or a Container registry option (default ACR, your own ACR, or a prebuilt ACR image), and confirm the **Hosted Agent Name**.
+   - On the **Review + Deploy** tab, confirm the auto-detected runtime details (language, entry point, or Dockerfile), pick a **CPU and Memory** size, and click **Deploy**.
+
+   The extension builds the container image in ACR (or uploads the ZIP), creates the agent version, and assigns required RBAC roles automatically.
+
 ### Other ways to invoke your agent
 
 | Method                                                                                                                                | When to use                               |
 | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | `azd ai agent invoke`                                                                                                                 | Quick CLI test after deploy               |
-| [VS Code Foundry extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode) | One-click invoke from the editor          |
+| Foundry Toolkit VS Code extension | One-click invoke from the editor          |
 | `curl`                                                                                                                                | Each sample README includes curl examples |
 
 ## Voice Live integration
@@ -205,10 +252,12 @@ Here is a hosted agent sample with Invocations protocol that is compatible with 
 ## Prerequisites
 
 - **Azure subscription** with access to Microsoft Foundry
-- **Azure Developer CLI (azd)** — [install](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd)
+- **One of the following deploy tools:**
+  - **Azure Developer CLI (`azd`)** — [install](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd), or
+  - **Foundry Toolkit VS Code Extension** — [install](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode)
 - **Python 3.12+**
 
-That's it. `azd ai agent init` and the VS Code Foundry extension will create a Foundry project and deploy a model for you if you don't already have one. Container images are built remotely using ACR Tasks by default — **Docker is not required** unless you want to build locally.
+That's it. Both `azd ai agent init` and the Foundry Toolkit VS Code extension will create a Foundry project and deploy a model for you if you don't already have one. Container images are built remotely using ACR Tasks by default — **Docker is not required** unless you want to build locally.
 
 ## Resources
 
