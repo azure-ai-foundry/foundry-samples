@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: browser-automation-agent-sample-foundry
+services:
+    browser-automation-agent-sample-foundry:
+        project: .
+        host: azure.ai.agent
+        language: docker
+        docker:
+            remoteBuild: true
+        config:
+            container:
+                resources:
+                    cpu: "0.25"
+                    memory: 0.5Gi
+            deployments:
+                - model:
+                    format: OpenAI
+                    name: gpt-4o-mini
+                    version: "2024-07-18"
+                  name: gpt-4o-mini
+                  sku:
+                    capacity: 10
+                    name: GlobalStandard

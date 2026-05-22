@@ -1,0 +1,17 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.env.*
+.azure
+node_modules
+.playwright
+.playwright-cli
+screenshots
+downloads
+traces
+*.log
+

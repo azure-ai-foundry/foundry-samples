@@ -18,6 +18,7 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | 8   | [Observability](responses/08-observability/)                               | An agent demonstrating observability features, including logging, metrics, and tracing.                                                                                                                                                       |
 | 9   | [Declarative Customer Support](responses/09-declarative-customer-support/) | A multi-turn customer-support triage workflow defined entirely in YAML and hosted as an agent, demonstrating declarative workflow authoring with `InvokeAzureAgent` calls to specialist Foundry-hosted agents and conversation-aware routing. |
 | 10  | [Downstream Azure services](responses/09-downstream-azure/)                | An agent that performs data-plane operations on Azure Blob Storage and Service Bus using its per-agent Microsoft Entra identity, demonstrating the per-agent identity + Azure RBAC pattern with no connection strings or shared keys. |
+| 11  | [Browser automation agent](responses/10-browser-automation-agent/)         | A Foundry-hosted browser automation agent sample that uses Agent Framework, Foundry Toolbox MCP, Azure Playwright Service, and profile-based prompts for browsing, scraping, form filling, and QA tasks. |
 
 ### Invocations API
 
