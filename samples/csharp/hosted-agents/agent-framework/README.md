@@ -24,6 +24,14 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 
 ## Running the Agent Host Locally
 
+You can run any sample in this folder using one of three approaches. Pick the one that matches your workflow.
+
+| Approach | Best for | Setup effort |
+| --- | --- | --- |
+| **[Azure Developer CLI (`azd`)](#using-azd)** | Command-line workflows, scripting, and CI/CD. Auto-provisions Azure resources from the manifest. | Lowest — no clone required |
+| **Foundry Toolkit VS Code Extension** | Integrated editor experience with an **Agent Inspector** for chatting with a running agent and a guided **Deploy Hosted Agent** flow. | Lowest — install the extension |
+| **[`dotnet run`](#using-dotnet-run)** | Manual control: clone the repo, manage your own env vars, debug with the .NET CLI. | Highest |
+
 ### Using `azd`
 
 #### Prerequisites
@@ -113,6 +121,25 @@ Or in PowerShell:
 (Invoke-WebRequest -Uri http://localhost:8088/responses -Method POST -ContentType "application/json" -Body '{"input": "Hello!"}').Content
 ```
 
+### Using the Foundry Toolkit VS Code Extension
+
+The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open this sample directly from the extension without cloning the repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
+
+The extension also adds an **Agent Inspector** UI for chatting with a hosted agent that is already running locally, plus a guided **Deploy Hosted Agent** command (see [Deploying the Agent to Foundry](#deploying-the-agent-to-foundry) below).
+
+#### Prerequisites
+
+1. **Foundry Toolkit VS Code Extension** — [install from the VS Code marketplace](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode) and sign in to Azure.
+2. The agent is already running locally — start it with [`azd ai agent run`](#using-azd) or [`dotnet run`](#using-dotnet-run) first.
+
+#### Open the Agent Inspector
+
+With the agent running on `http://localhost:8088/`:
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
+2. The Inspector auto-connects to the running agent.
+3. Send messages from the Inspector to chat with the agent and watch the streamed responses.
+
 ### Using `dotnet run`
 
 #### Prerequisites
@@ -189,19 +216,26 @@ Or in PowerShell:
 
 ## Deploying the Agent to Foundry
 
-Once you've tested locally, deploy to Microsoft Foundry.
+Once you've tested locally, deploy to Microsoft Foundry. You can use either `azd` or the Foundry Toolkit VS Code extension — both produce the same result.
 
-### With an Existing Foundry Project
+| Approach | Best for |
+| --- | --- |
+| **[`azd deploy`](#using-azd-1)** | Command-line workflows, scripting, and CI/CD. |
+| **Foundry Toolkit VS Code Extension** | Guided UI in the editor with prompts for agent name, container registry, and resource size. |
+
+### Using `azd`
+
+#### With an Existing Foundry Project
 
 If you already have a Foundry project and the necessary Azure resources provisioned, you can skip the setup steps and proceed directly to deploying the agent.
 
 After running `azd ai agent init -m <agent.manifest.yaml>` and following the prompts to configure your agent, you will have a project ready for deployment.
 
-### Setting Up a New Foundry Project
+#### Setting Up a New Foundry Project
 
 Follow the steps in [Using `azd`](#using-azd) to set up the project and provision the necessary Azure resources for your Foundry deployment.
 
-### Deploying the Agent
+#### Deploying the Agent
 
 Once the project is setup and resources are provisioned, you can deploy the agent to Foundry by running:
 
@@ -218,3 +252,24 @@ azd deploy
 This will package your agent and deploy it to the Foundry environment, making it accessible through the Foundry project endpoint. Once it's deployed, you can also access the agent through the Foundry UI.
 
 For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
+
+### Deploying with the Foundry Toolkit VS Code Extension
+
+You can also deploy directly from the editor (see [Using the Foundry Toolkit VS Code Extension](#using-the-foundry-toolkit-vscode-extension) above for the local-run setup).
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate what it can.
+2. If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
+3. On the **Basics** tab, configure the core deployment settings:
+   - **Deployment Method**: **Code** (upload as a ZIP) or **Container** (Docker image via ACR).
+   - For **Code**, pick a packaging option: **Remote** or **Local**.
+   - For **Container**, pick a registry option: default ACR, your own ACR, or a prebuilt ACR image.
+   - **Hosted Agent Name**: confirm the name to register with the hosting service.
+4. On the **Review + Deploy** tab, finalize the runtime and resources:
+   - Confirm the auto-detected runtime details (language, entry point, or Dockerfile).
+   - Pick a **CPU and Memory** size.
+   - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
+5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
+
+#### Troubleshooting
+
+**Azure OpenAI permission denied (401):** the identity running the agent does not have the required RBAC roles on the Foundry project. Assign **Cognitive Services OpenAI User** and **Azure AI User** to the agent's identity (it may take a few minutes for role assignments to propagate). See the [Foundry deployment guide](https://aka.ms/azdaiagent/docs) for details.
