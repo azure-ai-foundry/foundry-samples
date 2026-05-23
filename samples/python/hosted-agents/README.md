@@ -154,6 +154,7 @@ Already built an agent with CrewAI or your own code? The protocol SDKs (`azure-a
 | **[Notetaking Agent](bring-your-own/responses/notetaking-agent/)** | Agent that takes and retrieves notes using a custom tool.                                                                    |
 | **[Toolbox](bring-your-own/responses/toolbox/)**                   | BYO agent wired to a Foundry Toolbox MCP endpoint for tool access.                                                           |
 | **[Background Agent](bring-your-own/responses/background-agent/)** | Long-running background processing with async execution.                                                                     |
+| **[Env Vars Agent](bring-your-own/responses/env-vars-agent/)**     | Reads env vars injected by Foundry's connection-templated secret resolver. Covers ApiKey + CustomKeys connections and a kind-aware safety policy (whole value for `metadata`/`target`, fingerprint only for `credentials`). |
 
 ### Invocations protocol
 
