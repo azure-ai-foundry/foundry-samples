@@ -164,6 +164,7 @@ Already built an agent with your own .NET code? The protocol SDKs (`Azure.AI.Age
 | **[Hello World](bring-your-own/responses/HelloWorld/)** | Minimal agent — calls a Foundry model via the Responses API and returns the reply. The simplest possible BYO starting point. |
 | **[Notetaking Agent](bring-your-own/responses/notetaking-agent/)** | Agent that takes and retrieves notes using a custom tool. |
 | **[Background Agent](bring-your-own/responses/background-agent/)** | Long-running background processing with async execution. |
+| **[Env Vars Agent](bring-your-own/responses/env-vars-agent/)** | Reads environment variables injected by Foundry's connection-templated secret resolver. Covers ApiKey + CustomKeys connections and a kind-aware safety policy (whole value for `metadata`/`target`, fingerprint only for `credentials`). |
 
 ### Invocations protocol
 
@@ -262,7 +263,8 @@ samples/dotnet/hosted-agents/
     ├── responses/
     │   ├── HelloWorld/                ← Start here (BYO Responses)
     │   ├── notetaking-agent/
-    │   └── background-agent/
+    │   ├── background-agent/
+    │   └── env-vars-agent/
     └── invocations/
         ├── HelloWorld/                ← Start here (BYO Invocations)
         ├── notetaking-agent/
