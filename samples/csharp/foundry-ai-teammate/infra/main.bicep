@@ -42,7 +42,7 @@ param maibName string = '${agentName}-maib'
 // =================================================================================================
 
 @description('Name of the Bot Service')
-param botName string = '${agentName}-bot'
+param botName string = 'bot-${environmentName}'
 
 @description('Display name of the bot')
 param botDisplayName string = '${agentName} Bot'
