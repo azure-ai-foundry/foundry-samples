@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pipecat WebRTC — chat client</title>
+    <link rel="stylesheet" href="/static/shell.css" />
+</head>
+<body>
+    <header><h1 id="title">🎙️ Chat Client</h1></header>
+    <div class="controls" id="controls">
+        <button id="btnStart">▶ Start</button>
+        <button id="btnStop" disabled>■ Stop</button>
+        <div class="status">
+            <span>Session: <span id="sessionId" class="session-id empty" title="Upstream agent_session_id">—</span></span>
+            <span>Status: <span id="statusText" class="state">Idle</span></span>
+        </div>
+    </div>
+    <div id="logPanel" class="log-panel"></div>
+    <audio id="remoteAudio" autoplay style="display:none"></audio>
+    <div class="text-bar">
+        <input type="text" id="textInput" placeholder="Type a message to the bot..." disabled />
+        <button id="btnSend" disabled>Send</button>
+    </div>
+    <script type="module" src="/static/shell.js"></script>
+</body>
+</html>

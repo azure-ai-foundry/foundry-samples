@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: pipecat-ws-webrtc
+displayName: "Pipecat WebRTC Server"
+description: >
+  Pipecat-based WebRTC agent. Uses a WebSocket as the WebRTC signaling
+  channel (offer / answer / ICE candidates) and SmallWebRTCTransport for
+  the actual audio media. Reuses the same multi-agent (greeter +
+  check-order) pipeline as the sibling pipecat-ws-server sample.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - WebSocket Protocol
+    - WebRTC
+    - Bring Your Own
+template:
+  name: pipecat-ws-webrtc
+  kind: hosted
+  protocols:
+    - protocol: invocations_ws
+      version: 1.0.0

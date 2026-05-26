@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+kind: hosted
+name: pipecat-ws-webrtc
+protocols:
+  - protocol: invocations_ws
+    version: 1.0.0
+resources:
+  cpu: "2"
+  memory: 4Gi
+environment_variables:
+  # Resolved from your azd environment at deploy time
+  # (`azd env set AZURE_SPEECH_API_KEY ...`, etc.). Do NOT bake values
+  # into the image — keep secrets out of source control and image layers.
+  - name: AZURE_SPEECH_API_KEY
+    value: ${AZURE_SPEECH_API_KEY}
+  - name: AZURE_SPEECH_REGION
+    value: ${AZURE_SPEECH_REGION}
+  - name: AZURE_FOUNDRY_API_KEY
+    value: ${AZURE_FOUNDRY_API_KEY}
+  - name: AZURE_OPENAI_ENDPOINT
+    value: ${AZURE_OPENAI_ENDPOINT}
+  - name: AZURE_LLM_MODEL
+    value: ${AZURE_LLM_MODEL}
+  - name: WEBRTC_TURN_URL
+    value: ${WEBRTC_TURN_URL}
+  - name: WEBRTC_TURN_STUN_URL
+    value: ${WEBRTC_TURN_STUN_URL}
+  - name: WEBRTC_TURN_USERNAME
+    value: ${WEBRTC_TURN_USERNAME}
+  - name: WEBRTC_TURN_CREDENTIAL
+    value: ${WEBRTC_TURN_CREDENTIAL}
