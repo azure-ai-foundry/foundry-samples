@@ -49,7 +49,7 @@ toolboxes in the target Foundry project.
 **Linux/macOS:**
 ```bash
 # 1. Copy and fill in the environment file
-cp .env.example .env
+cp .env.example .env  # skip if .env already exists
 # Edit .env — set FOUNDRY_PROJECT_ENDPOINT, MODEL_DEPLOYMENT_NAME,
 #              and TOOLBOX_ENDPOINT at minimum
 
@@ -68,7 +68,7 @@ curl -X POST http://localhost:8088/responses \
 **Windows (PowerShell):**
 ```powershell
 # 1. Copy and fill in the environment file
-Copy-Item .env.example .env
+Copy-Item .env.example .env  # skip if .env already exists
 # Edit .env — set FOUNDRY_PROJECT_ENDPOINT, MODEL_DEPLOYMENT_NAME,
 #              and TOOLBOX_ENDPOINT at minimum
 

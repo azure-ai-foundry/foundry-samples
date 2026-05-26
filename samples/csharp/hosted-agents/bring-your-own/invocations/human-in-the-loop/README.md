@@ -178,7 +178,7 @@ human-in-the-loop/
 ├── human-in-the-loop.csproj  # Project file with NuGet dependencies
 ├── Dockerfile                # Multi-stage Docker build
 ├── .dockerignore             # Docker build exclusions
-├── .env.example              # Example environment variables
+├── .env.example or .env              # Example environment variables
 ├── agent.yaml                # Agent deployment configuration
 ├── agent.manifest.yaml       # Agent manifest with metadata and resources
 └── README.md                 # This file

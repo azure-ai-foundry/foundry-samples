@@ -49,7 +49,7 @@ Chat with a running agent using the **Agent Inspector**:
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env  # then fill in values
+cp .env.example .env  # then fill in values (skip if .env already exists)
 python main.py
 ```
 

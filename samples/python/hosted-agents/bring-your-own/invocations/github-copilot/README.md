@@ -45,7 +45,7 @@ Create one at [github.com/settings/personal-access-tokens/new](https://github.co
 Create a local `.env` file from the sample template and set `GITHUB_TOKEN`:
 
 ```bash
-cp .env.example .env
+cp .env.example .env  # skip if .env already exists
 # Edit .env and set GITHUB_TOKEN=github_pat_...
 ```
 
@@ -77,7 +77,7 @@ Chat with a running agent using the **Agent Inspector**:
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env
+cp .env.example .env  # skip if .env already exists
 # Edit .env and set GITHUB_TOKEN=github_pat_...
 python main.py
 ```

@@ -53,7 +53,7 @@ Chat with a running agent using the **Agent Inspector**:
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env
+cp .env.example .env  # skip if .env already exists
 python main.py
 ```
 

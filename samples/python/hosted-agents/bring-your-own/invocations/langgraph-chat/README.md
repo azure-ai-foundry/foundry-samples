@@ -60,7 +60,7 @@ Chat with a running agent using the **Agent Inspector**:
 ### Without `azd`
 
 ```bash
-cp .env.example .env  # then edit values
+cp .env.example .env  # then edit values (skip if .env already exists)
 pip install -r requirements.txt
 python main.py
 ```

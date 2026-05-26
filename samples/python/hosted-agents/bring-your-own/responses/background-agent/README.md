@@ -38,7 +38,7 @@ Chat with a running agent using the **Agent Inspector**:
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env  # then edit values
+cp .env.example .env  # then edit values (skip if .env already exists)
 export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
 python main.py
