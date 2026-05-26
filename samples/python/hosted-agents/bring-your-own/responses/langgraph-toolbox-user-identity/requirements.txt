@@ -1,4 +1,4 @@
-azure-ai-agentserver-responses==1.0.0b4
+azure-ai-agentserver-responses==1.0.0b7
 langchain-azure-ai>=1.2.2
 langchain-openai>=1.1.14
 langgraph>=1.1.8
