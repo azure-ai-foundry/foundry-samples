@@ -58,7 +58,7 @@ Before running this sample, ensure you have:
 
 ### Environment Variables
 
-See [`.env.example`](.env.example) for the full list of environment variables this sample uses.
+See [`.env.example`](.env.example) or `.env` for the full list of environment variables this sample uses.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -100,7 +100,7 @@ Chat with a running agent using the **Agent Inspector**:
 #### Without `azd`
 
 ```bash
-cp .env.example .env
+cp .env.example .env  # skip if .env already exists
 # Edit .env and fill in your values, then:
 export $(grep -v '^#' .env | xargs)
 

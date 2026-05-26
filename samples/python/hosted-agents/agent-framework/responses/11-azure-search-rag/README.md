@@ -136,7 +136,7 @@ $env:AZURE_SEARCH_ENDPOINT="https://<your-search>.search.windows.net"
 $env:AZURE_SEARCH_INDEX_NAME="contoso-outdoors"
 ```
 
-You can also place these in a `.env` file next to `main.py` — see [`.env.example`](.env.example).
+You can also place these in a `.env` file next to `main.py` — see [`.env.example`](.env.example) or `.env`.
 
 ## Interacting with the agent
 

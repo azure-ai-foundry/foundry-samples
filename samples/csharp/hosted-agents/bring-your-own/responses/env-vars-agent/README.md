@@ -68,7 +68,7 @@ The agent starts on `http://localhost:8088/`.
 
 ```bash
 dotnet build
-cp .env.example .env  # then edit values — fill in any test values you like
+cp .env.example .env  # then edit values — fill in any test values you like (skip if .env already exists)
 export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
 export SECRET_API_KEY="ab12-fake-test-key"
@@ -185,7 +185,7 @@ The agent's `get_env_var(name, kind)` tool mirrors this three-way split: pass `k
 | `agent.yaml` | Container agent spec (`kind: hosted`, protocol, resources) |
 | `agent.manifest.yaml` | Foundry deployment manifest — model, env vars, connection placeholders |
 | `Dockerfile` | Multi-stage net10.0-alpine build, exposes port 8088 |
-| `.env.example` | Template for local-run env vars |
+| `.env.example` or `.env` | Template for local-run env vars |
 | `.dockerignore` | Excludes build artifacts and `.env` from the container image |
 | `README.md` | The README file |
 
