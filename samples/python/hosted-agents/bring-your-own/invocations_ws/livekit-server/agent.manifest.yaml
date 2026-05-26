@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: livekit-server
+displayName: "LiveKit Voice Agent (Azure)"
+description: >
+  LiveKit voice agent using Azure Speech (STT + TTS) and Azure OpenAI (LLM).
+  Exposes an invocations_ws signaling endpoint that hands the browser a
+  LiveKit URL and access token; media flows over LiveKit's WebRTC stack.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - WebSocket Protocol
+    - WebRTC
+    - LiveKit
+    - Bring Your Own
+template:
+  name: livekit-server
+  kind: hosted
+  protocols:
+    - protocol: invocations_ws
+      version: 1.0.0

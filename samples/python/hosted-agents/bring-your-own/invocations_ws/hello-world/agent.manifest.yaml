@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: hello-world
+displayName: "Hello World — Voice Live (invocations_ws)"
+description: >
+  Minimal real-time voice agent. The hosted container exposes an
+  invocations_ws WebSocket; each browser connection is bridged to a fresh
+  Azure Voice Live session for end-to-end speech-to-speech, with no STT /
+  LLM / TTS orchestration on the user side.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - WebSocket Protocol
+    - invocations_ws
+    - Voice Live
+    - Bring Your Own
+    - Python
+template:
+  name: hello-world
+  kind: hosted
+  protocols:
+    - protocol: invocations_ws
+      version: 1.0.0
+  resources:
+    cpu: "1"
+    memory: 1Gi
+  environment_variables:
+    # Realtime model — see Voice Live overview for supported values.
+    # The Voice Live endpoint itself is taken from the
+    # auto-injected FOUNDRY_PROJECT_ENDPOINT in hosted runs.
+    - name: AZURE_VOICELIVE_MODEL
+      value: "gpt-realtime-1.5"
+    # Optional: TTS voice (Azure or OpenAI). Defaulted in main.py if empty.
+    - name: AZURE_VOICELIVE_VOICE
+      value: "en-US-Ava:DragonHDLatestNeural"
