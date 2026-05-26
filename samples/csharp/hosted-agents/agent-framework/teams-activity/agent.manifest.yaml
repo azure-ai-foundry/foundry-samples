@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: teams-activity-dotnet-agent-framework
+displayName: "Foundry Teams Activity (.NET, Agent Framework)"
+description: >
+  An Agent Framework agent connected to Teams
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Responses Protocol
+    - Agent Framework
+    - Toolbox
+    - MCP
+    - Server-Side Tools
+    - .NET
+    - Teams
+template:
+  name: teams-activity-dotnet-agent-framework
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT and APPLICATIONINSIGHTS_CONNECTION_STRING
+    # are injected by the platform (hosted) and translated by azd (local)
+    # — do NOT declare them here.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: "teams-tools"
+resources:
+  - kind: model
+    id: gpt-4.1
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: workiq-teams-conn
+    category: RemoteTool
+    authType: UserEntraToken
+    audience: ea9ffc3e-8a23-4a7d-836d-234d7c7565c1
+    target: https://agent365.svc.cloud.microsoft/agents/servers/mcp_TeamsServer
+    metadata:
+      type: catalog_MCP
+      toolEntityId: azureml://location/eastus/apiCenter/registry-prod-bl/type/tools/objectId/microsoft-teams-mcp-frontier/version/1
+  - kind: connection
+    name: workiq-calendar-conn
+    category: RemoteTool
+    authType: UserEntraToken
+    audience: ea9ffc3e-8a23-4a7d-836d-234d7c7565c1
+    target: https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools
+    metadata:
+      type: catalog_MCP
+      toolEntityId: azureml://location/eastus/apiCenter/registry-prod-bl/type/tools/objectId/microsoft-outlook-calendar-mcp-frontier/version/1
+  - kind: toolbox
+    name: teams-tools
+    tools:
+      - type: mcp
+        server_label: workiq-teams
+        project_connection_id: workiq-teams-conn
+        server_url: https://agent365.svc.cloud.microsoft/agents/servers/mcp_TeamsServer
+      - type: mcp
+        server_label: workiq-calendar
+        project_connection_id: workiq-calendar-conn
+        server_url: https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools
