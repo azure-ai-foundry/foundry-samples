@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: handoff-langgraph-responses-voicelive
+displayName: "LangGraph Handoff (Python, Responses, VoiceLive)"
+description: >
+  Multi-agent customer support handoff demo using LangGraph with triage,
+  refund, and order agents. Served through the Responses protocol for
+  voice-first scenarios.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Responses Protocol
+    - Bring Your Own
+    - LangGraph
+    - Handoff
+    - Python
+template:
+  name: handoff-langgraph-responses-voicelive
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
