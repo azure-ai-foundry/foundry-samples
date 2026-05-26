@@ -51,7 +51,7 @@ Before running this sample, ensure you have:
 
 ### Environment Variables
 
-See [`.env.example`](.env.example) for the full list of environment variables this sample uses.
+See [`.env.example`](.env.example) or `.env` for the full list of environment variables this sample uses.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -63,7 +63,7 @@ See [`.env.example`](.env.example) for the full list of environment variables th
 
 ```bash
 # Copy and fill in values, then source
-cp .env.example .env
+cp .env.example .env  # skip if .env already exists
 # Edit .env with your values
 source .env
 ```

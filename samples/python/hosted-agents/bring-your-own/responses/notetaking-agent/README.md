@@ -45,7 +45,7 @@ Chat with a running agent using the **Agent Inspector**:
 
 ```bash
 # Copy and edit environment file
-cp .env.example .env
+cp .env.example .env  # skip if .env already exists
 
 # Install dependencies
 pip install -r requirements.txt

@@ -91,7 +91,7 @@ Or in PowerShell:
 $env:SKILL_NAMES="support-style,escalation-policy"
 ```
 
-You can also place these in a `.env` file next to `main.py` — see [`.env.example`](.env.example).
+You can also place these in a `.env` file next to `main.py` — see [`.env.example`](.env.example) or `.env`.
 
 On startup you should see:
 

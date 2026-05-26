@@ -84,7 +84,7 @@ Or in PowerShell:
 $env:MEMORY_STORE_NAME="agent_framework_memory"
 ```
 
-You can also place these in a `.env` file next to `main.py` — see [`.env.example`](.env.example).
+You can also place these in a `.env` file next to `main.py` — see [`.env.example`](.env.example) or `.env`.
 
 ## Interacting with the agent
 

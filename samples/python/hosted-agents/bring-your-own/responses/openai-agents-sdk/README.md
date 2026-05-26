@@ -53,7 +53,7 @@ Chat with a running agent using the **Agent Inspector**:
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env  # then set FOUNDRY_PROJECT_ENDPOINT and AZURE_AI_MODEL_DEPLOYMENT_NAME
+cp .env.example .env  # then set FOUNDRY_PROJECT_ENDPOINT and AZURE_AI_MODEL_DEPLOYMENT_NAME (skip if .env already exists)
 python main.py
 ```
 
