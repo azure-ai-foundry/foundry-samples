@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+kind: hosted
+name: hello-world
+protocols:
+  - protocol: invocations_ws
+    version: 1.0.0
+resources:
+  cpu: "1"
+  memory: 1Gi
+environment_variables:
+  - name: AZURE_VOICELIVE_MODEL
+    value: "gpt-realtime-1.5"
+  - name: AZURE_VOICELIVE_VOICE
+    value: "en-US-Ava:DragonHDLatestNeural"
+  # Seconds of silence (no user speech and no bot audio still playing) after
+  # which the agent proactively re-engages the user. Set to 0 to disable.
+  - name: AZURE_VOICELIVE_IDLE_ENGAGEMENT_SECONDS
+    value: "20"

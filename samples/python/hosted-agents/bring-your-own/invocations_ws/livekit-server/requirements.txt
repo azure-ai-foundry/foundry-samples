@@ -1,0 +1,9 @@
+livekit-agents>=1.0.0,<2
+livekit-api>=1.0.0
+livekit-plugins-azure>=1.0.0
+livekit-plugins-openai>=1.0.0
+livekit-plugins-silero>=1.0.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-dotenv>=1.0.0
+loguru>=0.7.2
