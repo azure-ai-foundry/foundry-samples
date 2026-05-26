@@ -1,0 +1,132 @@
+name: Redirect Pull Requests
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  redirect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check org membership and redirect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+
+            // Allow PRs from trusted automation bots (e.g., repo sync)
+            const allowedBots = ['foundry-samples-repo-sync[bot]'];
+            if (allowedBots.includes(author)) {
+              console.log(`Skipping redirect for allowed bot: ${author}`);
+              return;
+            }
+
+            // Check if author is a Microsoft contributor using multiple signals.
+            // The GITHUB_TOKEN can only see *public* members of the 'microsoft' org
+            // (since this repo is in the 'microsoft-foundry' org), so we cascade
+            // through several checks to catch contributors with private membership.
+            let isInternal = false;
+            let matchedSignal = null;
+
+            // Signal 1: Check microsoft-foundry org membership (full visibility via GITHUB_TOKEN)
+            try {
+              const res = await github.rest.orgs.checkMembershipForUser({
+                org: 'microsoft-foundry',
+                username: author,
+              });
+              if (res.status === 204) {
+                isInternal = true;
+                matchedSignal = 'microsoft-foundry org member';
+              }
+            } catch {
+              // 404 or 302 means not a member
+            }
+
+            // Signal 2: Check if author is a collaborator on this repo
+            if (!isInternal) {
+              try {
+                const res = await github.rest.repos.checkCollaborator({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  username: author,
+                });
+                if (res.status === 204) {
+                  isInternal = true;
+                  matchedSignal = 'repo collaborator';
+                }
+              } catch {
+                // 404 means not a collaborator
+              }
+            }
+
+            // Signal 3: Check microsoft org membership (catches public members only)
+            if (!isInternal) {
+              try {
+                const res = await github.rest.orgs.checkMembershipForUser({
+                  org: 'microsoft',
+                  username: author,
+                });
+                if (res.status === 204) {
+                  isInternal = true;
+                  matchedSignal = 'microsoft org member (public)';
+                }
+              } catch {
+                // 404 or 302 means not a member (or private membership not visible)
+              }
+            }
+
+            console.log(`Author: ${author}, isInternal: ${isInternal}, signal: ${matchedSignal || 'none'}`);
+
+            let body;
+            if (isInternal) {
+              body = [
+                `👋 Thanks for your contribution, @${author}!`,
+                '',
+                'This repository is read-only. As a Microsoft contributor, please submit your PR to the private staging repository instead:',
+                '',
+                '👉 **[foundry-samples-pr](https://github.com/microsoft-foundry/foundry-samples-pr)**',
+                '',
+                'See [CONTRIBUTING.md](https://github.com/microsoft-foundry/foundry-samples/blob/main/CONTRIBUTING.md) for full instructions.',
+              ].join('\n');
+            } else {
+              body = [
+                `👋 Thanks for your interest in contributing, @${author}!`,
+                '',
+                'This repository does not accept pull requests directly. If you\'d like to report a bug, suggest an improvement, or propose a new sample, please **[open an issue](https://github.com/microsoft-foundry/foundry-samples/issues/new)** instead.',
+                '',
+                'See [CONTRIBUTING.md](https://github.com/microsoft-foundry/foundry-samples/blob/main/CONTRIBUTING.md) for more details.',
+              ].join('\n');
+            }
+
+            // Skip if the bot already commented (idempotent on re-runs)
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+            });
+            const alreadyCommented = comments.data.some(c =>
+              c.user.login === 'github-actions[bot]' &&
+              c.body.includes('This repository')
+            );
+            if (alreadyCommented) {
+              console.log('Bot already commented on this PR, skipping.');
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body,
+            });
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              state: 'closed',
+            });
