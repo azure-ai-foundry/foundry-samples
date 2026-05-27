@@ -1,6 +1,6 @@
 # Supported Toolbox Scenarios
 
-All hosted-agents toolbox samples can be configured for any of these 14 scenarios. For each scenario, create an `agent.manifest.yaml` file using the example provided below, then pass it to `azd ai agent init -m <manifest-file>`.
+All hosted-agents toolbox samples can be configured for any of these 15 scenarios. For each scenario, create an `agent.manifest.yaml` file using the example provided below, then pass it to `azd ai agent init -m <manifest-file>`.
 
 ---
 
@@ -645,4 +645,54 @@ resources:
       - type: mcp
         server_label: github
         project_connection_id: github-mcp-conn
+```
+
+---
+
+## 15. Browser Automation
+
+Prompted parameters: `playwright_service_url`, `playwright_service_resource_id`. Requires an Azure Playwright workspace. After provisioning, grant the project-level Foundry Agent Identity **Playwright Workspace Contributor** on the Playwright workspace.
+
+**`agent.manifest.yaml`**
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: toolbox-hosted-browser-automation
+displayName: "Browser Automation Toolbox Agent"
+description: >
+  Hosted agent with a Browser Automation toolbox backed by an Azure Playwright
+  workspace connection. Uses the project-level Foundry Agent Identity to
+  authenticate to the Playwright workspace.
+template:
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+parameters:
+  properties:
+    - name: playwright_service_url
+      secret: false
+      description: Browser WebSocket endpoint for the Azure Playwright workspace
+    - name: playwright_service_resource_id
+      secret: false
+      description: Azure resource ID of the Playwright workspace
+resources:
+  - kind: model
+    id: gpt-4.1
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: browserautomation
+    category: PlaywrightWorkspace
+    authType: AgenticIdentityToken
+    audience: https://management.core.windows.net
+    target: "{{ playwright_service_url }}"
+    metadata:
+      resourceId: "{{ playwright_service_resource_id }}"
+  - kind: toolbox
+    name: agent-tools
+    tools:
+      - type: browser_automation_preview
+        browser_automation_preview:
+          connection:
+            project_connection_id: browserautomation
 ```
