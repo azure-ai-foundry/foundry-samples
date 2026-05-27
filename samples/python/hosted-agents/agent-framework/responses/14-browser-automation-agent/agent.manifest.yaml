@@ -1,0 +1,47 @@
+name: browser-automation-agent-sample-foundry
+description: >
+  A Foundry-hosted browser automation agent sample for general browsing,
+  web scraping, and form filling.
+metadata:
+  tags:
+    - Agent Framework
+    - AI Agent Hosting
+    - Azure AI AgentServer
+    - Responses Protocol
+    - Browser Automation
+template:
+  name: browser-automation-agent-sample-foundry
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+parameters:
+  properties:
+    - name: PLAYWRIGHT_SERVICE_URL
+      secret: false
+      description: Browser WebSocket endpoint for the Azure Playwright workspace.
+    - name: PLAYWRIGHT_SERVICE_RESOURCE_ID
+      secret: false
+      description: Azure resource ID of the Playwright workspace.
+resources:
+  - kind: model
+    id: gpt-4.1
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: browserautomation
+    authType: AgenticIdentityToken
+    audience: https://management.core.windows.net
+    category: PlaywrightWorkspace
+    target: "{{PLAYWRIGHT_SERVICE_URL}}"
+    metadata:
+      resourceId: "{{PLAYWRIGHT_SERVICE_RESOURCE_ID}}"
+  - kind: toolbox
+    name: browser-automation-tools
+    tools:
+      - type: browser_automation_preview
+        browser_automation_preview:
+          connection:
+            project_connection_id: browserautomation
