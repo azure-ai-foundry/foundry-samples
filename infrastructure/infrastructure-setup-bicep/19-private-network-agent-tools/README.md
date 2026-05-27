@@ -57,7 +57,7 @@ Use the table below to choose the right infrastructure template for your scenari
 
 ### Key Features
 
-| Feature | This Template (19) — Private (default) | This Template (19) — Public | Fully Private (15) |
+| Feature | This Template (19) — Fully Private (default) | This Template (19) — Public | Private (15) |
 |---------|----------------------------------------|-----------------------------|-----------------------|
 | AI Services public access | ❌ Disabled | ✅ Enabled | ❌ Disabled |
 | Portal access | Via VPN/ExpressRoute/Bastion | ✅ Works directly | Via VPN/ExpressRoute/Bastion |
