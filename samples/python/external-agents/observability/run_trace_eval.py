@@ -2,7 +2,7 @@
 weather agent and print the per-criterion scores.
 
 The trace-eval surface is currently exposed only via the OpenAI-compatible
-``evals`` API (``azure_ai_source`` / ``azure_ai_traces_preview`` data sources),
+``evals`` API (``azure_ai_source`` / ``azure_ai_traces`` data sources),
 so we go through ``project_client.get_openai_client()`` per the spec.
 """
 
@@ -50,17 +50,6 @@ def main() -> None:
                 "type": "azure_ai_evaluator",
                 "name": "intent_resolution",
                 "evaluator_name": "builtin.intent_resolution",
-                "data_mapping": {
-                    "query": "{{item.query}}",
-                    "response": "{{item.response}}",
-                    "tool_definitions": "{{item.tool_definitions}}",
-                },
-                "initialization_parameters": {"deployment_name": EVAL_DEPLOYMENT},
-            },
-            {
-                "type": "azure_ai_evaluator",
-                "name": "task_adherence",
-                "evaluator_name": "builtin.task_adherence",
                 "data_mapping": {
                     "query": "{{item.query}}",
                     "response": "{{item.response}}",
