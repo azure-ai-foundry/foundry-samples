@@ -1,13 +1,14 @@
 import { DefaultAzureCredential } from "@azure/identity";
 import { AIProjectClient } from "@azure/ai-projects";
+import "dotenv/config";
 
 // Format: "https://resource_name.ai.azure.com/api/projects/project_name"
-const PROJECT_ENDPOINT = "your_project_endpoint";
-const AGENT_NAME = "your_agent_name";
+const projectEndpoint: string = process.env["PROJECT_ENDPOINT"] || "<project endpoint>";
+const agentName: string = process.env["AGENT_NAME"] || "<agent name>";
 
 async function main(): Promise<void> {
     // Create project and openai clients to call Foundry API
-    const project = new AIProjectClient(PROJECT_ENDPOINT, new DefaultAzureCredential());
+    const project = new AIProjectClient(projectEndpoint, new DefaultAzureCredential());
     const openai = project.getOpenAIClient();
 
     // Create a conversation for multi-turn chat
@@ -20,7 +21,7 @@ async function main(): Promise<void> {
             input: "What is the size of France in square miles?",
         },
         {
-            body: { agent_reference: { name: AGENT_NAME, type: "agent_reference" } },
+            body: { agent_reference: { name: agentName, type: "agent_reference" } },
         },
     );
     console.log(response.output_text);
@@ -32,7 +33,7 @@ async function main(): Promise<void> {
             input: "And what is the capital city?",
         },
         {
-            body: { agent_reference: { name: AGENT_NAME, type: "agent_reference" } },
+            body: { agent_reference: { name: agentName, type: "agent_reference" } },
         },
     );
     console.log(response2.output_text);

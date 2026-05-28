@@ -2,6 +2,7 @@ import { DefaultAzureCredential } from "@azure/identity";
 import { AIProjectClient } from "@azure/ai-projects";
 import "dotenv/config";
 
+// Format: "https://resource_name.ai.azure.com/api/projects/project_name"
 const projectEndpoint: string = process.env["PROJECT_ENDPOINT"] || "<project endpoint>";
 const modelDeploymentName: string = process.env["MODEL_DEPLOYMENT_NAME"] || "<model deployment name>";
 const agentName: string = process.env["AGENT_NAME"] || "<agent name>";
