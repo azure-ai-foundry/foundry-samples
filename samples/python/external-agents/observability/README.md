@@ -96,6 +96,7 @@ before using the sample with sensitive prompts or responses.
 
 ```bash
 cd samples/python/external-agents/observability
+python -m pip install -r requirements.txt
 python weather_agent.py
 ```
 
@@ -133,6 +134,10 @@ The trace view will show spans attributed to this `external` agent.
 
 ## Step 5 — Run a one-off trace evaluation
 
+Before running the trace evaluation, grant the Foundry project managed
+identity the **Log Analytics Reader** role on the connected Application
+Insights resource.
+
 ```bash
 python run_trace_eval.py
 ```
@@ -140,8 +145,8 @@ python run_trace_eval.py
 This:
 
 1. Resolves the registered agent's `otel_agent_id`.
-2. Creates an OpenAI-compatible eval group with two built-in trace
-   evaluators (`intent_resolution`, `task_adherence`).
-3. Creates an `azure_ai_traces_preview` run scoped to that
+2. Creates an OpenAI-compatible eval group with the built-in trace
+   evaluator `intent_resolution`.
+3. Creates an `azure_ai_traces` run scoped to that
    `agent_id` over the last 24 hours.
 4. Polls until completion and prints per-criterion pass/fail counts.

@@ -1,12 +1,7 @@
-# Preview build with external-agent support.
-# Install with:
-#   pip install azure-ai-projects==2.2.0a20260520005 \
-#     --extra-index-url https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-python/pypi/simple \
-#     --pre
-azure-ai-projects==2.2.0a20260520005
+azure-ai-projects>=2.2.0
 azure-identity>=1.17.0
 python-dotenv>=1.0.0
-microsoft-opentelemetry[langchain]>=1.2.0
+microsoft-opentelemetry[langchain]>=1.3.0
 langchain>=1.0.0
 langchain-openai>=1.0.0
 langchain-core>=1.0.0
