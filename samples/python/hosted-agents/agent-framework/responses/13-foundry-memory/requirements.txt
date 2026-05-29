@@ -7,4 +7,7 @@
 # failures during the ``python:3.12-slim`` container build.
 agent-framework-foundry
 agent-framework-foundry-hosting
+# mcp is a transitive dependency of agent-framework-core[all] that is needed
+# at runtime but not declared as a required dependency of agent-framework-core.
+mcp>=1.24.0
 azure-ai-projects

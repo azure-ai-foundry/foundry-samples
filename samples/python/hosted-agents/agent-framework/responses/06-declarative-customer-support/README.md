@@ -1,10 +1,19 @@
-# Agent with Foundry Toolbox (Responses Protocol)
+# Declarative Customer Support Workflow (Responses Protocol)
 
-An [Agent Framework](https://github.com/microsoft/agent-framework) agent that uses **Foundry Toolbox** for tool discovery, hosted on Microsoft Foundry using the **Responses protocol**. Foundry Toolbox is a managed tool registry in Microsoft Foundry that lets you define tools centrally and share them across agents.
+A realistic **multi-turn** [Agent Framework](https://github.com/microsoft/agent-framework) **declarative workflow** — defined entirely in YAML — hosted on Microsoft Foundry using the **Responses protocol**. It shows how a declarative workflow that invokes multiple Foundry-hosted agents can run end-to-end on every user turn while reading the prior conversation through `Conversation.messages` (populated automatically by `Workflow.as_agent()`).
 
 ## How it works
 
-The agent uses `FoundryChatClient` from the Agent Framework and is served via `ResponsesHostServer`. It loads a named Foundry Toolbox via `client.get_toolbox(name)` — the toolbox is a server-side bundle of tool configurations (e.g., `code_interpreter`, `web_search`) defined in the Foundry portal or by `azd provision`. See [main.py](main.py) for the implementation.
+[`workflow.yaml`](workflow.yaml) describes a customer-support triage flow:
+
+1. `InvokeAzureAgent: TriageAgent` — looks at the full conversation so far and emits a structured `TriageResponse` (`Category`, `NeedsClarification`, `ClarificationQuestion`, `Reply`).
+2. `ConditionGroup` routes on the triage decision:
+   - **NeedsClarification** → asks one focused follow-up question and ends the turn.
+   - **Category = "Technical"** → hands off to `TechSupportAgent`.
+   - **Category = "Billing"** → hands off to `BillingAgent`.
+   - **else** → returns the triage agent's `Reply` directly (good for greetings or general questions).
+
+[`main.py`](main.py) builds three `Agent` instances on top of a shared `FoundryChatClient` (one per workflow role), registers them with the `WorkflowFactory` so the YAML's `InvokeAzureAgent` actions can resolve them by name, loads the workflow, wraps it with `.as_agent(...)`, and hands the agent to `ResponsesHostServer`. See [main.py](main.py) and [workflow.yaml](workflow.yaml) for the implementation.
 
 ## Option 1: Azure Developer CLI (`azd`)
 
@@ -25,9 +34,9 @@ The agent uses `FoundryChatClient` from the Agent Framework and is served via `R
 No cloning required. Create a new folder and initialize from the manifest:
 
 ```bash
-mkdir my-toolbox-agent && cd my-toolbox-agent
+mkdir my-support-agent && cd my-support-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/04-foundry-toolbox/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/06-declarative-customer-support/agent.manifest.yaml
 ```
 
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
@@ -39,8 +48,6 @@ If you don't already have a Foundry project and model deployment:
 ```bash
 azd provision
 ```
-
-> Running `azd provision` for this sample will also create a Foundry Toolbox with the tools specified in [`agent.manifest.yaml`](agent.manifest.yaml).
 
 ### Run the agent locally
 
@@ -55,7 +62,13 @@ The agent host will start on `http://localhost:8088`.
 In a separate terminal, from the project directory:
 
 ```bash
-azd ai agent invoke --local "What tools do you have?"
+azd ai agent invoke --local "I have a problem"
+```
+
+Or for billing:
+
+```bash
+azd ai agent invoke --local "I was double-charged this month"
 ```
 
 ### Deploy to Foundry
@@ -71,7 +84,7 @@ For the full deployment guide, see [Deploy a hosted agent](https://learn.microso
 ### Invoke the deployed agent
 
 ```bash
-azd ai agent invoke "What tools do you have?"
+azd ai agent invoke "I have a problem with my account"
 ```
 
 ## Option 2: VS Code (Foundry Toolkit)
@@ -104,17 +117,11 @@ Press **F5** to start the agent in debug mode. The agent host will start on `htt
 4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
-## Creating a Foundry Toolbox
-
-You can create a Foundry Toolbox by code. Refer to this sample for an example: [Foundry Toolbox CRUD Sample](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/hosted_agents/sample_toolboxes_crud.py).
-
-You can also create a Foundry Toolbox in the Foundry portal. Read more about it [in the Foundry toolbox documentation](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/toolbox).
-
 ## Next steps
 
 - [Quickstart: Create a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent) — end-to-end walkthrough using `azd`
-- [Tool catalog](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/tool-catalog) — browse available tools to extend your agent (Bing Search, Azure AI Search, file search, code interpreter, and more)
+- [Declarative workflows](https://learn.microsoft.com/en-us/agent-framework/workflows/declarative/?pivots=programming-language-python) — learn more about YAML-defined workflows
+- [Workflow as an agent](https://learn.microsoft.com/en-us/agent-framework/workflows/as-agents?pivots=programming-language-python) — serving workflows via the Responses protocol
 - [Manage hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/manage-hosted-agent) — monitor and manage deployed agents
 - [Basic agent](../01-basic/) — minimal agent with no tools
-- [Add local tools](../02-tools/) — sample with locally-defined Python tool functions
-- [Build multi-agent workflows](../05-workflows/) — sample with chained agent pipelines
+- [Programmatic workflows](../05-workflows/) — code-defined multi-agent pipeline
