@@ -57,7 +57,7 @@ You can run any sample in this folder using one of three approaches. Pick the on
 mkdir hosted-agent-framework-agent && cd hosted-agent-framework-agent
 
 # Initialize from the manifest
-azd ai agent init -m https://github.com/microsoft/hosted-agents-vnext-private-preview/blob/main/samples/python/hosted-agents/agent-framework/responses/01-basic/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/01-basic/agent.manifest.yaml
 ```
 
 Follow the instructions from `azd ai agent init` to complete the agent initialization. If you don't have an existing Foundry project and a model deployment, `azd ai agent init` will guide you through creating them.

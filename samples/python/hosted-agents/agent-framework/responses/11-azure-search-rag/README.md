@@ -118,43 +118,117 @@ curl -X POST "$SEARCH_ENDPOINT/indexes/$INDEX_NAME/docs/index?api-version=2024-0
 
 You can also point the sample at any existing index that exposes a retrievable text field such as `content`.
 
-## Running the Agent Host
+## Option 1: Azure Developer CLI (`azd`)
 
-Follow the instructions in the [Running the Agent Host Locally](../../README.md#running-the-agent-host-locally) section of the README in the parent directory to run the agent host.
+### Prerequisites
 
-In addition to the standard environment variables, this sample requires:
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the AI agent extension:
+   ```bash
+   azd ext install azure.ai.agents
+   ```
+3. Authenticate:
+   ```bash
+   azd auth login
+   ```
 
-```bash
-export AZURE_SEARCH_ENDPOINT="https://<your-search>.search.windows.net"
-export AZURE_SEARCH_INDEX_NAME="contoso-outdoors"
-```
+### Initialize the agent project
 
-Or in PowerShell:
-
-```powershell
-$env:AZURE_SEARCH_ENDPOINT="https://<your-search>.search.windows.net"
-$env:AZURE_SEARCH_INDEX_NAME="contoso-outdoors"
-```
-
-You can also place these in a `.env` file next to `main.py` — see [`.env.example`](.env.example) or `.env`.
-
-## Interacting with the agent
-
-> Depending on how you run the agent host, you can invoke the agent using `curl` (`Invoke-WebRequest` in PowerShell) or `azd`. Please refer to the [parent README](../../README.md) for more details. Use this README for sample queries you can send to the agent.
-
-Send a POST request to the server with a JSON body containing an `"input"` field to interact with the agent. For example:
+No cloning required. Create a new folder and initialize from the manifest:
 
 ```bash
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "What is your return policy?"}'
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "How long does shipping take?"}'
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "How do I clean my tent?"}'
+mkdir my-search-rag-agent && cd my-search-rag-agent
+
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/11-azure-search-rag/agent.manifest.yaml
 ```
 
-Or with `azd`:
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
+
+### Provision Azure resources (if needed)
+
+If you don't already have a Foundry project and model deployment:
+
+```bash
+azd provision
+```
+
+### Run the agent locally
+
+```bash
+azd ai agent run
+```
+
+The agent host will start on `http://localhost:8088`.
+
+### Invoke the local agent
+
+In a separate terminal, from the project directory:
 
 ```bash
 azd ai agent invoke --local "What is your return policy?"
 ```
+
+Other examples:
+
+```bash
+azd ai agent invoke --local "How long does shipping take?"
+azd ai agent invoke --local "How do I clean my tent?"
+```
+
+### Deploy to Foundry
+
+Once tested locally, deploy to Microsoft Foundry:
+
+Make sure the search environment variables are set:
+
+```bash
+azd env set AZURE_SEARCH_ENDPOINT "https://<your-search>.search.windows.net"
+azd env set AZURE_SEARCH_INDEX_NAME "contoso-outdoors"
+```
+
+```bash
+azd deploy
+```
+
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
+
+The deployed agent's Managed Identity needs **Search Index Data Reader** on the Azure AI Search service.
+
+### Invoke the deployed agent
+
+```bash
+azd ai agent invoke "What is your return policy?"
+```
+
+## Option 2: VS Code (Foundry Toolkit)
+
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.azure-ai-foundry)** extension installed.
+2. Sign in to Azure in VS Code.
+
+### Create the project
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Create Hosted Agent**.
+2. Select this sample from the gallery. The extension scaffolds the project into a new workspace and generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically.
+3. Complete the **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one).
+
+### Run and debug the agent
+
+Press **F5** to start the agent in debug mode. The agent host will start on `http://localhost:8088`.
+
+### Test with Agent Inspector
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
+2. The Inspector connects to the running agent. Send messages to chat and view streamed responses.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
+5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
 ## How RAG works in this sample
 
@@ -170,17 +244,7 @@ The model receives the top three search results as additional context and cites 
 
 Replace the seed documents (or point the sample at an existing index with your own content) to ground the agent in your own knowledge base.
 
-## Deploying the Agent to Foundry
+## Next steps
 
-To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
-
-When deploying, make sure `AZURE_SEARCH_ENDPOINT` and `AZURE_SEARCH_INDEX_NAME` are set in your `azd` environment so they get injected into the hosted container per [`agent.manifest.yaml`](agent.manifest.yaml):
-
-```bash
-azd env set AZURE_SEARCH_ENDPOINT "https://<your-search>.search.windows.net"
-azd env set AZURE_SEARCH_INDEX_NAME "contoso-outdoors"
-```
-
-If these are not set, running `azd ai agent init -m <agent-manifest.yaml>` will prompt you to enter them interactively.
-
-The deployed agent's Managed Identity needs **Search Index Data Reader** on the Azure AI Search service.
+- [Quickstart: Create a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent) — end-to-end walkthrough using `azd`
+- [Manage hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/manage-hosted-agent) — monitor and manage deployed agents

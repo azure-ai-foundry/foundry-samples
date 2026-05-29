@@ -1,64 +1,112 @@
-# What this sample demonstrates
+# Basic Hosted Agent (Responses Protocol)
 
-An [Agent Framework](https://github.com/microsoft/agent-framework) agent hosted using the **Responses protocol**.
+A minimal [Agent Framework](https://github.com/microsoft/agent-framework) agent hosted on Microsoft Foundry using the **Responses protocol**. This sample demonstrates basic request/response interaction and multi-turn conversations.
 
-## How It Works
+## How it works
 
-### Model Integration
+The agent uses `FoundryChatClient` from the Agent Framework and is served via `ResponsesHostServer`, which exposes a REST API compatible with the OpenAI Responses protocol. See [main.py](main.py) for the implementation.
 
-The agent uses `FoundryChatClient` from the Agent Framework to create a Responses client from the project endpoint and model deployment. The agent supports both streaming (SSE events) and non-streaming (JSON) response modes.
+## Option 1: Azure Developer CLI (`azd`)
 
-See [main.py](main.py) for the full implementation.
+### Prerequisites
 
-### Agent Hosting
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the AI agent extension:
+   ```bash
+   azd ext install azure.ai.agents
+   ```
+3. Authenticate:
+   ```bash
+   azd auth login
+   ```
 
-The agent is hosted using the [Agent Framework](https://github.com/microsoft/agent-framework) with the `ResponsesHostServer`, which provisions a REST API endpoint compatible with the OpenAI Responses protocol.
+### Initialize the agent project
 
-## Interacting with the agent
-
-> Depending on how you run the agent host, you can invoke the agent using `curl` (`Invoke-WebRequest` in PowerShell), `azd`, or the **Agent Inspector** in the Foundry Toolkit VS Code extension. Please refer to the [parent README](../../README.md) for more details. Use this README for sample queries you can send to the agent.
-
-Send a POST request to the server with a JSON body containing a "message" field to interact with the agent. For example:
-
-```bash
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "Hi"}'
-```
-
-The server will respond with a JSON object containing the response text and a response ID. You can use this response ID to continue the conversation in subsequent requests.
-
-### Multi-turn conversation
-
-To have a multi-turn conversation with the agent, include the previous response id in the request body. For example:
+No cloning required. Create a new folder and initialize from the manifest:
 
 ```bash
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "How are you?", "previous_response_id": "REPLACE_WITH_PREVIOUS_RESPONSE_ID"}'
+mkdir my-basic-agent && cd my-basic-agent
+
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/01-basic/agent.manifest.yaml
 ```
 
-### Test in Agent Inspector
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
 
-Once the agent is running locally, open **Agent Inspector** in VS Code (Command Palette: **Foundry Toolkit: Open Agent Inspector**) to interactively send messages and view responses.
+### Provision Azure resources (if needed)
 
-Type the following message in Inspector:
+If you don't already have a Foundry project and model deployment:
 
+```bash
+azd provision
 ```
-Hi
+
+### Run the agent locally
+
+```bash
+azd ai agent run
 ```
 
-## Deploying the Agent to Foundry
+The agent host will start on `http://localhost:8088`.
 
-To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
+### Invoke the local agent
 
-### Deploying with the Foundry Toolkit VS Code Extension
+In a separate terminal, from the project directory:
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate what it can.
-2. If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
-3. On the **Basics** tab, configure the core deployment settings:
-   - **Deployment Method**: **Code** (upload as a ZIP) or **Container** (Docker image via ACR).
-   - For **Code**, pick a packaging option: **Remote** or **Local**.
-   - For **Container**, pick a registry option: default ACR, your own ACR, or a prebuilt ACR image.
-   - **Hosted Agent Name**: confirm the name to register with the hosting service.
-4. On the **Review + Deploy** tab, finalize the runtime and resources:
-   - Confirm the auto-detected runtime details (language, entry point, or Dockerfile).
-   - Pick a **CPU and Memory** size.
-   - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
+```bash
+azd ai agent invoke --local "Hi"
+```
+
+### Deploy to Foundry
+
+Once tested locally, deploy to Microsoft Foundry:
+
+```bash
+azd deploy
+```
+
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
+
+### Invoke the deployed agent
+
+```bash
+azd ai agent invoke "Hi"
+```
+
+## Option 2: VS Code (Foundry Toolkit)
+
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.azure-ai-foundry)** extension installed.
+2. Sign in to Azure in VS Code.
+
+### Create the project
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Create Hosted Agent**.
+2. Select this sample from the gallery. The extension scaffolds the project into a new workspace and generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically.
+3. Complete the **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one).
+
+### Run and debug the agent
+
+Press **F5** to start the agent in debug mode. The agent host will start on `http://localhost:8088`.
+
+### Test with Agent Inspector
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
+2. The Inspector connects to the running agent. Send messages to chat and view streamed responses.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
+
+## Next steps
+
+- [Quickstart: Create a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent) — end-to-end walkthrough using `azd`
+- [Tool catalog](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/tool-catalog) — browse available tools to extend your agent (Bing Search, Azure AI Search, file search, code interpreter, and more)
+- [Manage hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/manage-hosted-agent) — monitor and manage deployed agents
+- [Add tools to your agent](../02-tools/) — sample with local tool functions
+- [Connect to MCP servers](../03-mcp/) — sample using remote MCP tool providers
+- [Use Foundry Toolbox](../04-foundry-toolbox/) — sample with Azure Foundry Toolbox integration
