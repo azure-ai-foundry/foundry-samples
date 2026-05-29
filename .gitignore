@@ -475,3 +475,7 @@ logs_new/
 
 # Playwright MCP browser session snapshots
 .playwright-mcp/
+
+# Local azd validation scratch (do not commit)
+.azd-test-*/
+
