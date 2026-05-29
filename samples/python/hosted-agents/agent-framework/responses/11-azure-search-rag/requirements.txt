@@ -8,3 +8,6 @@
 agent-framework-foundry
 agent-framework-azure-ai-search
 agent-framework-foundry-hosting
+# mcp is a transitive dependency of agent-framework-core[all] that is needed
+# at runtime but not declared as a required dependency of agent-framework-core.
+mcp>=1.24.0

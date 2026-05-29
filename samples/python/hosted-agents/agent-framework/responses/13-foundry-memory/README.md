@@ -68,55 +68,111 @@ Created memory store 'agent_framework_memory' (id=memstore_...).
 
 > To delete the store manually, call `project.beta.memory_stores.delete("<name>")` on an `AIProjectClient` constructed with `allow_preview=True`.
 
-## Running the Agent Host
+## Option 1: Azure Developer CLI (`azd`)
 
-Follow the instructions in the [Running the Agent Host Locally](../../README.md#running-the-agent-host-locally) section of the README in the parent directory to run the agent host.
+### Prerequisites
 
-In addition to the standard environment variables, this sample requires:
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the AI agent extension:
+   ```bash
+   azd ext install azure.ai.agents
+   ```
+3. Authenticate:
+   ```bash
+   azd auth login
+   ```
 
-```bash
-export MEMORY_STORE_NAME="agent_framework_memory"
-```
+### Initialize the agent project
 
-Or in PowerShell:
-
-```powershell
-$env:MEMORY_STORE_NAME="agent_framework_memory"
-```
-
-You can also place these in a `.env` file next to `main.py` — see [`.env.example`](.env.example) or `.env`.
-
-## Interacting with the agent
-
-> Depending on how you run the agent host, you can invoke the agent using `curl` (`Invoke-WebRequest` in PowerShell) or `azd`. Please refer to the [parent README](../../README.md) for more details.
-
-Send a POST request to the server with a JSON body containing an `"input"` field to interact with the agent. The first request seeds a memory; subsequent requests (especially in new sessions) should be able to recall it because memories are persisted across Foundry Hosted Agents sessions.
-
-> In this sample, the memory is scoped to the user by specifying `scope="{{$userId}}"`, thus memories are isolated across different users but shared across different sessions from the same user.
+No cloning required. Create a new folder and initialize from the manifest:
 
 ```bash
-# 1. Tell the agent something to remember.
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" \
-  -d '{"input": "I prefer dark roast coffee and I am allergic to nuts."}'
+mkdir my-memory-agent && cd my-memory-agent
 
-# Wait a few seconds for the memory to be stored, then start a fresh conversation:
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" \
-  -d '{"input": "Can you recommend a coffee and a snack for me?"}'
-
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" \
-  -d '{"input": "What do you remember about my preferences?"}'
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/13-foundry-memory/agent.manifest.yaml
 ```
 
-## Deploying the Agent to Foundry
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
 
-To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
+### Provision Azure resources (if needed)
 
-When deploying, make sure `MEMORY_STORE_NAME` and `FOUNDRY_MEMORY_SCOPE` are set in your `azd` environment so they get injected into the hosted container per [`agent.manifest.yaml`](agent.manifest.yaml):
+If you don't already have a Foundry project and model deployment:
+
+```bash
+azd provision
+```
+
+### Run the agent locally
+
+```bash
+azd ai agent run
+```
+
+The agent host will start on `http://localhost:8088`.
+
+### Invoke the local agent
+
+In a separate terminal, from the project directory:
+
+```bash
+azd ai agent invoke --local "Hi"
+```
+
+### Deploy to Foundry
+
+Once tested locally, deploy to Microsoft Foundry:
+
+Make sure `MEMORY_STORE_NAME` is set in your `azd` environment:
 
 ```bash
 azd env set MEMORY_STORE_NAME "agent_framework_memory"
 ```
 
-If these are not set, running `azd ai agent init -m <agent.manifest.yaml>` will prompt you to enter them interactively.
+```bash
+azd deploy
+```
 
-The deployed agent's Managed Identity needs **Azure AI User** on the Foundry project to read and write memories at runtime. Make sure you have run `provision_memory_store.py` against the same Foundry project before deploying — otherwise the agent will fail on the first turn when it tries to read from a non-existent store.
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
+
+The deployed agent's Managed Identity needs **Azure AI User** on the Foundry project to read and write memories at runtime. Make sure you have run `provision_memory_store.py` against the same Foundry project before deploying.
+
+### Invoke the deployed agent
+
+```bash
+azd ai agent invoke "Hi"
+```
+
+## Option 2: VS Code (Foundry Toolkit)
+
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.azure-ai-foundry)** extension installed.
+2. Sign in to Azure in VS Code.
+
+### Create the project
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Create Hosted Agent**.
+2. Select this sample from the gallery. The extension scaffolds the project into a new workspace and generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically.
+3. Complete the **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one).
+
+### Run and debug the agent
+
+Press **F5** to start the agent in debug mode. The agent host will start on `http://localhost:8088`.
+
+### Test with Agent Inspector
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
+2. The Inspector connects to the running agent. Send messages to chat and view streamed responses.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
+5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
+
+## Next steps
+
+- [Quickstart: Create a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent) — end-to-end walkthrough using `azd`
+- [Manage hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/manage-hosted-agent) — monitor and manage deployed agents
