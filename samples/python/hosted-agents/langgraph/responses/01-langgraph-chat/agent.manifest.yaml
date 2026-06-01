@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: langgraph-chat-responses
+displayName: "LangGraph Chat (Responses)"
+description: >
+  Multi-turn chat agent built with LangGraph and hosted on Foundry over
+  the Responses protocol using langchain_azure_ai.agents.hosting.
+  Includes two local tools: get_current_time and calculator. Server-side
+  conversation state via previous_response_id.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Responses Protocol
+    - LangGraph
+    - LangChain
+    - Tool Calling
+    - Python
+template:
+  name: langgraph-chat-responses
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT is injected by the platform (hosted) and
+    # translated by azd (local) — do NOT declare it here.
+    #
+    # Model deployment name — resolved from the resources section below.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME

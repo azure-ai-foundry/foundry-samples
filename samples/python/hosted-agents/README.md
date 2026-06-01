@@ -86,13 +86,13 @@ Hosted agents run any code you can put in a container. These samples cover three
 |                         | **Agent Framework**                                                                | **LangGraph**                                                         | **Bring Your Own**                                                                                                          |
 | ----------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | **Best for**            | Starting fresh on Foundry — also supports AutoGen and Semantic Kernel              | Already using LangChain / LangGraph                                   | Already built with CrewAI or your own stack                                                                                 |
-| **SDK**                 | `agent-framework-foundry-hosting` (includes core, openai, foundry, orchestrations) | `azure-ai-agentserver-responses` / `azure-ai-agentserver-invocations` | `azure-ai-agentserver-responses` / `azure-ai-agentserver-invocations`, or `azure-ai-agentserver-core` for fully custom HTTP |
-| **Foundry integration** | Native — sessions, tools, memory, streaming all built in                           | Adapter — sessions and tools wired through LangGraph adapter          | Core adapter hosts the web server and exposes `/invocations` and `/responses` endpoints; you supply the agent logic         |
+| **SDK**                 | `agent-framework-foundry-hosting` (includes core, openai, foundry, orchestrations) | `langchain-azure-ai[hosting]` (`ResponsesHostServer` / `InvocationsHostServer`) | `azure-ai-agentserver-responses` / `azure-ai-agentserver-invocations`, or `azure-ai-agentserver-core` for fully custom HTTP |
+| **Foundry integration** | Native — sessions, tools, memory, streaming all built in                           | Native via `langchain_azure_ai.agents.hosting` — sessions, streaming, and tool-call surfacing built in for LangGraph agents (`create_agent`) and custom `StateGraph`s | Core adapter hosts the web server and exposes `/invocations` and `/responses` endpoints; you supply the agent logic         |
 | **Protocols**           | Responses and Invocations                                                          | Responses and Invocations                                             | Responses and Invocations                                                                                                   |
 | **Language support**    | Python and C#                                                                      | Python only                                                           | Any language (Python and C# samples provided)                                                                               |
-| **Start here**          | [Basic Agent →](agent-framework/responses/01-basic/)                               | [LangGraph Chat →](bring-your-own/responses/langgraph-chat/)          | [Hello World →](bring-your-own/responses/hello-world/)                                                                      |
+| **Start here**          | [Basic Agent →](agent-framework/responses/01-basic/)                               | [LangGraph Chat →](langgraph/responses/01-langgraph-chat/)            | [Hello World →](bring-your-own/responses/hello-world/)                                                                      |
 
-> **Which should I choose?** If you're building a new agent — or already using AutoGen or Semantic Kernel — start with **Agent Framework**. It has the tightest Foundry integration, supports those orchestrators natively, and has the most samples to learn from. If you already have LangGraph code, use the **LangGraph** adapter to bring it to Foundry. If you have an existing agent in another framework (e.g., CrewAI), **Bring Your Own** shows how to containerize and deploy it unchanged.
+> **Which should I choose?** If you're building a new agent — or already using AutoGen or Semantic Kernel — start with **Agent Framework**. It has the tightest Foundry integration, supports those orchestrators natively, and has the most samples to learn from. If you already have LangGraph code, use the **LangGraph** hosting integration (`langchain_azure_ai.agents.hosting`) to bring it to Foundry. If you have an existing agent in another framework (e.g., CrewAI), **Bring Your Own** shows how to containerize and deploy it unchanged.
 
 ---
 
@@ -135,7 +135,26 @@ Full control over the HTTP request/response cycle. You define the payload schema
 
 ## LangGraph samples
 
-LangGraph samples are included in the **Bring Your Own** section below — see [`bring-your-own/responses/langgraph-chat/`](bring-your-own/responses/langgraph-chat/) and [`bring-your-own/invocations/langgraph-chat/`](bring-your-own/invocations/langgraph-chat/).
+Bring your existing [LangGraph](https://langchain-ai.github.io/langgraph/) graphs to Foundry. These samples use [`langchain_azure_ai.agents.hosting`](https://github.com/langchain-ai/langchain-azure/tree/main/libs/azure-ai/langchain_azure_ai/agents/hosting) (`ResponsesHostServer` / `InvocationsHostServer`) to expose LangGraph agents (`create_agent`) and custom `StateGraph`s over the hosted agent protocols, with native Foundry session, streaming, and tool wiring.
+
+See [`langgraph/README.md`](langgraph/) for the full list and the local-run guide.
+
+### Responses protocol
+
+| Sample                                                                  | What it shows                                                                                                                          |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Chat](langgraph/responses/01-langgraph-chat/)**                      | Minimal LangGraph agent with two local tools (`get_current_time`, `calculator`); multi-turn via `previous_response_id`.                |
+| **[MCP](langgraph/responses/04-mcp/)**                                  | LangGraph agent that loads tools from a remote MCP server (default: GitHub Copilot MCP) via `langchain_mcp_adapters`.                  |
+| **[Workflows](langgraph/responses/05-workflows/)**                      | Custom `StateGraph` chaining three specialized LLM nodes — slogan writer, legal reviewer, formatter — each seeing only the prior agent's output. |
+| **[Files](langgraph/responses/06-files/)**                              | LangGraph agent with local filesystem tools and a Foundry-Toolbox `code_interpreter` for session-uploaded files.                       |
+| **[Human-in-the-Loop](langgraph/responses/07-human-in-the-loop/)**      | `StateGraph` that drafts a proposal and pauses for approval via `langgraph.types.interrupt`, serialized as `mcp_approval_request` + `function_call`. |
+| **[Observability](langgraph/responses/08-observability/)**              | GenAI OpenTelemetry tracing enabled with `enable_auto_tracing()` — spans, metrics, and logs flow to Application Insights.              |
+
+### Invocations protocol
+
+| Sample                                                | What it shows                                                                                                                              |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **[Chat](langgraph/invocations/01-langgraph-chat/)**  | Minimal LangGraph agent with local tools; session state via `agent_session_id` (URL param / `x-agent-session-id` header) backed by a LangGraph checkpointer. |
 
 ---
 
