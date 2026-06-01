@@ -1,0 +1,4 @@
+agent-framework>=1.2.2
+agent-framework-foundry-hosting
+azure-identity>=1.15.0
+azure-ai-agentserver-optimization @ https://github.com/Zyysurely/tool/raw/main/preview/azure_ai_agentserver_optimization-1.0.0b1.dev1-py3-none-any.whl

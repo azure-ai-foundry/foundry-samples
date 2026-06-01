@@ -1,0 +1,33 @@
+[
+  {
+    "id": "correct_policy_enforcement",
+    "description": "The agent strictly enforces Contoso Ltd.'s travel policies without any violations or misinterpretations.",
+    "weight": 10
+  },
+  {
+    "id": "accurate_budget_calculation",
+    "description": "The agent accurately calculates budget constraints, ensuring no errors in totals or ignored constraints.",
+    "weight": 6
+  },
+  {
+    "id": "viable_alternative_suggestions",
+    "description": "The agent suggests viable travel alternatives that meet policy requirements and reduce costs by at least 10%.",
+    "weight": 5
+  },
+  {
+    "id": "clear_decision_communication",
+    "description": "The agent communicates decisions clearly, including the rationale for approval, rejection, or alternative suggestions.",
+    "weight": 4
+  },
+  {
+    "id": "efficient_processing",
+    "description": "The agent processes travel requests efficiently, minimizing unnecessary delays while maintaining thoroughness.",
+    "weight": 3
+  },
+  {
+    "id": "general_quality",
+    "description": "Other important quality factors not covered by listed criteria.",
+    "weight": 5,
+    "always_applicable": true
+  }
+]
