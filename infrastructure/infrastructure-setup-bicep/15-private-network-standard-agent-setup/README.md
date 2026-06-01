@@ -656,3 +656,183 @@ Each new project deployment creates:
 - [Private Endpoint Documentation](https://learn.microsoft.com/en-us/azure/private-link/)
 - [RBAC Documentation](https://learn.microsoft.com/en-us/azure/role-based-access-control/)
 - [Network Security Best Practices](https://learn.microsoft.com/en-us/azure/security/fundamentals/network-best-practices)
+
+# (Optional) Securing an Existing Project (Reuse In-Place)
+
+`add-project.bicep` always creates a brand new project and appends a short random
+suffix to keep the name unique. That is the right behavior when you want a fresh
+project, but it does not help when you already have a Foundry project in use and
+simply want to wire the network-secured agent setup onto it.
+
+`add-existing-project.bicep` covers that case. It reuses the project you name, in
+place, with no new project and no suffix. This is the common situation when you
+are securing an already-running Foundry deployment behind private endpoints and
+do not want to recreate projects or move agents.
+
+## When to use which
+
+| Goal | Template |
+|------|----------|
+| Add a new, separate project to an existing Foundry account | `add-project.bicep` |
+| Wire/secure the agent setup onto a project that already exists | `add-existing-project.bicep` |
+
+## What it does
+
+`add-existing-project.bicep` references the existing project with the `existing`
+keyword and then layers on the same building blocks the new-project flow uses:
+
+- ✅ **Adds the three agent connections** (Cosmos DB, Storage, AI Search) to the
+  existing project using AAD (Entra ID) auth, no keys.
+- ✅ **Assigns the required RBAC roles** to the project managed identity on the
+  shared Storage, Cosmos DB, and AI Search resources.
+- ✅ **Creates (or updates) the project capability host** bound to those exact
+  connection names.
+- ✅ **Assigns the container-scoped roles** for the project's storage and Cosmos
+  containers after the capability host exists.
+- ✅ **Reuses every shared module** from the new-project flow, so behavior stays
+  consistent between the two paths.
+
+It does **not** create the project, change its display name, or touch its
+description. Those stay exactly as they are.
+
+## Prerequisites
+
+1. ✅ **The project already exists** under the target AI Services (Foundry)
+   account, and the account is the network-secured account from your original
+   deployment.
+2. ✅ **The project has a system-assigned managed identity.** The connections and
+   role assignments target that identity.
+3. ✅ **Account-level network injection is already in place** (the agent subnet is
+   configured on the account capability host from the original `main.bicep`
+   deployment). Network security is account-scoped, so once the account is
+   injected, every project under it inherits agent-subnet security. You do not
+   re-run the full template per project.
+4. ✅ **AI Search allows AAD auth** (`authOptions` is not set to API-keys-only), so
+   the AAD connection can be used.
+5. ✅ **Run the deployment in the account's resource group.** Like
+   `add-project.bicep`, this template operates on the project and capability host
+   at the deployment resource group, so deploy into the resource group that holds
+   the Foundry account. The shared Storage, Cosmos DB, and AI Search resources can
+   live in other resource groups or subscriptions (set their RG and subscription
+   parameters accordingly).
+6. ✅ **Azure CLI** installed and logged in, with permission to create role
+   assignments and capability hosts on the target resources.
+7. ✅ **Cross-subscription resources stay in the same tenant.** If your Storage,
+   Cosmos DB, or AI Search resources live in other subscriptions, they must be
+   reachable by the deployment identity and in the same Microsoft Entra tenant as
+   the project managed identity, so the AAD connections and role assignments
+   resolve.
+
+## Step-by-step
+
+### Step 1: Configure the parameters file
+
+Edit `add-existing-project.bicepparam` and set `projectName` to the existing
+project, plus the names, resource groups, and subscription IDs of the shared
+resources from your original deployment. You can reuse `get-existing-resources.ps1`
+to discover the shared resource names.
+
+```bicep
+// EXISTING project to reuse in place (no suffix is appended)
+param projectName = 'your-existing-project-name'
+param projectCapHost = 'caphostproj'
+
+param existingAccountName = 'your-foundry-account'
+param accountResourceGroupName = 'your-resource-group'
+param accountSubscriptionId = 'your-subscription-id'
+// ... plus existingAiSearchName / existingStorageName / existingCosmosDBName
+//     and their resource groups and subscription IDs
+```
+
+### Step 2: Preview the change
+
+Run a what-if first so you can see exactly what will be added before anything is
+deployed:
+
+```powershell
+az deployment group what-if `
+  --resource-group "your-resource-group" `
+  --template-file "add-existing-project.bicep" `
+  --parameters "add-existing-project.bicepparam"
+```
+
+### Step 3: Deploy
+
+```powershell
+az deployment group create `
+  --resource-group "your-resource-group" `
+  --template-file "add-existing-project.bicep" `
+  --parameters "add-existing-project.bicepparam"
+```
+
+## Handling already-configured projects
+
+Production projects are rarely a blank slate. The template has a few optional
+parameters so you can point it at a project that already has some of this wiring
+in place. Review the project's current connections, capability host, and role
+assignments before you run, then set these as needed:
+
+- **`assignRoles`** (default `true`). Set to `false` to skip every
+  role-assignment module. Use this when the project identity is already
+  permissioned on Storage, Cosmos DB, and AI Search. Manual or earlier
+  assignments use different assignment names, and Azure rejects a duplicate on
+  the same identity, role, and scope with `RoleAssignmentExists`. Skipping the
+  modules avoids that conflict. Do not set `assignRoles = false` unless every
+  role in the checklist below already exists for the project managed identity.
+  When a required role is missing, the deployment still succeeds, but the agent
+  fails at runtime rather than at deploy time, which is harder to diagnose.
+- **`cosmosDBConnectionName` / `azureStorageConnectionName` /
+  `aiSearchConnectionName`** (default empty). Leave empty to use the
+  deterministic default `<resourceName>-<project>`. Set them to the exact
+  connection names a pre-existing capability host already binds to, so the
+  capability host keeps pointing at the same connections. Note that if a
+  connection with the supplied (or default) name already exists, this deployment
+  updates that connection to target the Storage, Cosmos DB, and AI Search
+  resources you pass in. Do not reuse a live connection name unless it already
+  targets the resources you intend.
+- **`projectCapHost`** (default `caphostproj`). Point this at the capability host
+  name the project already uses. If that host exists, the deployment updates its
+  connection bindings, which affects live agents bound to it.
+
+### Required roles when you skip role assignment
+
+If you set `assignRoles = false`, confirm the project managed identity already
+holds these roles before you run, or the agent will fail at runtime:
+
+| Resource | Role | Scope |
+|----------|------|-------|
+| Storage account | Storage Blob Data Contributor | Storage account |
+| Storage account | Storage Blob Data Owner (ABAC-conditioned to `*-azureml-agent` containers) | Storage account |
+| Cosmos DB account | Cosmos DB Operator | Cosmos DB account |
+| Cosmos DB data plane | Cosmos DB Built-in Data Contributor | `enterprise_memory` database |
+| AI Search | Search Index Data Contributor | AI Search service |
+| AI Search | Search Service Contributor | AI Search service |
+
+## Idempotency
+
+The template is safe to re-run. Connection names and role-assignment IDs are
+derived deterministically from the project name, so a second run converges on the
+same resources instead of creating duplicates.
+
+## Scope and caveats
+
+This template targets the retrofit case: wiring the agent setup onto a project
+that already exists. Keep these points in mind:
+
+- 📝 A deployment that fails partway can leave the project partly wired (some
+  connections or roles present, the capability host not yet created). Re-running
+  after you fix the cause converges the rest, because every step is
+  deterministic and idempotent.
+- 📝 The three connections are created (or updated) with names derived from the
+  shared resource names plus the project name, unless you override them. If the
+  project already has connections created another way (for example through the
+  portal, which sanitizes and suffixes names), pass the override parameters so
+  the capability host binds to the names that already exist instead of adding new
+  ones.
+- 📝 If a capability host named `caphostproj` already exists on the project, the
+  deployment updates its connection bindings. Use `projectCapHost` to point at a
+  specific name if needed.
+- 📝 Network injection is account-scoped, not project-scoped. Once the account
+  capability host has the agent subnet (from the original `main.bicep`
+  deployment), every project under that account inherits agent-subnet security.
+  You run this lighter template per project, not the full setup.
