@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
-name: hello-world
-displayName: "Hello World — Voice Live (invocations_ws)"
+name: hello-world-dotnet-invocations-ws
+displayName: "Hello World — Voice Live (.NET, invocations_ws)"
 description: >
-  Minimal real-time voice agent. The hosted container exposes an
+  Minimal real-time voice agent in C#. The hosted container exposes an
   invocations_ws WebSocket; each browser connection is bridged to a fresh
   Azure Voice Live session for end-to-end speech-to-speech, with no STT /
   LLM / TTS orchestration on the user side.
@@ -13,9 +13,9 @@ metadata:
     - invocations_ws
     - Voice Live
     - Bring Your Own
-    - Python
+    - .NET
 template:
-  name: hello-world
+  name: hello-world-dotnet-invocations-ws
   kind: hosted
   protocols:
     - protocol: invocations_ws
@@ -29,7 +29,7 @@ template:
     # auto-injected FOUNDRY_PROJECT_ENDPOINT in hosted runs.
     - name: AZURE_VOICELIVE_MODEL
       value: "gpt-realtime-1.5"
-    # Optional: TTS voice (Azure or OpenAI). Defaulted in main.py if empty.
+    # Optional: TTS voice (Azure or OpenAI). Defaulted in Program.cs if empty.
     - name: AZURE_VOICELIVE_VOICE
       value: "en-US-Ava:DragonHDLatestNeural"
     # Seconds of silence (no user speech and no bot audio still playing) after
