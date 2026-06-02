@@ -651,7 +651,7 @@ resources:
 
 ## 15. Browser Automation
 
-Prompted parameters: `playwright_service_url`, `playwright_service_resource_id`. Requires an Azure Playwright workspace. After provisioning, grant the project-level Foundry Agent Identity **Playwright Workspace Contributor** on the Playwright workspace.
+Prompted parameters: `playwright_service_url`, `playwright_service_resource_id`, `playwright_service_access_token`. Requires an Azure Playwright workspace. The access token is used as a secret for the Playwright workspace connection.
 
 **`agent.manifest.yaml`**
 
@@ -661,8 +661,8 @@ name: toolbox-hosted-browser-automation
 displayName: "Browser Automation Toolbox Agent"
 description: >
   Hosted agent with a Browser Automation toolbox backed by an Azure Playwright
-  workspace connection. Uses the project-level Foundry Agent Identity to
-  authenticate to the Playwright workspace.
+  workspace connection. Uses API key authentication to connect to the
+  Playwright workspace.
 template:
   kind: hosted
   protocols:
@@ -676,6 +676,9 @@ parameters:
     - name: playwright_service_resource_id
       secret: false
       description: Azure resource ID of the Playwright workspace
+    - name: playwright_service_access_token
+      secret: true
+      description: Access token for the Azure Playwright workspace
 resources:
   - kind: model
     id: gpt-4.1
@@ -683,9 +686,10 @@ resources:
   - kind: connection
     name: browserautomation
     category: PlaywrightWorkspace
-    authType: AgenticIdentityToken
-    audience: https://management.core.windows.net
+    authType: ApiKey
     target: "{{ playwright_service_url }}"
+    credentials:
+      key: "{{ playwright_service_access_token }}"
     metadata:
       resourceId: "{{ playwright_service_resource_id }}"
   - kind: toolbox

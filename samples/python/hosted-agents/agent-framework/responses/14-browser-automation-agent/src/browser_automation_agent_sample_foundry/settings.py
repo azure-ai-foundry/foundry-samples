@@ -90,7 +90,7 @@ def make_settings() -> AgentSettings:
         ),
         azure_scope=optional_env("AZURE_AI_SCOPE", "AZURE_OPENAI_SCOPE")
         or DEFAULT_AZURE_SCOPE,
-        toolbox_name=DEFAULT_TOOLBOX_NAME,
+        toolbox_name=optional_env("TOOLBOX_NAME") or DEFAULT_TOOLBOX_NAME,
         mcp_timeout_seconds=int_env("BROWSER_AGENT_MCP_TIMEOUT_SECONDS", 120),
         playwright_cli_timeout_seconds=int_env(
             "BROWSER_AGENT_PLAYWRIGHT_CLI_TIMEOUT_SECONDS", 180
