@@ -30,6 +30,17 @@ mkdir my-basic-agent && cd my-basic-agent
 azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/01-basic/agent.manifest.yaml
 ```
 
+> [!IMPORTANT]
+> Run `azd ai agent init` from a **new, empty folder** as shown above. Do **not** run it from inside a cloned copy of this sample directory. Because this folder already contains `agent.manifest.yaml`, initializing in place fails with:
+>
+> ```
+> ERROR: downloading agent.yaml: cannot copy agent files: target '...' is inside the
+> manifest directory '...'. Move the manifest to a separate directory containing only the
+> agent files.
+> ```
+>
+> Using a fresh folder with the remote manifest URL (as shown above) avoids this. If you prefer a local manifest, keep it in its own directory and run `azd ai agent init` from a separate working directory.
+
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
 
 ### Provision Azure resources (if needed)
