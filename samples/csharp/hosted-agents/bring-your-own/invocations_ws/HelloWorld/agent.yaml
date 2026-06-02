@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
 kind: hosted
-name: hello-world
+name: hello-world-dotnet-invocations-ws
 protocols:
   - protocol: invocations_ws
     version: 1.0.0

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>HelloWorldVoiceLive</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Exclude sibling projects from HelloWorld's default compile globs. -->
+    <Compile Remove="E2ELocal/**" />
+    <Compile Remove="chat_client/**" />
+    <Content Remove="E2ELocal/**" />
+    <Content Remove="chat_client/**" />
+    <None Remove="E2ELocal/**" />
+    <None Remove="chat_client/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Invocations protocol SDK — provides InvocationsServer, InvocationWebSocketHandler, InvocationContext -->
+    <PackageReference Include="Azure.AI.AgentServer.Invocations" Version="1.0.0-beta.4" />
+    <!-- Voice Live SDK — managed speech-to-speech (STT + LLM + TTS) over WebSocket -->
+    <PackageReference Include="Azure.AI.VoiceLive" Version="1.1.0-beta.4" />
+    <!-- Azure authentication via DefaultAzureCredential -->
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+  </ItemGroup>
+
+</Project>
