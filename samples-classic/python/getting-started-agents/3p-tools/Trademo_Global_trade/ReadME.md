@@ -61,7 +61,7 @@ CONNECTION_ID - The ID of connection(connection id should be in the format "/sub
 - "How many GPUs(HS code 847330) were imported to United States from China in February 2025?"
 - "which were the top countries based on shipment value that exported jewellery(HS code 711319) to usa in 2024?"
 - "Which countries are the biggest exporter of lithium ion battery(HS code 850760) to the US in 2024?"
-- "what is the duty of import for jewllery(HS code =  711319) from India to US?"
+- "what is the duty of import for jewellery(HS code =  711319) from India to US?"
 - "Compare current duties on lithium ion batteries(HS code 850760) imported to US"
 
 ## Notes

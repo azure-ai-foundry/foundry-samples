@@ -37,7 +37,7 @@ This infrastructure-as-code (IaC) solution deploys Azure AI Foundry with public 
 
 4. Azure CLI installed and configured on your local workstation or deployment pipeline server
 
-5. Terraform CLI version v1.11.4 or later on your local workstation or depoyment pipeline server. This template requires the usage of both the AzureRm and AzApi Terraform providers.
+5. Terraform CLI version v1.11.4 or later on your local workstation or deployment pipeline server. This template requires the usage of both the AzureRm and AzApi Terraform providers.
 
 ### Variables
 
@@ -57,7 +57,7 @@ The variables listed below are optional and if not specified will use the defaul
 az login
 ```
 
-3. Ensure the proper environmental variables are set for [AzApi](https://registry.terraform.io/providers/Azure/azapi/latest/docs) and [AzureRm](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs) providers. At a minimum, you must set the ARM_SUBSCRIPTION_ID environment variable to the subscription the resoruces will be deployed to. You can do this with the commands below:
+3. Ensure the proper environmental variables are set for [AzApi](https://registry.terraform.io/providers/Azure/azapi/latest/docs) and [AzureRm](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs) providers. At a minimum, you must set the ARM_SUBSCRIPTION_ID environment variable to the subscription the resources will be deployed to. You can do this with the commands below:
 
 Linux/MacOS
 ```bash
