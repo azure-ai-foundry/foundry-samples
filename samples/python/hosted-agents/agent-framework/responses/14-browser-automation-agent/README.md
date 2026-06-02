@@ -46,7 +46,7 @@ See [main.py](src/browser_automation_agent_sample_foundry/main.py) for the full 
 ## Prerequisites
 
 - An Azure AI Foundry project with a deployed chat model (e.g., `gpt-4.1`).
-- An Azure Playwright workspace. If you do not have one, follow [Create a workspace](https://learn.microsoft.com/azure/app-testing/playwright-workspaces/quickstart-run-end-to-end-tests?tabs=playwrightcli&pivots=playwright-test-runner#create-a-workspace).
+- An Azure Playwright workspace and access token. If you do not have a workspace, follow [Create a workspace](https://learn.microsoft.com/azure/app-testing/playwright-workspaces/quickstart-run-end-to-end-tests?tabs=playwrightcli&pivots=playwright-test-runner#create-a-workspace).
 - Azure CLI installed and authenticated (`az login`).
 - Docker, if you want to build the container locally.
 - Python 3.11 or later and `uv` (or `pip`) for local development.
@@ -55,9 +55,14 @@ For hosted-agent setup, see [Deploy hosted agents with azd](https://learn.micros
 
 ## Configuration
 
+This sample uses two kinds of configuration:
+
+- **Runtime environment variables** are read by the Python agent process. Use these for local runs, or set them in the hosted agent environment when deploying.
+- **`azd` provisioning parameters** are read by `azd provision` from the azd environment. Use these only when you want this sample to create the Playwright connection and toolbox for you.
+
 ### Runtime environment variables
 
-Copy `.env.example` to `.env` for local development, or set these values in your shell:
+For local development, copy `.env.example` to `.env` or set these values in your shell. The Python app loads `.env` when it starts.
 
 ```bash
 export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
@@ -71,18 +76,21 @@ $env:FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/proje
 $env:AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1"
 ```
 
-### Optional environment variables
-
 | Variable | Default | Purpose |
 | --- | --- | --- |
+| `FOUNDRY_PROJECT_ENDPOINT` | Required locally; provided by hosted agent runtime when deployed | Foundry project endpoint used for model and Toolbox MCP calls. |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Required | Model deployment name. For hosted deployment, this is set from the model deployment selected during `azd ai agent init`; for local runs, set it in your shell or `.env` file. |
+| `TOOLBOX_NAME` | `browser-automation-tools` | Foundry Toolbox name to load at runtime. Set this to use an existing compatible toolbox instead of the sample-created toolbox. |
 | `BROWSER_AGENT_PLAYWRIGHT_CLI_TIMEOUT_SECONDS` | `180` | Optional timeout for each Playwright CLI command. |
 | `BROWSER_AGENT_MCP_TIMEOUT_SECONDS` | `120` | Optional timeout for Toolbox MCP calls. |
 
-The Toolbox endpoint is resolved as `<FOUNDRY_PROJECT_ENDPOINT>/toolboxes/browser-automation-tools/mcp?api-version=v1` and authenticated with the hosted agent identity.
+The Toolbox endpoint is resolved as `<FOUNDRY_PROJECT_ENDPOINT>/toolboxes/<TOOLBOX_NAME>/mcp?api-version=v1` and authenticated with the hosted agent identity.
 
 ### Provisioning parameters
 
-`PLAYWRIGHT_SERVICE_URL` and `PLAYWRIGHT_SERVICE_RESOURCE_ID` are not runtime environment variables. They are `azd` provisioning parameters used by [`agent.manifest.yaml`](agent.manifest.yaml) to create a `PlaywrightWorkspace` project connection with `AgenticIdentityToken` authentication and the `browser-automation-tools` toolbox wired to that connection. Set them with `azd env set` before running `azd provision` in the [deployment steps](#deploying-the-agent-to-foundry).
+`PLAYWRIGHT_SERVICE_URL`, `PLAYWRIGHT_SERVICE_RESOURCE_ID`, and `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` are not read by the Python agent at runtime. They are `azd` provisioning inputs used by [`agent.manifest.yaml`](agent.manifest.yaml) to create a `PlaywrightWorkspace` project connection with API key authentication and the default `browser-automation-tools` toolbox wired to that connection. `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is marked as a secret parameter in the manifest.
+
+Set these values with `azd env set` before running `azd provision`. `azd` stores them in `.azure/<environment-name>/.env`; the sample's root `.env` file is only for local Python execution.
 
 ## Running the Agent Host
 
@@ -151,58 +159,51 @@ Open https://example.com and report the page title.
 
 To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
 
-When deploying, set `PLAYWRIGHT_SERVICE_URL` and `PLAYWRIGHT_SERVICE_RESOURCE_ID` in your `azd` environment to point to your Azure Playwright workspace:
+When running `azd ai agent init -m agent.manifest.yaml`, you can customize the hosted agent name with the `AGENT_NAME` parameter. Leave it blank to use the default name, `browser-automation-agent-sample-foundry`.
+
+The same init flow also asks for the model deployment because [`agent.manifest.yaml`](agent.manifest.yaml) declares a `model` resource named `AZURE_AI_MODEL_DEPLOYMENT_NAME`. The selected deployment is used for the generated Azure deployment configuration and for the hosted agent's `AZURE_AI_MODEL_DEPLOYMENT_NAME` runtime environment variable. It does not update the sample's local `.env` file; set that file separately only when running the agent locally.
+
+Choose one toolbox setup path:
+
+### Option 1: Let this sample provision the toolbox
+
+Use this path if you want `azd provision` to create the Foundry project connection to your Azure Playwright workspace and the default `browser-automation-tools` toolbox.
+
+Set the Playwright workspace values in your `azd` environment:
 
 ```bash
 azd env set PLAYWRIGHT_SERVICE_URL "wss://<region>.api.playwright.microsoft.com/playwrightworkspaces/<workspace-id>/browsers"
 azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.LoadTestService/playwrightWorkspaces/<workspace-name>"
+azd env set PLAYWRIGHT_SERVICE_ACCESS_TOKEN "<playwright-workspace-access-token>"
 ```
 
 If these are not set, running `azd ai agent init -m <agent.manifest.yaml>` will prompt you to enter them interactively.
 
-Run `azd provision` before `azd deploy`. Provisioning uses [`agent.manifest.yaml`](agent.manifest.yaml) to create the Foundry project connection to your Playwright workspace and the `browser-automation-tools` toolbox:
+Run `azd provision` before `azd deploy`:
 
 ```bash
 azd provision
 ```
 
-The deployed hosted agent identity needs Foundry access at runtime to call the model and authenticate against the Toolbox MCP endpoint. The deployment tooling handles standard hosted-agent RBAC assignments when your account has sufficient permissions.
+### Option 2: Use an existing toolbox
 
-The Playwright workspace connection uses the project-level Foundry Agent Identity. After provisioning the project, grant that identity **Playwright Workspace Contributor** on the Playwright workspace:
+Use this path if your Foundry project already has a compatible toolbox. You can skip `azd provision` and set only the runtime toolbox name used by the deployed hosted agent. The toolbox must include the `browser_automation_preview` tool and its Playwright workspace connection.
 
 ```bash
-AI_PROJECT_ID=$(azd env get-value AZURE_AI_PROJECT_ID)
-PLAYWRIGHT_SCOPE=$(azd env get-value PLAYWRIGHT_SERVICE_RESOURCE_ID)
-PRINCIPAL_ID=$(az resource show \
-  --ids "$AI_PROJECT_ID" \
-  --api-version 2025-04-01-preview \
-  --query properties.agentIdentity.agentIdentityId \
-  -o tsv)
-
-az role assignment create \
-  --assignee-object-id "$PRINCIPAL_ID" \
-  --assignee-principal-type ServicePrincipal \
-  --role "78cf819f-0969-4ebe-8759-015c6efcd5bf" \
-  --scope "$PLAYWRIGHT_SCOPE"
+azd env set TOOLBOX_NAME "<your-toolbox-name>"
 ```
 
 Or in PowerShell:
 
 ```powershell
-$AiProjectId = azd env get-value AZURE_AI_PROJECT_ID
-$PlaywrightScope = azd env get-value PLAYWRIGHT_SERVICE_RESOURCE_ID
-$PrincipalId = az resource show `
-  --ids $AiProjectId `
-  --api-version 2025-04-01-preview `
-  --query properties.agentIdentity.agentIdentityId `
-  -o tsv
-
-az role assignment create `
-  --assignee-object-id $PrincipalId `
-  --assignee-principal-type ServicePrincipal `
-  --role "78cf819f-0969-4ebe-8759-015c6efcd5bf" `
-  --scope $PlaywrightScope
+azd env set TOOLBOX_NAME "<your-toolbox-name>"
 ```
+
+You do not need to set `TOOLBOX_NAME` when using the default sample-provisioned toolbox name, `browser-automation-tools`.
+
+The deployed hosted agent identity needs Foundry access at runtime to call the model and authenticate against the Toolbox MCP endpoint. The deployment tooling handles standard hosted-agent RBAC assignments when your account has sufficient permissions.
+
+For option 1, the Playwright workspace connection uses the access token you provide in `PLAYWRIGHT_SERVICE_ACCESS_TOKEN`; no separate Playwright workspace RBAC assignment is required for that connection. For option 2, make sure the existing toolbox's Playwright workspace connection already has valid authentication configured.
 
 Then deploy the hosted agent:
 

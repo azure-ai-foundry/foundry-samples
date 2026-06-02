@@ -116,11 +116,16 @@ Open **Agent Inspector** in VS Code (Command Palette → **Foundry Toolkit: Open
 # Initialize from manifest
 azd ai agent init -m agent.manifest.yaml
 
+# Set Playwright workspace connection values
+azd env set PLAYWRIGHT_SERVICE_URL "wss://<region>.api.playwright.microsoft.com/playwrightworkspaces/<workspace-id>/browsers"
+azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.LoadTestService/playwrightWorkspaces/<workspace-name>"
+azd env set PLAYWRIGHT_SERVICE_ACCESS_TOKEN "<playwright-workspace-access-token>"
+
 # Deploy
 azd deploy
 ```
 
-After deployment, grant the agent's managed identity **Playwright Workspace Contributor** on your Playwright workspace.
+`PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is used as a secret parameter for the Playwright workspace project connection.
 
 ## Tools Available to the Model
 

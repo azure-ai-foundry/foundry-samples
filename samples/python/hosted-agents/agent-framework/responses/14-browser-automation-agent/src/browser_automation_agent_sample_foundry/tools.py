@@ -199,6 +199,33 @@ def resolve_toolbox_endpoint(settings: AgentSettings) -> str:
     return f"{project_endpoint}/toolboxes/{settings.toolbox_name}/mcp?api-version=v1"
 
 
+def parse_toolbox_result(mcp_result: Any) -> str:
+    parsed_content: list[Any] = []
+    for item in getattr(mcp_result, "content", []) or []:
+        text = getattr(item, "text", None)
+        if text is None:
+            parsed_content.append(str(item))
+            continue
+
+        try:
+            parsed_content.append(json.loads(text))
+        except json.JSONDecodeError:
+            parsed_content.append(text)
+
+    if not parsed_content:
+        return "null"
+
+    if len(parsed_content) == 1:
+        value = parsed_content[0]
+        if isinstance(value, str):
+            return value
+        # Toolbox JSON text can contain escaped characters like \u0026 in URLs.
+        # Decode and re-serialize it so the model sees the actual values.
+        return json.dumps(value, ensure_ascii=False)
+
+    return json.dumps(parsed_content, ensure_ascii=False)
+
+
 def make_toolbox_mcp_tool(
     settings: AgentSettings, credential: Any
 ) -> MCPStreamableHTTPTool:
@@ -215,6 +242,7 @@ def make_toolbox_mcp_tool(
         http_client=http_client,
         request_timeout=settings.mcp_timeout_seconds,
         load_prompts=False,
+        parse_tool_results=parse_toolbox_result,
         description="Creates Microsoft Playwright Workspaces remote browser sessions.",
     )
 
