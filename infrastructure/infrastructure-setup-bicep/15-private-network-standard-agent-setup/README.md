@@ -206,6 +206,19 @@ To use an existing Cosmos DB for NoSQL resource, set cosmosDBResourceId paramete
 To use an existing Azure AI Search resource, set aiSearchServiceResourceId parameter to the full Azure resource Id of the target Azure AI Search resource. 
  - param aiSearchResourceId string = /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}
 
+> **AAD auth is required on the existing service.** Foundry connects to Search with
+> `authType=AAD`, so the service must accept Microsoft Entra (AAD) data-plane tokens
+> (local auth disabled, or `authOptions` includes an `aadOrApiKey` block). A new
+> Search service defaults to API-keys-only, which rejects AAD and makes agents fail
+> with HTTP 403. When you bring an existing service, the template checks its live
+> state and stops the deployment early with the exact fix command if it is
+> API-keys-only. To enable AAD before deploying:
+> ```bash
+> az search service update --name <search-name> --resource-group <search-rg> \
+>   --subscription <search-sub> --auth-options aadOrApiKey \
+>   --aad-auth-failure-mode http401WithBearerChallenge
+> ```
+
 
 4. **Use an existing Azure Storage account**
 
@@ -707,8 +720,19 @@ description. Those stay exactly as they are.
    deployment). Network security is account-scoped, so once the account is
    injected, every project under it inherits agent-subnet security. You do not
    re-run the full template per project.
-4. ✅ **AI Search allows AAD auth** (`authOptions` is not set to API-keys-only), so
-   the AAD connection can be used.
+4. ✅ **AI Search allows AAD auth.** Foundry connects to Search with `authType=AAD`,
+   so the service must accept Microsoft Entra (AAD) data-plane tokens. A service is
+   ready when local auth is disabled (RBAC-only) or its `authOptions` includes an
+   `aadOrApiKey` block. The Azure default for a new Search service is API-keys-only,
+   which rejects AAD and makes agents fail with HTTP 403. This template now checks
+   the live state and stops the deployment early with the exact fix command if the
+   service is API-keys-only, so you will not get a silent broken connection. To
+   enable AAD up front:
+   ```bash
+   az search service update --name <search-name> --resource-group <search-rg> \
+     --subscription <search-sub> --auth-options aadOrApiKey \
+     --aad-auth-failure-mode http401WithBearerChallenge
+   ```
 5. ✅ **Run the deployment in the account's resource group.** Like
    `add-project.bicep`, this template operates on the project and capability host
    at the deployment resource group, so deploy into the resource group that holds
