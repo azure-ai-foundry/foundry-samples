@@ -1,0 +1,41 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "lookup_travel_policy",
+      "description": "Look up the company travel policy rules and limits.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "check_department_budget",
+      "description": "Check the remaining travel budget for the employee's department.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_flight_alternatives",
+      "description": "Find cheaper flight alternatives for the given destination.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "destination": {
+            "type": "string",
+            "description": "The travel destination city"
+          }
+        },
+        "required": ["destination"]
+      }
+    }
+  }
+]

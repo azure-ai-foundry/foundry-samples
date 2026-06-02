@@ -1,0 +1,11 @@
+# Exclude from Docker build context
+.git/
+.azure/
+.env
+.env.example
+README.md
+eval.yaml
+eval.jsonl
+eval-quick.jsonl
+__pycache__/
+*.pyc

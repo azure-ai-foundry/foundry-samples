@@ -1,0 +1,12 @@
+name: hello-world-eval
+agent:
+    name: optimization-hello-world-python-responses
+    kind: hosted
+    version: "1"
+    config: .agent_configs/baseline/metadata.yaml
+dataset_file: eval.jsonl
+evaluators:
+    - builtin.task_adherence
+options:
+    eval_model: gpt-4.1-mini
+    optimization_model: gpt-5.4
