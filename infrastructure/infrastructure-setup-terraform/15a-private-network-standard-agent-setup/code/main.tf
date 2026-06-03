@@ -222,11 +222,17 @@ resource "azapi_resource" "ai_foundry" {
   }
 }
 
+resource "time_sleep" "wait_for_ai_foundry" {
+  create_duration = "60s"
+
+  depends_on = [azapi_resource.ai_foundry]
+}
+
 ## Create a deployment for OpenAI's GPT-4o in the AI Foundry resource
 ##
 resource "azurerm_cognitive_deployment" "aifoundry_deployment_gpt_4o" {
   depends_on = [
-    azapi_resource.ai_foundry
+    time_sleep.wait_for_ai_foundry
   ]
 
   name                 = "gpt-4o"
@@ -456,7 +462,7 @@ resource "azurerm_private_endpoint" "pe_aisearch" {
 resource "azurerm_private_endpoint" "pe_aifoundry" {
   depends_on = [
     azurerm_private_endpoint.pe_aisearch,
-    azapi_resource.ai_foundry,
+    time_sleep.wait_for_ai_foundry,
     azurerm_virtual_network.vnet
   ]
 
@@ -752,7 +758,7 @@ resource "azurerm_role_assignment" "storage_blob_data_owner_ai_foundry_project" 
 resource "azapi_resource_action" "purge_ai_foundry" {
   method      = "DELETE"
   resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${azurerm_resource_group.rg.location}/resourceGroups/${azurerm_resource_group.rg.name}/deletedAccounts/aifoundry${random_string.unique.result}"
-  type        = "Microsoft.Resources/resourceGroups/deletedAccounts@2021-04-30"
+  type        = "Microsoft.CognitiveServices/locations/resourceGroups/deletedAccounts@2021-04-30"
   when        = "destroy"
 
   depends_on = [time_sleep.purge_ai_foundry_cooldown]
