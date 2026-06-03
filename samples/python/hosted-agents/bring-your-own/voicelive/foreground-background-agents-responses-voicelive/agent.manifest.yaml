@@ -1,0 +1,23 @@
+name: foreground-background-agents-voicelive
+displayName: "Foreground + Background Agents (VoiceLive)"
+description: >
+  Voice-enabled field technician assistant for data center operations.
+  Integrates with Work IQ, Document Understanding, and Procedural Memory.
+metadata:
+  tags:
+    - Foreground + Background Agents
+    - Voice Optimized
+    - Responses Protocol
+template:
+  name: foreground-background-agents-voicelive
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
