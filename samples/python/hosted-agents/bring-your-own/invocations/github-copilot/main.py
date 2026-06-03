@@ -22,10 +22,8 @@ from starlette.responses import JSONResponse, Response, StreamingResponse
 
 
 from azure.ai.agentserver.invocations import InvocationAgentServerHost
-from copilot import CopilotClient, SubprocessConfig
-from copilot.session import PermissionHandler, ProviderConfig
-
-from copilot.generated.session_events import SessionEventType
+from copilot import CopilotClient, PermissionHandler, ProviderConfig
+from copilot.session_events import SessionEventType
 
 load_dotenv(override=False)
 
@@ -88,11 +86,10 @@ async def _ensure_session():
 
     if provider:
         # BYOK mode: Foundry model via Managed Identity — no token needed.
-        _client = CopilotClient(auto_start=False)
+        _client = CopilotClient()
     elif github_token:
         # Copilot mode: use GitHub token.
-        _client = CopilotClient(
-            SubprocessConfig(github_token=github_token), auto_start=False)
+        _client = CopilotClient(github_token=github_token)
     else:
         raise RuntimeError(
             "Set GITHUB_TOKEN (Copilot model) or "
