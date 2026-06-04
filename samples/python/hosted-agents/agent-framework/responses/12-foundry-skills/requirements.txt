@@ -8,3 +8,4 @@
 agent-framework-foundry
 agent-framework-foundry-hosting
 azure-ai-projects
+mcp>=1.24.0

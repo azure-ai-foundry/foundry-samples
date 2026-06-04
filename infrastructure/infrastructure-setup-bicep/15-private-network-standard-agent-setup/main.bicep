@@ -257,6 +257,20 @@ module validateExistingResources 'modules-network-secured/validate-existing-reso
   }
 }
 
+// Fail fast when a bring-your-own AI Search service rejects Microsoft Entra
+// (AAD) data-plane auth (apiKeyOnly). Foundry's CognitiveSearch connection uses
+// authType=AAD, so an unpatched existing service leaves agents failing with 403.
+// Only the existing-service path needs this; a service this template creates is
+// already configured for AAD.
+module validateSearchAadAuth 'modules-network-secured/validate-search-aad-auth.bicep' = if (searchPassedIn) {
+  name: 'validate-search-aad-auth-${uniqueSuffix}-deployment'
+  params: {
+    aiSearchName: last(acsParts)
+    aiSearchResourceGroupName: aiSearchServiceResourceGroupName
+    aiSearchSubscriptionId: aiSearchServiceSubscriptionId
+  }
+}
+
 // This module will create new agent dependent resources
 // A Cosmos DB account, an AI Search Service, and a Storage Account are created if they do not already exist
 module aiDependencies 'modules-network-secured/standard-dependent-resources.bicep' = {
@@ -358,6 +372,7 @@ module aiProject 'modules-network-secured/ai-project-identity.bicep' = {
     accountName: aiAccount.outputs.accountName
   }
   dependsOn: [
+     validateSearchAadAuth
      privateEndpointAndDNS
      cosmosDB
      aiSearch
