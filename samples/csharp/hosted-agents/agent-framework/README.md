@@ -16,6 +16,7 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | 6 | [workflows](workflows/) | A multi-agent translation pipeline using `WorkflowBuilder`. |
 | 7 | [foundry-toolbox-server-side](foundry-toolbox-server-side/) | An agent that loads a Foundry Toolbox with `GetToolboxToolsAsync()` and passes its tools as server-side tools — Foundry executes them on the agent's behalf. |
 | 8 | [a2a/01-delegation](a2a/01-delegation/) | Two hosted agents — a math-expert executor exposed over A2A and a concierge caller that delegates to it through a Foundry Toolbox A2A connection. |
+| 9 | [foundry-toolbox-mcp-skills](foundry-toolbox-mcp-skills/) | An agent that discovers MCP-based skills from a Foundry Toolbox and exposes them to the agent via `AgentSkillsProvider` with progressive disclosure. |
 
 ### Invocations API
 
