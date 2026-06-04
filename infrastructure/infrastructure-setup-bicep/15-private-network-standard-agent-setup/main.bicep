@@ -106,13 +106,6 @@ param existingAiFoundryAccountResourceId string = ''
 @description('Optional. When true, skip the model deployment. Recommended when reusing an existing account that already has the required model deployments.')
 param skipModelDeployment bool = false
 
-// Re-derive BYO account context at main.bicep level so we can scope the
-// account-level capabilityHost module to the right RG/subscription.
-var useExistingAccount = !empty(existingAiFoundryAccountResourceId)
-var existingAccountIdParts = split(existingAiFoundryAccountResourceId, '/')
-var existingAccountSubscriptionId = useExistingAccount ? existingAccountIdParts[2] : subscription().subscriptionId
-var existingAccountResourceGroupName = useExistingAccount ? existingAccountIdParts[4] : resourceGroup().name
-
 @description('The AI Search Service full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
 param aiSearchResourceId string = ''
 @description('The AI Storage Account full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
@@ -431,20 +424,36 @@ module aiSearchRoleAssignments 'modules-network-secured/ai-search-role-assignmen
   ]
 }
 
-// Account-level capabilityHost (bootstraps before project caphost).
-// The current sample relies on createCapHost.sh being run manually; making it
-// declarative keeps the flow idempotent and works for both new and BYO accounts.
-module addAccountCapabilityHost 'modules-network-secured/add-account-capability-host.bicep' = {
-  name: 'account-caphost-${uniqueSuffix}-deployment'
-  scope: resourceGroup(existingAccountSubscriptionId, existingAccountResourceGroupName)
-  params: {
-    accountName: aiAccount.outputs.accountName
-    agentSubnetResourceId: vnet.outputs.agentSubnetId
-  }
-  dependsOn: [
-    privateEndpointAndDNS
-  ]
-}
+// Account-level capabilityHost.
+//
+// PR #261 added this module to bootstrap the account-level capabilityHost so
+// the flow becomes fully declarative (no createCapHost.sh) and works for BYO
+// Foundry accounts that never had the script run.
+//
+// HOWEVER, this network-secured Standard Setup template creates the AI Foundry
+// account with `properties.networkInjections=[{scenario:'agent', subnetArmId:.., useMicrosoftManagedNetwork:false}]`
+// (see modules-network-secured/ai-account-identity.bicep). The Cognitive Services
+// resource provider (`Microsoft.CognitiveServices`) reacts to that property by
+// auto-creating an account-level capabilityHost named `{accountName}@aml_aiagentservice`
+// ~5 seconds after the account PUT. Any subsequent PUT of a second account-level
+// capabilityHost with a different name (here `caphostacct`) for the same account
+// then fails with HTTP 409:
+//
+//   "There is an existing Capability Host with name: {account}@aml_aiagentservice,
+//    provisioning state: Succeeded for workspace: ...
+//    cannot create a new Capability Host with name: caphostacct for the same ClientId."
+//
+// Account-level capability hosts are 1-per-account, keyed on ClientId, and
+// cannot be updated. The auto-created `@aml_aiagentservice` is what the
+// project-level capabilityHost (addProjectCapabilityHost) binds to, so we must
+// NOT create our own here.
+//
+// Because this template is network-secured-only (every deploy passes
+// networkInjections), the auto-create path is always taken. We therefore do
+// NOT call modules-network-secured/add-account-capability-host.bicep here.
+// The module file is intentionally kept in the directory because it may still
+// be useful for other (non-network-secured) BYO bootstrap scenarios.
+// See foundry-samples issues #312 / #254 / #255 / #265.
 
 // This module creates the capability host for the project and account
 module addProjectCapabilityHost 'modules-network-secured/add-project-capability-host.bicep' = {
@@ -458,7 +467,6 @@ module addProjectCapabilityHost 'modules-network-secured/add-project-capability-
     projectCapHost: projectCapHost
   }
   dependsOn: [
-     addAccountCapabilityHost  // account caphost must exist first
      aiSearch      // Ensure AI Search exists
      storage       // Ensure Storage exists
      cosmosDB

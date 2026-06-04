@@ -102,7 +102,7 @@ Use the table below to choose the right infrastructure template for your scenari
   
   > **Notes:** 
   - If you do not provide an existing virtual network, the template will create a new virtual network with the default address spaces and subnets described above. If you use an existing virtual network, make sure it already contains two subnets (Agent and Private Endpoint) before deploying the template.
-  - The account-level capability host is now provisioned declaratively by `modules-network-secured/add-account-capability-host.bicep` as part of `main.bicep`. The standalone `createCapHost.sh` script is no longer required for first-time deployments; it remains in the folder only to support the cleanup-then-recreate flow described in the [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance).
+  - For network-secured deployments, the account-level capability host (`{accountName}@aml_aiagentservice`) is auto-created by the Cognitive Services resource provider (`Microsoft.CognitiveServices`) when the account is created with `properties.networkInjections[].scenario = 'agent'` (set in `modules-network-secured/ai-account-identity.bicep`). Neither `createCapHost.sh` nor the `add-account-capability-host.bicep` module is invoked for first-time deployments; both remain in the folder only to support the cleanup-then-recreate flow described in the [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance).
   - You must ensure the subnet is exclusively delegated to __Microsoft.App/environments__ and cannot be used by any other Azure resources.
 
 
@@ -128,7 +128,7 @@ Before deleting an **Account** resource, it is essential to first delete the ass
  
 **2. Retain Account, Remove Capability Host**: If you intend to retain the account but remove the capability host, execute the script `deleteCaphost.sh` located in this folder. After deletion, allow approximately max of 20 minutes for all resources to be fully unlinked from the account. To recreate the capability host for the account, use the script `createCaphost.sh` located in the same folder.
 
-> **Note**: The account-level capability host is created declaratively by `main.bicep` (via `modules-network-secured/add-account-capability-host.bicep`) on first deployment. The `createCapHost.sh` script is intended for this cleanup-then-recreate scenario only; it is not required for an initial deployment.
+> **Note**: For network-secured deployments, the account-level capability host is auto-created by the Cognitive Services resource provider on first deployment (triggered by the `networkInjections.scenario = 'agent'` property set in `modules-network-secured/ai-account-identity.bicep`). The `createCapHost.sh` script and the `add-account-capability-host.bicep` module are intended for this cleanup-then-recreate scenario only; neither is required for an initial deployment.
 
 
 > **Important**: Before deleting the account capability host, ensure that the **project capability host** is deleted.
@@ -465,7 +465,7 @@ Private endpoints ensure secure, internal-only connectivity. Private endpoints a
 
 ```text
 modules-network-secured/
-├── add-account-capability-host.bicep               # Declarative account-level capability host (replaces createCapHost.sh for first-time deployments)
+├── add-account-capability-host.bicep               # (Not invoked by main.bicep in network-secured deployments — the account-level capability host is auto-created by the Cognitive Services resource provider via networkInjections.scenario='agent'. Retained for the cleanup-then-recreate flow.)
 ├── add-project-capability-host.bicep               # Configuring the project's capability host
 ├── ai-account-identity.bicep                       # Microsoft Foundry deployment and configuration (supports BYO existing account)
 ├── ai-project-identity.bicep                       # Foundry project deployment and connection configuration           
