@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: foundry-toolbox-mcp-skills
+displayName: "Foundry Toolbox - MCP Skills (.NET, Agent Framework)"
+
+description: >
+  Agent Framework agent that discovers MCP-based skills from a Foundry Toolbox
+  and exposes them to the agent via AgentSkillsProvider with progressive
+  disclosure (advertise, load, read resources).
+
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Azure AI AgentServer
+    - Responses Protocol
+    - Agent Framework
+    - Agent Skills
+    - MCP
+    - Foundry Toolbox
+    - Foundry Toolbox Skills
+    - .NET
+
+template:
+  name: foundry-toolbox-mcp-skills
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT and APPLICATIONINSIGHTS_CONNECTION_STRING are injected
+    # by the platform (hosted) and translated by azd (local) - do NOT declare them here.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: "{{TOOLBOX_NAME}}"
+
+parameters:
+  properties:
+    - name: TOOLBOX_NAME
+      secret: false
+      description: >
+        Name of the Foundry Toolbox to connect to for MCP-based skill discovery.
+        The toolbox must already be provisioned in the target Foundry project
+        with at least one MCP server that exposes skills.
+
+resources:
+  - kind: model
+    id: gpt-4.1
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
