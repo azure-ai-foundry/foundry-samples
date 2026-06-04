@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: agent-framework-a2a-caller-responses-dotnet
+displayName: "A2A Caller — Concierge (.NET, Agent Framework)"
+description: >
+  An Agent Framework hosted agent (Responses protocol) that delegates tasks to
+  a Foundry-hosted A2A executor agent through a Foundry Toolbox A2A connection.
+metadata:
+  tags:
+    - Agent Framework
+    - AI Agent Hosting
+    - Azure AI AgentServer
+    - Responses Protocol
+    - A2A
+    - .NET
+template:
+  name: agent-framework-a2a-caller-responses-dotnet
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT and APPLICATIONINSIGHTS_CONNECTION_STRING
+    # are injected by the platform (hosted) and translated by azd (local)
+    # — do NOT declare them here.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+    - name: TOOLBOX_NAME
+      value: "a2a-delegation-tools"
+parameters:
+  properties:
+    - name: a2a_executor_endpoint
+      secret: false
+      description: >
+        URL of the executor's incoming A2A endpoint, e.g.
+        https://<account>.services.ai.azure.com/api/projects/<project>/agents/agent-framework-a2a-executor-responses-dotnet/endpoint/protocols/a2a/
+        (printed by executor/scripts/setup-a2a after enabling incoming A2A).
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+  - kind: connection
+    name: math-expert-a2a
+    category: RemoteA2A
+    authType: UserEntraToken
+    audience: https://ai.azure.com
+    target: "{{ a2a_executor_endpoint }}"
+    metadata:
+      AgentCardPath: /agentCard/v0.3
+  - kind: toolbox
+    name: a2a-delegation-tools
+    description: Toolbox exposing the math-expert A2A executor agent.
+    tools:
+      - type: a2a_preview
+        name: math_expert
+        description: Delegates arithmetic and math questions to the math-expert A2A agent.
+        project_connection_id: math-expert-a2a
+        agent_card_path: agentCard/v0.3

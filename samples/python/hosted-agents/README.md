@@ -120,6 +120,7 @@ The platform manages conversation history, streaming lifecycle, and background e
 8. **[Observability](./agent-framework/responses/08-observability/)** — Add logging, metrics, and distributed tracing to your agent and visualize them in Foundry.
 9. **[Declarative Workflows](./agent-framework/responses/09-declarative-customer-support/)** — A multi-turn customer-support triage workflow defined entirely in YAML and hosted as an agent, demonstrating declarative workflow authoring with `InvokeAzureAgent` calls to specialist Foundry-hosted agents and conversation-aware routing.
 10. **[Downstream Azure services](./agent-framework/responses/09-downstream-azure/)** — Call Azure Blob Storage and Service Bus from the agent using its per-agent Microsoft Entra identity (no connection strings).
+11. **[A2A Delegation](./agent-framework/a2a/01-delegation/)** — Two-agent walkthrough: a hosted Responses **caller** delegates to a hosted Responses **executor** that is exposed as an A2A endpoint via Foundry's incoming A2A feature, wired together through a Foundry Toolbox `a2a_preview` tool over a `RemoteA2A` connection.
 
 ### Invocations protocol
 
