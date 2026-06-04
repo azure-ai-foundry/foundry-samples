@@ -113,8 +113,11 @@ Open **Agent Inspector** in VS Code (Command Palette → **Foundry Toolkit: Open
 ## Deploying to Foundry
 
 ```bash
-# Initialize from manifest
-azd ai agent init -m agent.manifest.yaml
+# Initialize from manifest — run from the parent directory (one level up
+# from this sample folder) so azd scaffolds the project alongside the
+# sample rather than inside it.
+cd ..
+azd ai agent init -m ./browser-automation/agent.manifest.yaml
 
 # Set Playwright workspace connection values
 azd env set PLAYWRIGHT_SERVICE_URL "wss://<region>.api.playwright.microsoft.com/playwrightworkspaces/<workspace-id>/browsers"
@@ -124,6 +127,17 @@ azd env set PLAYWRIGHT_SERVICE_ACCESS_TOKEN "<playwright-workspace-access-token>
 # Deploy
 azd deploy
 ```
+
+> [!IMPORTANT]
+> Run `azd ai agent init` from a directory **outside** the sample folder — either a new empty directory, or one level up from this sample as shown above. Do **not** run it from inside the sample directory itself. Because the sample folder already contains `agent.manifest.yaml`, initializing in place fails with:
+>
+> ```
+> ERROR: downloading agent.yaml: cannot copy agent files: target '...' is inside the
+> manifest directory '...'. Move the manifest to a separate directory containing only the
+> agent files.
+> ```
+>
+> The `cd ..` step above (or using a fresh, empty directory with the remote manifest URL) avoids this.
 
 `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is used as a secret parameter for the Playwright workspace project connection.
 

@@ -159,7 +159,18 @@ Open https://example.com and report the page title.
 
 To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
 
-When running `azd ai agent init -m agent.manifest.yaml`, you can customize the hosted agent name with the `AGENT_NAME` parameter. Leave it blank to use the default name, `browser-automation-agent-sample-foundry`.
+When running `azd ai agent init -m ./14-browser-automation-agent/agent.manifest.yaml` from the parent directory (one level above this sample folder), you can customize the hosted agent name with the `AGENT_NAME` parameter. Leave it blank to use the default name, `browser-automation-agent-sample-foundry`.
+
+> [!IMPORTANT]
+> Run `azd ai agent init` from a directory **outside** this sample folder — either a new empty directory, or one level up from this sample (i.e. `samples/python/hosted-agents/agent-framework/responses/`). Do **not** run it from inside `14-browser-automation-agent/` itself. Because the sample folder already contains `agent.manifest.yaml`, initializing in place fails with:
+>
+> ```
+> ERROR: downloading agent.yaml: cannot copy agent files: target '...' is inside the
+> manifest directory '...'. Move the manifest to a separate directory containing only the
+> agent files.
+> ```
+>
+> Using the parent-directory invocation shown above (or a fresh empty folder with the remote manifest URL) avoids this.
 
 The same init flow also asks for the model deployment because [`agent.manifest.yaml`](agent.manifest.yaml) declares a `model` resource named `AZURE_AI_MODEL_DEPLOYMENT_NAME`. The selected deployment is used for the generated Azure deployment configuration and for the hosted agent's `AZURE_AI_MODEL_DEPLOYMENT_NAME` runtime environment variable. It does not update the sample's local `.env` file; set that file separately only when running the agent locally.
 

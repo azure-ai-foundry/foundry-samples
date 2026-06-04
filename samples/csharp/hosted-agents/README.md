@@ -298,7 +298,18 @@ The LangGraph samples are Python-only because LangGraph is a Python-native frame
 
 Python samples follow the same layout with `main.py`, `requirements.txt`, and a Python-based Dockerfile.
 
-> Samples do not include `azure.yaml`. The `azd ai agent init -m agent.manifest.yaml` command generates the project configuration automatically from the agent manifest.
+> Samples do not include `azure.yaml`. The `azd ai agent init -m ./<sample-name>/agent.manifest.yaml` command (run from the sample's parent directory, not from the sample directory itself) generates the project configuration automatically from the agent manifest.
+
+> [!IMPORTANT]
+> Run `azd ai agent init` from a directory **outside** the sample folder — either a new empty directory, or one level up from the sample. Do **not** run it from inside the sample directory itself. Because the sample folder already contains `agent.manifest.yaml`, initializing in place fails with:
+>
+> ```
+> ERROR: downloading agent.yaml: cannot copy agent files: target '...' is inside the
+> manifest directory '...'. Move the manifest to a separate directory containing only the
+> agent files.
+> ```
+>
+> Use a fresh, empty directory with the remote manifest URL (e.g. `azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/hello-world/agent.manifest.yaml`), or run from the sample's parent directory with `azd ai agent init -m ./<sample-name>/agent.manifest.yaml`.
 
 ## Prerequisites
 
