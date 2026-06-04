@@ -29,6 +29,12 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | --- | ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | 1   | [Basic](invocations/01-basic/) | A minimal agent demonstrating session state management via `agent_session_id` in URL params/response headers. |
 
+### A2A protocol
+
+| # | Sample | Description |
+|---|--------|-------------|
+| 1 | [Delegation](a2a/01-delegation/) | A two-agent walkthrough: a Responses-protocol **caller** delegates over A2A to a Responses-protocol **executor** that is exposed as an A2A endpoint via Foundry's [incoming A2A](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/enable-agent-to-agent-endpoint) feature. Includes a Bash/PowerShell script that PATCHes the executor to publish its agent card and enable A2A. |
+
 ## Running the Agent Host Locally
 
 You can run any sample in this folder using one of three approaches. Pick the one that matches your workflow.
