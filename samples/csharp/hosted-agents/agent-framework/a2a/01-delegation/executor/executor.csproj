@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>A2ADelegation.Executor</RootNamespace>
+    <AssemblyName>executor</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- NU1903: suppress package vulnerability audit warnings for preview/alpha packages from the azure-sdk-for-net feed.
+         NU1605: suppress downgrade warnings that arise from preview transitive dependency resolution. -->
+    <NoWarn>$(NoWarn);NU1903;NU1605</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Agent Framework hosting — provides AgentHost, AddFoundryResponses, MapFoundryResponses -->
+    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.3.0-preview.260423.1" />
+    <!-- Foundry SDK — provides AIProjectClient and AsAIAgent -->
+    <PackageReference Include="Azure.AI.Projects" Version="2.1.0-beta.1" />
+    <!-- .env file support for local development -->
+    <PackageReference Include="DotNetEnv" Version="3.1.1" />
+  </ItemGroup>
+
+</Project>
