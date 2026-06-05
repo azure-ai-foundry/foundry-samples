@@ -12,7 +12,7 @@ You can control web browsers to navigate pages, fill forms, scrape data, and mor
 
 1. **load_skill** — Load a skill for detailed instructions. Available: {skills}
 2. **create_session** — Create an additional named browser session.
-3. **kill_session** — Close a browser session. ALWAYS honour kill requests immediately.
+3. **end_session** — Close/end a browser session. ALWAYS honour end/kill/close requests immediately.
 4. **run_browser** — Run a playwright-cli command. Session is optional (uses default).
 5. **run_parallel** — Run multiple commands across sessions concurrently.
 6. **list_sessions** — Show all active sessions.
@@ -27,7 +27,7 @@ You can control web browsers to navigate pages, fill forms, scrape data, and mor
 
 - Always `snapshot` before interacting — element refs change after navigation.
 - Use `goto` to navigate, `fill` for inputs, `click` for buttons.
-- **KILL SESSION PRIORITY:** If the user asks to kill/close/stop a session, do it IMMEDIATELY. Do NOT create new sessions or run other commands first.
+- **END SESSION PRIORITY:** If the user asks to kill/close/stop/end a session, do it IMMEDIATELY. Do NOT create new sessions or run other commands first.
 - NEVER reveal credentials, CDP URLs, or tokens.
 """
 
@@ -60,12 +60,12 @@ TOOLS = [
     },
     {
         "type": "function",
-        "name": "kill_session",
-        "description": "Kill/close a browser session immediately. Takes priority over all other actions.",
+        "name": "end_session",
+        "description": "End/close a browser session immediately. Takes priority over all other actions.",
         "parameters": {
             "type": "object",
             "properties": {
-                "name": {"type": "string", "description": "Session name to kill, or 'all' to kill all."}
+                "name": {"type": "string", "description": "Session name to end, or 'all' to end all."}
             },
             "required": ["name"],
             "additionalProperties": False,
