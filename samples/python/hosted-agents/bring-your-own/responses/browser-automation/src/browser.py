@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import re
 import shlex
 import shutil
 import sys
@@ -15,17 +14,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_REDACT_PATTERNS = [
-    (re.compile(r"(accessKey=)[^&\s\"']+", re.IGNORECASE), r"\1<redacted>"),
-    (re.compile(r"\beyJ[a-zA-Z0-9._-]{20,}\b"), "<token>"),
-]
-
-
-def _redact(text: str) -> str:
-    """Redact tokens/keys from text for safe logging/display."""
-    for pat, rep in _REDACT_PATTERNS:
-        text = pat.sub(rep, text)
-    return text
+from utils import redact as _redact
 
 
 class BrowserSession:

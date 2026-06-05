@@ -37,6 +37,7 @@ from toolbox import ToolboxClient
 from browser import BrowserSession
 from skills import load_skill, list_skills
 from constants import SYSTEM_PROMPT, TOOLS, AZURE_AI_SCOPE
+from utils import redact as _redact
 
 load_dotenv(override=False)
 
@@ -133,7 +134,7 @@ async def _handle_tool_call(call) -> str:
         elif name == "create_session":
             result = await _create_session(args.get("name", f"session-{len(_sessions)+1}"))
 
-        elif name == "kill_session":
+        elif name == "end_session":
             result = await _kill_session(args.get("name", ""))
 
         elif name == "run_browser":
@@ -197,19 +198,20 @@ async def _handle_tool_call(call) -> str:
     return json.dumps(result)
 
 
-async def _run_agent_loop(input_items: list[dict]) -> str:
-    """Execute the agentic tool-calling loop until the model produces a final response."""
+async def _run_agent_loop_streaming(input_items: list[dict]):
+    """Generator version of the agent loop that yields (verbose_log, final_reply) tuples.
+
+    Yields ("log", text) for intermediate tool progress.
+    Yields ("reply", text) for the final model response.
+    """
     system = SYSTEM_PROMPT.format(skills=", ".join(list_skills()))
 
-    # Inject active session state so model knows what's available
     if _sessions:
         input_items.insert(-1, {
             "role": "user",
             "content": f"[Active sessions: {list(_sessions.keys())}, default: {_last_session}]"
         })
 
-    # Loop until the model produces a final text response (no tool calls).
-    # Bounded by the 300s timeout in the handler via asyncio.wait_for.
     while True:
         response = await asyncio.get_running_loop().run_in_executor(
             None,
@@ -228,10 +230,32 @@ async def _run_agent_loop(input_items: list[dict]) -> str:
         ]
 
         if not tool_calls:
-            return response.output_text or "(No response)"
+            yield ("reply", response.output_text or "(No response)")
+            return
 
         for tc in tool_calls:
+            name = getattr(tc, "name", "")
+            args = json.loads(tc.arguments or "{}")
+
+            # Track sessions before tool call to detect lazy creation
+            sessions_before = set(_sessions.keys())
+
             result_text = await _handle_tool_call(tc)
+
+            # Detect lazy session creation (e.g. run_browser auto-creates default)
+            new_sessions = set(_sessions.keys()) - sessions_before
+            for new_sess in new_sessions:
+                url = _sessions[new_sess].get("live_view_url", "")
+                if url:
+                    yield ("session", f"🌐 Created **{new_sess}** → [Live View]({url})\n")
+                else:
+                    yield ("session", f"🌐 Created **{new_sess}** (session ready)\n")
+
+            # Yield verbose progress log
+            log_entry = _format_tool_log(name, args, result_text)
+            if log_entry:
+                yield log_entry
+
             input_items.append({
                 "type": "function_call",
                 "id": tc.id,
@@ -244,6 +268,47 @@ async def _run_agent_loop(input_items: list[dict]) -> str:
                 "call_id": tc.call_id,
                 "output": result_text,
             })
+
+
+def _format_tool_log(name: str, args: dict, result_text: str) -> tuple[str, str] | None:
+    """Format a verbose log entry for a tool call. Returns (kind, text) or None."""
+    if name == "create_session":
+        sess_name = args.get("name", "?")
+        try:
+            result = json.loads(result_text)
+            url = result.get("live_view_url") or ""
+            if url:
+                return ("session", f"🌐 Created **{sess_name}** → [Live View]({url})\n")
+            else:
+                return ("session", f"🌐 Created **{sess_name}** (session ready, live view pending)\n")
+        except (json.JSONDecodeError, TypeError):
+            pass
+        return ("session", f"🌐 Created **{sess_name}**\n")
+    elif name == "end_session":
+        sess_name = args.get("name", "?")
+        try:
+            result = json.loads(result_text)
+            if result.get("status") == "killed_all":
+                return ("log", f"🔴 Ended ALL sessions\n")
+            elif result.get("status") == "killed":
+                return ("log", f"🔴 Ended **{sess_name}**\n")
+        except (json.JSONDecodeError, TypeError):
+            pass
+        return ("log", f"🔴 End {sess_name}\n")
+    elif name == "run_browser":
+        sess = args.get("session") or _last_session or "?"
+        cmd = args.get("command", "")
+        cmd_args = args.get("args") or []
+        safe_args = [_redact(a) for a in cmd_args[:2]]
+        return ("log", f"🔧 [{sess}] `{cmd} {' '.join(safe_args)}`\n")
+    elif name == "run_parallel":
+        tasks = args.get("tasks") or []
+        return ("log", f"⚡ Running {len(tasks)} tasks in parallel\n")
+    elif name == "load_skill":
+        return ("log", f"📖 Loading skill: {args.get('name', '?')}\n")
+    elif name == "list_sessions":
+        return ("log", f"📋 Listed sessions\n")
+    return None
 
 
 # ── Responses protocol handler ────────────────────────────────────────────────
@@ -293,7 +358,7 @@ async def handler(
     context: ResponseContext,
     cancellation_signal: asyncio.Event,
 ):
-    """Handle browser automation requests with tool-calling loop."""
+    """Handle browser automation requests with tool-calling loop and verbose streaming."""
     stream = ResponseEventStream(
         response_id=context.response_id,
         model=getattr(request, "model", None),
@@ -312,6 +377,11 @@ async def handler(
         yield stream.emit_completed()
         return
 
+    # Check for /verbose flag in user input
+    verbose_mode = user_input.strip().startswith("/verbose")
+    if verbose_mode:
+        user_input = user_input.replace("/verbose", "", 1).strip()
+
     try:
         history = await context.get_history()
     except Exception as exc:
@@ -321,35 +391,44 @@ async def handler(
     input_items = _build_input(user_input, history)
     logger.info("Processing request %s (sessions: %s)", context.response_id, list(_sessions.keys()))
 
-    try:
-        assistant_reply = await asyncio.wait_for(
-            _run_agent_loop(input_items),
-            timeout=300.0,
-        )
-    except asyncio.TimeoutError:
-        assistant_reply = "Request timed out. Please retry with a simpler prompt."
-    except asyncio.CancelledError:
-        assistant_reply = "Request was cancelled."
-    except Exception as exc:
-        logger.exception("Agent loop failed: %s", exc)
-        assistant_reply = f"Agent error: {exc}"
-
-    # Prepend session info to response
-    session_header = ""
-    if _sessions:
-        for sname, s in _sessions.items():
-            url = s.get("live_view_url")
-            if url:
-                session_header += f"🔴 **[{sname} Live View]({url})**\n"
-        if session_header:
-            session_header += "\n---\n\n"
-
     message_item = stream.add_output_item_message()
     yield message_item.emit_added()
 
     text_content = message_item.add_text_content()
     yield text_content.emit_added()
-    yield text_content.emit_delta(session_header + assistant_reply)
+
+    # Stream verbose tool logs as they happen
+    verbose_text = ""
+    final_reply = ""
+
+    try:
+        async for kind, text in _run_agent_loop_streaming(input_items):
+            if cancellation_signal.is_set():
+                yield text_content.emit_delta("⚠️ Cancelled.\n")
+                break
+            if kind == "session":
+                # Always show session events (live view URL)
+                yield text_content.emit_delta(text)
+                verbose_text += text
+            elif kind == "log" and verbose_mode:
+                # Only show tool action logs in verbose mode
+                yield text_content.emit_delta(text)
+                verbose_text += text
+            elif kind == "reply":
+                final_reply = text
+    except asyncio.TimeoutError:
+        final_reply = "Request timed out. Please retry with a simpler prompt."
+    except asyncio.CancelledError:
+        final_reply = "Request was cancelled."
+    except Exception as exc:
+        logger.exception("Agent loop failed: %s", exc)
+        final_reply = f"Agent error: {exc}"
+
+    # Emit final reply (no session header — live view already shown in verbose logs)
+    if verbose_text:
+        yield text_content.emit_delta("\n---\n\n")
+
+    yield text_content.emit_delta(final_reply)
     yield text_content.emit_text_done()
     yield text_content.emit_done()
     yield message_item.emit_done()
