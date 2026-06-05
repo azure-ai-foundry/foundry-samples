@@ -102,7 +102,7 @@ Use the table below to choose the right infrastructure template for your scenari
   
   > **Notes:** 
   - If you do not provide an existing virtual network, the template will create a new virtual network with the default address spaces and subnets described above. If you use an existing virtual network, make sure it already contains two subnets (Agent and Private Endpoint) before deploying the template.
-  - The account-level capability host is now provisioned declaratively by `modules-network-secured/add-account-capability-host.bicep` as part of `main.bicep`. The standalone `createCapHost.sh` script is no longer required for first-time deployments; it remains in the folder only to support the cleanup-then-recreate flow described in the [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance).
+  - The account-level capability host is created implicitly by the platform via `networkInjections.scenario='agent'` on the Foundry account (see `modules-network-secured/ai-account-identity.bicep`). Only one capability host per account is allowed, so `main.bicep` does not declare a second one for fresh deployments. Set `createAccountCapabilityHost=true` only when the account has no capability host — BYO accounts without one, or after running `deleteCapHost.sh` (see [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance)).
   - You must ensure the subnet is exclusively delegated to __Microsoft.App/environments__ and cannot be used by any other Azure resources.
 
 
@@ -126,9 +126,9 @@ Before deleting an **Account** resource, it is essential to first delete the ass
 
 **1. Full Account Removal**: To completely remove an account, you must delete and purge the account. Simply deleting the account is not sufficient, you must purge so that deletion of the associated capability host is triggered. The service will automatically handle the removal of the capability host and any linked resources in the background. To purge the account, use the following [link](https://learn.microsoft.com/en-us/azure/ai-services/recover-purge-resources?tabs=azure-portal#purge-a-deleted-resource). Please allow approximately max of 20 minutes for all resources to be fully unlinked from the account.
  
-**2. Retain Account, Remove Capability Host**: If you intend to retain the account but remove the capability host, execute the script `deleteCaphost.sh` located in this folder. After deletion, allow approximately max of 20 minutes for all resources to be fully unlinked from the account. To recreate the capability host for the account, use the script `createCaphost.sh` located in the same folder.
+**2. Retain Account, Remove Capability Host**: If you intend to retain the account but remove the capability host, execute the script `deleteCapHost.sh` located in this folder. After deletion, allow approximately max of 20 minutes for all resources to be fully unlinked from the account. To recreate the capability host, redeploy `main.bicep` with `createAccountCapabilityHost=true`.
 
-> **Note**: The account-level capability host is created declaratively by `main.bicep` (via `modules-network-secured/add-account-capability-host.bicep`) on first deployment. The `createCapHost.sh` script is intended for this cleanup-then-recreate scenario only; it is not required for an initial deployment.
+> **Note**: The capability host name to enter when prompted by `deleteCapHost.sh` follows the platform convention `<accountName>@aml_aiagentservice` for implicitly-created hosts. When `createAccountCapabilityHost=true` was used previously, the same conventional name applies (it is the module's default).
 
 
 > **Important**: Before deleting the account capability host, ensure that the **project capability host** is deleted.
@@ -166,6 +166,7 @@ Note: If not provided, the following resources will be created automatically for
 | `azureStorageAccountResourceId` | ARM Resource ID of existing Storage account | `''` (creates new) | No |
 | `azureCosmosDBAccountResourceId` | ARM Resource ID of existing Cosmos DB | `''` (creates new) | No |
 | `existingAiFoundryAccountResourceId` | Full ARM Resource ID of an existing Microsoft Foundry (Cognitive Services / AIServices) account to reuse. When set, the template will not create a new account. | `''` (creates new) | No |
+| `createAccountCapabilityHost` | When `true`, the template explicitly creates the account-level capability host. Leave `false` for fresh deployments — the platform auto-creates it via `networkInjections.scenario='agent'`. Set `true` only for a BYO account with no capability host, or to recreate after running `deleteCapHost.sh`. Only one capability host per account is allowed. | `false` | No |
 | `dnsZonesSubscriptionId` | Subscription ID for existing DNS zones. Accepts either a bare GUID (`<subscription-id>`) or a full ARM subscription path (`/subscriptions/<subscription-id>`); the template normalizes the value internally. | `''` (current sub) | No |
 | `existingDnsZones` | Map of DNS zone names to resource groups | All empty (creates new) | No |
 
@@ -228,14 +229,17 @@ To use an existing Azure Storage account, set aiStorageAccountResourceId paramet
 
 5. **Use an existing Microsoft Foundry account**
 
-To reuse an existing Microsoft Foundry (Cognitive Services / AIServices kind) account instead of creating a new one, set `existingAiFoundryAccountResourceId` to the full Azure Resource ID of the target account. The template will reference the existing account, scope the account-level capability host to its resource group and subscription, and skip the deterministic-suffix account creation path (which would otherwise create a new account on every redeploy).
+To reuse an existing Microsoft Foundry (Cognitive Services / AIServices kind) account instead of creating a new one, set `existingAiFoundryAccountResourceId` to the full Azure Resource ID of the target account. The template will reference the existing account (cross-RG / cross-subscription aware) and skip the deterministic-suffix account creation path (which would otherwise create a new account on every redeploy).
 
 - param existingAiFoundryAccountResourceId string = '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.CognitiveServices/accounts/{accountName}'
 - param skipModelDeployment bool = true  // recommended when the BYO account already has the required model deployment(s)
+- param createAccountCapabilityHost bool = false  // set true ONLY if the BYO account has no capability host yet
 
 💡 **When to use this**: bring-your-own-account is intended for scenarios where the Foundry account is provisioned ahead of time by a platform team or landing zone, and the workload deployment must reuse it (for compliance, naming standards, or to avoid orphaned accounts on retry).
 
 ⚠️ **Important**: When `existingAiFoundryAccountResourceId` is set, the required model deployment(s) must already exist on the BYO account if `skipModelDeployment = true`. The agent service depends on at least one model deployment matching `modelName` / `modelVersion` to function.
+
+⚠️ **Capability host on BYO accounts**: If your BYO account already has a capability host (one created via `networkInjections.scenario='agent'` at account creation, or a previous explicit creation), leave `createAccountCapabilityHost=false`. Set it to `true` only when the account has no capability host — only one capability host per account is allowed and a second create will fail.
 
 ---
 
@@ -465,8 +469,8 @@ Private endpoints ensure secure, internal-only connectivity. Private endpoints a
 
 ```text
 modules-network-secured/
-├── add-account-capability-host.bicep               # Declarative account-level capability host (replaces createCapHost.sh for first-time deployments)
-├── add-project-capability-host.bicep               # Configuring the project's capability host
+├── add-account-capability-host.bicep                # Opt-in (createAccountCapabilityHost=true): creates the account caphost when the account has none
+├── add-project-capability-host.bicep                # Configuring the project's capability host
 ├── ai-account-identity.bicep                       # Microsoft Foundry deployment and configuration (supports BYO existing account)
 ├── ai-project-identity.bicep                       # Foundry project deployment and connection configuration           
 ├── ai-search-role-assignments.bicep                # AI Search RBAC configuration

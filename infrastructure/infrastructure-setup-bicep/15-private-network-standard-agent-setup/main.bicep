@@ -106,12 +106,13 @@ param existingAiFoundryAccountResourceId string = ''
 @description('Optional. When true, skip the model deployment. Recommended when reusing an existing account that already has the required model deployments.')
 param skipModelDeployment bool = false
 
-// Re-derive BYO account context at main.bicep level so we can scope the
-// account-level capabilityHost module to the right RG/subscription.
-var useExistingAccount = !empty(existingAiFoundryAccountResourceId)
-var existingAccountIdParts = split(existingAiFoundryAccountResourceId, '/')
-var existingAccountSubscriptionId = useExistingAccount ? existingAccountIdParts[2] : subscription().subscriptionId
-var existingAccountResourceGroupName = useExistingAccount ? existingAccountIdParts[4] : resourceGroup().name
+// Account-level capability host is auto-created by the platform when
+// `networkInjections.scenario='agent'` is set on a NEW account. Only one
+// capability host per account is allowed, so this flag must stay false in that
+// case. Set true only when the account has NO capability host: a BYO account
+// without one, or after `deleteCapHost.sh` for a redeploy.
+@description('Optional. Create the account-level capability host explicitly. Leave false for fresh deployments (platform auto-creates it via networkInjections). Set true only for a BYO account with no capability host, or to recreate after running deleteCapHost.sh.')
+param createAccountCapabilityHost bool = false
 
 @description('The AI Search Service full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
 param aiSearchResourceId string = ''
@@ -431,22 +432,18 @@ module aiSearchRoleAssignments 'modules-network-secured/ai-search-role-assignmen
   ]
 }
 
-// Account-level capabilityHost (bootstraps before project caphost).
-// The current sample relies on createCapHost.sh being run manually; making it
-// declarative keeps the flow idempotent and works for both new and BYO accounts.
-module addAccountCapabilityHost 'modules-network-secured/add-account-capability-host.bicep' = {
-  name: 'account-caphost-${uniqueSuffix}-deployment'
-  scope: resourceGroup(existingAccountSubscriptionId, existingAccountResourceGroupName)
+// Account-level capability host (opt-in). See `createAccountCapabilityHost`
+// param notes — disabled by default because the platform creates it implicitly
+// for fresh accounts. Project caphost depends on this so ordering is correct
+// when the flag is true; when false, the dependsOn entry is a no-op in ARM.
+module addAccountCapabilityHost 'modules-network-secured/add-account-capability-host.bicep' = if (createAccountCapabilityHost) {
+  name: 'account-capability-host-${uniqueSuffix}-deployment'
   params: {
     accountName: aiAccount.outputs.accountName
     agentSubnetResourceId: vnet.outputs.agentSubnetId
   }
-  dependsOn: [
-    privateEndpointAndDNS
-  ]
 }
 
-// This module creates the capability host for the project and account
 module addProjectCapabilityHost 'modules-network-secured/add-project-capability-host.bicep' = {
   name: 'capabilityHost-configuration-${uniqueSuffix}-deployment'
   params: {
@@ -458,7 +455,7 @@ module addProjectCapabilityHost 'modules-network-secured/add-project-capability-
     projectCapHost: projectCapHost
   }
   dependsOn: [
-     addAccountCapabilityHost  // account caphost must exist first
+     addAccountCapabilityHost  // no-op when createAccountCapabilityHost=false
      aiSearch      // Ensure AI Search exists
      storage       // Ensure Storage exists
      cosmosDB

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "14993641389519398529"
+      "templateHash": "3697601458917982261"
     }
   },
   "parameters": {
@@ -178,6 +178,13 @@
         "description": "Optional. When true, skip the model deployment. Recommended when reusing an existing account that already has the required model deployments."
       }
     },
+    "createAccountCapabilityHost": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Optional. Create the account-level capability host explicitly. Leave false for fresh deployments (platform auto-creates it via networkInjections). Set true only for a BYO account with no capability host, or to recreate after running deleteCapHost.sh."
+      }
+    },
     "aiSearchResourceId": {
       "type": "string",
       "defaultValue": "",
@@ -245,10 +252,6 @@
   "variables": {
     "uniqueSuffix": "[substring(uniqueString(format('{0}-{1}', resourceGroup().id, parameters('deploymentTimestamp'))), 0, 4)]",
     "accountName": "[toLower(format('{0}{1}', parameters('aiServices'), variables('uniqueSuffix')))]",
-    "useExistingAccount": "[not(empty(parameters('existingAiFoundryAccountResourceId')))]",
-    "existingAccountIdParts": "[split(parameters('existingAiFoundryAccountResourceId'), '/')]",
-    "existingAccountSubscriptionId": "[if(variables('useExistingAccount'), variables('existingAccountIdParts')[2], subscription().subscriptionId)]",
-    "existingAccountResourceGroupName": "[if(variables('useExistingAccount'), variables('existingAccountIdParts')[4], resourceGroup().name)]",
     "projectName": "[toLower(format('{0}{1}', parameters('firstProjectName'), variables('uniqueSuffix')))]",
     "aiServicesSanitized": "[toLower(replace(parameters('aiServices'), '-', ''))]",
     "storagePrefixMax": 18,
@@ -2595,11 +2598,10 @@
       ]
     },
     {
+      "condition": "[parameters('createAccountCapabilityHost')]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('account-caphost-{0}-deployment', variables('uniqueSuffix'))]",
-      "subscriptionId": "[variables('existingAccountSubscriptionId')]",
-      "resourceGroup": "[variables('existingAccountResourceGroupName')]",
+      "name": "[format('account-capability-host-{0}-deployment', variables('uniqueSuffix'))]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -2620,7 +2622,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "18033747207003499362"
+              "templateHash": "7220206622113249406"
             }
           },
           "parameters": {
@@ -2632,15 +2634,15 @@
             },
             "accountCapHost": {
               "type": "string",
-              "defaultValue": "caphostacct",
+              "defaultValue": "[format('{0}@aml_aiagentservice', parameters('accountName'))]",
               "metadata": {
-                "description": "Name of the account-level capabilityHost"
+                "description": "Name of the account-level capability host. Defaults to the platform convention `<account>@aml_aiagentservice`."
               }
             },
             "agentSubnetResourceId": {
               "type": "string",
               "metadata": {
-                "description": "ARM resource ID of the customer agent subnet (delegated to Microsoft.App/environments)"
+                "description": "ARM resource ID of the customer agent subnet"
               }
             }
           },
@@ -2665,7 +2667,6 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
-        "[resourceId('Microsoft.Resources/deployments', format('{0}-private-endpoint', variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix')))]"
       ]
     },
@@ -2761,7 +2762,7 @@
         }
       },
       "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('existingAccountSubscriptionId'), variables('existingAccountResourceGroupName')), 'Microsoft.Resources/deployments', format('account-caphost-{0}-deployment', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('account-capability-host-{0}-deployment', variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('projectName'), variables('uniqueSuffix')))]",
