@@ -16,6 +16,12 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
+def is_work_iq_enabled() -> bool:
+    """Return whether Work IQ toolbox integration is enabled."""
+    value = os.getenv("ENABLE_WORK_IQ", "true").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
 class _ResilientResponsesHostServer(ResponsesHostServer):
     """Workaround for an alpha bug in `agent_framework_foundry_hosting`.
 
@@ -103,7 +109,7 @@ def main():
     agent = Agent(
         client=client,
         instructions="You are a friendly assistant. Keep your answers brief.",
-        tools=toolbox,
+        tools=toolbox if is_work_iq_enabled() else None,
         # History is managed by the hosting infrastructure; we don't need
         # the service to store it. See:
         # https://developers.openai.com/api/reference/resources/responses/methods/create
