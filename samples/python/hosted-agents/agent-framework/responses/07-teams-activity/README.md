@@ -12,6 +12,8 @@ After publishing, users can send messages with file attachments to the agent. It
 
 See [main.py](main.py) for the full implementation. Work IQ tools are configured in toolbox that can be used by agent, so that it can answer questions to your Teams and calendar data.
 
+Set `ENABLE_WORK_IQ=true` in `environment_variables` to enable toolbox integration. When disabled, the agent runs as a plain chat assistant and does not support Work IQ tools.
+
 ### Agent Hosting
 
 The agent is hosted using the [Agent Framework](https://github.com/microsoft/agent-framework) with the `ResponsesHostServer`, which provisions a REST API endpoint compatible with the OpenAI Responses protocol.

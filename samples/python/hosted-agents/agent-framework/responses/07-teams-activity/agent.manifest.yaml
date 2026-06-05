@@ -20,6 +20,8 @@ template:
       value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
     - name: TOOLBOX_NAME
       value: "teams-tools"
+    - name: ENABLE_WORK_IQ
+      value: "false"
 resources:
   - kind: model
     id: gpt-4.1-mini
