@@ -1,0 +1,13 @@
+[package]
+name = "native-chat-completions"
+version = "0.1.0"
+edition = "2021"
+description = "Native SDK chat completions (non-streaming and streaming) using the Foundry Local Rust SDK"
+
+[dependencies]
+foundry-local-sdk = "1.2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio-stream = "0.1"
+
+[target.'cfg(windows)'.dependencies]
+foundry-local-sdk = { version = "1.2", features = ["winml"] }

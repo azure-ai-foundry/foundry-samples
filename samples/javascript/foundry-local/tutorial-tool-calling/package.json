@@ -1,5 +1,5 @@
 {
-  "name": "native-chat-completions",
+  "name": "tutorial-tool-calling",
   "version": "1.0.0",
   "type": "module",
   "main": "app.js",

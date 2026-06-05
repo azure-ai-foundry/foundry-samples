@@ -1,0 +1,5 @@
+name: Tutorial: Chat Assistant (Rust)
+description: Build an interactive multi-turn chat assistant (tutorial).
+
+build: "cargo build --verbose"
+validate: "cargo check"

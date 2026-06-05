@@ -1,5 +1,5 @@
 {
-  "name": "native-chat-completions",
+  "name": "tutorial-chat-assistant",
   "version": "1.0.0",
   "type": "module",
   "main": "app.js",

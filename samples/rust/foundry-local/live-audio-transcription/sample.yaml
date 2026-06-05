@@ -1,0 +1,6 @@
+name: Live Audio Transcription (Rust)
+description: Real-time microphone transcription using the cpal audio backend.
+
+# SKIP: Requires cpal native audio backend (ALSA on Linux, CoreAudio on macOS) and the SDK live-transcription API.
+build: "echo 'SKIP: Requires cpal native audio backend (ALSA on Linux, CoreAudio on macOS) and the SDK live-transcription API.'"
+validate: "echo 'SKIP: Requires cpal native audio backend (ALSA on Linux, CoreAudio on macOS) and the SDK live-transcription API.'"

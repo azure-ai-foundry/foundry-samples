@@ -1,5 +1,5 @@
 {
-  "name": "native-chat-completions",
+  "name": "embeddings",
   "version": "1.0.0",
   "type": "module",
   "main": "app.js",

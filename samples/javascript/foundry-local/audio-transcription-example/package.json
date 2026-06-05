@@ -1,5 +1,5 @@
 {
-  "name": "native-chat-completions",
+  "name": "audio-transcription-example",
   "version": "1.0.0",
   "type": "module",
   "main": "app.js",
