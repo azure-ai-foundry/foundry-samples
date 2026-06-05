@@ -1,0 +1,19 @@
+# Audio Transcription (JavaScript)
+
+Transcribe audio files using the Whisper model with streaming output.
+
+> Part of the [Foundry Local samples for JavaScript](../).
+
+## Prerequisites
+
+- [Foundry Local](https://learn.microsoft.com/azure/foundry-local/) installed
+- Node.js 18+
+
+## Run
+
+```bash
+npm install
+npm start
+```
+
+See the [Foundry Local documentation](https://learn.microsoft.com/azure/foundry-local/) for more details.

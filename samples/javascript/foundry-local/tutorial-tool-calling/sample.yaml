@@ -1,0 +1,4 @@
+name: Tutorial: Tool Calling (JavaScript)
+description: Create a tool-calling assistant (tutorial).
+
+build: "npm install --omit=optional --no-audit --no-fund"

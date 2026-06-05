@@ -1,0 +1,5 @@
+name: Tool Calling (Rust)
+description: Tool calling with streaming responses, multi-turn conversation, and local tool execution.
+
+build: "cargo build --verbose"
+validate: "cargo check"

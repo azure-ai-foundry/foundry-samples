@@ -1,0 +1,5 @@
+name: Tutorial: Voice to Text (Rust)
+description: Transcribe and summarize audio (tutorial).
+
+build: "cargo build --verbose"
+validate: "cargo check"
