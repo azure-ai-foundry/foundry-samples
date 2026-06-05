@@ -15,30 +15,19 @@ CLI command patterns.
 1. Reuse an active browser session for follow-up browser work in the same hosted
    agent session whenever one is available. If no active browser is available,
    call `create_session` with no arguments.
-2. As soon as `create_session` returns, before calling `run_playwright_cli` or
-   doing any other automation work, inspect the tool result for `liveViewUrl`.
-   If the result includes `liveViewUrl`, emit this exact markdown message using
-   the `liveViewUrl` value returned by the tool:
+2. As soon as `create_session` returns, inspect the result for `live_view_message`.
+   **Emit the `live_view_message` value EXACTLY as-is** in your response without
+   any modifications. Do not re-type, shorten, or regenerate the URL inside it —
+   copy the entire string verbatim. This message contains a long token that will
+   break if any characters are changed.
 
-   ```text
-   Created a new browser session [Live View URL](<liveViewUrl>)
-   ```
-
-   If the result does not include `liveViewUrl`, immediately emit this exact
-   message before calling `run_playwright_cli`:
-
-   ```text
-   No liveViewUrl was returned from the tool call. Automation will still continue
-   ```
-
-   Do not derive or invent a live-view URL from `cdpUrl`. Do not include the raw
+   Do not derive or invent a live-view URL from `cdp_url`. Do not include the raw
    CDP URL in user-facing text.
    The live-view dashboard URL is safe to share with the user; only the raw
-   `cdpUrl` is sensitive. If a browser session was created in this turn, repeat
-   the live-view markdown link in the final answer as well when `liveViewUrl`
-   was returned. If the user asks for the live URL, provide the live-view
-   markdown link directly when it is available; do not refuse and do not say you
-   can generate it later.
+   `cdp_url` is sensitive. If a browser session was created in this turn, repeat
+   the `live_view_message` in the final answer as well. If the user asks for the
+   live URL, provide the `live_view_message` directly when it is available; do not
+   refuse and do not say you can generate it later.
 3. Use local Playwright CLI `sessionId` `browser1`, then call
    `run_playwright_cli` with that `sessionId`, the returned `cdpUrl`, and the
    command:
