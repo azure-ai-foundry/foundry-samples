@@ -2,30 +2,8 @@
 Standard Setup Managed Network Secured Steps for main.bicep
 -----------------------------------
 */
-@description('Location for all resources.')
-@allowed([
-  'spaincentral'
-  'westus'
-  'eastus'
-  'japaneast'
-  'francecentral'
-  'eastus2'
-  'uaenorth'
-  'brazilsouth'
-  'germanywestcentral'
-  'italynorth'
-  'southcentralus'
-  'westcentralus'
-  'australiaeast'
-  'swedencentral'
-  'canadaeast'
-  'southafricanorth'
-  'westeurope'
-  'westus3'
-  'southindia'
-  'uksouth'
-])
-param location string = 'eastus2'
+@description('Location for all resources. Defaults to the resource group location.')
+param location string = resourceGroup().location
 
 @description('The isolation mode for the managed network')
 @allowed([
@@ -237,19 +215,52 @@ resource cosmosDB 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' existing = 
   scope: resourceGroup(cosmosDBSubscriptionId, cosmosDBResourceGroupName)
 }
 
+// Assign Network Connection Approver role on each target resource group
+// This allows the AI account identity to approve managed PE connections to resources in other RGs
+module networkApproverRoleStorage 'modules-network-secured/network-connection-approver-role.bicep' = if (storagePassedIn) {
+  name: 'network-approver-storage-${uniqueSuffix}-deployment'
+  scope: resourceGroup(azureStorageSubscriptionId, azureStorageResourceGroupName)
+  params: {
+    aiAccountPrincipalId: aiAccount.outputs.accountPrincipalId
+    aiAccountResourceId: aiAccount.outputs.accountID
+  }
+}
+
+module networkApproverRoleCosmos 'modules-network-secured/network-connection-approver-role.bicep' = if (cosmosPassedIn) {
+  name: 'network-approver-cosmos-${uniqueSuffix}-deployment'
+  scope: resourceGroup(cosmosDBSubscriptionId, cosmosDBResourceGroupName)
+  params: {
+    aiAccountPrincipalId: aiAccount.outputs.accountPrincipalId
+    aiAccountResourceId: aiAccount.outputs.accountID
+  }
+}
+
+module networkApproverRoleSearch 'modules-network-secured/network-connection-approver-role.bicep' = if (searchPassedIn) {
+  name: 'network-approver-search-${uniqueSuffix}-deployment'
+  scope: resourceGroup(aiSearchServiceSubscriptionId, aiSearchServiceResourceGroupName)
+  params: {
+    aiAccountPrincipalId: aiAccount.outputs.accountPrincipalId
+    aiAccountResourceId: aiAccount.outputs.accountID
+  }
+}
+
 // Configure Managed Network for AI Services Account
-// This module sets up outbound rules for the managed virtual network to allow
-// secure communication to customer resources (Storage, AI Search, Cosmos DB)
+// This module sets up the managed virtual network and outbound PE rules to allow
+// secure communication from hosted agents to customer resources (Storage, AI Search, Cosmos DB)
 module managedNetwork 'modules-network-secured/managed-network.bicep' = {
   name: 'managed-network-${uniqueSuffix}-deployment'
   params: {
     accountName: aiAccount.outputs.accountName
     isolationMode: isolationMode
+    storageAccountResourceId: storage.id
+    cosmosDBResourceId: cosmosDB.id
+    aiSearchResourceId: aiSearch.id
   }
   dependsOn: [
-    aiSearch       // Ensure AI Search exists
-    storage        // Ensure Storage exists
-    cosmosDB       // Ensure Cosmos DB exists
+    aiDependencies // Ensure dependent resources (Storage, CosmosDB, Search) are fully created
+    networkApproverRoleStorage
+    networkApproverRoleCosmos
+    networkApproverRoleSearch
   ]
 }
 
@@ -394,6 +405,7 @@ module addProjectCapabilityHost 'modules-network-secured/add-project-capability-
      cosmosAccountRoleAssignments
      storageAccountRoleAssignment
      aiSearchRoleAssignments
+     managedNetwork  // Ensure managed network outbound rules are provisioned
   ]
 }
 
