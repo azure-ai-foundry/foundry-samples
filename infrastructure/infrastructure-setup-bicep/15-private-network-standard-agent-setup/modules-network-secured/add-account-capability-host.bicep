@@ -1,24 +1,23 @@
-// Account-level capabilityHost.
+// Account-level capability host.
 //
-// The current template ONLY creates the project-level capabilityHost in Bicep
-// and relies on the `createCapHost.sh` script being run manually before
-// deployment to bootstrap the account-level capabilityHost. When the account
-// is BYO (already-existing Foundry account that never had the script run),
-// the project capability host creation fails with:
-//   "Foundry Account capabilityHost Not Found, please retry again after
-//    creating capabilityHost for the Foundry Account."
+// Only one capability host per Foundry account is allowed. For a fresh account
+// with `networkInjections.scenario='agent'`, the platform auto-creates one
+// named `<account>@aml_aiagentservice` — this module is NOT needed.
 //
-// This module bootstraps the account-level capabilityHost in Bicep so the
-// flow is fully declarative and idempotent regardless of whether the account
-// is freshly created or pre-existing.
+// Use this module only when the account has NO capability host:
+//   - BYO account that never had one created, or
+//   - After running `deleteCapHost.sh` for a redeploy.
+//
+// Default `accountCapHost` matches the platform convention so the resulting
+// caphost is named the same as the implicit one would have been.
 
 @description('Name of the AI Foundry (Cognitive Services) account')
 param accountName string
 
-@description('Name of the account-level capabilityHost')
-param accountCapHost string = 'caphostacct'
+@description('Name of the account-level capability host. Defaults to the platform convention `<account>@aml_aiagentservice`.')
+param accountCapHost string = '${accountName}@aml_aiagentservice'
 
-@description('ARM resource ID of the customer agent subnet (delegated to Microsoft.App/environments)')
+@description('ARM resource ID of the customer agent subnet')
 param agentSubnetResourceId string
 
 resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
