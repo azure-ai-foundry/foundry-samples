@@ -1,0 +1,5 @@
+name: Foundry Local Web Server (Rust)
+description: Start a local OpenAI-compatible web server and call it with a standard HTTP client.
+
+build: "cargo build --verbose"
+validate: "cargo check"

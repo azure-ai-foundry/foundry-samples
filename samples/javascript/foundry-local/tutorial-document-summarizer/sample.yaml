@@ -1,0 +1,4 @@
+name: Tutorial: Document Summarizer (JavaScript)
+description: Summarize documents with AI (tutorial).
+
+build: "npm install --omit=optional --no-audit --no-fund"
