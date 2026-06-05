@@ -26,6 +26,10 @@ from .settings import AgentSettings
 
 logger = logging.getLogger(__name__)
 
+# Server-side URL storage — prevents model corruption of long base64 tokens.
+_cdp_url: str | None = None
+_live_view_url: str | None = None
+
 
 def make_subprocess_env() -> dict[str, str]:
     env = os.environ.copy()
@@ -102,9 +106,7 @@ def make_run_playwright_cli(settings: AgentSettings):
     @tool(
         name="run_playwright_cli",
         description=(
-            "Run playwright-cli with a named session and return stdout, stderr, and exit code. "
-            "Set cdpUrl on the first command after create_session so the tool can pass "
-            "PLAYWRIGHT_MCP_CDP_ENDPOINT to playwright-cli."
+            "Run playwright-cli with a named session and return stdout, stderr, and exit code."
         ),
     )
     async def run_playwright_cli(
@@ -120,12 +122,6 @@ def make_run_playwright_cli(settings: AgentSettings):
                 description='playwright-cli arguments, excluding the executable and session. Example: "goto https://example.com".'
             ),
         ],
-        cdpUrl: Annotated[
-            str | None,
-            Field(
-                description="CDP WebSocket URL returned by create_session. Pass only for the first open/attach command."
-            ),
-        ] = None,
         timeout_seconds: Annotated[
             int | None,
             Field(
@@ -138,8 +134,13 @@ def make_run_playwright_cli(settings: AgentSettings):
             raise ValueError("sessionId is required.")
 
         env = make_subprocess_env()
-        if cdpUrl:
-            env["PLAYWRIGHT_MCP_CDP_ENDPOINT"] = cdpUrl
+
+        # Inject stored CDP URL into subprocess environment
+        if _cdp_url:
+            env["PLAYWRIGHT_MCP_CDP_ENDPOINT"] = _cdp_url
+            logger.info("[run_playwright_cli] Using server-stored CDP URL (length=%d)", len(_cdp_url))
+        else:
+            logger.warning("[run_playwright_cli] No stored CDP URL")
 
         effective_timeout = timeout_seconds or settings.playwright_cli_timeout_seconds
         playwright_cli = resolve_playwright_cli_command(env)
@@ -176,6 +177,7 @@ def make_run_playwright_cli(settings: AgentSettings):
 
         stdout = redact_sensitive_values(decode_subprocess_output(stdout_bytes))
         stderr = redact_sensitive_values(decode_subprocess_output(stderr_bytes))
+
         return (
             f"exit_code: {process.returncode}\n"
             f"stdout:\n{stdout or '<empty>'}\n\n"
@@ -219,6 +221,28 @@ def parse_toolbox_result(mcp_result: Any) -> str:
         value = parsed_content[0]
         if isinstance(value, str):
             return value
+
+        # Check if this is a create_session result with cdp_url
+        if isinstance(value, dict) and "cdp_url" in value:
+            cdp_url = value.get("cdp_url", "")
+            live_view_url = value.get("live_view_url", "")
+
+            logger.info("[create_session] live_view_url: %s", live_view_url)
+            logger.info("[create_session] cdp_url: %s", cdp_url)
+
+            global _cdp_url, _live_view_url
+            _cdp_url = cdp_url
+            _live_view_url = live_view_url or None
+
+            # Return result with live_view_url included (model passes it through)
+            result = {
+                "status": "session_created",
+                "note": "CDP URL stored server-side. Call run_playwright_cli with sessionId='browser1' and command='open about:blank'.",
+            }
+            if live_view_url:
+                result["live_view_message"] = f"🔴 [Live View]({live_view_url})"
+            return json.dumps(result, ensure_ascii=False)
+
         # Toolbox JSON text can contain escaped characters like \u0026 in URLs.
         # Decode and re-serialize it so the model sees the actual values.
         return json.dumps(value, ensure_ascii=False)
@@ -272,8 +296,7 @@ def make_close_browser_session(settings: AgentSettings):
     @tool(
         name="close_browser_session",
         description=(
-            "Close a browser automation session. This first runs playwright-cli detach "
-            "to release local Playwright CLI state, then closes the remote browser by CDP URL."
+            "Close a browser automation session. Detaches playwright-cli and closes the remote browser."
         ),
     )
     async def close_browser_session(
@@ -283,19 +306,16 @@ def make_close_browser_session(settings: AgentSettings):
                 description="Local Playwright CLI session name used for this browser session."
             ),
         ],
-        cdpUrl: Annotated[
-            str,
-            Field(
-                description="CDP WebSocket URL returned by create_session. Pass it so the tool can close the remote browser."
-            ),
-        ],
     ) -> str:
         session_id = sessionId.strip()
         if not session_id:
             raise ValueError("sessionId is required.")
-        cdp_url = cdpUrl.strip()
+
+        # Use server-stored CDP URL (keyed by sessionId)
+        global _cdp_url, _live_view_url
+        cdp_url = _cdp_url
         if not cdp_url:
-            raise ValueError("cdpUrl is required.")
+            return json.dumps({"error": "No CDP URL available to close the browser."})
 
         env = make_subprocess_env()
         playwright_cli = resolve_playwright_cli_command(env)
@@ -316,6 +336,10 @@ def make_close_browser_session(settings: AgentSettings):
             close_result = {}
             close_error = redact_sensitive_values(str(ex))
 
+        # Clean up
+        _cdp_url = None
+        _live_view_url = None
+
         result = json.dumps(
             {
                 "sessionId": session_id,
@@ -328,3 +352,24 @@ def make_close_browser_session(settings: AgentSettings):
         return redact_sensitive_values(result)
 
     return close_browser_session
+
+
+def make_get_live_view_url():
+    @tool(
+        name="get_live_view_url",
+        description=(
+            "Get the live view URL for the current browser session. "
+            "Call this to provide the user with the live view link so they can "
+            "interact with the browser directly (e.g. for CAPTCHA, MFA, login)."
+        ),
+    )
+    async def get_live_view_url() -> str:
+        if _live_view_url:
+            return (
+                f"🔴 [browser Live View]({_live_view_url})\n\n"
+                f"^^^ Output the above markdown link EXACTLY as-is. "
+                f"It is {len(_live_view_url)} characters. Do not shorten or modify it."
+            )
+        return "No live view URL available for this session."
+
+    return get_live_view_url
