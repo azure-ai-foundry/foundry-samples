@@ -1,6 +1,0 @@
-name: Live Audio Transcription (C#)
-description: Real-time microphone-to-text using the Foundry Local C# SDK and NAudio.
-
-# SKIP: Requires NAudio (Windows audio APIs) and microphone hardware.
-build: "echo 'SKIP: Requires NAudio (Windows audio APIs) and microphone hardware.'"
-validate: "echo 'SKIP: Requires NAudio (Windows audio APIs) and microphone hardware.'"

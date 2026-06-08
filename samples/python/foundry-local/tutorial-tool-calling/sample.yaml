@@ -1,5 +1,0 @@
-name: Tutorial: Tool Calling (Python)
-description: Create a tool-calling assistant (tutorial).
-
-build: "pip install -r requirements.txt"
-validate: "python -m py_compile $(find . -maxdepth 3 -name '*.py' -not -path './.venv/*')"

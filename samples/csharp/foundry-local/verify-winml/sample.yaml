@@ -1,6 +1,0 @@
-name: Verify WinML Execution Providers (C#)
-description: Verify WinML 2.0 execution providers are correctly discovered, downloaded, and registered.
-
-# SKIP: Windows-only: requires Microsoft.AI.Foundry.Local.WinML and Windows SDK.
-build: "echo 'SKIP: Windows-only: requires Microsoft.AI.Foundry.Local.WinML and Windows SDK.'"
-validate: "echo 'SKIP: Windows-only: requires Microsoft.AI.Foundry.Local.WinML and Windows SDK.'"

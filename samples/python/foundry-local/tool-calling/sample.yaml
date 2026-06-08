@@ -1,5 +1,0 @@
-name: Tool Calling (Python)
-description: Tool calling with custom function definitions (get_weather, calculate).
-
-build: "pip install -r requirements.txt"
-validate: "python -m py_compile $(find . -maxdepth 3 -name '*.py' -not -path './.venv/*')"

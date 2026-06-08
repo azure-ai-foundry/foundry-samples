@@ -1,6 +1,0 @@
-name: Verify WinML Execution Providers (Python)
-description: Verify WinML 2.0 execution providers are correctly registered.
-
-# SKIP: Windows-only: requires foundry-local-sdk-winml which has no Linux/macOS wheel.
-build: "echo 'SKIP: Windows-only: requires foundry-local-sdk-winml which has no Linux/macOS wheel.'"
-validate: "echo 'SKIP: Windows-only: requires foundry-local-sdk-winml which has no Linux/macOS wheel.'"

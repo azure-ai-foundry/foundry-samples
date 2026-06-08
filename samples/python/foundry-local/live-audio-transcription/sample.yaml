@@ -1,6 +1,0 @@
-name: Live Audio Transcription (Python)
-description: Real-time microphone-to-text using the Foundry Local Python SDK.
-
-# SKIP: Optional pyaudio dependency needs PortAudio; sample falls back to synthetic audio at runtime.
-build: "echo 'SKIP: Optional pyaudio dependency needs PortAudio; sample falls back to synthetic audio at runtime.'"
-validate: "echo 'SKIP: Optional pyaudio dependency needs PortAudio; sample falls back to synthetic audio at runtime.'"
