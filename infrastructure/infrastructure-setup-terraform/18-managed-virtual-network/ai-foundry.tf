@@ -154,6 +154,39 @@ resource "azapi_resource" "managed_network" {
   }
 }
 
+# Outbound PE rules allow the managed VNet (where hosted agents run) to reach
+# dependent resources. The managed network API does not support concurrent
+# outbound rule creation, so rules are serialized via depends_on to avoid
+# "Resource is in conflicting state" errors. Chain order:
+# aiservices -> storage -> cosmos -> search
+
+# Managed Network Outbound Rule for the AI Services account itself
+# The agent needs a PE back to the Foundry/AI Services endpoint because
+# publicNetworkAccess is disabled on the account.
+resource "azapi_resource" "aiservices_outbound_rule" {
+  type      = "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules@2025-10-01-preview"
+  name      = "aiservices-account-rule"
+  parent_id = azapi_resource.managed_network.id
+
+  schema_validation_enabled = false
+
+  body = {
+    properties = {
+      type = "PrivateEndpoint"
+      destination = {
+        serviceResourceId = azapi_resource.cognitive_account.id
+        subresourceTarget = "account"
+      }
+      category = "UserDefined"
+    }
+  }
+
+  depends_on = [
+    azapi_resource.managed_network,
+    azurerm_role_assignment.foundry_network_connection_approver
+  ]
+}
+
 # Wait for Storage Account to be fully created before creating outbound rule
 resource "time_sleep" "wait_storage" {
   count           = var.enable_storage ? 1 : 0
@@ -187,6 +220,7 @@ resource "azapi_resource" "storage_outbound_rule" {
 
   depends_on = [
     time_sleep.wait_storage,
+    azapi_resource.aiservices_outbound_rule,
     azurerm_role_assignment.foundry_network_connection_approver,
     azurerm_role_assignment.foundry_storage_blob,
     azurerm_role_assignment.foundry_storage_contributor
@@ -288,6 +322,7 @@ resource "time_sleep" "wait_outbound_rules" {
   create_duration = "600s"
 
   depends_on = [
+    azapi_resource.aiservices_outbound_rule,
     azapi_resource.storage_outbound_rule,
     azapi_resource.cosmos_outbound_rule,
     azapi_resource.aisearch_outbound_rule
@@ -330,6 +365,7 @@ resource "azapi_resource" "project_capability_host" {
     time_sleep.wait_project_rbac,
     # CRITICAL: All outbound rules must be created AND provisioned before capability host
     # The capability host validates that outbound rules exist and are in Succeeded state
+    azapi_resource.aiservices_outbound_rule,
     azapi_resource.storage_outbound_rule,
     azapi_resource.cosmos_outbound_rule,
     azapi_resource.aisearch_outbound_rule,
