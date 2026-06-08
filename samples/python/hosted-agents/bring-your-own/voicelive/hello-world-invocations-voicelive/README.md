@@ -226,7 +226,7 @@ Once the agent is deployed to Microsoft Foundry, you can interact with it using 
 - **Python 3.10+** with the following packages:
 
 ```bash
-pip install azure-ai-voicelive[aiohttp]==1.2.0b5 azure-identity pyaudio
+pip install azure-ai-voicelive[aiohttp]==1.3.0b1 azure-identity pyaudio
 ```
 
 > [!NOTE]

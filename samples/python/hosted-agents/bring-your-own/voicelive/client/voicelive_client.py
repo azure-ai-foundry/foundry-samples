@@ -45,7 +45,7 @@ except ImportError:
     sys.exit(1)
 
 # Azure VoiceLive SDK imports
-from azure.ai.voicelive.aio import VoiceLiveConnection, connect, AgentSessionConfig
+from azure.ai.voicelive.aio import VoiceLiveConnection, connect
 from azure.ai.voicelive.models import (
     AudioEchoCancellation,
     AudioNoiseReduction,
@@ -245,7 +245,7 @@ class AudioProcessor:
 
 class AgentV2VoiceAssistant:
     """
-    Voice assistant using Azure AI Foundry agent with AgentSessionConfig.
+    Voice assistant using Azure AI Foundry agent.
 
     This demonstrates the new pattern where the agent is configured at
     connection time using AgentSessionConfig, rather than as a tool in the session.
@@ -255,11 +255,13 @@ class AgentV2VoiceAssistant:
         self,
         endpoint: str,
         credential: AsyncTokenCredential,
-        agent_config: AgentSessionConfig,
+        agent_name: str,
+        project_name: str,
     ) -> None:
         self.endpoint = endpoint
         self.credential = credential
-        self.agent_config = agent_config
+        self.agent_name = agent_name
+        self.project_name = project_name
         self.connection: Optional[VoiceLiveConnection] = None
         self.audio_processor: Optional[AudioProcessor] = None
         self.session_ready = False
@@ -269,15 +271,16 @@ class AgentV2VoiceAssistant:
         try:
             logger.info(
                 "Connecting to VoiceLive API with agent %s for project %s",
-                self.agent_config.get("agent_name"),
-                self.agent_config.get("project_name"),
+                self.agent_name,
+                self.project_name,
             )
 
             # Connect using AgentSessionConfig
             async with connect(
                 endpoint=self.endpoint,
                 credential=self.credential,
-                agent_config=self.agent_config,  # Agent configured at connection time
+                agent_name=self.agent_name,
+                project_name=self.project_name,
             ) as connection:
                 conn = connection
                 self.connection = conn
@@ -295,8 +298,8 @@ class AgentV2VoiceAssistant:
                 logger.info("Voice assistant ready! Start speaking...")
                 print("\n" + "=" * 60)
                 print("🎤 AGENT V2 VOICE ASSISTANT READY")
-                print(f"Agent: {self.agent_config.get('agent_name')}")
-                print(f"Project: {self.agent_config.get('project_name')}")
+                print(f"Agent: {self.agent_name}")
+                print(f"Project: {self.project_name}")
                 print("Start speaking to begin conversation")
                 print("Press Ctrl+C to exit")
                 print("=" * 60 + "\n")
@@ -424,10 +427,6 @@ class AgentV2VoiceAssistant:
 
 async def run_assistant(endpoint: str, agent_name: str, agent_project_name: str):
     """Run the voice assistant."""
-    agent_config: AgentSessionConfig = {
-        "agent_name": agent_name,
-        "project_name": agent_project_name,
-    }
 
     credential: AsyncTokenCredential = DefaultAzureCredential()
     logger.info("Using DefaultAzureCredential")
@@ -435,7 +434,8 @@ async def run_assistant(endpoint: str, agent_name: str, agent_project_name: str)
     assistant = AgentV2VoiceAssistant(
         endpoint=endpoint,
         credential=credential,
-        agent_config=agent_config,
+        agent_name=agent_name,
+        project_name=agent_project_name,
     )
 
     await assistant.start()
