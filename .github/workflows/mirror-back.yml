@@ -1,0 +1,97 @@
+name: Mirror Public Commits Back to Private
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print the proposed private PR body without creating branches or PRs.'
+        required: false
+        type: boolean
+        default: true
+      public_sha:
+        description: 'Specific public commit SHA to replay or preview. Defaults to the workflow SHA.'
+        required: false
+        type: string
+        default: ''
+      private_repo:
+        description: 'Private repository that receives replay PRs.'
+        required: false
+        type: string
+        default: 'microsoft-foundry/foundry-samples-pr'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-back-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve repositories
+        id: repos
+        env:
+          PRIVATE_REPO_INPUT: ${{ github.event.inputs.private_repo || 'microsoft-foundry/foundry-samples-pr' }}
+        run: |
+          set -euo pipefail
+          private_owner="${PRIVATE_REPO_INPUT%%/*}"
+          private_name="${PRIVATE_REPO_INPUT#*/}"
+          if [[ -z "$private_owner" || -z "$private_name" || "$private_owner" == "$private_name" ]]; then
+            echo "::error::private_repo must be owner/name; got '$PRIVATE_REPO_INPUT'"
+            exit 1
+          fi
+          echo "private_repo=$PRIVATE_REPO_INPUT" >> "$GITHUB_OUTPUT"
+          echo "private_owner=$private_owner" >> "$GITHUB_OUTPUT"
+          echo "private_name=$private_name" >> "$GITHUB_OUTPUT"
+
+      - name: Validate App secrets
+        env:
+          SYNC_APP_ID: ${{ secrets.SYNC_APP_ID }}
+          SYNC_APP_PRIVATE_KEY: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$SYNC_APP_ID" || -z "$SYNC_APP_PRIVATE_KEY" ]]; then
+            echo "::error::SYNC_APP_ID and SYNC_APP_PRIVATE_KEY must be configured on the public repository before mirror-back can mint a private-repo App token."
+            exit 1
+          fi
+
+      - name: Generate private repo App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.SYNC_APP_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ steps.repos.outputs.private_owner }}
+          repositories: ${{ steps.repos.outputs.private_name }}
+
+      - name: Checkout public repo
+        uses: actions/checkout@v4
+        with:
+          path: public-repo
+          fetch-depth: 0
+
+      - name: Checkout private repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.repos.outputs.private_repo }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: private-repo
+          fetch-depth: 0
+          ref: main
+
+      - name: Mirror non-sync-App public commits
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PUBLIC_REPO_PATH: ${{ github.workspace }}/public-repo
+          PRIVATE_REPO_PATH: ${{ github.workspace }}/private-repo
+          PUBLIC_REPO: ${{ github.repository }}
+          PRIVATE_REPO: ${{ steps.repos.outputs.private_repo }}
+          BEFORE_SHA: ${{ github.event.before || '' }}
+          AFTER_SHA: ${{ github.sha }}
+          PUBLIC_SHA: ${{ github.event.inputs.public_sha || '' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run == 'true' && '1' || '0' }}
+        run: bash public-repo/.github/scripts/mirror-back.sh
