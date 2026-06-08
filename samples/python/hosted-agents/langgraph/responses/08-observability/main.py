@@ -67,10 +67,15 @@ def _build_chat_model() -> ChatOpenAI:
     openai_client = project.get_openai_client()
     token_provider = get_bearer_token_provider(credential, _AZURE_AI_SCOPE)
 
+    # Route through the Responses API so spans include `gen_ai.response.id`;
+    # without it the Foundry Portal trace view renders empty even though
+    # the underlying traces reach App Insights.
     return ChatOpenAI(
         model=deployment,
         base_url=str(openai_client.base_url),
         api_key=token_provider,
+        use_responses_api=True,
+        output_version="responses/v1",
     )
 
 
