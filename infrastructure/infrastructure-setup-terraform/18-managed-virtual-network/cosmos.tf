@@ -99,6 +99,7 @@ resource "azapi_resource" "cosmos_outbound_rule" {
 
   depends_on = [
     time_sleep.wait_cosmos,
+    azapi_resource.storage_outbound_rule,
     azurerm_role_assignment.foundry_network_connection_approver,
     azurerm_role_assignment.foundry_cosmos_contributor,
     azurerm_role_assignment.project_cosmos_reader,
