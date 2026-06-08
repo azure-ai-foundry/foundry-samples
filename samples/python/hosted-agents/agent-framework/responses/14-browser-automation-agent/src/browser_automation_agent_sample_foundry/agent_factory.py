@@ -16,6 +16,7 @@ from .paths import prompts_root, skill_paths
 from .settings import AgentSettings, ScopedAzureCredential
 from .tools import (
     make_close_browser_session,
+    make_get_live_view_url,
     make_run_playwright_cli,
     make_toolbox_mcp_tool,
 )
@@ -57,13 +58,14 @@ def build_agent(settings: AgentSettings) -> tuple[Agent, MCPStreamableHTTPTool]:
     toolbox_mcp_tool = make_toolbox_mcp_tool(settings, default_credential)
     run_playwright_cli = make_run_playwright_cli(settings)
     close_browser_session = make_close_browser_session(settings)
+    get_live_view_url = make_get_live_view_url()
     instructions = (prompts_root() / "base.md").read_text(encoding="utf-8").strip()
 
     agent = Agent(
         client=client,
         name="browser-automation-agent-sample-foundry",
         instructions=instructions,
-        tools=[run_playwright_cli, close_browser_session, toolbox_mcp_tool],
+        tools=[run_playwright_cli, close_browser_session, get_live_view_url, toolbox_mcp_tool],
         context_providers=[skills_provider],
         middleware=[tool_logging_middleware],
         default_options={"store": False},

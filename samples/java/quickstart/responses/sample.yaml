@@ -1,5 +1,0 @@
-name: Quickstart Responses
-description: Basic quickstart sample demonstrating Microsoft Foundry responses.
-
-build: "mvn compile"
-validate: "mvn compile"

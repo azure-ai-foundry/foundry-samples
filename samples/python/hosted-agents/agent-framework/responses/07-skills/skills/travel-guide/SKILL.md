@@ -14,11 +14,11 @@ Use this skill when the user wants a city travel guide, itinerary, or downloadab
 3. Run the PDF generator script:
    - skill name: `travel-guide`
    - script name: `scripts/create_travel_guide.py`
-   - args:
-     - `city`: destination city, required
-     - `days`: number of itinerary days, optional, defaults to `3`
-     - `interests`: comma-separated interests such as `food,art,history,views`, optional
-     - `tone`: guide style such as `family-friendly`, `luxury`, `budget`, or `first-time visitor`, optional
+   - args: a JSON array of string CLI flags and values. Supported flags:
+     - `--city <city>`: destination city, required
+     - `--days <number>`: number of itinerary days, optional, defaults to `3`
+     - `--interests <list>`: comma-separated interests such as `food,art,history,views`, optional
+     - `--tone <style>`: guide style such as `family-friendly`, `luxury`, `budget`, or `first-time visitor`, optional
 4. After the script returns, tell the user the `$HOME`-based PDF path and briefly summarize the guide.
 
 ## Available scripts
@@ -28,10 +28,5 @@ Use this skill when the user wants a city travel guide, itinerary, or downloadab
 ## Example script arguments
 
 ```json
-{
-  "city": "Lisbon",
-  "days": 3,
-  "interests": "food,viewpoints,neighborhoods",
-  "tone": "first-time visitor"
-}
+["--city", "Lisbon", "--days", "3", "--interests", "food,viewpoints,neighborhoods", "--tone", "first-time visitor"]
 ```

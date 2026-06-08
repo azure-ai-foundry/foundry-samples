@@ -50,7 +50,7 @@ logger = logging.getLogger("optimize-agent")
 
 FALLBACK_INSTRUCTIONS = "You are a helpful assistant.\n\nBe concise, accurate, and helpful."
 
-config = load_config(required=False)
+config = load_config()
 if config is None:
     from azure.ai.agentserver.optimization import OptimizationConfig
     config = OptimizationConfig(

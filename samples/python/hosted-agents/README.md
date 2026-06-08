@@ -120,6 +120,7 @@ The platform manages conversation history, streaming lifecycle, and background e
 8. **[Observability](./agent-framework/responses/08-observability/)** — Add logging, metrics, and distributed tracing to your agent and visualize them in Foundry.
 9. **[Declarative Workflows](./agent-framework/responses/09-declarative-customer-support/)** — A multi-turn customer-support triage workflow defined entirely in YAML and hosted as an agent, demonstrating declarative workflow authoring with `InvokeAzureAgent` calls to specialist Foundry-hosted agents and conversation-aware routing.
 10. **[Downstream Azure services](./agent-framework/responses/09-downstream-azure/)** — Call Azure Blob Storage and Service Bus from the agent using its per-agent Microsoft Entra identity (no connection strings).
+11. **[A2A Delegation](./agent-framework/a2a/01-delegation/)** — Two-agent walkthrough: a hosted Responses **caller** delegates to a hosted Responses **executor** that is exposed as an A2A endpoint via Foundry's incoming A2A feature, wired together through a Foundry Toolbox `a2a_preview` tool over a `RemoteA2A` connection.
 
 ### Invocations protocol
 
@@ -144,6 +145,7 @@ See [`langgraph/README.md`](langgraph/) for the full list and the local-run guid
 | Sample                                                                  | What it shows                                                                                                                          |
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | **[Chat](langgraph/responses/01-langgraph-chat/)**                      | Minimal LangGraph agent with two local tools (`get_current_time`, `calculator`); multi-turn via `previous_response_id`.                |
+| **[LangGraph Toolbox](langgraph/responses/02-langgraph-toolbox/)**      | LangGraph agent wired to a Foundry Toolbox (`web_search` + connection-backed GitHub Copilot MCP) via `AzureAIProjectToolbox`.          |
 | **[MCP](langgraph/responses/04-mcp/)**                                  | LangGraph agent that loads tools from a remote MCP server (default: GitHub Copilot MCP) via `langchain_mcp_adapters`.                  |
 | **[Workflows](langgraph/responses/05-workflows/)**                      | Custom `StateGraph` chaining three specialized LLM nodes — slogan writer, legal reviewer, formatter — each seeing only the prior agent's output. |
 | **[Files](langgraph/responses/06-files/)**                              | LangGraph agent with local filesystem tools and a Foundry-Toolbox `code_interpreter` for session-uploaded files.                       |

@@ -95,6 +95,18 @@ resource cosmosDB 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' existing = 
   scope: resourceGroup(cosmosDBSubscriptionId, cosmosDBResourceGroupName)
 }
 
+// Fail fast when the bring-your-own AI Search service rejects Microsoft Entra
+// (AAD) data-plane auth (apiKeyOnly). The project connection below uses
+// authType=AAD, so an unpatched service leaves agents failing with 403.
+module validateSearchAadAuth 'modules-network-secured/validate-search-aad-auth.bicep' = {
+  name: 'validate-search-aad-auth-${projectNameLower}-deployment'
+  params: {
+    aiSearchName: existingAiSearchName
+    aiSearchResourceGroupName: aiSearchResourceGroupName
+    aiSearchSubscriptionId: aiSearchSubscriptionId
+  }
+}
+
 // Add the agent connections to the EXISTING project (no project is created)
 module aiProject 'modules-network-secured/ai-existing-project-connections.bicep' = {
   name: 'ai-existing-${projectNameLower}-deployment'
@@ -118,6 +130,9 @@ module aiProject 'modules-network-secured/ai-existing-project-connections.bicep'
     azureStorageConnectionName: azureStorageConnectionNameEffective
     aiSearchConnectionName: aiSearchConnectionNameEffective
   }
+  dependsOn: [
+    validateSearchAadAuth
+  ]
 }
 
 module formatProjectWorkspaceId 'modules-network-secured/format-project-workspace-id.bicep' = {

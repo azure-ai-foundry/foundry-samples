@@ -1,3 +1,0 @@
-name: Quickstart Agent Service
-description: Basic quickstart sample demonstrating Microsoft Foundry combined agent service.
-build: "dotnet restore --source https://api.nuget.org/v3/index.json && dotnet build --no-restore --verbosity minimal"

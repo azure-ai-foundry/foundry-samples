@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "4437106568758821389"
+      "templateHash": "3697601458917982261"
     }
   },
   "parameters": {
@@ -178,6 +178,13 @@
         "description": "Optional. When true, skip the model deployment. Recommended when reusing an existing account that already has the required model deployments."
       }
     },
+    "createAccountCapabilityHost": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Optional. Create the account-level capability host explicitly. Leave false for fresh deployments (platform auto-creates it via networkInjections). Set true only for a BYO account with no capability host, or to recreate after running deleteCapHost.sh."
+      }
+    },
     "aiSearchResourceId": {
       "type": "string",
       "defaultValue": "",
@@ -245,10 +252,6 @@
   "variables": {
     "uniqueSuffix": "[substring(uniqueString(format('{0}-{1}', resourceGroup().id, parameters('deploymentTimestamp'))), 0, 4)]",
     "accountName": "[toLower(format('{0}{1}', parameters('aiServices'), variables('uniqueSuffix')))]",
-    "useExistingAccount": "[not(empty(parameters('existingAiFoundryAccountResourceId')))]",
-    "existingAccountIdParts": "[split(parameters('existingAiFoundryAccountResourceId'), '/')]",
-    "existingAccountSubscriptionId": "[if(variables('useExistingAccount'), variables('existingAccountIdParts')[2], subscription().subscriptionId)]",
-    "existingAccountResourceGroupName": "[if(variables('useExistingAccount'), variables('existingAccountIdParts')[4], resourceGroup().name)]",
     "projectName": "[toLower(format('{0}{1}', parameters('firstProjectName'), variables('uniqueSuffix')))]",
     "aiServicesSanitized": "[toLower(replace(parameters('aiServices'), '-', ''))]",
     "storagePrefixMax": 18,
@@ -330,7 +333,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "1854398928287753773"
+              "templateHash": "2638034982264747132"
             }
           },
           "parameters": {
@@ -627,7 +630,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.43.8.12551",
-                      "templateHash": "8011604849876491209"
+                      "templateHash": "11782697558662523210"
                     }
                   },
                   "parameters": {
@@ -861,7 +864,10 @@
                             }
                           }
                         }
-                      }
+                      },
+                      "dependsOn": [
+                        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Resources/deployments', format('agent-subnet-{0}', uniqueString(deployment().name, parameters('agentSubnetName'))))]"
+                      ]
                     }
                   ],
                   "outputs": {
@@ -1255,6 +1261,69 @@
                   "exists": "[not(empty(parameters('existingDnsZones')[parameters('dnsZoneNames')[copyIndex()]]))]"
                 }
               }
+            }
+          }
+        }
+      }
+    },
+    {
+      "condition": "[variables('searchPassedIn')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('validate-search-aad-auth-{0}-deployment', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "aiSearchName": {
+            "value": "[last(variables('acsParts'))]"
+          },
+          "aiSearchResourceGroupName": {
+            "value": "[variables('aiSearchServiceResourceGroupName')]"
+          },
+          "aiSearchSubscriptionId": {
+            "value": "[variables('aiSearchServiceSubscriptionId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.43.8.12551",
+              "templateHash": "5881130554558405559"
+            }
+          },
+          "parameters": {
+            "aiSearchName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing AI Search service to validate."
+              }
+            },
+            "aiSearchResourceGroupName": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().name]",
+              "metadata": {
+                "description": "Resource group containing the existing AI Search service."
+              }
+            },
+            "aiSearchSubscriptionId": {
+              "type": "string",
+              "defaultValue": "[subscription().subscriptionId]",
+              "metadata": {
+                "description": "Subscription ID containing the existing AI Search service."
+              }
+            }
+          },
+          "resources": [],
+          "outputs": {
+            "searchAadAuthStatus": {
+              "type": "string",
+              "value": "[if(and(not(coalesce(tryGet(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('aiSearchSubscriptionId'), parameters('aiSearchResourceGroupName')), 'Microsoft.Search/searchServices', parameters('aiSearchName')), '2024-06-01-preview'), 'disableLocalAuth'), false())), not(contains(coalesce(tryGet(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('aiSearchSubscriptionId'), parameters('aiSearchResourceGroupName')), 'Microsoft.Search/searchServices', parameters('aiSearchName')), '2024-06-01-preview'), 'authOptions'), createObject()), 'aadOrApiKey'))), fail(format('Existing Azure AI Search service \"{0}\" rejects Microsoft Entra (AAD) data-plane authentication (apiKeyOnly). Foundry connects to Search with authType=AAD, so agents will fail with HTTP 403. Enable AAD on the service, then redeploy. Fix: az search service update --name {1} --resource-group {2} --subscription {3} --auth-options aadOrApiKey --aad-auth-failure-mode http401WithBearerChallenge', parameters('aiSearchName'), parameters('aiSearchName'), parameters('aiSearchResourceGroupName'), parameters('aiSearchSubscriptionId'))), 'ok')]"
             }
           }
         }
@@ -2277,7 +2346,8 @@
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix')))]",
-        "[resourceId('Microsoft.Resources/deployments', format('{0}-private-endpoint', variables('uniqueSuffix')))]"
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-private-endpoint', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('validate-search-aad-auth-{0}-deployment', variables('uniqueSuffix')))]"
       ]
     },
     {
@@ -2528,11 +2598,10 @@
       ]
     },
     {
+      "condition": "[parameters('createAccountCapabilityHost')]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('account-caphost-{0}-deployment', variables('uniqueSuffix'))]",
-      "subscriptionId": "[variables('existingAccountSubscriptionId')]",
-      "resourceGroup": "[variables('existingAccountResourceGroupName')]",
+      "name": "[format('account-capability-host-{0}-deployment', variables('uniqueSuffix'))]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -2553,7 +2622,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "18033747207003499362"
+              "templateHash": "7220206622113249406"
             }
           },
           "parameters": {
@@ -2565,15 +2634,15 @@
             },
             "accountCapHost": {
               "type": "string",
-              "defaultValue": "caphostacct",
+              "defaultValue": "[format('{0}@aml_aiagentservice', parameters('accountName'))]",
               "metadata": {
-                "description": "Name of the account-level capabilityHost"
+                "description": "Name of the account-level capability host. Defaults to the platform convention `<account>@aml_aiagentservice`."
               }
             },
             "agentSubnetResourceId": {
               "type": "string",
               "metadata": {
-                "description": "ARM resource ID of the customer agent subnet (delegated to Microsoft.App/environments)"
+                "description": "ARM resource ID of the customer agent subnet"
               }
             }
           },
@@ -2598,7 +2667,6 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
-        "[resourceId('Microsoft.Resources/deployments', format('{0}-private-endpoint', variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix')))]"
       ]
     },
@@ -2694,7 +2762,7 @@
         }
       },
       "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('existingAccountSubscriptionId'), variables('existingAccountResourceGroupName')), 'Microsoft.Resources/deployments', format('account-caphost-{0}-deployment', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('account-capability-host-{0}-deployment', variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('projectName'), variables('uniqueSuffix')))]",

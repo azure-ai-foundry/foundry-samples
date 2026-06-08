@@ -1,12 +1,15 @@
 {
-  "name": "foundry-local-native-chat-completions",
+  "name": "native-chat-completions",
   "version": "1.0.0",
   "type": "module",
-  "description": "Native chat completions example using Foundry Local",
+  "main": "app.js",
   "scripts": {
-    "start": "node index.mjs"
+    "start": "node app.js"
   },
   "dependencies": {
     "foundry-local-sdk": "latest"
+  },
+  "optionalDependencies": {
+    "foundry-local-sdk-winml": "latest"
   }
 }

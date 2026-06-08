@@ -1,0 +1,14 @@
+kind: hosted
+name: foreground-background-agents-voicelive
+description: |
+  Voice-enabled field technician assistant for data center operations.
+  Integrates with Work IQ, Document Understanding, and Procedural Memory.
+protocols:
+  - protocol: responses
+    version: 1.0.0
+resources:
+  cpu: "0.25"
+  memory: 0.5Gi
+environment_variables:
+  - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+    value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}

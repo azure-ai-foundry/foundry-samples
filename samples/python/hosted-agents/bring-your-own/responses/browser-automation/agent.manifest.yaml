@@ -20,23 +20,26 @@ template:
     - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
       value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
 parameters:
-  properties:
-    - name: PLAYWRIGHT_SERVICE_URL
-      secret: false
-      description: Browser WebSocket endpoint for the Azure Playwright workspace.
-    - name: PLAYWRIGHT_SERVICE_RESOURCE_ID
-      secret: false
-      description: Azure resource ID of the Playwright workspace.
+  PLAYWRIGHT_SERVICE_URL:
+    secret: false
+    description: Browser WebSocket endpoint for the Azure Playwright workspace.
+  PLAYWRIGHT_SERVICE_RESOURCE_ID:
+    secret: false
+    description: Azure resource ID of the Playwright workspace.
+  PLAYWRIGHT_SERVICE_ACCESS_TOKEN:
+    secret: true
+    description: Access token for the Azure Playwright workspace.
 resources:
   - kind: model
     id: gpt-4.1
     name: AZURE_AI_MODEL_DEPLOYMENT_NAME
   - kind: connection
     name: browserautomation
-    authType: AgenticIdentityToken
-    audience: https://management.core.windows.net
+    authType: ApiKey
     category: PlaywrightWorkspace
     target: "{{PLAYWRIGHT_SERVICE_URL}}"
+    credentials:
+      key: "{{PLAYWRIGHT_SERVICE_ACCESS_TOKEN}}"
     metadata:
       resourceId: "{{PLAYWRIGHT_SERVICE_RESOURCE_ID}}"
   - kind: toolbox

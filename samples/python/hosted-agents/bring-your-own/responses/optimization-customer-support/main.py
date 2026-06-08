@@ -52,7 +52,7 @@ logger = logging.getLogger("customer-support-agent")
 
 FALLBACK_INSTRUCTIONS = "You are a helpful customer support agent."
 
-config = load_config(required=False)
+config = load_config()
 if config is None:
     from azure.ai.agentserver.optimization import OptimizationConfig
     config = OptimizationConfig(

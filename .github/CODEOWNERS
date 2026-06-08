@@ -5,6 +5,12 @@
 /samples/python/hosted-agents/ @microsoft-foundry/hosted-agents
 /samples/csharp/hosted-agents/ @microsoft-foundry/hosted-agents
 
+# Foundry Local samples — replace @microsoft-foundry/foundry-local with the actual team slug once created.
+/samples/csharp/foundry-local/     @microsoft-foundry/foundry-local
+/samples/javascript/foundry-local/ @microsoft-foundry/foundry-local
+/samples/python/foundry-local/     @microsoft-foundry/foundry-local
+/samples/rust/foundry-local/       @microsoft-foundry/foundry-local
+
 #### files referenced in docs (DO NOT EDIT, except for Docs team!!!) ##########################################
 /infrastructure/infrastructure-setup-bicep/01-connections/connection-key-vault.bicep @microsoft-foundry/AI-Platform-Docs
 /infrastructure/infrastructure-setup-bicep/05-custom-policy-definitions/deny-disallowed-connections.json @microsoft-foundry/AI-Platform-Docs
@@ -36,6 +42,7 @@
 /samples/csharp/quickstart/responses/quickstart-responses.cs @microsoft-foundry/AI-Platform-Docs
 /samples/java/quickstart/chat-with-agent/src/main/java/com/azure/ai/agents/ChatWithAgent.java @microsoft-foundry/AI-Platform-Docs
 /samples/java/quickstart/create-agent/src/main/java/com/azure/ai/agents/CreateAgent.java @microsoft-foundry/AI-Platform-Docs
+/samples/java/quickstart/responses/src/main/java/com/azure/ai/agents/CreateResponse.java @microsoft-foundry/AI-Platform-Docs
 /samples/python/enterprise-agent-tutorial/1-idea-to-prototype/evaluate.py @microsoft-foundry/AI-Platform-Docs
 /samples/python/enterprise-agent-tutorial/1-idea-to-prototype/main.py @microsoft-foundry/AI-Platform-Docs
 /samples/python/foundry-models/model-router/model-router-chat-completions.py @microsoft-foundry/AI-Platform-Docs
