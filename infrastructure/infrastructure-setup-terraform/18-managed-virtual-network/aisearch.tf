@@ -85,6 +85,7 @@ resource "azapi_resource" "aisearch_outbound_rule" {
 
   depends_on = [
     time_sleep.wait_aisearch,
+    azapi_resource.cosmos_outbound_rule,
     azurerm_role_assignment.foundry_network_connection_approver,
     azurerm_role_assignment.project_search_index,
     azurerm_role_assignment.project_search_contributor

@@ -39,6 +39,22 @@ resource managedNetwork 'Microsoft.CognitiveServices/accounts/managednetworks@20
 
 // Outbound PE rules allow the managed VNet (where hosted agents run) to reach dependent resources
 // Rules must be created sequentially to avoid conflicting state errors on the managed network
+
+// The agent needs a PE back to the Foundry/AI Services endpoint itself (public access is disabled)
+#disable-next-line BCP081
+resource aiServicesOutboundRule 'Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules@2025-10-01-preview' = {
+  parent: managedNetwork
+  name: 'aiservices-account-rule'
+  properties: {
+    type: 'PrivateEndpoint'
+    destination: {
+      serviceResourceId: aiAccount.id
+      subresourceTarget: 'account'
+    }
+    category: 'UserDefined'
+  }
+}
+
 #disable-next-line BCP081
 resource storageOutboundRule 'Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules@2025-10-01-preview' = {
   parent: managedNetwork
@@ -51,6 +67,7 @@ resource storageOutboundRule 'Microsoft.CognitiveServices/accounts/managedNetwor
     }
     category: 'UserDefined'
   }
+  dependsOn: [aiServicesOutboundRule]
 }
 
 #disable-next-line BCP081
