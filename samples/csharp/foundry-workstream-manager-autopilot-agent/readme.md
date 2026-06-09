@@ -28,25 +28,56 @@ Ensure you have the following installed:
 
 ## 🤖 Agent Functionality
 
-Before deploying, you can customize:
+### Overview
+
+The Foundry Workstream Manager is an autopilot agent grounded in dynamic knowledge drawn from the group chat's conversation history — every message, file, link, GitHub PR — as well as documents and context from any other sources you choose, such as your team's SharePoint site, product specs, and public documentation.
+
+In a group chat, it can track tasks and deadlines, summarize conversations into action items, follow up on overdue work, surface risks and blockers, and coordinate updates across stakeholders.
+
+To bring this to life, we're starting with a practical, high-impact use case: a workstream manager autopilot agent designed to live in Teams group chats. We've created an out-of-the-box code sample you can easily customize and connect to your own enterprise data and workflows.
+
+### User model
+
+| Role | Configuration | Capabilities | Surfaces |
+|------|---------------|--------------|----------|
+| **Admin/Manager** | Person who creates the autopilot instance | Manages teammate list; gives the agent permissions and configures its behavior; runs `/workstreamsummary run`; can chat with the agent | Teams DM, Teams group chats |
+| **Teammates** | Added by the admin (`/access add`) | Can use the autopilot agent | Teams DM, Teams group chats |
+| **Non-teammates** | N/A | Blocked from using the autopilot. If a non-teammate DMs the agent, it redirects them to a channel it's in and declines to respond further. | Agent won't respond in channels or group chats that include non-teammates |
+
+### Interaction surfaces
+
+The autopilot agent is designed to live in Teams group chats and Teams 1:1 DMs.
+
+### Capabilities
+
+- **Manager onboarding flow** — On first DM from the manager (the person who creates the agent instance), the agent introduces itself and walks them through setup: granting access, how it tracks work items, and pulling summaries. Run `/onboarding` anytime to change preferences. *(Manager only.)*
+- **Manager-controlled access** — By default only the manager can talk to it; they extend access with `/access add`, `/access remove`, and `/access list <upn>`. In group chats, every participant must be approved. The management commands — `/onboarding`, `/access`, and `/workstreamsummary` — are **manager-only** (the manager is resolved via Microsoft Graph `/me/manager`); approved teammates can chat with the agent but can't run them.
+- **Tracks open items** — Captures every commitment that needs follow-up — any time someone agrees to look into something and report back. These are often small, easily forgotten items like "Amanda will file a bug for that" or "can you check with {person} about that." It marks the logged message with 📌, and the owner, description, status, and ETA persist across sessions, so you can ask later who's on what.
+  - When the LLM identifies an action item it calls `create_work_item`; items are stored in Azure Table Storage (owner, description, status, ETA, and changelog), and owner AAD object IDs are resolved automatically via Microsoft Graph.
+  - Tools: `create_work_item`, `list_work_items`, `update_work_item`, `close_work_item`.
+- **On-demand workstream summary** — Run `/workstreamsummary run` for a digest of open items grouped by owner — a natural starting point for a recurring daily or weekly digest. *(Manager only.)*
+- **Workstream Q&A** — Answers questions about the workstream from conversation history plus any sources you grant it: SharePoint and specs (Azure DevOps planned).
+- **Built-in Microsoft 365 (WorkIQ) tools** — Pre-wired with Microsoft 365 tools: Word, Excel, Outlook calendar, OneDrive/SharePoint. Ask it to draft an email, summarize a spec, or pull last week's notes, and it goes straight to the source. Ask it to create a Word document, and it does so in its own OneDrive.
+- **Reacts to messages** — Messages it decides to reply to receive a 👍 reaction.
+
+### Customization
+
+**During agent development** (persona: developer)
+
 - **Agent instructions:** [AgentInstructions.cs](./src/workstream_manager_agent/AgentLogic/AgentInstructions.cs)
-- **MCP tools:** [ToolManifest.json](./src/workstream_manager_agent/ToolingManifest.json) - [Learn more](https://learn.microsoft.com/en-us/microsoft-agent-365/tooling-servers-overview)
-- **Grant users permission to directly message the agent** — Users must be granted permission to direct message the agent before they can interact with it.
+- **MCP tools:** [ToolingManifest.json](./src/workstream_manager_agent/ToolingManifest.json) — [Learn more](https://learn.microsoft.com/en-us/microsoft-agent-365/tooling-servers-overview)
+- **Group-chat access response:** Set `GroupChatUnauthorizedResponse` to customize the message shown when a group chat includes unapproved participants (`{Manager}`, `{UnauthorizedCount}`, `{UnauthorizedParticipants}` placeholders).
+- **Cross-tenant access guard:** Set `CrossTenantUnauthorizedResponse` to customize the canned no-op response for users outside the digital worker tenant.
+- **Assign agent permissions (inheritable scopes):** As blueprint owner, declare the inheritable Graph/MCP delegated scopes the agent needs on the blueprint (e.g., `ChatMessage.Send`, `McpServers.Word.All`); these are consented at admin approval. Done during deployment, before any instance is created.
+
+**After the agent instance is created** (persona: agent manager)
+
 - **Direct-message access control:** Managers can manage a per-digital-worker allowlist in Teams direct message using:
   - `/access list`
   - `/access add <user-object-id-or-upn-or-mention>`
   - `/access remove <user-object-id-or-upn-or-mention>`
-  - `azd provision` now creates and wires Azure Table Storage for allowlist persistence across sessions (table defaults to `digitalworkerallowlist`).
-  - Teams **group chats** use the same allowlist and only allow responses when every participant is manager-approved.
-  - Customize `GroupChatUnauthorizedResponse` with placeholders `{Manager}`, `{UnauthorizedCount}`, and `{UnauthorizedParticipants}`.
-- **Work item tracking:** The agent automatically tracks action items mentioned in conversation:
-  - When the LLM identifies an action item, it calls `create_work_item` and the agent reacts with 📌
-  - Items are stored in Azure Table Storage with owner, description, status, ETA, and changelog
-  - Owner AAD object IDs are resolved automatically via Microsoft Graph
-  - Tools available: `create_work_item`, `list_work_items`, `update_work_item`, `close_work_item`
-- **Workstream summary:** `/workstreamsummary run` generates an on-demand summary of all open work items grouped by owner
-- **Manager onboarding:** Run `/onboarding` to show setup guidance for `/access` commands
-- **Cross-tenant access guard:** Set `CrossTenantUnauthorizedResponse` to customize the canned no-op response for users outside the digital worker tenant.
+  - `azd provision` creates and wires Azure Table Storage for allowlist persistence across sessions (table defaults to `digitalworkerallowlist`).
+- **Assign agent permissions:** After hiring, the manager grants the agent instance access to the specific resources it should use — just like you would for a person — for example, adding it to a security group or a team SharePoint site, or sharing a Word document with it.
 
 ---
 
@@ -168,16 +199,17 @@ Creates the environment resources:
 - **Bot Service** — `msaAppId` is the Agent Blueprint client ID; its `endpoint` is the deterministic agent endpoint URL you will create later (`https://${accountName}.services.ai.azure.com/api/projects/${projectName}/agents/${agentName}/endpoint/protocols/activityProtocol?api-version=2025-05-15-preview`). A **Microsoft Teams channel** is then connected to the Bot Service.
 - **Azure Storage account + two tables** (`digitalworkerallowlist`, `workitems`) for allowlist and work-item persistence.
 - **Monitoring resources** (Log Analytics + Application Insights + project AppInsights connection) — only when `ENABLE_MONITORING=true` (default). See [Monitoring & Observability](#-monitoring--observability).
+- **Project connections** — an **Application Insights connection** is created on the Foundry project (only when `ENABLE_MONITORING=true`) so the agent emits telemetry. This sample does **not** create a separate Azure Container Registry connection; the project pulls images via the **AcrPull** role assignment instead (see below).
 
 Role assignments created by `/infra` (all granted to **managed identities**, never to your user):
 
-| Role | Granted to | Scope |
-|------|-----------|-------|
-| **AcrPull** | Foundry project system MI | Container Registry |
-| **Cognitive Services User** | Foundry project system MI | Foundry account |
-| **Contributor** | Deployment-script UMI | Resource group |
-| **Cognitive Services User** | Deployment-script UMI | Resource group |
-| **Log Analytics Reader** *(if monitoring enabled)* | Foundry project MI | Application Insights |
+| Role | Granted to | Scope | Why it's needed |
+|------|-----------|-------|-----------------|
+| **AcrPull** | Foundry project system MI | Container Registry | Pull the agent container image from the registry at runtime |
+| **Cognitive Services User** | Foundry project system MI | Foundry account | Access the deployed model |
+| **Contributor** | Deployment-script UMI | Resource group | Lets the deployment script create the Agent Blueprint (a data-plane operation run via the UMI) |
+| **Cognitive Services User** | Deployment-script UMI | Resource group | Gives the deployment-script UMI the Cognitive Services data-plane access it uses during blueprint creation |
+| **Log Analytics Reader** *(if monitoring enabled)* | Foundry project MI | Application Insights | Read telemetry for running evaluations over agent traces |
 
 > `/infra` does **not** grant **you** any roles (e.g., it does not give you ACR Contributor). Your ability to run the post-provision scripts comes from your own subscription/tenant roles — see the prerequisites and Phase 2 below.
 
@@ -187,14 +219,14 @@ The scripts below run under **your `az` / `azd` login**, so the permissions list
 
 | Script | What it does | Permissions required to run |
 |--------|--------------|-----------------------------|
-| `post-provision.ps1` | Orchestrator — runs the scripts below in order; gates the one-time steps behind the `DIGITAL_WORKER_SETUP_DONE` azd env marker. | None of its own (inherits the requirements below). |
-| `build-docker-image-acr.ps1` | Publishes the .NET app and builds + pushes the container image using **ACR Build** (cloud build). | **Contributor** on the Azure Container Registry (ACR Build queues a task: `Microsoft.ContainerRegistry/registries/scheduleRun/action`). |
-| `agent-creation-script.ps1` | Creates the Foundry **hosted agent version** (referencing the blueprint), polls until `active`, grants the agent's default instance identity **Cognitive Services User** (+ **Storage Table Data Contributor**), and **patches the endpoint** for activity protocol + `BotServiceRbac` auth. | **Owner** or **User Access Administrator** on the resource group (for `roleAssignments/write`) **+ Azure AI User** (or Cognitive Services User) on the Foundry project (to create the agent version). |
-| `publish-digital-worker.ps1` | Calls Foundry's `microsoft365/publish` API to publish the agent as an **AI Teammate** (validates properties, builds the manifest, submits to the MOS3 catalog). The agent then appears in the **Requests** tab in MAC. | **Azure AI User** (or equivalent publish-capable role) on the Foundry project **+ Frontier preview** tenant enrollment. |
+| `post-provision.ps1` | Orchestrator — runs the one-time setup scripts and gates them behind the `DIGITAL_WORKER_SETUP_DONE` azd env marker. The scripts run in dependency order: become blueprint owner → declare OAuth2 grants + inheritable scopes → publish (publishing last so the agent's scopes are declared before an admin approves it). | None of its own (inherits the requirements below). |
+| `build-docker-image-acr.ps1` | Publishes the .NET app and builds + pushes the container image using **ACR Build** (cloud build). | This sample builds in the cloud with **`az acr build`** (ACR Tasks), which requires the **control-plane** action `Microsoft.ContainerRegistry/registries/scheduleRun/action` — covered by **Contributor**. Note: the official least-privilege guidance ([Hosted agent permissions → Push an image](https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agent-permissions#push-an-image-to-the-registry)) covers a local build + `docker push`, which needs only **Container Registry Repository Writer** (or AcrPush). `az acr build` needs more because it runs as an ACR task, not a direct push — to stay least-privilege, use the local `build-docker-image.ps1` (docker push) variant instead. |
+| `agent-creation-script.ps1` | Creates the Foundry **hosted agent version** (referencing the blueprint), polls until `active`, grants the agent's default instance identity **Cognitive Services User** (+ **Storage Table Data Contributor**), and **patches the endpoint** for activity protocol + `BotServiceRbac` auth. | Creating the agent version and the activity-protocol **PATCH** require only **Foundry User** on the Foundry project (data-plane). The **role assignments** the script makes to the agent's instance identity (Cognitive Services User + Storage Table Data Contributor) are what require **Owner** or **User Access Administrator** on the resource group (for `roleAssignments/write`). |
+| `add-current-user-as-blueprint-owner.ps1` | Adds the deploying user as an **Owner** of the blueprint application (temporary fix so the OAuth2/inheritable steps work). Non-blocking — warns and continues if it lacks privileges. | **Cloud Application Administrator / Application Administrator** (`Application.ReadWrite.All`) to add the first owner, **or** already be an owner. |
 | `create-blueprintsp-oauth2-grants.ps1` | Creates tenant-wide (`AllPrincipals`) **OAuth2 permission grants** on the blueprint SP (Prod MCP, APEX, Microsoft Graph reaction scopes), then calls `add-blueprint-inheritable-scopes.ps1`. | **Cloud Application Administrator** (for `AllPrincipals` admin consent — or `DelegatedPermissionGrant.ReadWrite.All` / `Directory.ReadWrite.All`). |
 | `add-blueprint-inheritable-scopes.ps1` | Sets/merges **inheritablePermissions** (Graph reaction scopes) on the `agentIdentityBlueprint` app so each agent instance inherits them. Called by the OAuth2 grants script. | **Blueprint owner** (Agent ID Developer) **or Agent ID Administrator**. |
-| `add-current-user-as-blueprint-owner.ps1` | Adds the deploying user as an **Owner** of the blueprint application (temporary fix so the OAuth2/inheritable steps work). Non-blocking — warns and continues if it lacks privileges. | **Cloud Application Administrator / Application Administrator** (`Application.ReadWrite.All`) to add the first owner, **or** already be an owner. |
-| `build-docker-image.ps1` | **Not run by the hook** — a local `docker build` + push variant (superseded by the ACR Build script). Only relevant if invoked manually. | **AcrPush** on the registry (for `az acr login` + `docker push`). |
+| `publish-digital-worker.ps1` | Calls Foundry's `microsoft365/publish` API to publish the agent as an **AI Teammate** (validates properties, builds the manifest, submits to the MOS3 catalog). The agent then appears in the **Requests** tab in MAC. | **Foundry User** (or equivalent publish-capable role) on the Foundry project **+ Frontier preview** tenant enrollment. |
+| `build-docker-image.ps1` | **Not run by the hook** — a local `docker build` + push variant (superseded by the ACR Build script). Only relevant if invoked manually. | **Container Registry Repository Writer** (preferred — models push as a data action) or **AcrPush** on the registry (for `az acr login` + `docker push`). |
 
 ---
 
@@ -253,9 +285,16 @@ requests
 
 ## 📖 Additional Resources
 
-- [Foundry Container Agents Documentation](https://github.com/microsoft/container_agents_docs)
-- [Azure Developer CLI Documentation](https://learn.microsoft.com/azure/developer/azure-developer-cli/)
-- [Agent Blueprint Configuration](https://dev.teams.microsoft.com/tools/agent-blueprint)
+**Reference docs**
+
+- [Hosted agents in Microsoft Foundry (concepts)](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents)
+- [Hosted agent permissions](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agent-permissions)
+- [Publish a Foundry agent to Agent 365 (how-to)](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/agent-365)
+- [Azure Developer CLI (azd) documentation](https://learn.microsoft.com/azure/developer/azure-developer-cli/)
+
+**Required setup action** (not reference docs)
+
+- **Configure your agent blueprint in the [Teams Developer Portal](https://dev.teams.microsoft.com/tools/agent-blueprint)** — set the Bot ID = Blueprint ID (see [Step 4](#step-4-configure-teams-integration)). This is a hands-on step you must perform, not documentation to read.
 
 ---
 
