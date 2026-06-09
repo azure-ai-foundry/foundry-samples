@@ -5,8 +5,8 @@
   - Creates an AI Foundry (previously known as Azure AI Services) account and public network access disabled.
   - Creates a gpt-4o model deployment
 */
-@description('That name is the name of our application. It has to be unique. Type a name followed by your resource group name. (<name>-<resourceGroupName>)')
-param aiFoundryName string = 'foundrypnadisabled'
+@description('Name for the AI Foundry account. Used as customSubDomainName (globally unique). Default appends a per-RG suffix to avoid collisions.')
+param aiFoundryName string = 'foundrypnadisabled-${uniqueString(resourceGroup().id)}'
 
 @description('Location for all resources.')
 param location string = 'eastus'
@@ -106,6 +106,12 @@ resource aiAccountPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01
       }
     ]
   }
+  // Wait for project; account PUT returns in 'Accepted' state and binding a
+  // PE before the backend converges fails with AccountProvisioningStateInvalid.
+  // Project creation only succeeds post-convergence, so it acts as a sync point.
+  dependsOn: [
+    project
+  ]
 }
 
 /* 
