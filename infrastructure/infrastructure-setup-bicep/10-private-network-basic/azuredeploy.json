@@ -4,16 +4,16 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.39.26.7824",
-      "templateHash": "258335635459710717"
+      "version": "0.44.1.10279",
+      "templateHash": "964975521955820946"
     }
   },
   "parameters": {
     "aiFoundryName": {
       "type": "string",
-      "defaultValue": "foundrypnadisabled",
+      "defaultValue": "[format('foundrypnadisabled-{0}', uniqueString(resourceGroup().id))]",
       "metadata": {
-        "description": "That name is the name of our application. It has to be unique. Type a name followed by your resource group name. (<name>-<resourceGroupName>)"
+        "description": "Name for the AI Foundry account. Used as customSubDomainName (globally unique). Default appends a per-RG suffix to avoid collisions."
       }
     },
     "location": {
@@ -120,6 +120,7 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryName'), parameters('defaultProjectName'))]",
         "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('peSubnetName'))]"
       ]
     },
