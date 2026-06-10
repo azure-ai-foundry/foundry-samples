@@ -35,10 +35,10 @@
 		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
 		<PackageReference Include="System.Text.Json" Version="10.0.7" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
-		<PackageReference Include="Microsoft.Agents.Authentication.Msal" Version="1.6.9-*" />
-		<PackageReference Include="Microsoft.Agents.Hosting.AspNetCore" Version="1.6.9-*" />
-		<PackageReference Include="Microsoft.Agents.Storage" Version="1.6.9-*" />
-		<PackageReference Include="Microsoft.Agents.Storage.Transcript" Version="1.6.9-*" />
+		<PackageReference Include="Microsoft.Agents.Authentication.Msal" Version="1.6.109-*" />
+		<PackageReference Include="Microsoft.Agents.Hosting.AspNetCore" Version="1.6.109-*" />
+		<PackageReference Include="Microsoft.Agents.Storage" Version="1.6.109-*" />
+		<PackageReference Include="Microsoft.Agents.Storage.Transcript" Version="1.6.109-*" />
 		<PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.23.0" />
 		<PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.7" />
 		<PackageReference Include="System.Runtime.Caching" Version="10.0.7" />

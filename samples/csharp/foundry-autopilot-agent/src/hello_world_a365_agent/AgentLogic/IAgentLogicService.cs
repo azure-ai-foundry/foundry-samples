@@ -31,11 +31,6 @@ public interface IAgentLogicService
     Task HandleCommentNotificationAsync(ITurnContext turnContext, ITurnState turnState, AgentNotificationActivity commentEvent);
 
     /// <summary>
-    /// Handles Teams message events
-    /// </summary>
-    Task HandleTeamsMessageAsync(ITurnContext turnContext, ITurnState turnState, AgentNotificationActivity teamsEvent);
-
-    /// <summary>
     /// Handles installation update events
     /// </summary>
     Task HandleInstallationUpdateAsync(ITurnContext turnContext, ITurnState turnState, AgentNotificationActivity installationEvent);

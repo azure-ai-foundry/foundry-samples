@@ -8,6 +8,7 @@ using Microsoft.Agents.Builder;
 using Microsoft.Agents.Builder.State;
 using Microsoft.Agents.Core.Models;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -61,7 +62,8 @@ public class ResponsesApiAgentLogicService : IAgentLogicService
         {
             incomingText = $"Respond to this chat message with chat id {turnContext.Activity.Conversation.Id} " +
                            $"From: {sender?.Name} ({sender?.Id})\n" +
-                           $"Message: {incomingText}";
+                           $"Message: {incomingText}\n" +
+                           "If user hasn't explicitly asked to send teams messages don't use teams mcp tool to respond, that causes double responses.";
         }
         else if (turnContext.Activity.Type == ActivityTypes.InstallationUpdate)
         {
@@ -101,23 +103,23 @@ public class ResponsesApiAgentLogicService : IAgentLogicService
 
     public async Task HandleEmailNotificationAsync(ITurnContext turnContext, ITurnState turnState, AgentNotificationActivity emailEvent)
     {
-        _logger.LogInformation("Processing email notification (Responses API) - NotificationType: {NotificationType}", emailEvent.NotificationType);
+        var fromEmail = emailEvent.From.Id;
+        var emailJson = JsonSerializer.Serialize(emailEvent, new JsonSerializerOptions { WriteIndented = true });
         var conversationId = turnContext.Activity.Conversation?.Id ?? "email-notification";
-        var response = await InvokeResponsesApiAsync(emailEvent.Text ?? string.Empty, conversationId);
-        var responseActivity = MessageFactory.Text("a");
-        responseActivity.Entities.Add(new EmailResponse(response));
+        var response = await InvokeResponsesApiAsync($"You received a new email. Please look at the email and return a response in html format. From: {fromEmail}\nEmail details:\n{emailJson}", conversationId);
+        var responseActivity = EmailResponse.CreateEmailResponseActivity(response);
+
+        _logger.LogInformation(
+            "Outgoing email response activity - original ReplyToId={OriginalReplyToId}, ConversationId={ConversationId}",
+            responseActivity.ReplyToId,
+            responseActivity.Conversation?.Id);
+
         await turnContext.SendActivityAsync(responseActivity);
     }
 
     public Task HandleCommentNotificationAsync(ITurnContext turnContext, ITurnState turnState, AgentNotificationActivity commentEvent)
     {
         _logger.LogInformation("Processing comment notification (Responses API)");
-        return Task.CompletedTask;
-    }
-
-    public Task HandleTeamsMessageAsync(ITurnContext turnContext, ITurnState turnState, AgentNotificationActivity teamsEvent)
-    {
-        _logger.LogInformation("Processing Teams message (Responses API)");
         return Task.CompletedTask;
     }
 
@@ -229,9 +231,10 @@ public class ResponsesApiAgentLogicService : IAgentLogicService
 
     private static string GetResponseIdFilePath(string conversationId)
     {
-        // Sanitize conversation ID for use as filename
-        var safeId = Convert.ToBase64String(Encoding.UTF8.GetBytes(conversationId))
-            .Replace('/', '_').Replace('+', '-').TrimEnd('=');
+        // SHA-256 hash conversation ID to produce a fixed-length, filesystem-safe filename
+        // and avoid PathTooLongException for long conversation IDs.
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(conversationId));
+        var safeId = Convert.ToHexString(hashBytes).ToLowerInvariant();
         return Path.Combine(GetResponseStoreDir(), $"{safeId}.responseid");
     }
 

@@ -40,15 +40,7 @@ public class A365AgentApplication : AgentApplication
         {
             var agent = await GetAgentFromRecipient(turnContext.Activity);
             var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
-            if (agent.IsMessagingEnabled || true)
-            {
-                // Use the specific email notification handler
-                await agentService.HandleEmailNotificationAsync(turnContext, turnState, agentNotificationActivity);
-            }
-            else
-            {
-                await agentService.NewActivityReceived(turnContext, turnState, cancellationToken);
-            }
+            await agentService.HandleEmailNotificationAsync(turnContext, turnState, agentNotificationActivity);
         });
 
         // Handle Word notifications
@@ -57,15 +49,7 @@ public class A365AgentApplication : AgentApplication
             var agent = await GetAgentFromRecipient(turnContext.Activity);
             var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
 
-            if (agent.IsMessagingEnabled)
-            {
-                // Use the specific comment notification handler for Word documents
-                await agentService.HandleCommentNotificationAsync(turnContext, turnState, agentNotificationActivity);
-            }
-            else
-            {
-                await agentService.NewActivityReceived(turnContext, turnState, cancellationToken);
-            }
+            await agentService.HandleCommentNotificationAsync(turnContext, turnState, agentNotificationActivity);
         });
 
         // Handle Excel notifications
@@ -73,16 +57,8 @@ public class A365AgentApplication : AgentApplication
         {
             var agent = await GetAgentFromRecipient(turnContext.Activity);
             var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
-
-            if (agent.IsMessagingEnabled)
-            {
-                // Use the specific comment notification handler for Excel documents
-                await agentService.HandleCommentNotificationAsync(turnContext, turnState, agentNotificationActivity);
-            }
-            else
-            {
-                await agentService.NewActivityReceived(turnContext, turnState, cancellationToken);
-            }
+            // Use the specific comment notification handler for Excel documents
+            await agentService.HandleCommentNotificationAsync(turnContext, turnState, agentNotificationActivity);
         });
 
         // Handle PowerPoint notifications
@@ -90,16 +66,8 @@ public class A365AgentApplication : AgentApplication
         {
             var agent = await GetAgentFromRecipient(turnContext.Activity);
             var agentService = await _factory.CreateAsync(agent, turnContext, UserAuthorization);
-
-            if (agent.IsMessagingEnabled)
-            {
-                // Use the specific comment notification handler for PowerPoint documents
-                await agentService.HandleCommentNotificationAsync(turnContext, turnState, agentNotificationActivity);
-            }
-            else
-            {
-                await agentService.NewActivityReceived(turnContext, turnState, cancellationToken);
-            }
+            // Use the specific comment notification handler for PowerPoint documents
+            await agentService.HandleCommentNotificationAsync(turnContext, turnState, agentNotificationActivity);
         });
         
         OnActivity(ActivityTypes.Message, async (turnContext, turnState, cancellationToken) =>
