@@ -75,3 +75,14 @@ specific agent locally and how to deploy it to a Foundry hosted-agent
 container with `azd`. Each portal's README under
 `<sample>/chat_client/README.md` covers configuring and running the
 browser side.
+
+
+### [`duplex-live-agent/`](duplex-live-agent/) — Voice live foreground and background agents
+
+The sample shows how to build real-time voice agents that maintain two parallel tracks simultaneously with [**Azure Voice Live**](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live):
+* Foreground router: Low-latency voice conversation (always responsive, never "freezes")
+* Background workers: Autonomous task execution (research, analysis, multi-step operations)
+
+The browser portal lives at
+[`duplex-live-agent/chat_client/`](duplex-live-agent/chat_client/) (a single
+static `index.html`) and defaults to <http://localhost:8080>.
