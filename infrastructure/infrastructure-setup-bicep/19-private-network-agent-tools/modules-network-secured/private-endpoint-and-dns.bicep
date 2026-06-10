@@ -65,7 +65,9 @@ param cosmosDBSubscriptionId string = subscription().subscriptionId
 param cosmosDBResourceGroupName string = resourceGroup().name
 
 @description('Map of DNS zone FQDNs to an object describing where the zone lives. Each value must be an object with optional `subscriptionId` and `resourceGroup` properties. Empty `resourceGroup` means "create the zone in this deployment\'s resource group". Non-empty `resourceGroup` references an existing zone; empty `subscriptionId` defaults to the current subscription.')
-param existingDnsZones object = {
+param existingDnsZones object = {}
+
+var requiredDnsZones = {
   'privatelink.services.ai.azure.com': { subscriptionId: '', resourceGroup: '' }
   'privatelink.openai.azure.com': { subscriptionId: '', resourceGroup: '' }
   'privatelink.cognitiveservices.azure.com': { subscriptionId: '', resourceGroup: '' }
@@ -74,6 +76,7 @@ param existingDnsZones object = {
   'privatelink.documents.azure.com': { subscriptionId: '', resourceGroup: '' }
   'privatelink.fabric.microsoft.com': { subscriptionId: '', resourceGroup: '' }
 }
+var effectiveDnsZones = union(requiredDnsZones, existingDnsZones)
 
 // ---- Resource references ----
 resource aiAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
@@ -238,7 +241,7 @@ var storageDnsZoneName = 'privatelink.blob.${environment().suffixes.storage}'
 var cosmosDBDnsZoneName = 'privatelink.documents.azure.com'
 var fabricDnsZoneName = 'privatelink.fabric.microsoft.com'
 
-var dnsZoneEntries = items(existingDnsZones)
+var dnsZoneEntries = items(effectiveDnsZones)
 var dnsZoneKeys = map(dnsZoneEntries, e => e.key)
 
 module dnsZones 'private-dns-zone.bicep' = [for (entry, i) in dnsZoneEntries: {
