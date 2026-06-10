@@ -1,0 +1,4 @@
+name: "Tutorial: Chat Assistant (C#)"
+description: Build an interactive multi-turn chat assistant (tutorial).
+
+build: "dotnet restore --source https://api.nuget.org/v3/index.json && dotnet build --no-restore --verbosity minimal"

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+
+kind: hosted
+name: agent-framework-agent-downstream-azure-responses
+description: |
+    An Agent Framework hosted agent that operates on Azure Blob Storage and Service Bus using its per-agent Microsoft Entra identity. Demonstrates the manual RBAC assignment pattern for Azure data-plane services.
+metadata:
+    tags:
+        - Agent Framework
+        - AI Agent Hosting
+        - Azure AI AgentServer
+        - Responses Protocol
+        - Agent Identity
+        - Azure Storage
+        - Azure Service Bus
+protocols:
+    - protocol: responses
+      version: 1.0.0
+resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    - name: AZURE_STORAGE_ACCOUNT_NAME
+      value: ${AZURE_STORAGE_ACCOUNT_NAME}
+    - name: AZURE_STORAGE_CONTAINER_NAME
+      value: ${AZURE_STORAGE_CONTAINER_NAME}
+    - name: AZURE_SERVICEBUS_FQDN
+      value: ${AZURE_SERVICEBUS_FQDN}
+    - name: AZURE_SERVICEBUS_QUEUE_NAME
+      value: ${AZURE_SERVICEBUS_QUEUE_NAME}

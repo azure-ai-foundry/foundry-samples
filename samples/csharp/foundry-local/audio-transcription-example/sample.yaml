@@ -1,0 +1,4 @@
+name: Audio Transcription (C#)
+description: Transcribe audio files using the Foundry Local C# SDK.
+
+build: "dotnet restore --source https://api.nuget.org/v3/index.json && dotnet build --no-restore --verbosity minimal"

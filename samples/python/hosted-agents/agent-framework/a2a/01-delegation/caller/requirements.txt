@@ -1,0 +1,8 @@
+# `agent-framework[foundry]` is required because main.py imports
+# `from agent_framework.foundry import FoundryChatClient`. In 1.3+ the
+# foundry submodule is an optional extra; installing the bare package
+# leaves agent_framework.foundry unimportable and the container crashes
+# at startup so /readiness never returns 200 -> 424 session_not_ready.
+agent-framework[foundry]>=1.2.2
+agent-framework-foundry-hosting
+httpx

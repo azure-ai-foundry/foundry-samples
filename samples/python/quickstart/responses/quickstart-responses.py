@@ -1,0 +1,19 @@
+from azure.identity import DefaultAzureCredential
+from azure.ai.projects import AIProjectClient
+
+# Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+PROJECT_ENDPOINT = "your_project_endpoint"
+
+# Create project and openai clients to call Foundry API
+project = AIProjectClient(
+    endpoint=PROJECT_ENDPOINT,
+    credential=DefaultAzureCredential(),
+)
+openai = project.get_openai_client()
+
+# Run a responses API call
+response = openai.responses.create(
+    model="gpt-5-mini",
+    input="What is the size of France in square miles?",
+)
+print(f"Response output: {response.output_text}")

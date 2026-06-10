@@ -1,0 +1,5 @@
+name: Web Server (Python)
+description: Start a local OpenAI-compatible web server and call it with the OpenAI Python SDK.
+
+build: "pip install -r requirements.txt"
+validate: "python -m py_compile $(find . -maxdepth 3 -name '*.py' -not -path './.venv/*')"

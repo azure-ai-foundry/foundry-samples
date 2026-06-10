@@ -1,0 +1,8 @@
+name: Quickstart Chat with Agent
+description: Basic quickstart sample demonstrating Microsoft Foundry chat with Agent.
+
+# SKIP: Source uses unreleased @azure/ai-projects APIs (getOpenAIClient renamed
+# to getAzureOpenAIClient, createVersion/deleteVersion not yet on AgentsClient).
+# Re-enable when @azure/ai-projects is updated with these APIs.
+build: "echo 'SKIP: requires unreleased @azure/ai-projects API'"
+validate: "echo 'SKIP: requires unreleased @azure/ai-projects API'"

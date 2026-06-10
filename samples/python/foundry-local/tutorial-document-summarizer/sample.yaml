@@ -1,0 +1,5 @@
+name: Tutorial: Document Summarizer (Python)
+description: Summarize documents with AI (tutorial).
+
+build: "pip install -r requirements.txt"
+validate: "python -m py_compile $(find . -maxdepth 3 -name '*.py' -not -path './.venv/*')"

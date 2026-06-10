@@ -1,0 +1,5 @@
+name: Model Router Quickstart with Chat Completions & Foundry Responses SDK
+description: Basic quickstart sample demonstrating the use of Model Router with Foundry APIs and SDKs.
+
+build: "pip install -r requirements.txt"
+validate: "python -m py_compile *.py"

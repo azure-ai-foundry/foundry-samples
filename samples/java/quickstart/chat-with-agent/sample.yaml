@@ -1,0 +1,7 @@
+name: Quickstart Chat with Agent
+description: Basic quickstart sample demonstrating Microsoft Foundry chat with Agent.
+
+# SKIP: Source imports from unreleased SDKs (openai-java conversations API,
+# azure-identity AuthenticationUtil). Re-enable when dependencies are available.
+build: "echo 'SKIP: requires unreleased openai-java conversations API'"
+validate: "echo 'SKIP: requires unreleased openai-java conversations API'"
