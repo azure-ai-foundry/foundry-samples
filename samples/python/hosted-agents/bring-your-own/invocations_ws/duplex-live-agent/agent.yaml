@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+kind: hosted
+name: duplex-live-agent
+protocols:
+  - protocol: invocations_ws
+    version: 1.0.0
+resources:
+  cpu: "1"
+  memory: 1Gi
+environment_variables:
+  - name: AZURE_VOICELIVE_MODEL
+    value: ${AZURE_VOICELIVE_MODEL}
+  - name: AZURE_VOICELIVE_VOICE
+    value: ${AZURE_VOICELIVE_VOICE}
+  - name: AZURE_TASK_MODEL
+    value: ${AZURE_TASK_MODEL}
+  - name: GITHUB_TOKEN
+    value: ${GITHUB_TOKEN}
