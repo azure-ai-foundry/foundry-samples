@@ -15,8 +15,15 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | 5 | [text-search-rag](text-search-rag/) | A support agent with RAG capabilities using `TextSearchProvider`. |
 | 6 | [workflows](workflows/) | A multi-agent translation pipeline using `WorkflowBuilder`. |
 | 7 | [foundry-toolbox-server-side](foundry-toolbox-server-side/) | An agent that loads a Foundry Toolbox with `GetToolboxToolsAsync()` and passes its tools as server-side tools — Foundry executes them on the agent's behalf. |
-| 8 | [a2a/01-delegation](a2a/01-delegation/) | Two hosted agents — a math-expert executor exposed over A2A and a concierge caller that delegates to it through a Foundry Toolbox A2A connection. |
-| 9 | [foundry-toolbox-mcp-skills](foundry-toolbox-mcp-skills/) | An agent that discovers MCP-based skills from a Foundry Toolbox and exposes them to the agent via `AgentSkillsProvider` with progressive disclosure. |
+| 8 | [toolbox-auth-paths](toolbox-auth-paths/) | A multi-tool Foundry Toolbox demonstrating the authentication paths an MCP tool can use (key-based `CustomKeys`, public no-auth, and optional Entra agent identity) — all resolved server-side. |
+| 9 | [azure-search-rag](azure-search-rag/) | A support agent with RAG grounded in an Azure AI Search keyword index via `TextSearchProvider` over `Azure.Search.Documents`. |
+| 10 | [foundry-memory-rag](foundry-memory-rag/) | A personal-coach agent with persistent per-user memory that survives across requests and sessions using `FoundryMemoryProvider`. |
+| 11 | [file-tools](file-tools/) | An agent that answers questions over both image-baked bundled files and per-session uploaded files through scoped, security-hardened tools. |
+| 12 | [agent-skills](agent-skills/) | An agent that loads its behavioral guidelines from Foundry Skills (`SKILL.md`) at startup, so updates ship without code changes. |
+| 13 | [observability](observability/) | An instrumented agent demonstrating OpenTelemetry tracing, metrics, and logging for a hosted agent. |
+| 14 | [teams-activity](teams-activity/) | A hosted agent that can be deployed to Foundry and published to Teams, handling messages with file attachments and Teams/calendar questions. |
+| 15 | [a2a/01-delegation](a2a/01-delegation/) | Two hosted agents — a math-expert executor exposed over A2A and a concierge caller that delegates to it through a Foundry Toolbox A2A connection. |
+| 16 | [foundry-toolbox-mcp-skills](foundry-toolbox-mcp-skills/) | An agent that discovers MCP-based skills from a Foundry Toolbox and exposes them to the agent via `AgentSkillsProvider` with progressive disclosure. |
 
 ### Invocations API
 
