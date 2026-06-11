@@ -19,6 +19,7 @@ Standard Setup Network Secured Steps for main.bicep
   'australiaeast'
   'swedencentral'
   'canadaeast'
+  'canadacentral'
   'westeurope'
   'westus3'
   'uksouth'
@@ -48,8 +49,8 @@ param modelSkuName string = 'GlobalStandard'
 param modelCapacity int = 30
 
 // Create a short, unique suffix, that will be unique to each resource group
-param deploymentTimestamp string = utcNow('yyyyMMddHHmmss')
-var uniqueSuffix = substring(uniqueString('${resourceGroup().id}-${deploymentTimestamp}'), 0, 4)
+// Deterministic suffix for idempotent re-deploys (same RG = same names)
+var uniqueSuffix = substring(uniqueString(resourceGroup().id), 0, 4)
 var accountName = toLower('${aiServices}${uniqueSuffix}')
 
 @description('Name for your project resource.')
@@ -106,6 +107,12 @@ param existingAiFoundryAccountResourceId string = ''
 @description('Optional. When true, skip the model deployment. Recommended when reusing an existing account that already has the required model deployments.')
 param skipModelDeployment bool = false
 
+@description('Enable Azure Container Registry with Private Endpoint. When true, creates an ACR (Premium SKU) with a PE in the private endpoints subnet.')
+param enableContainerRegistry bool = true
+
+@description('Optional developer IP CIDR to allowlist for ACR push access (e.g., 203.0.113.0/26 or 10.0.0.0/16). When empty, public access remains disabled.')
+param developerIpCidr string = ''
+
 // Account-level capability host is auto-created by the platform when
 // `networkInjections.scenario='agent'` is set on a NEW account. Only one
 // capability host per account is allowed, so this flag must stay false in that
@@ -113,6 +120,13 @@ param skipModelDeployment bool = false
 // without one, or after `deleteCapHost.sh` for a redeploy.
 @description('Optional. Create the account-level capability host explicitly. Leave false for fresh deployments (platform auto-creates it via networkInjections). Set true only for a BYO account with no capability host, or to recreate after running deleteCapHost.sh.')
 param createAccountCapabilityHost bool = false
+
+// Re-derive BYO account context at main.bicep level so we can scope the
+// account-level capabilityHost module to the right RG/subscription.
+var useExistingAccount = !empty(existingAiFoundryAccountResourceId)
+var existingAccountIdParts = split(existingAiFoundryAccountResourceId, '/')
+var existingAccountSubscriptionId = useExistingAccount ? existingAccountIdParts[2] : subscription().subscriptionId
+var existingAccountResourceGroupName = useExistingAccount ? existingAccountIdParts[4] : resourceGroup().name
 
 @description('The AI Search Service full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
 param aiSearchResourceId string = ''
@@ -136,6 +150,7 @@ param existingDnsZones object = {
   'privatelink.search.windows.net': ''           
   'privatelink.blob.core.windows.net': ''                            
   'privatelink.documents.azure.com': ''                       
+  'privatelink.azurecr.io': ''
 }
 
 @description('Zone Names for Validation of existing Private Dns Zones')
@@ -146,6 +161,7 @@ param dnsZoneNames array = [
   'privatelink.search.windows.net'
   'privatelink.blob.core.windows.net'
   'privatelink.documents.azure.com'
+  'privatelink.azurecr.io'
 ]
 
 
@@ -164,6 +180,7 @@ var cosmosDBNameRaw = toLower('${aiServices}${uniqueSuffix}cosmosdb')
 var cosmosDBName = length(cosmosDBNameRaw) > 44 ? substring(cosmosDBNameRaw, 0, 44) : cosmosDBNameRaw
 
 var aiSearchName = toLower('${aiServices}${uniqueSuffix}search')
+var acrName = toLower('acr${uniqueSuffix}')
 
 // Check if existing resources have been passed in
 var storagePassedIn = azureStorageAccountResourceId != ''
@@ -345,6 +362,25 @@ module privateEndpointAndDNS 'modules-network-secured/private-endpoint-and-dns.b
     cosmosDB      // Ensure Cosmos DB exists
   ]
   }
+
+// Optional: Azure Container Registry with Private Endpoint
+module acr 'modules-network-secured/container-registry.bicep' = if (enableContainerRegistry) {
+  name: 'acr-${uniqueSuffix}-deployment'
+  params: {
+    acrName: acrName
+    location: location
+    peSubnetId: vnet.outputs.peSubnetId
+    vnetId: vnet.outputs.virtualNetworkId
+    suffix: uniqueSuffix
+    existingDnsZoneResourceGroup: existingDnsZones['privatelink.azurecr.io']
+    dnsZonesSubscriptionId: resolvedDnsZonesSubscriptionId
+    developerIpCidr: developerIpCidr
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+  ]
+}
 
 /*
   Creates a new project (sub-resource of the AI Services account)
