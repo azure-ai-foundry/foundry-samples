@@ -1,3 +1,12 @@
+---
+page_type: sample
+languages:
+- python
+products:
+- azure-ai-foundry
+description: Python notebooks for Mistral AI models on Azure AI Foundry — Mistral Large, Document AI, and OCR with vision.
+---
+
 # Mistral AI models on Azure Foundry
 
 This subdirectory contains code samples to get started with Mistral AI models on
@@ -5,9 +14,10 @@ the Azure Foundry platform.
 
 ## Getting started
 
-The recommended way to set up your environment is to leverage [uv](). Otherwise you
-can rely on the auto-generated `requirements.txt` file with the package manager of
-your choice (e.g. pip, poetry, etc.)
+The recommended way to set up your environment is to leverage
+[uv](https://docs.astral.sh/uv/). Otherwise you can rely on the auto-generated
+`requirements.txt` file with the package manager of your choice (e.g. pip,
+poetry, etc.)
 
 To install the required dependencies and start a notebook server, run the following
 commands in your terminal:
