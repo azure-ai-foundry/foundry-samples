@@ -15,7 +15,7 @@ shared runtime and one shared prompt.
 
 | Layer | Path | Purpose |
 | --- | --- | --- |
-| Runtime code | `src/browser_automation_agent_sample_foundry/` | Builds the Agent Framework agent, hosts Responses, wires tools, reads prompts, and logs tool use. |
+| Runtime code | `main.py`, `utils/` | Builds the Agent Framework agent, hosts Responses, wires tools, reads prompts, and logs tool use. |
 | Base prompt | `prompts/base.md` | Browser lifecycle, tool, safety, cleanup, web extraction, and form-filling rules. |
 | Skill | `skills/azure-playwright-browser-automation/SKILL.md` | Operational Playwright CLI reference for Azure Playwright Service sessions. |
 | Toolbox MCP | Foundry Toolbox | Governed remote MCP endpoint that provides `create_session`. |

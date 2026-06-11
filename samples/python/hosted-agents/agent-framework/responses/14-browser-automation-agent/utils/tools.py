@@ -234,13 +234,11 @@ def parse_toolbox_result(mcp_result: Any) -> str:
             _cdp_url = cdp_url
             _live_view_url = live_view_url or None
 
-            # Return result with live_view_url included (model passes it through)
+            # Return short result — no live_view at beginning, model will call get_live_view_url at end
             result = {
                 "status": "session_created",
-                "note": "CDP URL stored server-side. Call run_playwright_cli with sessionId='browser1' and command='open about:blank'.",
+                "note": "CDP URL stored server-side. Call run_playwright_cli with sessionId='browser' and command='open about:blank'.",
             }
-            if live_view_url:
-                result["live_view_message"] = f"🔴 [Live View]({live_view_url})"
             return json.dumps(result, ensure_ascii=False)
 
         # Toolbox JSON text can contain escaped characters like \u0026 in URLs.
@@ -360,16 +358,15 @@ def make_get_live_view_url():
         description=(
             "Get the live view URL for the current browser session. "
             "Call this to provide the user with the live view link so they can "
-            "interact with the browser directly (e.g. for CAPTCHA, MFA, login)."
+            "interact with the browser directly (e.g. for CAPTCHA, MFA, login). "
+            "The URL is delivered directly to the user via the tool output. "
+            "Do NOT repeat or retype the URL in your text response."
         ),
     )
     async def get_live_view_url() -> str:
         if _live_view_url:
-            return (
-                f"🔴 [browser Live View]({_live_view_url})\n\n"
-                f"^^^ Output the above markdown link EXACTLY as-is. "
-                f"It is {len(_live_view_url)} characters. Do not shorten or modify it."
-            )
+            logger.info("[get_live_view_url] returning real URL")
+            return f"🔴 Live View: {_live_view_url}"
         return "No live view URL available for this session."
 
     return get_live_view_url
