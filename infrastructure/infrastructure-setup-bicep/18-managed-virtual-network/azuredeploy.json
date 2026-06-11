@@ -4,38 +4,16 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.42.1.51946",
-      "templateHash": "10726822887583020348"
+      "version": "0.44.1.10279",
+      "templateHash": "4404295085759197571"
     }
   },
   "parameters": {
     "location": {
       "type": "string",
-      "defaultValue": "eastus2",
-      "allowedValues": [
-        "spaincentral",
-        "westus",
-        "eastus",
-        "japaneast",
-        "francecentral",
-        "eastus2",
-        "uaenorth",
-        "brazilsouth",
-        "germanywestcentral",
-        "italynorth",
-        "southcentralus",
-        "westcentralus",
-        "australiaeast",
-        "swedencentral",
-        "canadaeast",
-        "southafricanorth",
-        "westeurope",
-        "westus3",
-        "southindia",
-        "uksouth"
-      ],
+      "defaultValue": "[resourceGroup().location]",
       "metadata": {
-        "description": "Location for all resources."
+        "description": "Location for all resources. Defaults to the resource group location."
       }
     },
     "isolationMode": {
@@ -55,10 +33,6 @@
       "metadata": {
         "description": "Name for your AI Services resource."
       }
-    },
-    "deploymentTimestamp": {
-      "type": "string",
-      "defaultValue": "[utcNow('yyyyMMddHHmmss')]"
     },
     "firstProjectName": {
       "type": "string",
@@ -183,7 +157,7 @@
     }
   },
   "variables": {
-    "uniqueSuffix": "[substring(uniqueString(format('{0}-{1}', resourceGroup().id, parameters('deploymentTimestamp'))), 0, 4)]",
+    "uniqueSuffix": "[substring(uniqueString(resourceGroup().id), 0, 4)]",
     "accountName": "[toLower(format('{0}{1}', parameters('aiServices'), variables('uniqueSuffix')))]",
     "projectName": "[toLower(format('{0}{1}', parameters('firstProjectName'), variables('uniqueSuffix')))]",
     "cosmosDBName": "[toLower(format('{0}{1}cosmosdb', parameters('aiServices'), variables('uniqueSuffix')))]",
@@ -250,8 +224,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "5439878820994143115"
+              "version": "0.44.1.10279",
+              "templateHash": "1907979108654803661"
             }
           },
           "parameters": {
@@ -344,8 +318,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.42.1.51946",
-                      "templateHash": "16620010525527418603"
+                      "version": "0.44.1.10279",
+                      "templateHash": "8755662122767726126"
                     }
                   },
                   "parameters": {
@@ -474,8 +448,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.42.1.51946",
-                      "templateHash": "11496589636440152813"
+                      "version": "0.44.1.10279",
+                      "templateHash": "6156118219142588611"
                     }
                   },
                   "parameters": {
@@ -547,8 +521,8 @@
                           "metadata": {
                             "_generator": {
                               "name": "bicep",
-                              "version": "0.42.1.51946",
-                              "templateHash": "8762424559716292746"
+                              "version": "0.44.1.10279",
+                              "templateHash": "615461089373883997"
                             }
                           },
                           "parameters": {
@@ -685,8 +659,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "9631735419288057649"
+              "version": "0.44.1.10279",
+              "templateHash": "1242706645341609299"
             }
           },
           "parameters": {
@@ -799,8 +773,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "15549652612714258938"
+              "version": "0.44.1.10279",
+              "templateHash": "18120053315158002238"
             }
           },
           "parameters": {
@@ -978,8 +952,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "16516106179017566598"
+              "version": "0.44.1.10279",
+              "templateHash": "2281026031668820702"
             }
           },
           "parameters": {
@@ -1194,6 +1168,201 @@
       ]
     },
     {
+      "condition": "[variables('storagePassedIn')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('network-approver-storage-{0}-deployment', variables('uniqueSuffix'))]",
+      "subscriptionId": "[variables('azureStorageSubscriptionId')]",
+      "resourceGroup": "[variables('azureStorageResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "aiAccountPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountPrincipalId.value]"
+          },
+          "aiAccountResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountID.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "10236762556073968346"
+            }
+          },
+          "parameters": {
+            "aiAccountPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "The principal ID of the AI Services account managed identity"
+              }
+            },
+            "aiAccountResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "The AI Services account resource ID (used for deterministic GUID generation)"
+              }
+            }
+          },
+          "variables": {
+            "networkConnectionApproverRoleId": "b556d68e-0be0-4f35-a333-ad7ee1ce17ea"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('aiAccountResourceId'), variables('networkConnectionApproverRoleId'), resourceGroup().id)]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('networkConnectionApproverRoleId'))]",
+                "principalId": "[parameters('aiAccountPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "condition": "[variables('cosmosPassedIn')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('network-approver-cosmos-{0}-deployment', variables('uniqueSuffix'))]",
+      "subscriptionId": "[variables('cosmosDBSubscriptionId')]",
+      "resourceGroup": "[variables('cosmosDBResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "aiAccountPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountPrincipalId.value]"
+          },
+          "aiAccountResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountID.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "10236762556073968346"
+            }
+          },
+          "parameters": {
+            "aiAccountPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "The principal ID of the AI Services account managed identity"
+              }
+            },
+            "aiAccountResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "The AI Services account resource ID (used for deterministic GUID generation)"
+              }
+            }
+          },
+          "variables": {
+            "networkConnectionApproverRoleId": "b556d68e-0be0-4f35-a333-ad7ee1ce17ea"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('aiAccountResourceId'), variables('networkConnectionApproverRoleId'), resourceGroup().id)]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('networkConnectionApproverRoleId'))]",
+                "principalId": "[parameters('aiAccountPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "condition": "[variables('searchPassedIn')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('network-approver-search-{0}-deployment', variables('uniqueSuffix'))]",
+      "subscriptionId": "[variables('aiSearchServiceSubscriptionId')]",
+      "resourceGroup": "[variables('aiSearchServiceResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "aiAccountPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountPrincipalId.value]"
+          },
+          "aiAccountResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountID.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "10236762556073968346"
+            }
+          },
+          "parameters": {
+            "aiAccountPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "The principal ID of the AI Services account managed identity"
+              }
+            },
+            "aiAccountResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "The AI Services account resource ID (used for deterministic GUID generation)"
+              }
+            }
+          },
+          "variables": {
+            "networkConnectionApproverRoleId": "b556d68e-0be0-4f35-a333-ad7ee1ce17ea"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('aiAccountResourceId'), variables('networkConnectionApproverRoleId'), resourceGroup().id)]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('networkConnectionApproverRoleId'))]",
+                "principalId": "[parameters('aiAccountPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "[format('managed-network-{0}-deployment', variables('uniqueSuffix'))]",
@@ -1208,6 +1377,15 @@
           },
           "isolationMode": {
             "value": "[parameters('isolationMode')]"
+          },
+          "storageAccountResourceId": {
+            "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('azureStorageSubscriptionId'), variables('azureStorageResourceGroupName')), 'Microsoft.Storage/storageAccounts', reference(resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.azureStorageName.value)]"
+          },
+          "cosmosDBResourceId": {
+            "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('cosmosDBSubscriptionId'), variables('cosmosDBResourceGroupName')), 'Microsoft.DocumentDB/databaseAccounts', reference(resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.cosmosDBName.value)]"
+          },
+          "aiSearchResourceId": {
+            "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', reference(resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.aiSearchServiceSubscriptionId.value, reference(resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.aiSearchServiceResourceGroupName.value), 'Microsoft.Search/searchServices', reference(resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.aiSearchName.value)]"
           }
         },
         "template": {
@@ -1216,8 +1394,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "9263659451530831183"
+              "version": "0.44.1.10279",
+              "templateHash": "13117200103483543551"
             }
           },
           "parameters": {
@@ -1237,6 +1415,24 @@
               "metadata": {
                 "description": "The isolation mode for the managed network"
               }
+            },
+            "storageAccountResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Storage Account for outbound PE rule"
+              }
+            },
+            "cosmosDBResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Cosmos DB Account for outbound PE rule"
+              }
+            },
+            "aiSearchResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the AI Search Service for outbound PE rule"
+              }
             }
           },
           "resources": [
@@ -1251,6 +1447,73 @@
                   "provisionNetworkNow": true
                 }
               }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules",
+              "apiVersion": "2025-10-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), 'default', 'aiservices-account-rule')]",
+              "properties": {
+                "type": "PrivateEndpoint",
+                "destination": {
+                  "serviceResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
+                  "subresourceTarget": "account"
+                },
+                "category": "UserDefined"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks', parameters('accountName'), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules",
+              "apiVersion": "2025-10-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), 'default', 'storage-blob-rule')]",
+              "properties": {
+                "type": "PrivateEndpoint",
+                "destination": {
+                  "serviceResourceId": "[parameters('storageAccountResourceId')]",
+                  "subresourceTarget": "blob"
+                },
+                "category": "UserDefined"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules', parameters('accountName'), 'default', 'aiservices-account-rule')]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks', parameters('accountName'), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules",
+              "apiVersion": "2025-10-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), 'default', 'cosmos-sql-rule')]",
+              "properties": {
+                "type": "PrivateEndpoint",
+                "destination": {
+                  "serviceResourceId": "[parameters('cosmosDBResourceId')]",
+                  "subresourceTarget": "Sql"
+                },
+                "category": "UserDefined"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks', parameters('accountName'), 'default')]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules', parameters('accountName'), 'default', 'storage-blob-rule')]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules",
+              "apiVersion": "2025-10-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), 'default', 'aisearch-rule')]",
+              "properties": {
+                "type": "PrivateEndpoint",
+                "destination": {
+                  "serviceResourceId": "[parameters('aiSearchResourceId')]",
+                  "subresourceTarget": "searchService"
+                },
+                "category": "UserDefined"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules', parameters('accountName'), 'default', 'cosmos-sql-rule')]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks', parameters('accountName'), 'default')]"
+              ]
             }
           ],
           "outputs": {
@@ -1263,7 +1526,10 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
-        "[resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix')))]"
+        "[resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('cosmosDBSubscriptionId'), variables('cosmosDBResourceGroupName')), 'Microsoft.Resources/deployments', format('network-approver-cosmos-{0}-deployment', variables('uniqueSuffix')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('aiSearchServiceSubscriptionId'), variables('aiSearchServiceResourceGroupName')), 'Microsoft.Resources/deployments', format('network-approver-search-{0}-deployment', variables('uniqueSuffix')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('azureStorageSubscriptionId'), variables('azureStorageResourceGroupName')), 'Microsoft.Resources/deployments', format('network-approver-storage-{0}-deployment', variables('uniqueSuffix')))]"
       ]
     },
     {
@@ -1340,8 +1606,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "7099263758639578851"
+              "version": "0.44.1.10279",
+              "templateHash": "17319375375259513982"
             }
           },
           "parameters": {
@@ -1963,8 +2229,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "18174839353195527759"
+              "version": "0.44.1.10279",
+              "templateHash": "9290800260455731843"
             }
           },
           "parameters": {
@@ -2140,8 +2406,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "5729541472937730744"
+              "version": "0.44.1.10279",
+              "templateHash": "3421890076151369374"
             }
           },
           "parameters": {
@@ -2195,8 +2461,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "6805612394357697185"
+              "version": "0.44.1.10279",
+              "templateHash": "5322883668661759738"
             }
           },
           "parameters": {
@@ -2253,8 +2519,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "3731695714569887273"
+              "version": "0.44.1.10279",
+              "templateHash": "1319098613063424337"
             }
           },
           "parameters": {
@@ -2317,8 +2583,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "167668741936896543"
+              "version": "0.44.1.10279",
+              "templateHash": "6103261316579938375"
             }
           },
           "parameters": {
@@ -2402,8 +2668,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "10627022964818938294"
+              "version": "0.44.1.10279",
+              "templateHash": "10353446425348386407"
             }
           },
           "parameters": {
@@ -2464,6 +2730,7 @@
         "[resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('projectName'), variables('uniqueSuffix')))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('aiSearchServiceSubscriptionId'), variables('aiSearchServiceResourceGroupName')), 'Microsoft.Resources/deployments', format('ai-search-ra-{0}-deployment', variables('uniqueSuffix')))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('cosmosDBSubscriptionId'), variables('cosmosDBResourceGroupName')), 'Microsoft.Resources/deployments', format('cosmos-account-ra-{0}-deployment', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('managed-network-{0}-deployment', variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('{0}-private-endpoint', variables('uniqueSuffix')))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('azureStorageSubscriptionId'), variables('azureStorageResourceGroupName')), 'Microsoft.Resources/deployments', format('storage-ra-{0}-deployment', variables('uniqueSuffix')))]"
       ]
@@ -2496,8 +2763,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "14861833638743424490"
+              "version": "0.44.1.10279",
+              "templateHash": "8509907656517137061"
             }
           },
           "parameters": {
@@ -2575,8 +2842,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "9661397591572983652"
+              "version": "0.44.1.10279",
+              "templateHash": "15057086489726002053"
             }
           },
           "parameters": {
