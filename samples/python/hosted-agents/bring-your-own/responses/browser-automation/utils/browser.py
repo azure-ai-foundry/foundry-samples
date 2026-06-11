@@ -14,7 +14,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from utils import redact as _redact
+from .utils import redact as _redact
 
 
 class BrowserSession:

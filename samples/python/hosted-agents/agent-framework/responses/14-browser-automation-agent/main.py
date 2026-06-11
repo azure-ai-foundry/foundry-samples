@@ -6,8 +6,8 @@ import warnings
 
 from dotenv import load_dotenv
 
-from .agent_factory import build_agent
-from .settings import make_settings
+from utils.agent_factory import build_agent
+from utils.settings import make_settings
 
 from agent_framework_foundry_hosting import ResponsesHostServer
 

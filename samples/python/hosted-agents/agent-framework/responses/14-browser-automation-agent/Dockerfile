@@ -1,8 +1,7 @@
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONIOENCODING=utf-8 \
-    PATH="/app/user_agent/.venv/bin:$PATH"
+    PYTHONIOENCODING=utf-8
 
 WORKDIR /app
 
@@ -20,11 +19,10 @@ RUN apt-get update \
 COPY . user_agent/
 WORKDIR /app/user_agent
 
-RUN pip install --no-cache-dir uv \
-    && uv sync --frozen --prerelease allow --no-dev \
+RUN pip install --no-cache-dir -r requirements.txt \
     && npm install -g @playwright/cli@latest \
     && playwright-cli install --skills
 
 EXPOSE 8088
 
-CMD ["python", "-m", "browser_automation_agent_sample_foundry.main"]
+CMD ["python", "main.py"]

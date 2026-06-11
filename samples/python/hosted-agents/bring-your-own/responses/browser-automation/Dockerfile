@@ -27,8 +27,9 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source
-COPY src/ ./src/
+COPY main.py ./
+COPY utils/ ./utils/
 COPY skills/ ./skills/
 
 EXPOSE 8088
-CMD ["python3", "src/main.py"]
+CMD ["python3", "main.py"]

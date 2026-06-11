@@ -38,9 +38,11 @@ See [main.py](src/browser_automation_agent_sample_foundry/main.py) for the full 
 
 | Path | Purpose |
 | --- | --- |
-| `src/browser_automation_agent_sample_foundry/` | Shared Python implementation for hosting, settings, prompts, tools, and agent construction. |
+| `main.py` | Entry point: loads settings, builds the agent, and starts `ResponsesHostServer`. |
+| `utils/` | Agent construction (`agent_factory.py`), tools, settings, logging, and path helpers. |
 | `prompts/base.md` | Browser lifecycle, safety, cleanup, web extraction, and form-filling rules. |
 | `skills/azure-playwright-browser-automation/SKILL.md` | Playwright CLI operational reference for remote Azure Playwright Service sessions. |
+| `requirements.txt` | Python dependencies (agent-framework, azure-identity, etc.). |
 | `docs/sample-structure.md` | Design notes explaining the sample structure and extension points. |
 
 ## Prerequisites
@@ -94,20 +96,21 @@ Set these values with `azd env set` before running `azd provision`. `azd` stores
 
 ## Running the Agent Host
 
-This sample uses a package-style `src/` layout with `pyproject.toml`, `uv.lock`, and `uv sync` instead of the simpler flat `main.py` plus `requirements.txt` pattern used by smaller samples. Use the sample-specific `uv` setup below for local development.
-
-### Local setup with `uv`
+### Local setup
 
 Install dependencies and run the hosted-agent server locally:
 
 ```bash
-uv sync --prerelease allow
-npm install -g @playwright/cli@latest
-playwright-cli install --skills
-uv run browser-automation-agent-sample-foundry
+pip install -r requirements.txt
+python main.py
 ```
 
-The extra structure keeps the browser lifecycle tools, prompt instructions, and support modules isolated while preserving the same hosted-agent entry point. If you prefer `pip` for local development, install the package with `pip install -e .`.
+Or using `uv`:
+
+```bash
+uv pip install -r requirements.txt
+uv run main.py
+```
 
 ## Interacting with the agent
 

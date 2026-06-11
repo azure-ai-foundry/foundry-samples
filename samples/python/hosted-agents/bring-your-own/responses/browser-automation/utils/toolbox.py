@@ -23,6 +23,7 @@ class ToolboxClient:
         self._session_id: str | None = None
         self._req_id = 0
         self._initialized = False
+        self._tool_names: dict[str, str] = {}  # suffix -> full name
 
     def _headers(self) -> dict:
         h = {
@@ -40,7 +41,7 @@ class ToolboxClient:
         return self._req_id
 
     def initialize(self) -> str:
-        """Send MCP initialize + initialized notification."""
+        """Send MCP initialize + initialized notification, then discover tools."""
         if self._initialized:
             return "already-initialized"
         with httpx.Client(timeout=60) as client:
@@ -68,12 +69,34 @@ class ToolboxClient:
                 headers=self._headers(),
                 json={"jsonrpc": "2.0", "method": "notifications/initialized"},
             )
+            # Discover available tools
+            list_resp = client.post(
+                self.endpoint,
+                headers=self._headers(),
+                json={"jsonrpc": "2.0", "id": self._next_id(), "method": "tools/list", "params": {}},
+            )
+            list_resp.raise_for_status()
+            tools = list_resp.json().get("result", {}).get("tools", [])
+            for t in tools:
+                name = t.get("name", "")
+                # Map the suffix (e.g. "create_session") to the full prefixed name
+                parts = name.split("___", 1)
+                suffix = parts[1] if len(parts) == 2 else name
+                self._tool_names[suffix] = name
+            logger.info("Toolbox tools discovered: %s", list(self._tool_names.values()))
             self._initialized = True
             return data.get("result", {}).get("serverInfo", {}).get("name", "unknown")
 
     def call_tool(self, name: str, arguments: dict) -> dict:
-        """Call a Toolbox tool and return the parsed JSON result."""
+        """Call a Toolbox tool and return the parsed JSON result.
+
+        The name can be either a suffix (e.g. 'create_session') which will be
+        resolved via tools/list, or a full tool name.
+        """
         self.initialize()
+        # Resolve suffix to full name if needed
+        if "___" not in name and name in self._tool_names:
+            name = self._tool_names[name]
         with httpx.Client(timeout=120) as client:
             resp = client.post(
                 self.endpoint,

@@ -33,11 +33,11 @@ import os
 
 from dotenv import load_dotenv
 
-from toolbox import ToolboxClient
-from browser import BrowserSession
-from skills import load_skill, list_skills
-from constants import SYSTEM_PROMPT, TOOLS, AZURE_AI_SCOPE
-from utils import redact as _redact
+from utils.toolbox import ToolboxClient
+from utils.browser import BrowserSession
+from utils.skills import load_skill, list_skills
+from utils.constants import SYSTEM_PROMPT, TOOLS, AZURE_AI_SCOPE
+from utils.utils import redact as _redact
 
 load_dotenv(override=False)
 
@@ -72,7 +72,7 @@ async def _create_session(name: str) -> dict:
 
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(
-        None, _toolbox.call_tool, "browser_automation_preview___create_session", {}
+        None, _toolbox.call_tool, "create_session", {}
     )
     cdp_url = result.get("cdp_url") or ""
     live_view_url = result.get("live_view_url") or ""

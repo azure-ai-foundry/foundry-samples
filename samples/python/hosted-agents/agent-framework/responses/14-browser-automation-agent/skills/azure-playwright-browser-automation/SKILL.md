@@ -1,7 +1,7 @@
 ---
 name: azure-playwright-browser-automation
 description: Automates browser interactions for web testing, form filling, screenshots, and data extraction using Playwright CLI connected to a remote Azure Playwright Service browser.
-allowed-tools: run_playwright_cli, create_session, close_browser_session
+allowed-tools: run_playwright_cli, create_session, close_browser_session, get_live_view_url
 ---
 
 # Browser automation with Playwright CLI and Azure Playwright Service
@@ -15,34 +15,22 @@ CLI command patterns.
 1. Reuse an active browser session for follow-up browser work in the same hosted
    agent session whenever one is available. If no active browser is available,
    call `create_session` with no arguments.
-2. As soon as `create_session` returns, inspect the result for `live_view_message`.
-   **Emit the `live_view_message` value EXACTLY as-is** in your response without
-   any modifications. Do not re-type, shorten, or regenerate the URL inside it —
-   copy the entire string verbatim. This message contains a long token that will
-   break if any characters are changed.
+2. As soon as `create_session` returns, call `get_live_view_url`. The live view
+   URL will be delivered to the user automatically by the system. Do NOT output,
+   repeat, or retype any URL yourself. Just acknowledge that the live view is
+   available.
 
-   Do not derive or invent a live-view URL from `cdp_url`. Do not include the raw
-   CDP URL in user-facing text.
-   The live-view dashboard URL is safe to share with the user; only the raw
-   `cdp_url` is sensitive. If a browser session was created in this turn, repeat
-   the `live_view_message` in the final answer as well. If the user asks for the
-   live URL, provide the `live_view_message` directly when it is available; do not
-   refuse and do not say you can generate it later.
-3. Use local Playwright CLI `sessionId` `browser1`, then call
-   `run_playwright_cli` with that `sessionId`, the returned `cdpUrl`, and the
-   command:
+   Do not include the raw CDP URL in user-facing text.
+3. Call `run_playwright_cli` with `sessionId='browser'` and the command:
 
    ```text
    open about:blank
    ```
 
-   The tool sets `PLAYWRIGHT_MCP_CDP_ENDPOINT=<cdpUrl>` before invoking
-   `playwright-cli -s=<sessionId> open about:blank`.
-
+   The CDP URL is injected automatically by the server -- do NOT pass it.
    This must be a standalone handshake command. Do not combine it with target
    navigation, `eval`, `snapshot`, or any other browser operation.
-4. Run all subsequent commands with the same local Playwright CLI `sessionId`
-   (`browser1` by default) and no `cdpUrl`:
+4. Run all subsequent commands with the same `sessionId` (`browser`):
 
    ```text
    goto https://example.com
@@ -51,33 +39,16 @@ CLI command patterns.
 
    Use `goto <url>` for target navigation after the handshake; do not use
    `open <url>` for normal page navigation.
-   If a follow-up command says the local session is not open, reconnect to the
-   same remote browser with `command: open` and the stored `cdpUrl`, then retry
-   the requested browser command. Do not call `create_session` for this recovery.
+   If a follow-up command says the local session is not open, reconnect with
+   `command: open about:blank`. Do not call `create_session` for this recovery.
 5. Keep the browser session open after successful work so follow-up tasks can
    continue in the same live browser. Call `close_browser_session` only when the
    user explicitly asks to close the browser, when the session is unusable, or
    before replacing it with a fresh remote browser.
 
-If the initial `open about:blank` command with `cdpUrl` fails, do not retry the
-same CDP URL repeatedly. Call `close_browser_session`, then call
-`create_session` again to create a fresh remote browser.
-
-## Installation check
-
-The hosted container installs `@playwright/cli` and the packaged Playwright CLI
-skills at build time:
-
-```bash
-npm install -g @playwright/cli@latest
-playwright-cli install --skills
-```
-
-If running locally, verify the CLI before browser work:
-
-```bash
-playwright-cli --help
-```
+If the initial `open about:blank` command fails, do not retry repeatedly. Call
+`close_browser_session`, then call `create_session` again to create a fresh
+remote browser.
 
 ## Common commands
 
@@ -86,8 +57,7 @@ include `playwright-cli` or `-s=<sessionId>`.
 
 ```bash
 # Navigation
-open
-open https://example.com
+open about:blank
 goto https://playwright.dev
 go-back
 go-forward
@@ -95,10 +65,7 @@ reload
 
 # Page state
 snapshot
-snapshot --filename=after-click.yaml
-snapshot --depth=4
 screenshot
-screenshot --filename=page.png
 
 # Interactions
 click e3
@@ -112,6 +79,10 @@ select e9 "option-value"
 check e12
 uncheck e12
 
+# Date/calendar fields - use fill with the value format the field expects
+fill e8 "2026-06-15"
+fill e8 "06/15/2026"
+
 # Tabs
 tab-list
 tab-new https://example.com/other
@@ -122,28 +93,13 @@ tab-close
 eval "document.title"
 eval "JSON.stringify([...document.querySelectorAll('a')].map(a => a.href))"
 console
-requests
-request 5
 ```
 
 After most commands, Playwright CLI emits page status and a snapshot. Use refs
 from the snapshot, such as `e15`, for subsequent interactions.
 
-Use `--raw` inside the command when you need only a result value:
-
-```text
---raw eval "document.title"
-```
-
 ## Cleanup
 
 Do not close a healthy remote browser at the end of a normal task. When the user
 asks to close the browser, or when replacing a broken session, call
-`close_browser_session` with:
-
-```json
-{ "sessionId": "<sessionId>", "cdpUrl": "<cdpUrl>" }
-```
-
-This detaches Playwright CLI from the held WSS/CDP connection for the named
-session, then closes the remote browser over CDP.
+`close_browser_session` with just `sessionId='browser'`.
