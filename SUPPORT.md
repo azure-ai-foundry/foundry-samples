@@ -1,25 +1,14 @@
-# TODO: The maintainer of this repo has not yet edited this file
-
-**REPO OWNER**: Do you want Customer Service & Support (CSS) support for this product/project?
-
-- **No CSS support:** Fill out this template with information about how to file issues and get help.
-- **Yes CSS support:** Fill out an intake form at [aka.ms/onboardsupport](https://aka.ms/onboardsupport). CSS will work with/help you to determine next steps.
-- **Not sure?** Fill out an intake as though the answer were "Yes". CSS will help you decide.
-
-*Then remove this first heading from this SUPPORT.MD file before publishing your repo.*
-
 # Support
 
-## How to file issues and get help  
+## How to file issues and get help
 
-This project uses GitHub Issues to track bugs and feature requests. Please search the existing 
-issues before filing new issues to avoid duplicates.  For new issues, file your bug or 
-feature request as a new Issue.
+This project uses [GitHub Issues](https://github.com/Azure/foundry-samples/issues) to track bugs and feature requests for the samples in this repository. Please search existing issues before filing new ones to avoid duplicates. For new issues, file your bug or feature request as a new Issue.
 
-For help and questions about using this project, please **REPO MAINTAINER: INSERT INSTRUCTIONS HERE 
-FOR HOW TO ENGAGE REPO OWNERS OR COMMUNITY FOR HELP. COULD BE A STACK OVERFLOW TAG OR OTHER
-CHANNEL. WHERE WILL YOU HELP PEOPLE?**.
+For help and questions about using these samples, please refer to:
 
-## Microsoft Support Policy  
+- [Microsoft Foundry documentation](https://learn.microsoft.com/azure/ai-foundry/)
+- [Microsoft Q&A — Azure AI Foundry](https://learn.microsoft.com/answers/tags/387/azure-ai-foundry) for technical questions
 
-Support for this **PROJECT or PRODUCT** is limited to the resources listed above.
+## Microsoft Support Policy
+
+Support for this **sample repository** is limited to the resources listed above. The samples are provided as-is for learning and reference purposes; they are not covered by formal Microsoft Customer Service & Support (CSS) agreements.
