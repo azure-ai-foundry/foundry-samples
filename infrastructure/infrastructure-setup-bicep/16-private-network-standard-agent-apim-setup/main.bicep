@@ -48,8 +48,8 @@ param modelSkuName string = 'GlobalStandard'
 param modelCapacity int = 30
 
 // Create a short, unique suffix, that will be unique to each resource group
-param deploymentTimestamp string = utcNow('yyyyMMddHHmmss')
-var uniqueSuffix = substring(uniqueString('${resourceGroup().id}-${deploymentTimestamp}'), 0, 4)
+// Deterministic suffix for idempotent re-deploys (same RG = same names)
+var uniqueSuffix = substring(uniqueString(resourceGroup().id), 0, 4)
 var accountName = toLower('${aiServices}${uniqueSuffix}')
 
 @description('Name for your project resource.')
@@ -93,6 +93,15 @@ param azureCosmosDBAccountResourceId string = ''
 @description('The API Management Service full ARM Resource ID. This is an optional field for existing API Management services.')
 param apiManagementResourceId string = ''
 
+@description('Enable Azure Container Registry with Private Endpoint. When true, creates an ACR (Premium SKU) with a PE in the private endpoints subnet.')
+param enableContainerRegistry bool = true
+
+@description('Optional developer IP CIDR to allowlist for ACR push access (e.g., 203.0.113.0/26 or 10.0.0.0/16). When empty, public access remains disabled.')
+param developerIpCidr string = ''
+
+@description('Subscription ID where existing private DNS zones are located. Leave empty to use current subscription.')
+param dnsZonesSubscriptionId string = ''
+
 //New Param for resource group of Private DNS zones
 //@description('Optional: Resource group containing existing private DNS zones. If specified, DNS zones will not be created.')
 //param existingDnsZonesResourceGroup string = ''
@@ -105,7 +114,8 @@ param existingDnsZones object = {
   'privatelink.search.windows.net': ''           
   'privatelink.blob.core.windows.net': ''                            
   'privatelink.documents.azure.com': ''
-  'privatelink.azure-api.net': ''                       
+  'privatelink.azure-api.net': ''
+  'privatelink.azurecr.io': ''
 }
 
 @description('Zone Names for Validation of existing Private Dns Zones')
@@ -117,12 +127,14 @@ param dnsZoneNames array = [
   'privatelink.blob.core.windows.net'
   'privatelink.documents.azure.com'
   'privatelink.azure-api.net'
+  'privatelink.azurecr.io'
 ]
 
 
 var projectName = toLower('${firstProjectName}${uniqueSuffix}')
 var cosmosDBName = toLower('${aiServices}${uniqueSuffix}cosmosdb')
 var aiSearchName = toLower('${aiServices}${uniqueSuffix}search')
+var acrName = toLower('acr${uniqueSuffix}')
 var azureStorageName = toLower('${aiServices}${uniqueSuffix}storage')
 
 // Check if existing resources have been passed in
@@ -149,6 +161,15 @@ var vnetSubscriptionId = existingVnetPassedIn ? vnetParts[2] : subscription().su
 var vnetResourceGroupName = existingVnetPassedIn ? vnetParts[4] : resourceGroup().name
 var existingVnetName = existingVnetPassedIn ? last(vnetParts) : vnetName
 var trimVnetName = trim(existingVnetName)
+
+// Resolve DNS zones subscription ID - use current subscription if not specified.
+// Accept either form: bare GUID or "/subscriptions/<guid>".
+var normalizedDnsZonesSubscriptionId = empty(dnsZonesSubscriptionId)
+  ? ''
+  : (startsWith(toLower(dnsZonesSubscriptionId), '/subscriptions/')
+      ? split(dnsZonesSubscriptionId, '/')[2]
+      : dnsZonesSubscriptionId)
+var resolvedDnsZonesSubscriptionId = empty(normalizedDnsZonesSubscriptionId) ? subscription().subscriptionId : normalizedDnsZonesSubscriptionId
 
 @description('The name of the project capability host to be created')
 param projectCapHost string = 'caphostproj'
@@ -279,6 +300,25 @@ module privateEndpointAndDNS 'modules-network-secured/private-endpoint-and-dns.b
     cosmosDB      // Ensure Cosmos DB exists
   ]
   }
+
+// Optional: Azure Container Registry with Private Endpoint
+module acr 'modules-network-secured/container-registry.bicep' = if (enableContainerRegistry) {
+  name: 'acr-${uniqueSuffix}-deployment'
+  params: {
+    acrName: acrName
+    location: location
+    peSubnetId: vnet.outputs.peSubnetId
+    vnetId: vnet.outputs.virtualNetworkId
+    suffix: uniqueSuffix
+    existingDnsZoneResourceGroup: existingDnsZones['privatelink.azurecr.io']
+    dnsZonesSubscriptionId: resolvedDnsZonesSubscriptionId
+    developerIpCidr: developerIpCidr
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+  ]
+}
 
 /*
   Creates a new project (sub-resource of the AI Services account)

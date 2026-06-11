@@ -28,8 +28,8 @@ param aiServices string = 'aiservices'
 // param modelCapacity int = 30
 
 // Create a short, unique suffix, that will be unique to each resource group
-param deploymentTimestamp string = utcNow('yyyyMMddHHmmss')
-var uniqueSuffix = substring(uniqueString('${resourceGroup().id}-${deploymentTimestamp}'), 0, 4)
+// Deterministic suffix for idempotent re-deploys (same RG = same names)
+var uniqueSuffix = substring(uniqueString(resourceGroup().id), 0, 4)
 var accountName = toLower('${aiServices}${uniqueSuffix}')
 
 @description('Name for your project resource.')

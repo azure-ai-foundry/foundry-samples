@@ -30,6 +30,7 @@ are used instead.
   'australiaeast'
   'swedencentral'
   'canadaeast'
+  'canadacentral'
   'westeurope'
   'westus3'
   'uksouth'
@@ -59,9 +60,10 @@ param modelSkuName string = 'GlobalStandard'
 param modelCapacity int = 30
 
 // Create a short, unique suffix, that will be unique to each resource group
-param deploymentTimestamp string = utcNow('yyyyMMddHHmmss')
-var uniqueSuffix = substring(uniqueString('${resourceGroup().id}-${deploymentTimestamp}'), 0, 4)
+// Uses only resourceGroup().id for determinism — re-deploys target the same resources
+var uniqueSuffix = substring(uniqueString(resourceGroup().id), 0, 4)
 var accountName = toLower('${aiServices}${uniqueSuffix}')
+var acrName = toLower('acr${uniqueSuffix}')
 
 @description('Name for your project resource.')
 param firstProjectName string = 'project'
@@ -94,6 +96,12 @@ param agentSubnetPrefix string = ''
 @description('Address prefix for the private endpoint subnet')
 param peSubnetPrefix string = ''
 
+@description('Enable Azure Container Registry with Private Endpoint. When true, creates an ACR (Premium SKU) with a PE in the private endpoints subnet.')
+param enableContainerRegistry bool = true
+
+@description('Optional developer IP CIDR to allowlist for ACR push access (e.g., 203.0.113.0/26 or 10.0.0.0/16). When empty, public access remains disabled.')
+param developerIpCidr string = ''
+
 // DNS zone parameters
 @description('Subscription ID where existing private DNS zones are located. Leave empty to use current subscription.')
 param dnsZonesSubscriptionId string = ''
@@ -103,7 +111,16 @@ param existingDnsZones object = {
   'privatelink.services.ai.azure.com': ''
   'privatelink.openai.azure.com': ''
   'privatelink.cognitiveservices.azure.com': ''
+  'privatelink.azurecr.io': ''
 }
+
+@description('Zone Names for Validation of existing Private Dns Zones')
+param dnsZoneNames array = [
+  'privatelink.services.ai.azure.com'
+  'privatelink.openai.azure.com'
+  'privatelink.cognitiveservices.azure.com'
+  'privatelink.azurecr.io'
+]
 
 @description('The name of the project capability host to be created')
 param projectCapHost string = 'caphostproj'
@@ -183,6 +200,25 @@ module privateEndpointAndDNS 'modules-network-secured/private-endpoint-and-dns.b
     existingDnsZones: existingDnsZones
     dnsZonesSubscriptionId: resolvedDnsZonesSubscriptionId
   }
+}
+
+// Optional: Azure Container Registry with Private Endpoint
+module acr 'modules-network-secured/container-registry.bicep' = if (enableContainerRegistry) {
+  name: 'acr-${uniqueSuffix}-deployment'
+  params: {
+    acrName: acrName
+    location: location
+    peSubnetId: vnet.outputs.peSubnetId
+    vnetId: vnet.outputs.virtualNetworkId
+    suffix: uniqueSuffix
+    existingDnsZoneResourceGroup: existingDnsZones['privatelink.azurecr.io']
+    dnsZonesSubscriptionId: resolvedDnsZonesSubscriptionId
+    developerIpCidr: developerIpCidr
+    projectPrincipalId: project.identity.principalId
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+  ]
 }
 
 /*
