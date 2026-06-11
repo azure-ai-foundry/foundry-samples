@@ -60,3 +60,4 @@ To deploy the agent to Foundry, follow the instructions in the [Deploying the Ag
    - Pick a **CPU and Memory** size.
    - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
+
