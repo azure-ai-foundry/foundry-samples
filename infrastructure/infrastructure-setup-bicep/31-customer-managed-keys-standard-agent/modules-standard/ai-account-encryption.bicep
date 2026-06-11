@@ -45,7 +45,7 @@ resource keyVaultAccessPolicies 'Microsoft.KeyVault/vaults/accessPolicies@2022-0
       }
       {
          objectId: 'a232010e-820c-4083-83bb-3ace5fc29d0b' // CosmosDB global applicationID
-         tenantId: '72f988bf-86f1-41af-91ab-2d7cd011db47' // Microsoft
+         tenantId: subscription().tenantId
          permissions: keyVaultPermissions
       }
     ]

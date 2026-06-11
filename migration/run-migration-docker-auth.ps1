@@ -72,17 +72,17 @@ if (-not $productionResource -or -not $productionSubscription -or -not $producti
     Write-Host "${Red}❌ Missing required production parameters!${Reset}"
     Write-Host ""
     Write-Host "REQUIRED parameters:"
-    Write-Host "  --production-resource <resource-name>       (e.g., nextgen-eastus)"
-    Write-Host "  --production-subscription <subscription-id> (e.g., b1615458-c1ea-49bc-8526-cafc948d3c25)"
-    Write-Host "  --production-tenant <tenant-id>            (e.g., 33e577a9-b1b8-4126-87c0-673f197bf624)"
+    Write-Host "  --production-resource <resource-name>       (e.g., <your-resource-name>)"
+    Write-Host "  --production-subscription <subscription-id> (e.g., <your-subscription-id>)"
+    Write-Host "  --production-tenant <tenant-id>            (e.g., <your-tenant-id>)"
     Write-Host ""
     Write-Host "Example:"
     Write-Host "  .\run-migration-docker-auth.ps1 --use-api \" -ForegroundColor Yellow
-    Write-Host "    --source-tenant 72f988bf-86f1-41af-91ab-2d7cd011db47 \" -ForegroundColor Yellow
-    Write-Host "    --production-resource nextgen-eastus \" -ForegroundColor Yellow
-    Write-Host "    --production-subscription b1615458-c1ea-49bc-8526-cafc948d3c25 \" -ForegroundColor Yellow
-    Write-Host "    --production-tenant 33e577a9-b1b8-4126-87c0-673f197bf624 \" -ForegroundColor Yellow
-    Write-Host "    asst_wBMH6Khnqbo1J7W1G6w3p1rN" -ForegroundColor Yellow
+    Write-Host "    --source-tenant <your-source-tenant-id> \" -ForegroundColor Yellow
+    Write-Host "    --production-resource <your-resource-name> \" -ForegroundColor Yellow
+    Write-Host "    --production-subscription <your-subscription-id> \" -ForegroundColor Yellow
+    Write-Host "    --production-tenant <your-tenant-id> \" -ForegroundColor Yellow
+    Write-Host "    asst_xxxxxxxxxxxxxxxxxxxxxxxx" -ForegroundColor Yellow
     exit 1
 }
 

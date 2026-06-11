@@ -50,22 +50,22 @@ or **Foundry portal** → Project settings → **Resource ID**
 /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{resource}/projects/{project}
 ```
 
-### Your current values (validated)
+### Example values
 
 | | |
 | --- | --- |
-| **Full Resource ID** | `/subscriptions/47f1c914-e299-4953-a99d-3e34644cfe1c/resourceGroups/rg-nikhowlett-6102/providers/Microsoft.CognitiveServices/accounts/nikhowlett-6102-resource/projects/nikhowlett-6102` |
-| Subscription | `47f1c914-e299-4953-a99d-3e34644cfe1c` |
-| Tenant | `72f988bf-86f1-41af-91ab-2d7cd011db47` |
-| Resource group | `rg-nikhowlett-6102` |
-| Resource name | `nikhowlett-6102-resource` |
-| Project name | `nikhowlett-6102` |
-| Account | `nikhowlett@microsoft.com` |
+| **Full Resource ID** | `/subscriptions/<your-subscription-id>/resourceGroups/<your-resource-group>/providers/Microsoft.CognitiveServices/accounts/<your-resource-name>/projects/<your-project-name>` |
+| Subscription | `<your-subscription-id>` |
+| Tenant | `<your-tenant-id>` |
+| Resource group | `<your-resource-group>` |
+| Resource name | `<your-resource-name>` |
+| Project name | `<your-project-name>` |
+| Account | `<your-account@example.com>` |
 
 Ready-to-run:
 
 ```powershell
-.\migrate-docker.ps1 --resource-id "/subscriptions/47f1c914-e299-4953-a99d-3e34644cfe1c/resourceGroups/rg-nikhowlett-6102/providers/Microsoft.CognitiveServices/accounts/nikhowlett-6102-resource/projects/nikhowlett-6102" --list
+.\migrate-docker.ps1 --resource-id "/subscriptions/<your-subscription-id>/resourceGroups/<your-resource-group>/providers/Microsoft.CognitiveServices/accounts/<your-resource-name>/projects/<your-project-name>" --list
 ```
 
 ---
@@ -78,8 +78,8 @@ Without this role you will see `401` or `403` errors.
 ### Check your current roles
 
 ```powershell
-az role assignment list --assignee "nikhowlett@microsoft.com" `
-  --scope "/subscriptions/47f1c914-e299-4953-a99d-3e34644cfe1c/resourceGroups/rg-nikhowlett-6102/providers/Microsoft.CognitiveServices/accounts/nikhowlett-6102-resource" `
+az role assignment list --assignee "<your-account@example.com>" `
+  --scope "/subscriptions/<your-subscription-id>/resourceGroups/<your-resource-group>/providers/Microsoft.CognitiveServices/accounts/<your-resource-name>" `
   -o table
 ```
 
@@ -88,8 +88,8 @@ az role assignment list --assignee "nikhowlett@microsoft.com" `
 ```powershell
 az role assignment create `
   --role "Foundry User" `
-  --assignee "nikhowlett@microsoft.com" `
-  --scope "/subscriptions/47f1c914-e299-4953-a99d-3e34644cfe1c/resourceGroups/rg-nikhowlett-6102/providers/Microsoft.CognitiveServices/accounts/nikhowlett-6102-resource"
+  --assignee "<your-account@example.com>" `
+  --scope "/subscriptions/<your-subscription-id>/resourceGroups/<your-resource-group>/providers/Microsoft.CognitiveServices/accounts/<your-resource-name>"
 ```
 
 📖 [Foundry RBAC docs](https://learn.microsoft.com/azure/ai-foundry/concepts/rbac-ai-foundry)
@@ -160,7 +160,7 @@ Linux / macOS: use `./migrate.sh` with the same flags.
 | `az : The term 'az' is not recognized` | Install Azure CLI, or rerun `migrate-docker.ps1` on Windows and let it install Azure CLI with `winget` |
 | `401 Unauthorized` | Check RBAC — you need **Foundry User** on the resource (see above) |
 | `403 Forbidden` | Assign **Foundry User** role (see RBAC section above) |
-| `Could not switch to subscription` | Run `az login --tenant 72f988bf-86f1-41af-91ab-2d7cd011db47` |
+| `Could not switch to subscription` | Run `az login --tenant <your-tenant-id>` |
 | Items missing from `--list` | Both endpoints are checked; if still missing the item may have been deleted |
 | Docker Desktop crashes on startup | Delete `%USERPROFILE%\.docker\contexts\meta` and restart |
 

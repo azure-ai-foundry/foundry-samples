@@ -25,11 +25,14 @@ TARGET_CONTAINER = "agent-definitions"  # Where v2 agents will be stored
 HOST = os.getenv("AGENTS_HOST") or "eastus.api.azureml.ms"
 # Use host.docker.internal for Docker containers to access Windows host
 LOCAL_HOST = os.getenv("LOCAL_HOST") or "host.docker.internal:5001" #"localhost:5001"#
-SUBSCRIPTION_ID = os.getenv("AGENTS_SUBSCRIPTION") or "921496dc-987f-410f-bd57-426eb2611356"
-RESOURCE_GROUP = os.getenv("AGENTS_RESOURCE_GROUP") or "agents-e2e-tests-eastus"
-RESOURCE_GROUP_V2 = os.getenv("AGENTS_RESOURCE_GROUP_V2") or "agents-e2e-tests-westus2"
-WORKSPACE = os.getenv("AGENTS_WORKSPACE") or "basicaccountjqqa@e2e-tests@AML"
-WORKSPACE_V2 = os.getenv("AGENTS_WORKSPACE_V2") or "e2e-tests-westus2-account@e2e-tests-westus2@AML"
+# Subscription / workspace defaults are intentionally unset so the script fails fast
+# when required configuration is missing, rather than silently targeting the wrong
+# Azure environment. Set the corresponding env vars or pass values via CLI flags.
+SUBSCRIPTION_ID = os.getenv("AGENTS_SUBSCRIPTION") or None
+RESOURCE_GROUP = os.getenv("AGENTS_RESOURCE_GROUP") or None
+RESOURCE_GROUP_V2 = os.getenv("AGENTS_RESOURCE_GROUP_V2") or None
+WORKSPACE = os.getenv("AGENTS_WORKSPACE") or None
+WORKSPACE_V2 = os.getenv("AGENTS_WORKSPACE_V2") or None
 API_VERSION = os.getenv("AGENTS_API_VERSION") or "2025-05-15-preview"
 # SOURCE_API_VERSION is used when reading from legacy openai.azure.com endpoints.
 # Legacy OpenAI-kind resources only support older API versions (e.g. 2024-05-01-preview),
@@ -42,12 +45,14 @@ OPENAI_COMPAT_TOKEN_SCOPE = os.getenv("OPENAI_COMPAT_TOKEN_SCOPE") or None
 LAST_LEGACY_OPENAI_QUERY_ERROR: Optional[str] = None
 
 # Source Tenant Configuration (for reading v1 assistants from source tenant)
-SOURCE_TENANT = os.getenv("SOURCE_TENANT") or os.getenv("AGENTS_TENANT") or "72f988bf-86f1-41af-91ab-2d7cd011db47"  # Microsoft tenant
+# Defaults to None; the Azure SDK will use the caller's default tenant unless overridden
+# via the SOURCE_TENANT / AGENTS_TENANT environment variables or the --source-tenant flag.
+SOURCE_TENANT = os.getenv("SOURCE_TENANT") or os.getenv("AGENTS_TENANT") or None
 
 # Production Resource Configuration
-PRODUCTION_RESOURCE = os.getenv("PRODUCTION_RESOURCE")  # e.g., "nextgen-eastus"
-PRODUCTION_SUBSCRIPTION = os.getenv("PRODUCTION_SUBSCRIPTION")  # e.g., "b1615458-c1ea-49bc-8526-cafc948d3c25"
-PRODUCTION_TENANT = os.getenv("PRODUCTION_TENANT")  # e.g., "33e577a9-b1b8-4126-87c0-673f197bf624"
+PRODUCTION_RESOURCE = os.getenv("PRODUCTION_RESOURCE")  # e.g., "<your-resource-name>"
+PRODUCTION_SUBSCRIPTION = os.getenv("PRODUCTION_SUBSCRIPTION")  # e.g., "<your-subscription-id>"
+PRODUCTION_TENANT = os.getenv("PRODUCTION_TENANT")  # e.g., "<your-tenant-id>"
 PRODUCTION_TOKEN = os.getenv("PRODUCTION_TOKEN")  # Production token from PowerShell script
 PRODUCTION_ENDPOINT_OVERRIDE = os.getenv("PRODUCTION_ENDPOINT")  # Optional: full endpoint URL override
 
@@ -94,9 +99,9 @@ def get_production_v2_base_url(resource_name: str, subscription_id: str, project
     Build the production v2 API base URL for Azure AI services.
     
     Args:
-        resource_name: The Azure AI resource name (e.g., "nextgen-eastus")
+        resource_name: The Azure AI resource name (e.g., "<your-resource-name>")
         subscription_id: The subscription ID for production
-        project_name: The project name (e.g., "nextgen-eastus")
+        project_name: The project name (e.g., "<your-project-name>")
     
     Returns:
         The production v2 API base URL
@@ -874,7 +879,7 @@ def ensure_connection_display_names(
         connections: List of connection objects from the data-plane API
         subscription_id: Azure subscription ID for the target project
         resource_group: Resource group name
-        account_name: AI Services account name (e.g., "nikhowlett-1194-resource")
+        account_name: AI Services account name (e.g., "<your-resource-name>")
         token: Optional ARM bearer token. If not provided, tries to acquire one.
         
     Returns:
@@ -1005,8 +1010,8 @@ def _set_target_arm_prefix(target_endpoint: str, subscription_id: Optional[str] 
     if not m:
         return False
     
-    account_name = m.group(1)  # e.g., "nikhowlett-1194-resource"
-    project_name = m.group(2)  # e.g., "nikhowlett-1194"
+    account_name = m.group(1)  # e.g., "<your-resource-name>"
+    project_name = m.group(2)  # e.g., "<your-project-name>"
     
     # Try to get RG from connection ARM IDs or fall back to deriving from account name pattern
     rg_name = None
@@ -1097,7 +1102,7 @@ def _try_ensure_display_names(
         print("   ⚠️  Could not parse target endpoint for ARM routing, skipping displayName enforcement")
         return
     
-    account_name = m.group(1)  # e.g., "nikhowlett-1194-resource"
+    account_name = m.group(1)  # e.g., "<your-resource-name>"
     
     # Try to determine subscription and resource group from connection ARM IDs
     sub_id = subscription_id
@@ -1714,8 +1719,8 @@ def get_assistant_from_project(project_endpoint: str, assistant_id: str, subscri
                 print(f"   🔍 Some project parameters missing, attempting to extract from endpoint or environment...")
                 
                 # Use environment variables as fallbacks
-                subscription_id = subscription_id or os.getenv("AGENTS_SUBSCRIPTION") or "921496dc-987f-410f-bd57-426eb2611356"
-                resource_group_name = resource_group_name or os.getenv("AGENTS_RESOURCE_GROUP") or "agents-e2e-tests-eastus"
+                subscription_id = subscription_id or os.getenv("AGENTS_SUBSCRIPTION")
+                resource_group_name = resource_group_name or os.getenv("AGENTS_RESOURCE_GROUP")
                 
                 # Try to extract project name from endpoint URL
                 if not project_name:
@@ -1867,9 +1872,9 @@ def _derive_openai_endpoint(project_endpoint: str) -> Optional[str]:
     portal experience only appear on the cognitiveservices endpoint.
 
         Given a project endpoint like
-            https://nikhowlett-6102-resource.services.ai.azure.com/api/projects/nikhowlett-6102
+            https://<your-resource-name>.services.ai.azure.com/api/projects/<your-project-name>
         returns
-            https://nikhowlett-6102-resource.cognitiveservices.azure.com/openai
+            https://<your-resource-name>.cognitiveservices.azure.com/openai
     """
     parsed = urlparse(project_endpoint)
     host = parsed.hostname or ""
@@ -1970,7 +1975,7 @@ def create_agent_version_via_api(agent_name: str, agent_version_data: Dict[str, 
     Args:
         agent_name: The agent name (without version)
         agent_version_data: The agent version payload matching v2 API format
-        production_resource: Optional production resource name (e.g., "nextgen-eastus")
+        production_resource: Optional production resource name (e.g., "<your-resource-name>")
         production_subscription: Optional production subscription ID
         production_token: Optional production token for authentication
     
@@ -3724,47 +3729,47 @@ def main():
 Examples:
   # Migrate ONLY agents with tools from source project to target (with direct endpoint)
   python v1_to_v2_migration.py --only-with-tools \\
-    --project-endpoint "https://yinchu-eastus2-resource.services.ai.azure.com/api/projects/yinchu-eastus2" \\
-    --production-endpoint "https://nikhowlett-1194-resource.services.ai.azure.com/api/projects/nikhowlett-1194" \\
-    --production-resource nikhowlett-1194-resource \\
-    --production-subscription 2d385bf4-0756-4a76-aa95-28bf9ed3b625 \\
-    --production-tenant 72f988bf-86f1-41af-91ab-2d7cd011db47
+    --project-endpoint "https://<source-resource>.services.ai.azure.com/api/projects/<source-project>" \\
+    --production-endpoint "https://<target-resource>.services.ai.azure.com/api/projects/<target-project>" \\
+    --production-resource <target-resource> \\
+    --production-subscription <your-subscription-id> \\
+    --production-tenant <your-tenant-id>
   
   # Migrate agents with tools AND attempt to copy connections
   python v1_to_v2_migration.py --only-with-tools --migrate-connections \\
-    --project-endpoint "https://source-project.services.ai.azure.com/api/projects/source" \\
-    --production-endpoint "https://target-resource.services.ai.azure.com/api/projects/target" \\
-    --production-resource target-resource \\
-    --production-subscription SUB_ID \\
-    --production-tenant TENANT_ID
+    --project-endpoint "https://<source-resource>.services.ai.azure.com/api/projects/<source-project>" \\
+    --production-endpoint "https://<target-resource>.services.ai.azure.com/api/projects/<target-project>" \\
+    --production-resource <target-resource> \\
+    --production-subscription <your-subscription-id> \\
+    --production-tenant <your-tenant-id>
   
   # Migrate ONLY plain agents (no tools)
   python v1_to_v2_migration.py --only-without-tools \\
-    --production-resource nextgen-eastus \\
-    --production-subscription b1615458-c1ea-49bc-8526-cafc948d3c25 \\
-    --production-tenant 33e577a9-b1b8-4126-87c0-673f197bf624
+    --production-resource <your-resource-name> \\
+    --production-subscription <your-subscription-id> \\
+    --production-tenant <your-tenant-id>
   
   # Migrate from v1 API to production v2 API (REQUIRED production parameters)
   python v1_to_v2_migration.py --use-api \\
-    --source-tenant 72f988bf-86f1-41af-91ab-2d7cd011db47 \\
-    --production-resource nextgen-eastus \\
-    --production-subscription b1615458-c1ea-49bc-8526-cafc948d3c25 \\
-    --production-tenant 33e577a9-b1b8-4126-87c0-673f197bf624 \\
-    asst_wBMH6Khnqbo1J7W1G6w3p1rN
+    --source-tenant <your-source-tenant-id> \\
+    --production-resource <your-resource-name> \\
+    --production-subscription <your-subscription-id> \\
+    --production-tenant <your-tenant-id> \\
+    asst_xxxxxxxxxxxxxxxxxxxxxxxx
   
   # Migrate all assistants from Cosmos DB to production v2 API
   python v1_to_v2_migration.py \\
-    --production-resource nextgen-eastus \\
-    --production-subscription b1615458-c1ea-49bc-8526-cafc948d3c25 \\
-    --production-tenant 33e577a9-b1b8-4126-87c0-673f197bf624
+    --production-resource <your-resource-name> \\
+    --production-subscription <your-subscription-id> \\
+    --production-tenant <your-tenant-id>
   
   # Migrate from project endpoint using direct production endpoint (no URL guessing)
   python v1_to_v2_migration.py \\
     --project-endpoint "https://your-project.api.azure.com/api/projects/p-3" \\
     --production-endpoint "https://target-resource.services.ai.azure.com/api/projects/target" \\
     --production-resource target-resource \\
-    --production-subscription b1615458-c1ea-49bc-8526-cafc948d3c25 \\
-    --production-tenant 33e577a9-b1b8-4126-87c0-673f197bf624 \\
+    --production-subscription <your-subscription-id> \\
+    --production-tenant <your-tenant-id> \\
     asst_abc123
   
   # Note: Use run-migration-docker-auth.ps1 for automatic dual-tenant authentication
@@ -3899,33 +3904,33 @@ Examples:
     parser.add_argument(
         '--production-resource',
         type=str,
-        help='Production Azure AI resource name (required for migration). Example: "nextgen-eastus". '
+        help='Production Azure AI resource name (required for migration). Example: "<your-resource-name>". '
              'If the name already ends with "-resource", it will NOT be doubled.'
     )
     
     parser.add_argument(
         '--production-subscription', 
         type=str,
-        help='Production subscription ID (required for migration). Example: "b1615458-c1ea-49bc-8526-cafc948d3c25"'
+        help='Production subscription ID (required for migration). Example: "<your-subscription-id>"'
     )
     
     parser.add_argument(
         '--production-tenant',
         type=str,
-        help='Production tenant ID for Azure authentication (required for migration). Example: "33e577a9-b1b8-4126-87c0-673f197bf624"'
+        help='Production tenant ID for Azure authentication (required for migration). Example: "<your-tenant-id>"'
     )
     
     parser.add_argument(
         '--production-endpoint',
         type=str,
         help='Full production v2 API base URL (overrides --production-resource URL construction). '
-             'Example: "https://nikhowlett-1194-resource.services.ai.azure.com/api/projects/nikhowlett-1194"'
+             'Example: "https://<your-resource-name>.services.ai.azure.com/api/projects/<your-project-name>"'
     )
     
     parser.add_argument(
         '--source-tenant',
         type=str,
-        help='Source tenant ID for reading v1 assistants. If not provided, uses SOURCE_TENANT environment variable or defaults to Microsoft tenant (72f988bf-86f1-41af-91ab-2d7cd011db47). Example: "72f988bf-86f1-41af-91ab-2d7cd011db47"'
+        help='Source tenant ID for reading v1 assistants. If not provided, uses the SOURCE_TENANT or AGENTS_TENANT environment variable, or falls back to the caller\'s default tenant. Example: "<your-tenant-id>"'
     )
     
     # File migration is enabled by default; use --no-migrate-files to disable it.
