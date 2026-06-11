@@ -48,8 +48,8 @@ param modelSkuName string = 'GlobalStandard'
 param modelCapacity int = 30
 
 // Create a short, unique suffix, that will be unique to each resource group
-param deploymentTimestamp string = utcNow('yyyyMMddHHmmss')
-var uniqueSuffix = substring(uniqueString('${resourceGroup().id}-${deploymentTimestamp}'), 0, 4)
+// Deterministic suffix for idempotent re-deploys (same RG = same names)
+var uniqueSuffix = substring(uniqueString(resourceGroup().id), 0, 4)
 var accountName = toLower('${aiServices}${uniqueSuffix}')
 
 @description('Name for your project resource.')
@@ -93,10 +93,18 @@ param azureCosmosDBAccountResourceId string = ''
 @description('The user assigned identity full ARM Resource ID. This is an optional field, and if not provided, the resource will be created.')
 param userAssignedIdentityResourceId string = ''
 
+@description('Enable Azure Container Registry with Private Endpoint. When true, creates an ACR (Premium SKU) with a PE in the private endpoints subnet.')
+param enableContainerRegistry bool = true
+
+@description('Optional developer IP CIDR to allowlist for ACR push access (e.g., 203.0.113.0/26 or 10.0.0.0/16). When empty, public access remains disabled.')
+param developerIpCidr string = ''
 
 //New Param for resource group of Private DNS zones
 //@description('Optional: Resource group containing existing private DNS zones. If specified, DNS zones will not be created.')
 //param existingDnsZonesResourceGroup string = ''
+
+@description('Subscription ID where existing private DNS zones are located. Leave empty to use current subscription.')
+param dnsZonesSubscriptionId string = ''
 
 @description('Object mapping DNS zone names to their resource group, or empty string to indicate creation')
 param existingDnsZones object = {
@@ -106,6 +114,7 @@ param existingDnsZones object = {
   'privatelink.search.windows.net': ''           
   'privatelink.blob.core.windows.net': ''                            
   'privatelink.documents.azure.com': ''                       
+  'privatelink.azurecr.io': ''
 }
 
 @description('Zone Names for Validation of existing Private Dns Zones')
@@ -116,6 +125,7 @@ param dnsZoneNames array = [
   'privatelink.search.windows.net'
   'privatelink.blob.core.windows.net'
   'privatelink.documents.azure.com'
+  'privatelink.azurecr.io'
 ]
 
 @description('User Assigned Identity Name')
@@ -126,6 +136,7 @@ var projectName = toLower('${firstProjectName}${uniqueSuffix}')
 var cosmosDBName = toLower('${aiServices}${uniqueSuffix}cosmosdb')
 var aiSearchName = toLower('${aiServices}${uniqueSuffix}search')
 var azureStorageName = toLower('${aiServices}${uniqueSuffix}storage')
+var acrName = toLower('acr${uniqueSuffix}')
 
 // Check if existing resources have been passed in
 var storagePassedIn = azureStorageAccountResourceId != ''
@@ -151,6 +162,8 @@ var vnetSubscriptionId = existingVnetPassedIn ? vnetParts[2] : subscription().su
 var vnetResourceGroupName = existingVnetPassedIn ? vnetParts[4] : resourceGroup().name
 var existingVnetName = existingVnetPassedIn ? last(vnetParts) : vnetName
 var trimVnetName = trim(existingVnetName)
+
+var resolvedDnsZonesSubscriptionId = empty(dnsZonesSubscriptionId) ? subscription().subscriptionId : dnsZonesSubscriptionId
 
 @description('The name of the project capability host to be created')
 param projectCapHost string = 'caphostproj'
@@ -287,6 +300,25 @@ module privateEndpointAndDNS 'modules-network-secured/private-endpoint-and-dns.b
     cosmosDB      // Ensure Cosmos DB exists
   ]
   }
+
+// Optional: Azure Container Registry with Private Endpoint
+module acr 'modules-network-secured/container-registry.bicep' = if (enableContainerRegistry) {
+  name: 'acr-${uniqueSuffix}-deployment'
+  params: {
+    acrName: acrName
+    location: location
+    peSubnetId: vnet.outputs.peSubnetId
+    vnetId: vnet.outputs.virtualNetworkId
+    suffix: uniqueSuffix
+    existingDnsZoneResourceGroup: existingDnsZones['privatelink.azurecr.io']
+    dnsZonesSubscriptionId: resolvedDnsZonesSubscriptionId
+    developerIpCidr: developerIpCidr
+    projectPrincipalId: identity.outputs.uaiPrincipalId
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+  ]
+}
 
 /*
   Creates a new project (sub-resource of the AI Services account)

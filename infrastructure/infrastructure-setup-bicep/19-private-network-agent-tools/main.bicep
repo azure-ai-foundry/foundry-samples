@@ -34,6 +34,7 @@ Architecture:
   'australiaeast'
   'swedencentral'
   'canadaeast'
+  'canadacentral'
   'westeurope'
   'westus3'
   'uksouth'
@@ -65,8 +66,8 @@ param modelSkuName string = 'GlobalStandard'
 param modelCapacity int = 30
 
 // Create a short, unique suffix, that will be unique to each resource group
-param deploymentTimestamp string = utcNow('yyyyMMddHHmmss')
-var uniqueSuffix = substring(uniqueString('${resourceGroup().id}-${deploymentTimestamp}'), 0, 4)
+// Deterministic suffix for idempotent re-deploys (same RG = same names)
+var uniqueSuffix = substring(uniqueString(resourceGroup().id), 0, 4)
 var accountName = toLower('${aiServices}${uniqueSuffix}')
 
 @description('Name prefix for your Foundry project. A 4-character random suffix will be appended.')
@@ -128,6 +129,12 @@ param existingAzureCosmosDBAccountResourceId string = ''
 @description('The Microsoft Fabric Workspace full ARM Resource ID. Optional — enables Fabric private link connectivity.')
 param existingFabricWorkspaceResourceId string = ''
 
+@description('Enable Azure Container Registry with Private Endpoint. When true, creates an ACR (Premium SKU) with a PE in the private endpoints subnet.')
+param enableContainerRegistry bool = true
+
+@description('Optional developer IP CIDR to allowlist for ACR push access (e.g., 203.0.113.0/26 or 10.0.0.0/16). When empty, public access remains disabled.')
+param developerIpCidr string = ''
+
 //New Param for resource group of Private DNS zones
 //@description('Optional: Resource group containing existing private DNS zones. If specified, DNS zones will not be created.')
 //param existingDnsZonesResourceGroup string = ''
@@ -141,12 +148,14 @@ param existingDnsZones object = {
   'privatelink.blob.${environment().suffixes.storage}': { subscriptionId: '', resourceGroup: '' }
   'privatelink.documents.azure.com': { subscriptionId: '', resourceGroup: '' }
   'privatelink.fabric.microsoft.com': { subscriptionId: '', resourceGroup: '' }
+  'privatelink.azurecr.io': { subscriptionId: '', resourceGroup: '' }
 }
 
 var projectName = toLower('${firstProjectName}${uniqueSuffix}')
 var cosmosDBName = toLower('${aiServices}${uniqueSuffix}cosmosdb')
 var aiSearchName = toLower('${aiServices}${uniqueSuffix}search')
 var azureStorageName = toLower('${aiServices}${uniqueSuffix}storage')
+var acrName = toLower('acr${uniqueSuffix}')
 
 // Check if existing resources have been passed in
 var storagePassedIn = existingAzureStorageAccountResourceId != ''
@@ -291,6 +300,25 @@ module privateEndpointAndDNS 'modules-network-secured/private-endpoint-and-dns.b
   }
   // Dependencies on `aiDependencies` and `vnet` are implicit through param references
   // (e.g. aiAccount.outputs, aiDependencies.outputs.*, vnet.outputs.*).
+}
+
+// Optional: Azure Container Registry with Private Endpoint
+module acr 'modules-network-secured/container-registry.bicep' = if (enableContainerRegistry) {
+  name: 'acr-${uniqueSuffix}-deployment'
+  params: {
+    acrName: acrName
+    location: location
+    peSubnetId: vnet.outputs.peSubnetId
+    vnetId: vnet.outputs.virtualNetworkId
+    suffix: uniqueSuffix
+    existingDnsZoneResourceGroup: existingDnsZones['privatelink.azurecr.io'].resourceGroup
+    dnsZonesSubscriptionId: empty(existingDnsZones['privatelink.azurecr.io'].subscriptionId) ? subscription().subscriptionId : existingDnsZones['privatelink.azurecr.io'].subscriptionId
+    developerIpCidr: developerIpCidr
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+  ]
 }
 
 /*
