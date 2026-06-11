@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.43.8.12551",
-      "templateHash": "16354343630624836697"
+      "version": "0.44.1.10279",
+      "templateHash": "16032808877948152637"
     }
   },
   "parameters": {
@@ -82,10 +82,6 @@
       "metadata": {
         "description": "The tokens per minute (TPM) of your model deployment"
       }
-    },
-    "deploymentTimestamp": {
-      "type": "string",
-      "defaultValue": "[utcNow('yyyyMMddHHmmss')]"
     },
     "firstProjectName": {
       "type": "string",
@@ -164,6 +160,20 @@
         "description": "The AI Storage Account full ARM Resource ID. This is an optional field, and if not provided, the resource will be created."
       }
     },
+    "enableContainerRegistry": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Enable Azure Container Registry with Private Endpoint. When true, creates an ACR (Premium SKU) with a PE in the private endpoints subnet."
+      }
+    },
+    "developerIpCidr": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional developer IP CIDR to allowlist for ACR push access (e.g., 203.0.113.0/26 or 10.0.0.0/16). When empty, public access remains disabled."
+      }
+    },
     "dnsZonesSubscriptionId": {
       "type": "string",
       "defaultValue": "",
@@ -177,7 +187,8 @@
         "privatelink.services.ai.azure.com": "",
         "privatelink.openai.azure.com": "",
         "privatelink.cognitiveservices.azure.com": "",
-        "privatelink.blob.core.windows.net": ""
+        "privatelink.blob.core.windows.net": "",
+        "privatelink.azurecr.io": ""
       },
       "metadata": {
         "description": "Object mapping DNS zone names to their resource group, or empty string to indicate creation"
@@ -189,7 +200,8 @@
         "privatelink.services.ai.azure.com",
         "privatelink.openai.azure.com",
         "privatelink.cognitiveservices.azure.com",
-        "privatelink.blob.core.windows.net"
+        "privatelink.blob.core.windows.net",
+        "privatelink.azurecr.io"
       ],
       "metadata": {
         "description": "Zone Names for Validation of existing Private Dns Zones"
@@ -197,10 +209,11 @@
     }
   },
   "variables": {
-    "uniqueSuffix": "[substring(uniqueString(format('{0}-{1}', resourceGroup().id, parameters('deploymentTimestamp'))), 0, 4)]",
+    "uniqueSuffix": "[substring(uniqueString(resourceGroup().id), 0, 4)]",
     "accountName": "[toLower(format('{0}{1}', parameters('aiServices'), variables('uniqueSuffix')))]",
     "projectName": "[toLower(format('{0}{1}', parameters('firstProjectName'), variables('uniqueSuffix')))]",
     "azureStorageName": "[toLower(format('{0}{1}storage', parameters('aiServices'), variables('uniqueSuffix')))]",
+    "acrName": "[toLower(format('acr{0}', variables('uniqueSuffix')))]",
     "storagePassedIn": "[not(equals(parameters('azureStorageAccountResourceId'), ''))]",
     "existingVnetPassedIn": "[not(equals(parameters('existingVnetResourceId'), ''))]",
     "storageParts": "[split(parameters('azureStorageAccountResourceId'), '/')]",
@@ -261,8 +274,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.43.8.12551",
-              "templateHash": "11296469007124090352"
+              "version": "0.44.1.10279",
+              "templateHash": "8059749215340377460"
             }
           },
           "parameters": {
@@ -375,8 +388,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.43.8.12551",
-                      "templateHash": "6615847355060514198"
+                      "version": "0.44.1.10279",
+                      "templateHash": "1661897848166677911"
                     }
                   },
                   "parameters": {
@@ -548,8 +561,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.43.8.12551",
-                      "templateHash": "8341621792914014201"
+                      "version": "0.44.1.10279",
+                      "templateHash": "13739336036803555258"
                     }
                   },
                   "parameters": {
@@ -638,8 +651,8 @@
                           "metadata": {
                             "_generator": {
                               "name": "bicep",
-                              "version": "0.43.8.12551",
-                              "templateHash": "11349014942847443024"
+                              "version": "0.44.1.10279",
+                              "templateHash": "4074506216227302224"
                             }
                           },
                           "parameters": {
@@ -721,8 +734,8 @@
                           "metadata": {
                             "_generator": {
                               "name": "bicep",
-                              "version": "0.43.8.12551",
-                              "templateHash": "11349014942847443024"
+                              "version": "0.44.1.10279",
+                              "templateHash": "4074506216227302224"
                             }
                           },
                           "parameters": {
@@ -774,7 +787,10 @@
                             }
                           }
                         }
-                      }
+                      },
+                      "dependsOn": [
+                        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Resources/deployments', format('agent-subnet-{0}', uniqueString(deployment().name, parameters('agentSubnetName'))))]"
+                      ]
                     }
                   ],
                   "outputs": {
@@ -788,11 +804,11 @@
                     },
                     "agentSubnetId": {
                       "type": "string",
-                      "value": "[format('{0}/subnets/{1}', extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName')), parameters('agentSubnetName'))]"
+                      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Resources/deployments', format('agent-subnet-{0}', uniqueString(deployment().name, parameters('agentSubnetName')))), '2025-04-01').outputs.subnetId.value]"
                     },
                     "peSubnetId": {
                       "type": "string",
-                      "value": "[format('{0}/subnets/{1}', extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName')), parameters('peSubnetName'))]"
+                      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Resources/deployments', format('pe-subnet-{0}', uniqueString(deployment().name, parameters('peSubnetName')))), '2025-04-01').outputs.subnetId.value]"
                     },
                     "virtualNetworkName": {
                       "type": "string",
@@ -893,8 +909,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.43.8.12551",
-              "templateHash": "1400943577065869287"
+              "version": "0.44.1.10279",
+              "templateHash": "8297556890969361359"
             }
           },
           "parameters": {
@@ -1027,8 +1043,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.43.8.12551",
-              "templateHash": "14681023185116728141"
+              "version": "0.44.1.10279",
+              "templateHash": "18428162180343544793"
             }
           },
           "parameters": {
@@ -1120,8 +1136,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.43.8.12551",
-              "templateHash": "12551648450543487356"
+              "version": "0.44.1.10279",
+              "templateHash": "3194425532011524628"
             }
           },
           "parameters": {
@@ -1257,8 +1273,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.43.8.12551",
-              "templateHash": "4199539764441797485"
+              "version": "0.44.1.10279",
+              "templateHash": "11525768866797919522"
             }
           },
           "parameters": {
@@ -1556,6 +1572,251 @@
       ]
     },
     {
+      "condition": "[parameters('enableContainerRegistry')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('acr-{0}-deployment', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "acrName": {
+            "value": "[variables('acrName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "peSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.peSubnetId.value]"
+          },
+          "vnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.virtualNetworkId.value]"
+          },
+          "suffix": {
+            "value": "[variables('uniqueSuffix')]"
+          },
+          "existingDnsZoneResourceGroup": {
+            "value": "[parameters('existingDnsZones')['privatelink.azurecr.io']]"
+          },
+          "dnsZonesSubscriptionId": {
+            "value": "[variables('resolvedDnsZonesSubscriptionId')]"
+          },
+          "developerIpCidr": {
+            "value": "[parameters('developerIpCidr')]"
+          },
+          "projectPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('projectName'), variables('uniqueSuffix'))), '2025-04-01').outputs.projectPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "4699943037135843809"
+            }
+          },
+          "parameters": {
+            "acrName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Container Registry"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the ACR"
+              }
+            },
+            "peSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Private Endpoint subnet"
+              }
+            },
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Virtual Network"
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Suffix for unique resource names"
+              }
+            },
+            "existingDnsZoneResourceGroup": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Resource group name for existing ACR DNS zone. Empty string means create a new zone."
+              }
+            },
+            "dnsZonesSubscriptionId": {
+              "type": "string",
+              "defaultValue": "[subscription().subscriptionId]",
+              "metadata": {
+                "description": "Subscription ID where existing private DNS zones are located."
+              }
+            },
+            "developerIpCidr": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional developer IP CIDR to allowlist for ACR push access (e.g., 203.0.113.0/26 or 10.0.0.0/16). When empty, public access remains disabled."
+              }
+            },
+            "projectPrincipalId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Principal ID of the project managed identity to grant AcrPull role. When empty, no role assignment is created."
+              }
+            }
+          },
+          "variables": {
+            "acrDnsZoneName": "privatelink.azurecr.io",
+            "acrDnsZoneId": "[if(empty(parameters('existingDnsZoneResourceGroup')), resourceId('Microsoft.Network/privateDnsZones', variables('acrDnsZoneName')), extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('dnsZonesSubscriptionId'), parameters('existingDnsZoneResourceGroup')), 'Microsoft.Network/privateDnsZones', variables('acrDnsZoneName')))]",
+            "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ContainerRegistry/registries",
+              "apiVersion": "2023-07-01",
+              "name": "[parameters('acrName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Premium"
+              },
+              "properties": {
+                "adminUserEnabled": false,
+                "publicNetworkAccess": "[if(empty(parameters('developerIpCidr')), 'Disabled', 'Enabled')]",
+                "networkRuleBypassOptions": "AzureServices",
+                "networkRuleSet": "[if(empty(parameters('developerIpCidr')), null(), createObject('defaultAction', 'Deny', 'ipRules', createArray(createObject('action', 'Allow', 'value', parameters('developerIpCidr')))))]"
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-private-endpoint', parameters('acrName'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('peSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-private-link-service-connection', parameters('acrName'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+                      "groupIds": [
+                        "registry"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]"
+              ]
+            },
+            {
+              "condition": "[empty(parameters('existingDnsZoneResourceGroup'))]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[variables('acrDnsZoneName')]",
+              "location": "global"
+            },
+            {
+              "condition": "[empty(parameters('existingDnsZoneResourceGroup'))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', variables('acrDnsZoneName'), format('acr-{0}-link', parameters('suffix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('acrDnsZoneName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('{0}-private-endpoint', parameters('acrName')), format('{0}-dns-group', parameters('acrName')))]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "[format('{0}-dns-config', parameters('acrName'))]",
+                    "properties": {
+                      "privateDnsZoneId": "[variables('acrDnsZoneId')]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones/virtualNetworkLinks', variables('acrDnsZoneName'), format('acr-{0}-link', parameters('suffix')))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('acrDnsZoneName'))]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-private-endpoint', parameters('acrName')))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('projectPrincipalId')))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), parameters('projectPrincipalId'), variables('acrPullRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('acrPullRoleId'))]",
+                "principalId": "[parameters('projectPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "acrId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Azure Container Registry"
+              },
+              "value": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]"
+            },
+            "acrName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Container Registry"
+              },
+              "value": "[parameters('acrName')]"
+            },
+            "acrLoginServer": {
+              "type": "string",
+              "metadata": {
+                "description": "Login server URL of the Azure Container Registry"
+              },
+              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-07-01').loginServer]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('projectName'), variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-private-endpoint', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "[format('{0}-{1}-deployment', variables('projectName'), variables('uniqueSuffix'))]",
@@ -1596,8 +1857,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.43.8.12551",
-              "templateHash": "17079120784923696162"
+              "version": "0.44.1.10279",
+              "templateHash": "14164971324918652057"
             }
           },
           "parameters": {
@@ -1709,8 +1970,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.43.8.12551",
-              "templateHash": "16292565234555392040"
+              "version": "0.44.1.10279",
+              "templateHash": "3421890076151369374"
             }
           },
           "parameters": {
@@ -1764,8 +2025,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.43.8.12551",
-              "templateHash": "10985949897065090550"
+              "version": "0.44.1.10279",
+              "templateHash": "5322883668661759738"
             }
           },
           "parameters": {
@@ -1820,8 +2081,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.43.8.12551",
-              "templateHash": "4519973268515204861"
+              "version": "0.44.1.10279",
+              "templateHash": "12566418346689420792"
             }
           },
           "parameters": {
@@ -1887,8 +2148,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.43.8.12551",
-              "templateHash": "13556924300142468207"
+              "version": "0.44.1.10279",
+              "templateHash": "8509907656517137061"
             }
           },
           "parameters": {
