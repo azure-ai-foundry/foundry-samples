@@ -1,0 +1,35 @@
+name: agent-framework-content-safety-guardrail
+displayName: "Content safety guardrail (Agent Framework, Responses)"
+description: >
+  An Agent Framework agent hosted by Foundry with a Responsible AI content
+  safety guardrail. The guardrail screens prompts and responses against an RAI
+  policy, so harmful content is filtered according to your safety configuration.
+metadata:
+  tags:
+    - Agent Framework
+    - AI Agent Hosting
+    - Azure AI AgentServer
+    - Responses Protocol
+    - Content Safety
+    - Guardrails
+template:
+  name: agent-framework-content-safety-guardrail
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  # Content safety guardrail. Replace rai_policy_name with the full ARM resource
+  # ID of an RAI policy on your Foundry resource. See README.md for how to create
+  # one. Omit the policies block entirely to deploy the agent without a guardrail.
+  # Keep the policies block but omit rai_policy_name to use the default policy
+  # (Microsoft.DefaultV2).
+  policies:
+    - type: rai_policy
+      rai_policy_name: /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<account>/raiPolicies/<policy-name>
+  environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
