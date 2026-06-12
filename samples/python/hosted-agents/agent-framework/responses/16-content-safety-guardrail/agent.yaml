@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+kind: hosted
+name: agent-framework-content-safety-guardrail
+protocols:
+  - protocol: responses
+    version: 1.0.0
+# Content safety guardrail. Replace rai_policy_name with the full ARM resource
+# ID of an RAI policy on your Foundry resource. See README.md for how to create
+# one. Omit the policies block entirely to deploy the agent without a guardrail.
+# Keep the policies block but omit rai_policy_name to use the default policy
+# (Microsoft.DefaultV2).
+policies:
+  - type: rai_policy
+    rai_policy_name: /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<account>/raiPolicies/<policy-name>
+resources:
+  cpu: '0.25'
+  memory: '0.5Gi'
+environment_variables:
+  - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+    value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
