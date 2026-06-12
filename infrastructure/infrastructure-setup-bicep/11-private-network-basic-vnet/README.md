@@ -40,6 +40,7 @@ This template combines:
 | **AI Foundry Project** | Project with system-assigned managed identity |
 | **Capability Host** | Basic agent capability host (platform-managed storage) |
 | **Model Deployment** | gpt-4.1 (configurable) |
+| **Azure Container Registry** *(optional)* | Premium SKU ACR with private endpoint, DNS zone (`privatelink.azurecr.io`), and AcrPull role for the project identity |
 
 
 [![Deploy To Azure](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazure.svg?sanitize=true)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fazure-ai-foundry%2Ffoundry-samples%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Finfrastructure-setup-bicep%2F11-private-network-basic-vnet%2Fmain.json)
@@ -166,6 +167,8 @@ Before deleting an **Account** resource, it is essential to first delete the ass
 | `dnsZonesSubscriptionId` | Subscription ID for existing DNS zones | `''` (current sub) | No |
 | `existingDnsZones` | Map of DNS zone names to resource groups | All empty (creates new) | No |
 | `projectCapHost` | Name of the project capability host | `caphostproj` | No |
+| `enableContainerRegistry` | When `true`, creates an Azure Container Registry (Premium SKU) with a private endpoint in the PE subnet, a `privatelink.azurecr.io` DNS zone, and an AcrPull role assignment for the project managed identity. | `true` | No |
+| `developerIpCidr` | Developer IP CIDR to allowlist for ACR push access (e.g., `203.0.113.0/26`). When set, enables public network access with a deny-all default + an IP allowlist rule so developers can push images. When empty, public access remains fully disabled. | `''` | No |
 
 #### BYO Virtual Network Details
 
