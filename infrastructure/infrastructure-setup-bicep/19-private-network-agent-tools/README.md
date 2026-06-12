@@ -177,6 +177,7 @@ Note: If not provided, the following resources will be created automatically for
 - Azure Cosmos DB for NoSQL
 - Azure AI Search
 - Azure Storage
+- Azure Container Registry (Premium SKU) with private endpoint *(when `enableContainerRegistry=true`)*
 
 #### Parameters
 
@@ -226,6 +227,8 @@ Note: If not provided, the following resources will be created automatically for
 | `existingAzureCosmosDBAccountResourceId` | ARM Resource ID of existing Cosmos DB | `''` (creates new) | No |
 | `existingFabricWorkspaceResourceId` | ARM Resource ID of existing Fabric workspace | `''` | No |
 | `existingDnsZones` | Map of `'<zoneFqdn>': { subscriptionId, resourceGroup }` — see [Use existing Private DNS zones](#5-use-existing-private-dns-zones-cross-rg--cross-subscription) | All `{ subscriptionId: '', resourceGroup: '' }` (creates new) | No |
+| `enableContainerRegistry` | When `true`, creates an Azure Container Registry (Premium SKU) with a private endpoint in the PE subnet, a `privatelink.azurecr.io` DNS zone, and an AcrPull role assignment for the project managed identity. | `true` | No |
+| `developerIpCidr` | Developer IP CIDR to allowlist for ACR push access (e.g., `203.0.113.0/26`). When set, enables public network access with a deny-all default + an IP allowlist rule so developers can push images. When empty, public access remains fully disabled. | `''` | No |
 
 > **Naming change (May 2026):** `aiSearchResourceId`, `azureStorageAccountResourceId`, `azureCosmosDBAccountResourceId`, and `fabricWorkspaceResourceId` were renamed to `existingAiSearchResourceId`, `existingAzureStorageAccountResourceId`, `existingAzureCosmosDBAccountResourceId`, and `existingFabricWorkspaceResourceId` for consistency with the `existing*ResourceId` pattern used by VNet and subnet params. Update existing parameter files accordingly.
 

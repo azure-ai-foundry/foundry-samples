@@ -136,6 +136,7 @@ Note: If not provided, the following resources will be created automatically for
 - Azure Cosmos DB for NoSQL  
 - Azure AI Search
 - Azure Storage
+- Azure Container Registry (Premium SKU) with private endpoint *(when `enableContainerRegistry=true`)*
 
 **Private APIM Integration (Optional):** This template supports connecting an **existing Azure API Management service** behind a private endpoint. APIM is not created by this template — you must provide the ARM Resource ID of an existing APIM instance via the `apiManagementResourceId` parameter. When provided, a private endpoint and DNS zone for APIM (`privatelink.azure-api.net`) are created within your VNet.
 
@@ -164,6 +165,8 @@ Note: If not provided, the following resources will be created automatically for
 | `apiManagementResourceId` | ARM Resource ID of existing API Management service | `''` (no APIM) | No |
 | `dnsZonesSubscriptionId` | Subscription ID for existing DNS zones | `''` (current sub) | No |
 | `existingDnsZones` | Map of DNS zone names to resource groups | All empty (creates new) | No |
+| `enableContainerRegistry` | When `true`, creates an Azure Container Registry (Premium SKU) with a private endpoint in the PE subnet, a `privatelink.azurecr.io` DNS zone, and an AcrPull role assignment for the project managed identity. | `true` | No |
+| `developerIpCidr` | Developer IP CIDR to allowlist for ACR push access (e.g., `203.0.113.0/26`). When set, enables public network access with a deny-all default + an IP allowlist rule so developers can push images. When empty, public access remains fully disabled. | `''` | No |
 
 #### BYO Resource Details
 
