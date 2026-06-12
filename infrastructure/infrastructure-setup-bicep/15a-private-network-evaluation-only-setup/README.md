@@ -132,6 +132,7 @@ Use the table below to choose the right infrastructure template for your scenari
 Note: If not provided, the following resources will be created automatically for you:
 - VNet and two subnets
 - Azure Storage
+- Azure Container Registry (Premium SKU) with private endpoint *(when `enableContainerRegistry=true`)*
 
 #### Parameters
 
@@ -155,6 +156,8 @@ Note: If not provided, the following resources will be created automatically for
 | `azureStorageAccountResourceId` | ARM Resource ID of existing Storage account | `''` (creates new) | No |
 | `dnsZonesSubscriptionId` | Subscription ID for existing DNS zones | `''` (current sub) | No |
 | `existingDnsZones` | Map of DNS zone names to resource groups | All empty (creates new) | No |
+| `enableContainerRegistry` | When `true`, creates an Azure Container Registry (Premium SKU) with a private endpoint in the PE subnet, a `privatelink.azurecr.io` DNS zone, and an AcrPull role assignment for the project managed identity. | `true` | No |
+| `developerIpCidr` | Developer IP CIDR to allowlist for ACR push access (e.g., `203.0.113.0/26`). When set, enables public network access with a deny-all default + an IP allowlist rule so developers can push images. When empty, public access remains fully disabled. | `''` | No |
 
 #### BYO Resource Details
 

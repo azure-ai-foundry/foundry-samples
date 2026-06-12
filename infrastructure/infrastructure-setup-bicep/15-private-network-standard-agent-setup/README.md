@@ -140,6 +140,7 @@ Note: If not provided, the following resources will be created automatically for
 - Azure Cosmos DB for NoSQL  
 - Azure AI Search
 - Azure Storage
+- Azure Container Registry (Premium SKU) with private endpoint *(when `enableContainerRegistry=true`)*
 
 #### Parameters
 
@@ -169,6 +170,8 @@ Note: If not provided, the following resources will be created automatically for
 | `createAccountCapabilityHost` | When `true`, the template explicitly creates the account-level capability host. Leave `false` for fresh deployments — the platform auto-creates it via `networkInjections.scenario='agent'`. Set `true` only for a BYO account with no capability host, or to recreate after running `deleteCapHost.sh`. Only one capability host per account is allowed. | `false` | No |
 | `dnsZonesSubscriptionId` | Subscription ID for existing DNS zones. Accepts either a bare GUID (`<subscription-id>`) or a full ARM subscription path (`/subscriptions/<subscription-id>`); the template normalizes the value internally. | `''` (current sub) | No |
 | `existingDnsZones` | Map of DNS zone names to resource groups | All empty (creates new) | No |
+| `enableContainerRegistry` | When `true`, creates an Azure Container Registry (Premium SKU) with a private endpoint in the PE subnet, a `privatelink.azurecr.io` DNS zone, and an AcrPull role assignment for the project managed identity. | `true` | No |
+| `developerIpCidr` | Developer IP CIDR to allowlist for ACR push access (e.g., `203.0.113.0/26`). When set, enables public network access with a deny-all default + an IP allowlist rule so developers can push images. When empty, public access remains fully disabled. | `''` | No |
 
 #### BYO Resource Details
 
