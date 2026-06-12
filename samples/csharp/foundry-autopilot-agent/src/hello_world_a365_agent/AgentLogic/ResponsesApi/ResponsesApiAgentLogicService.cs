@@ -3,6 +3,7 @@ namespace HelloWorldA365.AgentLogic.ResponsesApi;
 using Azure.Core;
 using Azure.Identity;
 using HelloWorldA365.Models;
+using Microsoft.Agents.A365.Notifications;
 using Microsoft.Agents.A365.Notifications.Models;
 using Microsoft.Agents.Builder;
 using Microsoft.Agents.Builder.State;
@@ -117,10 +118,107 @@ public class ResponsesApiAgentLogicService : IAgentLogicService
         await turnContext.SendActivityAsync(responseActivity);
     }
 
-    public Task HandleCommentNotificationAsync(ITurnContext turnContext, ITurnState turnState, AgentNotificationActivity commentEvent)
+    public async Task HandleCommentNotificationAsync(ITurnContext turnContext, ITurnState turnState, AgentNotificationActivity commentEvent)
     {
         _logger.LogInformation("Processing comment notification (Responses API)");
-        return Task.CompletedTask;
+
+        var comment = commentEvent.WpxCommentNotification;
+        if (comment == null)
+        {
+            _logger.LogWarning("Comment notification received without WpxComment payload; skipping.");
+            return;
+        }
+
+        // The document the comment lives on is delivered as the first attachment on the activity.
+        var attachments = turnContext.Activity.Attachments;
+        var contentUrl = attachments?.FirstOrDefault()?.ContentUrl;
+        if (string.IsNullOrEmpty(contentUrl))
+        {
+            _logger.LogWarning(
+                "Comment notification for CommentId={CommentId} on DocumentId={DocumentId} has no attachment ContentUrl; cannot fetch document content.",
+                comment.CommentId,
+                comment.DocumentId);
+            return;
+        }
+
+        // Figure out which Office product (and therefore which MCP server) to use.
+        // The sub-channel is set by the OnAgenticWord/Excel/PowerPointNotification routers.
+        var subChannel = turnContext.Activity.ChannelId?.SubChannel ?? string.Empty;
+        string productLabel;
+        string mcpServerName;
+        if (subChannel.Equals(SubChannels.AgentsWordSubChannel, StringComparison.OrdinalIgnoreCase))
+        {
+            productLabel = "Word";
+            mcpServerName = "mcp_WordServer";
+        }
+        else if (subChannel.Equals(SubChannels.AgentsExcelSubChannel, StringComparison.OrdinalIgnoreCase))
+        {
+            productLabel = "Excel";
+            mcpServerName = "mcp_ExcelServer";
+        }
+        else if (subChannel.Equals(SubChannels.AgentsPowerPointSubChannel, StringComparison.OrdinalIgnoreCase))
+        {
+            productLabel = "PowerPoint";
+            mcpServerName = "mcp_PowerPointServer";
+        }
+        else
+        {
+            // Fall back to inferring from the file extension on the content URL.
+            (productLabel, mcpServerName) = InferProductFromUrl(contentUrl);
+        }
+
+        var commenter = commentEvent.From?.Name ?? commentEvent.From?.Id ?? "the commenter";
+        var commentText = (turnContext.Activity.Text ?? string.Empty).Trim();
+        var commentSnippet = string.IsNullOrEmpty(commentText) ? "(no comment text)" : commentText;
+        var conversationId = $"comment:{comment.DocumentId ?? "unknown-doc"}:{comment.CommentId ?? "unknown-comment"}";
+
+        var prompt = $"""
+            You have been @-mentioned in a {productLabel} comment and must reply to it.
+
+            Use the {mcpServerName} MCP tools to do the following, in order:
+              1. Call GetDocumentContent with the sharing URL below to read the document and
+                 locate the text that the comment refers to.
+              2. Call ReplyToComment with commentId="{comment.CommentId}" to post your reply
+                 directly on the thread. Do NOT respond via chat or email — the reply must be
+                 posted through the {mcpServerName} ReplyToComment tool so it shows up on the
+                 comment thread in the document.
+
+            Keep the reply concise, helpful, and grounded in the actual document content.
+            Format the reply as plain text (the comment thread does not render HTML).
+
+            Document URL: {contentUrl}
+            DocumentId:   {comment.DocumentId}
+            CommentId:    {comment.CommentId}
+            ParentCommentId: {comment.ParentCommentId ?? "(none — this is a top-level comment)"}
+            Commenter:    {commenter}
+            Comment text: {commentSnippet}
+            """;
+
+        var response = await InvokeResponsesApiAsync(prompt, conversationId);
+
+        // The reply is posted on the comment thread by the MCP server's ReplyToComment tool,
+        // so there is nothing to send back through the activity protocol here. The model's
+        // final text (if any) is logged for diagnostics only.
+        _logger.LogInformation(
+            "Comment reply flow finished for {Product} CommentId={CommentId}. Model output (for diagnostics only): {Response}",
+            productLabel,
+            comment.CommentId,
+            string.IsNullOrWhiteSpace(response) ? "(empty — reply was posted via MCP tool)" : response);
+    }
+
+    private static (string Product, string McpServer) InferProductFromUrl(string url)
+    {
+        var lower = url.ToLowerInvariant();
+        if (lower.Contains(".xlsx") || lower.Contains(".xlsm") || lower.Contains(".xlsb"))
+        {
+            return ("Excel", "mcp_ExcelServer");
+        }
+        if (lower.Contains(".pptx") || lower.Contains(".ppt"))
+        {
+            return ("PowerPoint", "mcp_PowerPointServer");
+        }
+        // Default to Word — covers .docx/.doc and the unknown case.
+        return ("Word", "mcp_WordServer");
     }
 
     public Task HandleInstallationUpdateAsync(ITurnContext turnContext, ITurnState turnState, AgentNotificationActivity installationEvent)

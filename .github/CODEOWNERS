@@ -54,3 +54,17 @@
 /samples/typescript/quickstart/create-agent/src/quickstart-create-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/responses/src/quickstart-responses.ts @microsoft-foundry/AI-Platform-Docs
 
+#### Additional ownership entries (added via issue triage) ##############################################
+# Routing for sample paths that were uncovered during issue triage.
+# Owners chosen from CODEOWNERS pattern of peer directories and from git log of top contributors.
+
+# TS quickstart agent-service — peer of chat-with-agent / create-agent / responses
+/samples/typescript/quickstart/agent-service/ @microsoft-foundry/AI-Platform-Docs
+
+# Infrastructure (bicep) — networked agent setup templates
+/infrastructure/infrastructure-setup-bicep/01-connections/apim/ @meerakurup
+/infrastructure/infrastructure-setup-bicep/15-private-network-standard-agent-setup/ @haflidif
+/infrastructure/infrastructure-setup-bicep/16-private-network-standard-agent-apim-setup/ @meerakurup
+
+# Infrastructure (terraform) — BYO-VNet variant
+/infrastructure/infrastructure-setup-terraform/15b-private-network-standard-agent-setup-byovnet/ @deeikele
