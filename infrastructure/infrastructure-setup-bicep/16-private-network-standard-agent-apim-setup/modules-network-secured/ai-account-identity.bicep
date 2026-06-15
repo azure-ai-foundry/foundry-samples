@@ -37,7 +37,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
       }
       ] : null )
     // Set disable local auth to true or false. Agent service does not support API key based authentication
-    disableLocalAuth: false
+    disableLocalAuth: true
   }
 }
 
