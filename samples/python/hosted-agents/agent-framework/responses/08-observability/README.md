@@ -27,7 +27,7 @@ Foundry Hosted Agent has built-in observability thus you don't need to set up ex
 1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
 2. Install the AI agent extension:
    ```bash
-   azd ext install azure.ai.agents
+   azd ext install microsoft.foundry
    ```
 3. Authenticate:
    ```bash

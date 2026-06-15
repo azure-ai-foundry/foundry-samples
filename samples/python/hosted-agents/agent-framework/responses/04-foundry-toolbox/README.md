@@ -38,14 +38,67 @@ See [main.py](main.py) for the full implementation.
 
 #### Prerequisites
 
-1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
-2. Install the AI agent extension:
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.25 or later)
+2. Install the unified Foundry CLI extension bundle (provides `azd ai agent`, `connection`, `inspector`, `project`, `routine`, `skill`, and `toolbox`):
    ```bash
-   azd ext install azure.ai.agents
+   # If you previously installed individual extensions, uninstall them first:
+   #   azd ext uninstall azure.ai.agents
+   #   azd ext uninstall azure.ai.toolboxes
+   azd ext install microsoft.foundry
    ```
 3. Authenticate:
    ```bash
    azd auth login
+   ```
+
+#### Create the toolbox with `azd ai`
+
+> [!TIP]
+> If you use GitHub Copilot for Azure to scaffold a hosted agent that consumes this toolbox, the following skill references describe the same endpoint contract (env var, headers, MCP protocol, citation patterns, and troubleshooting) that the agent must implement:
+>
+> - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
+> - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
+
+This sample's agent reads a `TOOLBOX_ENDPOINT` URL at startup. `azd ai agent init` + `azd provision` will create the toolbox declared in [`agent.manifest.yaml`](agent.manifest.yaml) automatically. If you prefer to create the toolbox directly with `azd` (for reuse across agents or to manage versions out-of-band), use the unified `microsoft.foundry` extension:
+
+1. Point `azd` at your Foundry project (once per shell):
+
+   ```bash
+   export PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
+   azd ai project set $PROJECT_ENDPOINT
+   ```
+
+2. (Connections.) The tools used in this sample — `web_search` and `code_interpreter` — are built-in and do not require project connections, so this step is skipped here. For a connection-backed example (MCP servers with API keys, OAuth, etc.), see the [`langgraph-toolbox`](../../../bring-your-own/responses/langgraph-toolbox/README.md) sample.
+
+3. Author a `toolbox.yaml` describing the tools:
+
+   ```yaml
+   # toolbox.yaml
+   description: Web search + code interpreter for the agent-framework Foundry-toolbox sample
+   tools:
+     - type: web_search
+       name: web_search
+     - type: code_interpreter
+       name: code_interpreter
+       container:
+         type: auto
+   ```
+
+4. Create the toolbox from that file:
+
+   ```bash
+   azd ai toolbox create agent-tools --from-file ./toolbox.yaml
+   ```
+
+   The first version becomes the default automatically. Use `azd ai toolbox list`, `azd ai toolbox show agent-tools`, and `azd ai toolbox version list agent-tools` to inspect, and `azd ai toolbox delete agent-tools --force` to remove it.
+
+   To stage incremental changes safely, use `azd ai toolbox connection add/remove` and `azd ai toolbox skill add/list/remove` &mdash; each creates a new toolbox version that carries forward existing connections and skills but **doesn't** change the default. Promote a version with `azd ai toolbox publish agent-tools <version>` when you're ready to make it active.
+
+5. Retrieve the MCP endpoint and pass it to the agent. The agent uses `client.get_toolbox("agent-tools")`, which resolves through `TOOLBOX_ENDPOINT`:
+
+   ```bash
+   azd ai toolbox show agent-tools --output json    # returns the MCP endpoint URL
+   azd env set TOOLBOX_ENDPOINT "https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/agent-tools/mcp?api-version=v1"
    ```
 
 #### Initialize the agent project
