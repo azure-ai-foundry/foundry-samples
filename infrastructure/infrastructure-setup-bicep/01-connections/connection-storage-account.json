@@ -4,14 +4,21 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.35.1.17967",
-      "templateHash": "16112378734273156328"
+      "version": "0.44.1.10279",
+      "templateHash": "15581314352418239825"
     }
   },
   "parameters": {
     "aiFoundryName": {
       "type": "string",
-      "defaultValue": "deeikele-9518-resource"
+      "defaultValue": "<your-account-name>"
+    },
+    "aiProjectName": {
+      "type": "string",
+      "defaultValue": "<your-project-name>",
+      "metadata": {
+        "description": "Name of the project (sub-resource of the AI Foundry account) to create the connection on."
+      }
     },
     "connectedResourceName": {
       "type": "string",
@@ -20,6 +27,10 @@
     "location": {
       "type": "string",
       "defaultValue": "westus"
+    },
+    "isSharedToAll": {
+      "type": "bool",
+      "defaultValue": true
     },
     "newOrExisting": {
       "type": "string",
@@ -40,7 +51,10 @@
       "sku": {
         "name": "Standard_LRS"
       },
-      "kind": "StorageV2"
+      "kind": "StorageV2",
+      "properties": {
+        "allowSharedKeyAccess": false
+      }
     },
     {
       "type": "Microsoft.CognitiveServices/accounts/connections",
@@ -48,16 +62,47 @@
       "name": "[format('{0}/{1}', parameters('aiFoundryName'), format('{0}-storage', parameters('aiFoundryName')))]",
       "properties": {
         "category": "AzureStorageAccount",
-        "target": "[if(equals(parameters('newOrExisting'), 'new'), resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')), resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')))]",
-        "authType": "AccountKey",
-        "isSharedToAll": true,
-        "credentials": {
-          "key": "[string(if(equals(parameters('newOrExisting'), 'new'), listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')), '2024-01-01').keys, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')), '2024-01-01').keys))]"
-        },
+        "target": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')), '2024-01-01').primaryEndpoints.blob]",
+        "authType": "AAD",
+        "isSharedToAll": "[parameters('isSharedToAll')]",
         "metadata": {
           "ApiType": "Azure",
-          "ResourceId": "[if(equals(parameters('newOrExisting'), 'new'), resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')), resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')))]"
+          "ResourceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName'))]",
+          "location": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')), '2024-01-01', 'full').location]"
         }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}/{2}', parameters('aiFoundryName'), parameters('aiProjectName'), parameters('connectedResourceName'))]",
+      "properties": {
+        "category": "AzureStorageAccount",
+        "target": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')), '2024-01-01').primaryEndpoints.blob]",
+        "authType": "AAD",
+        "isSharedToAll": "[parameters('isSharedToAll')]",
+        "metadata": {
+          "ApiType": "Azure",
+          "ResourceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName'))]",
+          "location": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')), '2024-01-01', 'full').location]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName'))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryName'), parameters('aiProjectName')), resourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'), resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName')))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryName'), parameters('aiProjectName')), '2025-04-01-preview', 'full').identity.principalId]",
+        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+        "principalType": "ServicePrincipal"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts', parameters('connectedResourceName'))]"
