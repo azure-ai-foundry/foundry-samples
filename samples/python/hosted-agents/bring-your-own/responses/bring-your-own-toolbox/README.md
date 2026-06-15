@@ -44,7 +44,7 @@ The hosted agent can be developed and deployed to Microsoft Foundry using the [A
 Before running this sample, ensure you have:
 
 1. **Azure Developer CLI (`azd`)** (recommended)
-   - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) and the AI agent extension: `azd ext install azure.ai.agents`
+   - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.25 or later) and the unified Foundry CLI extension bundle: `azd ext install microsoft.foundry` (if you previously installed `azure.ai.agents` or `azure.ai.toolboxes`, run `azd ext uninstall <name>` first).
    - Authenticated: `azd auth login`
 
 2. **Azure CLI**
@@ -54,7 +54,65 @@ Before running this sample, ensure you have:
    - Verify your version: `python --version`
 
 4. **A Foundry Toolbox**
-   - Create a toolbox in your Foundry project (e.g. with web search, Azure AI Search, or custom MCP tools)
+   - Create a toolbox in your Foundry project (see [Create the toolbox with `azd ai`](#create-the-toolbox-with-azd-ai) below).
+
+### Create the toolbox with `azd ai`
+
+> [!TIP]
+> If you use GitHub Copilot for Azure to scaffold a hosted agent that consumes this toolbox, the following skill references describe the same endpoint contract (env var, headers, MCP protocol, citation patterns, and troubleshooting) that the agent must implement:
+>
+> - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
+> - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
+
+The agent reads `TOOLBOX_ENDPOINT` (a complete MCP URL) at startup. `azd ai agent init` + `azd up` will create the toolbox declared in [`agent.manifest.yaml`](agent.manifest.yaml) automatically. To create or manage the toolbox directly with `azd` (using the unified `microsoft.foundry` extension), follow these steps:
+
+1. Point `azd` at your Foundry project (once per shell):
+
+   ```bash
+   export PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
+   azd ai project set $PROJECT_ENDPOINT
+   ```
+
+2. (Connections.) This sample's default tool — `web_search` — is built-in and does not require a project connection. For the 14 supported scenarios listed below (MCP key/OAuth/agent-identity, Azure AI Search, Bing Custom Search, etc.) you must create a connection first. The command shape is:
+
+   ```bash
+   azd ai connection create <name> \
+     --kind <remote-tool|remote-a2a|cognitive-search|GroundingWithCustomSearch> \
+     --target <endpoint-url> \
+     --auth-type <none|custom-keys|api-key|oauth2|user-entra-token|project-managed-identity|agentic-identity> \
+     [--custom-key "Header=Value" | --key <key> | --client-id ... --client-secret ... --authorization-url ... --token-url ... | --audience <aad-resource-uri>]
+   ```
+
+   Inspect with `azd ai connection list` / `azd ai connection show <name>`; remove with `azd ai connection delete <name> --force`.
+
+3. Author a `toolbox.yaml` that lists the tools (and any connection names they reference):
+
+   ```yaml
+   # toolbox.yaml
+   description: Web search tools for the BYO responses sample
+   tools:
+     - type: web_search
+       name: web
+   ```
+
+4. Create the toolbox:
+
+   ```bash
+   azd ai toolbox create web-search-tools --from-file ./toolbox.yaml
+   ```
+
+   The first version becomes the default automatically. Manage with `azd ai toolbox list`, `azd ai toolbox show web-search-tools`, `azd ai toolbox version list web-search-tools`, and `azd ai toolbox delete web-search-tools --force`.
+
+   To stage incremental changes safely, use `azd ai toolbox connection add/remove` and `azd ai toolbox skill add/list/remove` &mdash; each creates a new toolbox version that carries forward existing connections and skills but **doesn't** change the default. Promote a version with `azd ai toolbox publish web-search-tools <version>` when you're ready to make it active.
+
+5. Retrieve the MCP endpoint and expose it as `TOOLBOX_ENDPOINT`:
+
+   ```bash
+   azd ai toolbox show web-search-tools --output json
+   azd env set TOOLBOX_ENDPOINT "https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/web-search-tools/mcp?api-version=v1"
+   ```
+
+   For local runs, put the same URL into `.env` (see [Environment Variables](#environment-variables) below).
 
 ### Environment Variables
 
@@ -150,16 +208,22 @@ winget install microsoft.azd
 
 See the [full installation docs](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) for other options.
 
-##### 2. Install the AI Agents azd extension
+##### 2. Install the unified Foundry CLI extension bundle
 
 ```bash
-azd extension install azure.ai.agents
+# If you previously installed individual extensions, uninstall them first:
+#   azd ext uninstall azure.ai.agents
+#   azd ext uninstall azure.ai.toolboxes
+
+# Install the unified bundle (provides azd ai agent, connection, inspector,
+# project, routine, skill, and toolbox).
+azd ext install microsoft.foundry
 ```
 
 To upgrade the extension later:
 
 ```bash
-azd extension upgrade azure.ai.agents
+azd ext upgrade microsoft.foundry
 ```
 
 ##### 3. Log in to Azure

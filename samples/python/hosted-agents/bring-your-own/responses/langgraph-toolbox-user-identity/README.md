@@ -102,16 +102,22 @@ winget install microsoft.azd
 
 See the [full installation docs](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) for other options.
 
-#### 2. Install the AI Agents azd extension
+#### 2. Install the unified Foundry CLI extension bundle
 
 ```bash
-azd extension install azure.ai.agents
+# If you previously installed individual extensions, uninstall them first:
+#   azd ext uninstall azure.ai.agents
+#   azd ext uninstall azure.ai.toolboxes
+
+# Install the unified bundle (provides azd ai agent, connection, inspector,
+# project, routine, skill, and toolbox). Requires azd 1.25 or later.
+azd ext install microsoft.foundry
 ```
 
 To upgrade the extension later:
 
 ```bash
-azd extension upgrade azure.ai.agents
+azd ext upgrade microsoft.foundry
 ```
 
 #### 3. Log in to Azure
@@ -120,7 +126,95 @@ azd extension upgrade azure.ai.agents
 azd auth login
 ```
 
-#### 4. Fix git CRLF setting (Windows only)
+#### 4. Create the toolbox with `azd ai`
+
+> [!TIP]
+> If you use GitHub Copilot for Azure to scaffold a hosted agent that consumes this toolbox, the following skill references describe the same endpoint contract (env var, headers, MCP protocol, citation patterns, and troubleshooting) that the agent must implement:
+>
+> - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
+> - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
+
+This sample wires three MCP servers into a single toolbox: WorkIQ Mail and WorkIQ Calendar (both user-identity, `UserEntraToken`) and a GitHub MCP server protected by managed OAuth2. `azd ai agent init` + `azd up` provisions all three connections and the toolbox from [`agent.manifest.yaml`](agent.manifest.yaml) automatically. To create them directly with `azd` instead, run:
+
+1. Point `azd` at your Foundry project (once per shell):
+
+   ```bash
+   export PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
+   azd ai project set $PROJECT_ENDPOINT
+   ```
+
+2. Create one connection per credential record. The command shape is the same for every kind; flags vary by auth type:
+
+   ```bash
+   # WorkIQ Mail — user-identity token bound to the WorkIQ AAD audience
+   azd ai connection create workiq-mail-conn \
+     --kind remote-tool \
+     --target https://agent365.svc.cloud.microsoft/agents/servers/mcp_MailTools \
+     --auth-type user-entra-token \
+     --audience ea9ffc3e-8a23-4a7d-836d-234d7c7565c1
+
+   # WorkIQ Calendar — same audience, different endpoint
+   azd ai connection create workiq-calendar-conn \
+     --kind remote-tool \
+     --target https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools \
+     --auth-type user-entra-token \
+     --audience ea9ffc3e-8a23-4a7d-836d-234d7c7565c1
+
+   # GitHub MCP — managed OAuth2 (Foundry handles client_id/secret/redirect for you)
+   azd ai connection create github-oauth-conn \
+     --kind remote-tool \
+     --target https://api.githubcopilot.com/mcp \
+     --auth-type oauth2 \
+     --managed-connector foundrygithubmcp
+   ```
+
+   Inspect with `azd ai connection list` / `azd ai connection show <name>`; remove with `azd ai connection delete <name> --force`.
+
+3. Author a `toolbox.yaml` that references the connections by name (the YAML never embeds credentials):
+
+   ```yaml
+   # toolbox.yaml
+   description: WorkIQ mail/calendar + GitHub OAuth MCP tools (user identity)
+   connections:
+     - name: workiq-mail-conn
+     - name: workiq-calendar-conn
+     - name: github-oauth-conn
+   tools:
+     - type: mcp
+       name: workiq-mail
+       server_label: workiq-mail
+       server_url: https://agent365.svc.cloud.microsoft/agents/servers/mcp_MailTools
+       project_connection_id: workiq-mail-conn
+     - type: mcp
+       name: workiq-calendar
+       server_label: workiq-calendar
+       server_url: https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools
+       project_connection_id: workiq-calendar-conn
+     - type: mcp
+       name: github
+       server_label: github
+       server_url: https://api.githubcopilot.com/mcp
+       project_connection_id: github-oauth-conn
+   ```
+
+4. Create the toolbox:
+
+   ```bash
+   azd ai toolbox create langgraph-toolbox-user-identity-tools --from-file ./toolbox.yaml
+   ```
+
+   The first version becomes the default automatically. Manage with `azd ai toolbox list`, `azd ai toolbox show langgraph-toolbox-user-identity-tools`, `azd ai toolbox version list langgraph-toolbox-user-identity-tools`, and `azd ai toolbox delete langgraph-toolbox-user-identity-tools --force`.
+
+   To stage incremental changes safely, use `azd ai toolbox connection add/remove` and `azd ai toolbox skill add/list/remove` &mdash; each creates a new toolbox version that carries forward existing connections and skills but **doesn't** change the default. Promote a version with `azd ai toolbox publish langgraph-toolbox-user-identity-tools <version>` when you're ready to make it active.
+
+5. Retrieve the MCP endpoint and expose it to the agent as `TOOLBOX_ENDPOINT`:
+
+   ```bash
+   azd ai toolbox show langgraph-toolbox-user-identity-tools --output json
+   azd env set TOOLBOX_ENDPOINT "https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/langgraph-toolbox-user-identity-tools/mcp?api-version=v1"
+   ```
+
+#### 5. Fix git CRLF setting (Windows only)
 
 ```bash
 git config --global core.autocrlf false

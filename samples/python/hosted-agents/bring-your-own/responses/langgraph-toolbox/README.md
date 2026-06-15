@@ -94,16 +94,22 @@ winget install microsoft.azd
 
 See the [full installation docs](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) for other options.
 
-#### 2. Install the AI Agents azd extension
+#### 2. Install the unified Foundry CLI extension bundle
 
 ```bash
-azd extension install azure.ai.agents
+# If you previously installed individual extensions, uninstall them first:
+#   azd ext uninstall azure.ai.agents
+#   azd ext uninstall azure.ai.toolboxes
+
+# Install the unified bundle (provides azd ai agent, connection, inspector,
+# project, routine, skill, and toolbox). Requires azd 1.25 or later.
+azd ext install microsoft.foundry
 ```
 
 To upgrade the extension later:
 
 ```bash
-azd extension upgrade azure.ai.agents
+azd ext upgrade microsoft.foundry
 ```
 
 #### 3. Log in to Azure
@@ -112,7 +118,71 @@ azd extension upgrade azure.ai.agents
 azd auth login
 ```
 
-#### 4. Fix git CRLF setting (Windows only)
+#### 4. Create the toolbox with `azd ai`
+
+> [!TIP]
+> If you use GitHub Copilot for Azure to scaffold a hosted agent that consumes this toolbox, the following skill references describe the same endpoint contract (env var, headers, MCP protocol, citation patterns, and troubleshooting) that the agent must implement:
+>
+> - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
+> - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
+
+This sample exposes two tools through the toolbox: `web_search` (built-in, no connection required) and a `github` MCP server backed by a custom-keys connection that carries your GitHub PAT. `azd ai agent init` + `azd up` provisions both automatically from [`agent.manifest.yaml`](agent.manifest.yaml). To create them directly with `azd` instead, run:
+
+1. Point `azd` at your Foundry project (once per shell):
+
+   ```bash
+   export PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
+   azd ai project set $PROJECT_ENDPOINT
+   ```
+
+2. Create the GitHub MCP connection. The command shape is the same for any connection kind; the flags vary by auth type:
+
+   ```bash
+   export GITHUB_PAT="ghp_..."           # or github_pat_... (fine-grained)
+   azd ai connection create github-mcp-conn \
+     --kind remote-tool \
+     --target https://api.githubcopilot.com/mcp \
+     --auth-type custom-keys \
+     --custom-key "Authorization=Bearer $GITHUB_PAT"
+   ```
+
+   Inspect with `azd ai connection list` and `azd ai connection show github-mcp-conn`. Remove with `azd ai connection delete github-mcp-conn --force`.
+
+3. Author a `toolbox.yaml` that references the connection by name (the YAML never embeds credentials):
+
+   ```yaml
+   # toolbox.yaml
+   description: Web search + GitHub MCP tools for the langgraph-toolbox sample
+   connections:
+     - name: github-mcp-conn
+   tools:
+     - type: web_search
+       name: web
+     - type: mcp
+       name: github
+       server_label: github
+       server_url: https://api.githubcopilot.com/mcp
+       project_connection_id: github-mcp-conn
+   ```
+
+4. Create the toolbox:
+
+   ```bash
+   azd ai toolbox create agent-tools --from-file ./toolbox.yaml
+   ```
+
+   The first version becomes the default automatically. Manage with `azd ai toolbox list`, `azd ai toolbox show agent-tools`, `azd ai toolbox version list agent-tools`, and `azd ai toolbox delete agent-tools --force`.
+
+   To stage incremental changes safely, use `azd ai toolbox connection add/remove` and `azd ai toolbox skill add/list/remove` &mdash; each creates a new toolbox version that carries forward existing connections and skills but **doesn't** change the default. Promote a version with `azd ai toolbox publish agent-tools <version>` when you're ready to make it active.
+
+5. Retrieve the MCP endpoint and expose it to the agent as `TOOLBOX_ENDPOINT`:
+
+   ```bash
+   azd ai toolbox show agent-tools --output json
+   azd env set TOOLBOX_ENDPOINT "https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/agent-tools/mcp?api-version=v1"
+   ```
+
+#### 5. Fix git CRLF setting (Windows only)
 
 ```bash
 git config --global core.autocrlf false
