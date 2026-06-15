@@ -22,7 +22,7 @@ A realistic **multi-turn** [Agent Framework](https://github.com/microsoft/agent-
 1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
 2. Install the AI agent extension:
    ```bash
-   azd ext install azure.ai.agents
+   azd ext install microsoft.foundry
    ```
 3. Authenticate:
    ```bash

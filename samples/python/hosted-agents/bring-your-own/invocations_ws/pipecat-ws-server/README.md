@@ -49,7 +49,7 @@ The browser client lives in [`chat_client/`](chat_client/) — a small FastAPI p
 
 1. **Python 3.10 or later** — `python --version`
 2. **Azure CLI** — installed and authenticated: `az login`
-3. **Azure Developer CLI (`azd`)** (only needed for the deploy step) — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) and the AI agent extension: `azd ext install azure.ai.agents`
+3. **Azure Developer CLI (`azd`)** (only needed for the deploy step) — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.25 or later) and the unified Foundry CLI extension: `azd ext install microsoft.foundry`
 4. **Azure resources**:
    - Azure Speech (any region) — for STT and TTS
    - Azure OpenAI deployment (e.g. `gpt-4o-mini`) — for the LLM agents

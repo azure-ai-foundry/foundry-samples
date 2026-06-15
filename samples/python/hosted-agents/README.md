@@ -198,7 +198,7 @@ Every sample deploys the same way and supports two equivalent paths. Pick the on
 
 | | **Azure Developer CLI (`azd`)** | **Foundry Toolkit VS Code Extension** |
 | --- | --- | --- |
-| **Install** | [Install `azd`](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) + `azd ext install azure.ai.agents` | Install the Foundry Toolkit VS Code extension |
+| **Install** | [Install `azd`](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) + `azd ext install microsoft.foundry` | Install the Foundry Toolkit VS Code extension |
 | **Open the sample** | `azd ai agent init -m <agent.manifest.yaml>` — generates Bicep, `azure.yaml`, `agent.yaml`, env config | Clone the repo and open the sample folder in VS Code |
 | **Run locally** | `azd ai agent run` (or `python main.py`) | Same as `azd`/manual, then open **Foundry Toolkit: Open Agent Inspector** to chat with the running agent |
 | **Provision Azure resources** | `azd provision` (creates Foundry project, model deployment, ACR, App Insights if needed) | Guided dialog in **Foundry Toolkit: Deploy Hosted Agent** — reuses existing project or provisions a new one |

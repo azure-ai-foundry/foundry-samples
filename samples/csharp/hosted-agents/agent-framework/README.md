@@ -47,7 +47,7 @@ You can run any sample in this folder using one of three approaches. Pick the on
 
 1. **Azure Developer CLI (`azd`)**
 
-    - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) and the AI agent extension: `azd ext install azure.ai.agents`
+    - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.25 or later) and the unified Foundry CLI extension: `azd ext install microsoft.foundry`
     - Authenticated: `azd auth login`
 
 2. **Azure Subscription**
