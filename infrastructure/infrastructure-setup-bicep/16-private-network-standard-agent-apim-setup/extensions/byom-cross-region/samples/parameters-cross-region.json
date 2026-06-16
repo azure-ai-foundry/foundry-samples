@@ -1,0 +1,29 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "value": "canadaeast" },
+    "backendLocation": { "value": "japaneast" },
+    "vnetAddressPrefix": { "value": "192.168.0.0/16" },
+    "backendPeSubnetPrefix": { "value": "192.168.3.0/27" },
+    "apimOutboundSubnetPrefix": { "value": "192.168.2.0/27" },
+
+    "apimName": { "value": "apim-aigw-byom" },
+    "publisherEmail": { "value": "platform-eng@contoso.com" },
+    "publisherName": { "value": "Contoso Platform Engineering" },
+    "apiManagementResourceId": { "value": "" },
+
+    "backendAccountName": { "value": "aiservices-backend-jpe" },
+    "backendModelDeployments": {
+      "value": [
+        { "name": "gpt-4o",  "format": "OpenAI", "version": "2024-11-20", "skuName": "GlobalStandard", "capacity": 10 },
+        { "name": "gpt-5",   "format": "OpenAI", "version": "2025-08-07", "skuName": "GlobalStandard", "capacity": 10 },
+        { "name": "gpt-5.1", "format": "OpenAI", "version": "2025-11-13", "skuName": "GlobalStandard", "capacity": 10 }
+      ]
+    },
+
+    "connectionName": { "value": "ai-gateway" },
+    "inferenceApiVersion": { "value": "2024-10-21" },
+    "projectMiClientId": { "value": "00000000-0000-0000-0000-000000000000" }
+  }
+}
