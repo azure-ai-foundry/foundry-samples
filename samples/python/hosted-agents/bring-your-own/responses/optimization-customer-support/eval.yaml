@@ -1,12 +1,5 @@
 name: customer-support-eval
-agent:
-    name: optimization-customer-support-python-responses
-    kind: hosted
-    version: "1"
-    config: .agent_configs/baseline/metadata.yaml
-dataset_file: eval.jsonl
+dataset:
+    local_uri: ./eval.jsonl
 evaluators:
     - builtin.task_adherence
-options:
-    eval_model: gpt-4.1-mini
-    optimization_model: gpt-5.4
