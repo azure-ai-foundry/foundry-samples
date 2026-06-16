@@ -1,0 +1,8 @@
+.git
+.gitignore
+.env
+.env.example
+.azure
+azure.yaml
+bin
+obj

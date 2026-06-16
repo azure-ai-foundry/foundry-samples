@@ -8,42 +8,47 @@ An [Agent Framework](https://github.com/microsoft/agent-framework) hosted browse
 
 When a user asks for browser work, the agent:
 
-1. Connects to a Foundry Toolbox MCP endpoint in the same Foundry project.
-2. Calls `create_session` from that Toolbox to provision a remote Chromium browser via Azure Playwright Service.
-3. Connects Playwright CLI to the returned CDP WebSocket URL.
-4. Uses `run_playwright_cli` to invoke Playwright CLI commands against the remote browser.
-5. Calls `close_browser_session` to detach Playwright CLI state and end the remote browser when done.
+1. On startup, connects to a Foundry Toolbox MCP endpoint via `AddFoundryToolboxes` (automatic tool discovery).
+2. The model calls `create_session` from the Toolbox to provision a remote Chromium browser via Azure Playwright Service.
+3. Function invocation middleware intercepts the `create_session` result, stores the CDP URL and live view URL server-side (the model never sees the raw URLs).
+4. Streaming middleware injects the live view URL into the SSE response so the user can watch the browser in real time.
+5. Uses `run_playwright_cli` to invoke Playwright CLI commands against the remote browser.
+6. Calls `close_browser_session` to detach Playwright CLI state and end the remote browser when done.
 
 ```text
 User
   -> Foundry hosted agent
-      -> Agent Framework tools
+      -> Agent Framework (AddFoundryToolboxes)
           -> Foundry Toolbox MCP create_session
               -> Azure Playwright Service remote Chromium
-          -> Playwright CLI
-              -> remote browser CDP session
+      -> Middleware pipeline
+          -> Function invocation: intercepts create_session, stores URLs server-side
+          -> Streaming: injects live_view_url into SSE response
+      -> Local tools (run_playwright_cli, close_browser_session, get_live_view_url)
+          -> Playwright CLI -> remote browser CDP session
 ```
 
 ### Agent Hosting
 
-The agent is hosted using the [Agent Framework](https://github.com/microsoft/agent-framework) with the `ResponsesHostServer`, which provisions a REST API endpoint compatible with the OpenAI Responses protocol.
+The agent is hosted using the [Agent Framework](https://github.com/microsoft/agent-framework) with `AddFoundryResponses` and `AddFoundryToolboxes`, which provisions a REST API endpoint compatible with the OpenAI Responses protocol and automatically discovers toolbox tools via MCP.
 
 ### Prompt-Guided Behavior
 
 The agent reads a single base prompt from `prompts/base.md`. That prompt contains the browser lifecycle, safety, web extraction, and form-filling guidance used at runtime.
 
-See [main.py](src/browser_automation_agent_sample_foundry/main.py) for the full implementation and [docs/sample-structure.md](docs/sample-structure.md) for the design rationale.
+See [Program.cs](Program.cs) for the full implementation.
 
 ## Repository layout
 
 | Path | Purpose |
 | --- | --- |
-| `main.py` | Entry point: loads settings, builds the agent, and starts `ResponsesHostServer`. |
-| `utils/` | Agent construction (`agent_factory.py`), tools, settings, logging, and path helpers. |
+| `Program.cs` | Agent wiring — config, middleware pipeline, hosting setup. |
+| `utils/Middlewares.cs` | Function invocation middleware (logging + `create_session` interception) and streaming middleware (live view URL injection). |
+| `utils/Tools.cs` | Tool factory methods (`run_playwright_cli`, `close_browser_session`, `get_live_view_url`) and URL storage accessors. |
+| `utils/BrowserSession.cs` | Playwright CLI subprocess runner with redaction and logging. |
+| `utils/ToolboxScopedCredential.cs` | Token credential wrapper that overrides the toolbox auth scope. |
 | `prompts/base.md` | Browser lifecycle, safety, cleanup, web extraction, and form-filling rules. |
 | `skills/azure-playwright-browser-automation/SKILL.md` | Playwright CLI operational reference for remote Azure Playwright Service sessions. |
-| `requirements.txt` | Python dependencies (agent-framework, azure-identity, etc.). |
-| `docs/sample-structure.md` | Design notes explaining the sample structure and extension points. |
 
 ## Prerequisites
 
@@ -51,7 +56,7 @@ See [main.py](src/browser_automation_agent_sample_foundry/main.py) for the full 
 - An Azure Playwright workspace and access token. If you do not have a workspace, follow [Create a workspace](https://learn.microsoft.com/azure/app-testing/playwright-workspaces/quickstart-run-end-to-end-tests?tabs=playwrightcli&pivots=playwright-test-runner#create-a-workspace).
 - Azure CLI installed and authenticated (`az login`).
 - Docker, if you want to build the container locally.
-- Python 3.11 or later and `uv` (or `pip`) for local development.
+- .NET 10 SDK for local development.
 
 For hosted-agent setup, see [Deploy hosted agents with azd](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd).
 
@@ -59,12 +64,12 @@ For hosted-agent setup, see [Deploy hosted agents with azd](https://learn.micros
 
 This sample uses two kinds of configuration:
 
-- **Runtime environment variables** are read by the Python agent process. Use these for local runs, or set them in the hosted agent environment when deploying.
+- **Runtime environment variables** are read by the C# agent process. Use these for local runs, or set them in the hosted agent environment when deploying.
 - **`azd` provisioning parameters** are read by `azd provision` from the azd environment. Use these only when you want this sample to create the Playwright connection and toolbox for you.
 
 ### Runtime environment variables
 
-For local development, copy `.env.example` to `.env` or set these values in your shell. The Python app loads `.env` when it starts.
+For local development, copy `.env.example` to `.env` or set these values in your shell. The app loads `.env` when it starts.
 
 ```bash
 export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
@@ -90,9 +95,9 @@ The Toolbox endpoint is resolved as `<FOUNDRY_PROJECT_ENDPOINT>/toolboxes/<TOOLB
 
 ### Provisioning parameters
 
-`PLAYWRIGHT_SERVICE_URL`, `PLAYWRIGHT_SERVICE_RESOURCE_ID`, and `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` are not read by the Python agent at runtime. They are `azd` provisioning inputs used by [`agent.manifest.yaml`](agent.manifest.yaml) to create a `PlaywrightWorkspace` project connection with API key authentication and the default `browser-automation-tools` toolbox wired to that connection. `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is marked as a secret parameter in the manifest.
+`PLAYWRIGHT_SERVICE_URL`, `PLAYWRIGHT_SERVICE_RESOURCE_ID`, and `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` are not read by the C# agent at runtime. They are `azd` provisioning inputs used by [`agent.manifest.yaml`](agent.manifest.yaml) to create a `PlaywrightWorkspace` project connection with API key authentication and the default `browser-automation-tools` toolbox wired to that connection. `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is marked as a secret parameter in the manifest.
 
-Set these values with `azd env set` before running `azd provision`. `azd` stores them in `.azure/<environment-name>/.env`; the sample's root `.env` file is only for local Python execution.
+Set these values with `azd env set` before running `azd provision`. `azd` stores them in `.azure/<environment-name>/.env`; the sample's root `.env` file is only for local execution.
 
 ## Running the Agent Host
 
@@ -101,15 +106,10 @@ Set these values with `azd env set` before running `azd provision`. `azd` stores
 Install dependencies and run the hosted-agent server locally:
 
 ```bash
-pip install -r requirements.txt
-python main.py
-```
-
-Or using `uv`:
-
-```bash
-uv pip install -r requirements.txt
-uv run main.py
+dotnet restore browser-automation.csproj
+npm install -g @playwright/cli@latest
+playwright-cli install --skills
+dotnet run --project browser-automation.csproj
 ```
 
 ## Interacting with the agent
@@ -162,21 +162,6 @@ Open https://example.com and report the page title.
 
 To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
 
-When running `azd ai agent init -m ./14-browser-automation-agent/agent.manifest.yaml` from the parent directory (one level above this sample folder), you can customize the hosted agent name with the `AGENT_NAME` parameter. Leave it blank to use the default name, `browser-automation-agent-sample-foundry`.
-
-> [!IMPORTANT]
-> Run `azd ai agent init` from a directory **outside** this sample folder — either a new empty directory, or one level up from this sample (i.e. `samples/python/hosted-agents/agent-framework/responses/`). Do **not** run it from inside `14-browser-automation-agent/` itself. Because the sample folder already contains `agent.manifest.yaml`, initializing in place fails with:
->
-> ```
-> ERROR: downloading agent.yaml: cannot copy agent files: target '...' is inside the
-> manifest directory '...'. Move the manifest to a separate directory containing only the
-> agent files.
-> ```
->
-> Using the parent-directory invocation shown above (or a fresh empty folder with the remote manifest URL) avoids this.
-
-The same init flow also asks for the model deployment because [`agent.manifest.yaml`](agent.manifest.yaml) declares a `model` resource named `AZURE_AI_MODEL_DEPLOYMENT_NAME`. The selected deployment is used for the generated Azure deployment configuration and for the hosted agent's `AZURE_AI_MODEL_DEPLOYMENT_NAME` runtime environment variable. It does not update the sample's local `.env` file; set that file separately only when running the agent locally.
-
 Choose one toolbox setup path:
 
 ### Option 1: Let this sample provision the toolbox
@@ -207,17 +192,7 @@ Use this path if your Foundry project already has a compatible toolbox. You can 
 azd env set TOOLBOX_NAME "<your-toolbox-name>"
 ```
 
-Or in PowerShell:
-
-```powershell
-azd env set TOOLBOX_NAME "<your-toolbox-name>"
-```
-
 You do not need to set `TOOLBOX_NAME` when using the default sample-provisioned toolbox name, `browser-automation-tools`.
-
-The deployed hosted agent identity needs Foundry access at runtime to call the model and authenticate against the Toolbox MCP endpoint. The deployment tooling handles standard hosted-agent RBAC assignments when your account has sufficient permissions.
-
-For option 1, the Playwright workspace connection uses the access token you provide in `PLAYWRIGHT_SERVICE_ACCESS_TOKEN`; no separate Playwright workspace RBAC assignment is required for that connection. For option 2, make sure the existing toolbox's Playwright workspace connection already has valid authentication configured.
 
 Then deploy the hosted agent:
 
@@ -229,9 +204,8 @@ azd deploy
 
 - Change prompt behavior in `prompts/base.md`.
 - Add deeper procedural knowledge as skills under `skills/`.
-- Add new tools in `src/browser_automation_agent_sample_foundry/tools.py`.
-
-See [docs/sample-structure.md](docs/sample-structure.md) for the design rationale.
+- Add new tools in `utils/Tools.cs`.
+- Modify middleware logic in `utils/Middlewares.cs`.
 
 ## Guidance
 
@@ -244,6 +218,6 @@ The default hosted container resources (`cpu: "0.25"`, `memory: "0.5Gi"`) are mi
 Useful references:
 
 - [Hosted agents in Microsoft Foundry](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents)
-- [Agent Framework overview](https://learn.microsoft.com/en-gb/agent-framework/overview/?pivots=programming-language-python)
-- [Agent Framework skills](https://learn.microsoft.com/en-gb/agent-framework/agents/skills?pivots=programming-language-python)
+- [Agent Framework overview](https://learn.microsoft.com/en-gb/agent-framework/overview/?pivots=programming-language-csharp)
+- [Agent Framework skills](https://learn.microsoft.com/en-gb/agent-framework/agents/skills?pivots=programming-language-csharp)
 - [Playwright CLI](https://github.com/microsoft/playwright-cli)
