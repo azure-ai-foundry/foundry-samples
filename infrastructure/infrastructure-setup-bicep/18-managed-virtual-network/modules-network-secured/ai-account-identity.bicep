@@ -35,7 +35,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-10-01-preview' = {
         useMicrosoftManagedNetwork: true
       }
     ]
-    disableLocalAuth: false
+    disableLocalAuth: true
   }
 }
 
