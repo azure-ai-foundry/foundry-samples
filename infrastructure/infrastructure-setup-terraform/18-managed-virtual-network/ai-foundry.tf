@@ -325,7 +325,8 @@ resource "time_sleep" "wait_outbound_rules" {
     azapi_resource.aiservices_outbound_rule,
     azapi_resource.storage_outbound_rule,
     azapi_resource.cosmos_outbound_rule,
-    azapi_resource.aisearch_outbound_rule
+    azapi_resource.aisearch_outbound_rule,
+    azapi_resource.ampls_outbound_rule
   ]
 }
 
