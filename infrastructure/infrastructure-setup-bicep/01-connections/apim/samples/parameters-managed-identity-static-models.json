@@ -1,0 +1,72 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "projectResourceId": {
+      "value": "/subscriptions/YOUR-SUBSCRIPTION-ID/resourceGroups/YOUR-RG/providers/Microsoft.CognitiveServices/accounts/YOUR-AI-FOUNDRY-ACCOUNT/projects/YOUR-PROJECT"
+    },
+    "apimResourceId": {
+      "value": "/subscriptions/YOUR-SUBSCRIPTION-ID/resourceGroups/YOUR-APIM-RG/providers/Microsoft.ApiManagement/service/YOUR-APIM-SERVICE"
+    },
+    "apiName": {
+      "_comment": "Name of the API in APIM that exposes the chat-completions operation. Use 'inference' to match the convention used by the byom-cross-region extension under 16-private-network-standard-agent-apim-setup/extensions/.",
+      "value": "inference"
+    },
+    "connectionName": {
+      "_comment": "This name appears in the Foundry portal AI Gateway picker and as the prefix in agents: '<connectionName>/<deploymentName>'.",
+      "value": "ai-gateway"
+    },
+    "authType": {
+      "_comment": "ProjectManagedIdentity makes Foundry use the project's managed identity to obtain a token, and APIM validates it with validate-azure-ad-token.",
+      "value": "ProjectManagedIdentity"
+    },
+    "isSharedToAll": {
+      "value": true
+    },
+    "deploymentInPath": {
+      "_comment": "true if APIM exposes /deployments/{deploymentName}/chat/completions (Azure OpenAI style). Use 'true' when the urlTemplate on the APIM operation includes {deploymentName}.",
+      "value": "true"
+    },
+    "inferenceAPIVersion": {
+      "value": "2024-10-21"
+    },
+    "deploymentAPIVersion": {
+      "value": ""
+    },
+    "staticModels": {
+      "_comment": "Models registered on the backend (e.g. a Foundry account in another region). Each entry surfaces in the Foundry portal as '<connectionName>/<name>'.",
+      "value": [
+        {
+          "name": "gpt-4o",
+          "properties": {
+            "model": {
+              "name": "gpt-4o",
+              "version": "2024-11-20",
+              "format": "OpenAI"
+            }
+          }
+        },
+        {
+          "name": "gpt-5",
+          "properties": {
+            "model": {
+              "name": "gpt-5",
+              "version": "2025-08-07",
+              "format": "OpenAI"
+            }
+          }
+        },
+        {
+          "name": "gpt-5.1",
+          "properties": {
+            "model": {
+              "name": "gpt-5.1",
+              "version": "2025-11-13",
+              "format": "OpenAI"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

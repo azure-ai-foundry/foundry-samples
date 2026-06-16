@@ -1,0 +1,12 @@
+{
+  "$schema": "https://aka.ms/azure-quickstart-templates-metadata-schema#",
+  "type": "QuickStart",
+  "itemDisplayName": "Private Cross-Region BYOM with Azure API Management",
+  "description": "Extends template 16 to deploy a Foundry project in one region and a backend Foundry account (with model deployments) in a second region, connected through a customer-owned Azure API Management AI Gateway inside the same private VNet. Demonstrates the cross-region private bring-your-own-model (BYOM) pattern documented at https://learn.microsoft.com/azure/foundry/agents/how-to/ai-gateway.",
+  "summary": "Project region (e.g. canadaeast) + backend model region (e.g. japaneast) bridged by APIM, end-to-end private — publicNetworkAccess disabled on the backend, cross-region private endpoint, project MI authenticates to APIM, gpt-5* model deployments live behind the gateway.",
+  "githubUsername": "rayankhoury_microsoft",
+  "dateUpdated": "2026-06-10",
+  "environments": [
+    "AzureCloud"
+  ]
+}
