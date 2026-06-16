@@ -1,4 +1,4 @@
-name: browser-automation-agent-sample-foundry
+name: browser-automation-csharp-maf-sample-foundry
 description: >
   A Foundry-hosted browser automation agent sample for general browsing,
   web scraping, and form filling.
@@ -10,7 +10,7 @@ metadata:
     - Responses Protocol
     - Browser Automation
 template:
-  name: browser-automation-agent-sample-foundry
+  name: browser-automation-csharp-maf-sample-foundry
   kind: hosted
   protocols:
     - protocol: responses

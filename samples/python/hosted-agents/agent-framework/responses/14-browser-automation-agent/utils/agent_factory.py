@@ -25,9 +25,6 @@ from .tools import (
 
 logger = logging.getLogger(__name__)
 
-# Function name whose result should be scrubbed before the model sees it.
-_LIVE_VIEW_FUNCTION_NAME = "get_live_view_url"
-
 # Module-level flag to track if we've already prepended the URL in this request.
 # Reset when a new URL is set (i.e., new create_session).
 _last_prepended_url: str | None = None
@@ -53,60 +50,26 @@ async def tool_logging_middleware(context: Any, call_next: Any) -> None:
 
 
 @chat_middleware
-async def live_view_url_scrub_middleware(context: Any, call_next: Any) -> None:
-    """Chat middleware: strip real live_view_url from messages and inject it into the text stream.
+async def live_view_url_inject_middleware(context: Any, call_next: Any) -> None:
+    """Chat middleware: inject live_view_url into the response stream post-call.
 
-    The get_live_view_url tool returns the real URL. The model corrupts long tokens,
-    so we:
-    1. Scrub the URL from function results BEFORE the model sees them
-    2. AFTER the model responds, APPEND the real URL at the end of text responses
-       (only when the model produces text, not intermediate function_call responses)
+    The get_live_view_url tool returns a placeholder (no real URL).
+    After the model responds, we inject the real URL directly into the stream
+    so it reaches the user without model tokenization.
     """
     from .tools import _live_view_url
 
-    _SCRUB_MESSAGE = (
-        "Live view URL has been delivered directly to the user below. "
-        "Do NOT output or repeat any URL. Just tell the user the "
-        "live view is available below."
-    )
-
-    # Build call_id → function_name map from all messages
-    call_id_to_name: dict[str, str] = {}
-    for msg in context.messages:
-        contents = getattr(msg, "contents", None)
-        if not contents:
-            continue
-        for c in contents:
-            if getattr(c, "type", None) == "function_call" and getattr(c, "call_id", None) and getattr(c, "name", None):
-                call_id_to_name[c.call_id] = c.name
-
-    # Find and scrub function_result entries from get_live_view_url
-    scrubbed = False
-    for msg in context.messages:
-        contents = getattr(msg, "contents", None)
-        if not contents:
-            continue
-        for c in contents:
-            if getattr(c, "type", None) == "function_result":
-                func_name = call_id_to_name.get(getattr(c, "call_id", "") or "", "")
-                if func_name == _LIVE_VIEW_FUNCTION_NAME:
-                    if hasattr(c, "result"):
-                        c.result = _SCRUB_MESSAGE
-                    if hasattr(c, "items") and c.items:
-                        for item in c.items:
-                            if getattr(item, "type", None) == "text" and hasattr(item, "text"):
-                                item.text = _SCRUB_MESSAGE
-                    scrubbed = True
-                    logger.info("[chat-middleware] Scrubbed live_view_url from function result")
-
     await call_next()
 
-    # Post-call: inject the URL into the stream.
-    # - PREPEND once (first time we see the result) so user gets the URL immediately
-    # - APPEND on text responses (so URL is visible at the end of final answer)
-    if scrubbed and _live_view_url and context.stream and isinstance(context.result, ResponseStream):
-        global _last_prepended_url
-        should_prepend = (_last_prepended_url != _live_view_url)
+    # Post-call: inject the URL if available
+    if not _live_view_url:
+        return
+
+    global _last_prepended_url
+    should_prepend = (_last_prepended_url != _live_view_url)
+
+    # Streaming path
+    if context.stream and isinstance(context.result, ResponseStream):
         original_stream = context.result
 
         async def _inject_url_stream() -> AsyncIterable[ChatResponseUpdate]:
@@ -114,12 +77,12 @@ async def live_view_url_scrub_middleware(context: Any, call_next: Any) -> None:
             # Prepend only the first time for this URL
             if should_prepend:
                 yield ChatResponseUpdate(
-                    contents=[Content.from_text(text=f"🔴 [Browser Live View]({_live_view_url}) \n\n")],
+                    contents=[Content.from_text(text=f"🔴Created Browser Session: [Live View]({_live_view_url}) \n\n")],
                     role="assistant",
                 )
                 _last_prepended_url = _live_view_url
 
-            # Yield all original chunks, tracking if any contain text
+            # Yield all original chunks
             has_text = False
             async for update in original_stream:
                 yield update
@@ -129,7 +92,7 @@ async def live_view_url_scrub_middleware(context: Any, call_next: Any) -> None:
                             has_text = True
                             break
 
-            # Append URL at end of text responses (so it's always at the bottom)
+            # Append URL at end of text responses
             if has_text:
                 yield ChatResponseUpdate(
                     contents=[Content.from_text(text=f"\n\n🔴 [Browser Live View]({_live_view_url})\n")],
@@ -138,6 +101,14 @@ async def live_view_url_scrub_middleware(context: Any, call_next: Any) -> None:
 
         context.result = ResponseStream(_inject_url_stream(), finalizer=ChatResponse.from_updates)
         logger.info("[chat-middleware] Wrapped stream for live_view_url injection")
+
+    # Non-streaming path — only inject once per URL (same as streaming prepend guard)
+    elif isinstance(context.result, ChatResponse) and should_prepend:
+        from agent_framework._types import Message
+        url_message = Message("assistant", [f"\n\n🔴 [Browser Live View]({_live_view_url})"])
+        context.result.messages.append(url_message)
+        _last_prepended_url = _live_view_url
+        logger.info("[chat-middleware] Injected live_view_url into non-streaming response")
 
 
 def build_agent(settings: AgentSettings) -> tuple[Agent, MCPStreamableHTTPTool]:
@@ -165,7 +136,7 @@ def build_agent(settings: AgentSettings) -> tuple[Agent, MCPStreamableHTTPTool]:
         instructions=instructions,
         tools=[run_playwright_cli, close_browser_session, get_live_view_url, toolbox_mcp_tool],
         context_providers=[skills_provider],
-        middleware=[tool_logging_middleware, live_view_url_scrub_middleware],
+        middleware=[tool_logging_middleware, live_view_url_inject_middleware],
         default_options={"store": False},
     )
     return agent, toolbox_mcp_tool
