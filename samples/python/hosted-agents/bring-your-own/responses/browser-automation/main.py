@@ -314,7 +314,10 @@ def _format_tool_log(name: str, args: dict, result_text: str) -> tuple[str, str]
 # ── Responses protocol handler ────────────────────────────────────────────────
 
 app = ResponsesAgentServerHost(
-    options=ResponsesServerOptions(default_fetch_history_count=20),
+    options=ResponsesServerOptions(
+        default_fetch_history_count=20,
+        sse_keep_alive_interval_seconds=15,
+    ),
 )
 
 
@@ -410,10 +413,14 @@ async def handler(
                 # Always show session events (live view URL)
                 yield text_content.emit_delta(text)
                 verbose_text += text
-            elif kind == "log" and verbose_mode:
-                # Only show tool action logs in verbose mode
-                yield text_content.emit_delta(text)
-                verbose_text += text
+            elif kind == "log":
+                if verbose_mode:
+                    # Show tool action logs in verbose mode
+                    yield text_content.emit_delta(text)
+                    verbose_text += text
+                else:
+                    # Heartbeat: emit empty delta to keep SSE connection alive
+                    yield text_content.emit_delta("")
             elif kind == "reply":
                 final_reply = text
     except asyncio.TimeoutError:

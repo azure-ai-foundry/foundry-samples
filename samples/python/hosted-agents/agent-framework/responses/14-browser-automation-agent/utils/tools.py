@@ -269,27 +269,6 @@ def make_toolbox_mcp_tool(
     )
 
 
-async def close_browser_by_cdp_url(cdp_url: str) -> dict[str, Any]:
-    async with websockets.connect(
-        cdp_url, open_timeout=10, close_timeout=10
-    ) as websocket:
-        await websocket.send(json.dumps({"id": 1, "method": "Browser.close"}))
-        while True:
-            try:
-                message = json.loads(
-                    await asyncio.wait_for(websocket.recv(), timeout=10)
-                )
-            except ConnectionClosedOK:
-                return {"closed": True}
-            if message.get("id") != 1:
-                continue
-            if "error" in message:
-                raise RuntimeError(
-                    f"Browser.close failed: {json.dumps(message['error'])}"
-                )
-            return {"closed": True}
-
-
 def make_close_browser_session(settings: AgentSettings):
     @tool(
         name="close_browser_session",
@@ -326,14 +305,6 @@ def make_close_browser_session(settings: AgentSettings):
             env,
         )
 
-        close_error: str | None = None
-        logger.info("[CDP] Browser.close sessionId=%s", session_id)
-        try:
-            close_result = await close_browser_by_cdp_url(cdp_url)
-        except Exception as ex:
-            close_result = {}
-            close_error = redact_sensitive_values(str(ex))
-
         # Clean up
         _cdp_url = None
         _live_view_url = None
@@ -342,8 +313,6 @@ def make_close_browser_session(settings: AgentSettings):
             {
                 "sessionId": session_id,
                 "playwrightCliDetach": detach_result,
-                "remoteCloseResult": close_result,
-                "remoteCloseError": close_error,
             },
             indent=2,
         )
@@ -365,8 +334,8 @@ def make_get_live_view_url():
     )
     async def get_live_view_url() -> str:
         if _live_view_url:
-            logger.info("[get_live_view_url] returning real URL")
-            return f"🔴 Live View: {_live_view_url}"
+            logger.info("[get_live_view_url] URL available, will be injected post-call")
+            return "Live view URL is available. It will be injected at the end of your response automatically."
         return "No live view URL available for this session."
 
     return get_live_view_url
