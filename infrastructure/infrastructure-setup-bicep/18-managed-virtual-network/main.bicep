@@ -15,17 +15,17 @@ param isolationMode string = 'AllowOnlyApprovedOutbound'
 @description('Name for your AI Services resource.')
 param aiServices string = 'aiservices'
 
-// // Model deployment parameters
-// @description('The name of the model you want to deploy')
-// param modelName string = 'gpt-4o'
-// @description('The provider of your model')
-// param modelFormat string = 'OpenAI'
-// @description('The version of your model')
-// param modelVersion string = '2024-11-20'
-// @description('The sku of your model deployment')
-// param modelSkuName string = 'GlobalStandard'
-// @description('The tokens per minute (TPM) of your model deployment')
-// param modelCapacity int = 30
+// Model deployment parameters
+@description('The name of the model you want to deploy')
+param modelName string = 'gpt-4.1'
+@description('The provider of your model')
+param modelFormat string = 'OpenAI'
+@description('The version of your model')
+param modelVersion string = '2025-04-14'
+@description('The sku of your model deployment')
+param modelSkuName string = 'GlobalStandard'
+@description('The tokens per minute (TPM) of your model deployment')
+param modelCapacity int = 30
 
 // Create a short, unique suffix, that will be unique to each resource group
 // Deterministic suffix for idempotent re-deploys (same RG = same names)
@@ -151,11 +151,11 @@ module aiAccount 'modules-network-secured/ai-account-identity.bicep' = {
     // workspace organization
     accountName: accountName
     location: location
-    // modelName: modelName
-    // modelFormat: modelFormat
-    // modelVersion: modelVersion
-    // modelSkuName: modelSkuName
-    // modelCapacity: modelCapacity
+    modelName: modelName
+    modelFormat: modelFormat
+    modelVersion: modelVersion
+    modelSkuName: modelSkuName
+    modelCapacity: modelCapacity
   }
 }
 /*
