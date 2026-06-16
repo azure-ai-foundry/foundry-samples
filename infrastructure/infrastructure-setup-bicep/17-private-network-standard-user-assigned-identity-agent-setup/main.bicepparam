@@ -30,7 +30,8 @@ param existingDnsZones = {
   'privatelink.cognitiveservices.azure.com': ''               
   'privatelink.search.windows.net': ''           
   'privatelink.blob.core.windows.net': ''                            
-  'privatelink.documents.azure.com': ''                       
+  'privatelink.documents.azure.com': ''
+  'privatelink.azurecr.io': ''                       
 }
 
 //DNSZones names for validating if they exist
@@ -41,6 +42,7 @@ param dnsZoneNames = [
   'privatelink.search.windows.net'
   'privatelink.blob.core.windows.net'
   'privatelink.documents.azure.com'
+  'privatelink.azurecr.io'
 ]
 
 
@@ -67,4 +69,3 @@ param dnsZoneNames = [
 param vnetAddressPrefix = ''
 param agentSubnetPrefix = ''
 param peSubnetPrefix = ''
-

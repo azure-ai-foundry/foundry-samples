@@ -77,5 +77,6 @@ param existingDnsZones = {
   'privatelink.search.windows.net':          { subscriptionId: '', resourceGroup: '' }
   'privatelink.blob.core.windows.net':       { subscriptionId: '', resourceGroup: '' }
   'privatelink.documents.azure.com':         { subscriptionId: '', resourceGroup: '' }
+  'privatelink.azurecr.io':                  { subscriptionId: '', resourceGroup: '' }
   'privatelink.fabric.microsoft.com':        { subscriptionId: '', resourceGroup: '' }
 }
