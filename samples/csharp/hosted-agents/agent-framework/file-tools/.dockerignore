@@ -4,5 +4,4 @@ obj/
 .vscode/
 .env
 *.md
-Dockerfile
 .dockerignore
