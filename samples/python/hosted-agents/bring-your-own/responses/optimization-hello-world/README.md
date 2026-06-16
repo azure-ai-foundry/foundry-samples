@@ -104,6 +104,11 @@ This sample ships with `eval.yaml` and `eval.jsonl` — everything needed to opt
 azd ai agent optimize
 ```
 
+The interactive flow prompts you to select:
+
+- **Eval model** — the model deployment used to score evaluation results (e.g., `gpt-4.1-mini`).
+- **Optimization model** — the model deployment used to generate improved candidates (e.g., `gpt-5.4`).
+
 ### Monitor progress
 
 ```bash
