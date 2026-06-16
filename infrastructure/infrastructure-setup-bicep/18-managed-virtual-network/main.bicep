@@ -244,6 +244,20 @@ module networkApproverRoleSearch 'modules-network-secured/network-connection-app
   }
 }
 
+// Azure Monitor Private Link Scope (AMPLS) for Application Insights telemetry
+// This enables hosted agents to export traces/telemetry to App Insights via private network
+module ampls 'modules-network-secured/azure-monitor-private-link.bicep' = {
+  name: 'ampls-${uniqueSuffix}-deployment'
+  params: {
+    location: location
+    suffix: uniqueSuffix
+    vnetName: vnet.outputs.virtualNetworkName
+    vnetResourceGroupName: vnet.outputs.virtualNetworkResourceGroup
+    vnetSubscriptionId: vnet.outputs.virtualNetworkSubscriptionId
+    peSubnetName: vnet.outputs.peSubnetName
+  }
+}
+
 // Configure Managed Network for AI Services Account
 // This module sets up the managed virtual network and outbound PE rules to allow
 // secure communication from hosted agents to customer resources (Storage, AI Search, Cosmos DB)
@@ -255,12 +269,14 @@ module managedNetwork 'modules-network-secured/managed-network.bicep' = {
     storageAccountResourceId: storage.id
     cosmosDBResourceId: cosmosDB.id
     aiSearchResourceId: aiSearch.id
+    amplsResourceId: ampls.outputs.amplsResourceId
   }
   dependsOn: [
     aiDependencies // Ensure dependent resources (Storage, CosmosDB, Search) are fully created
     networkApproverRoleStorage
     networkApproverRoleCosmos
     networkApproverRoleSearch
+    ampls // Ensure AMPLS is created before adding the outbound rule
   ]
 }
 
@@ -324,6 +340,12 @@ module aiProject 'modules-network-secured/ai-project-identity.bicep' = {
     azureStorageName: aiDependencies.outputs.azureStorageName
     azureStorageSubscriptionId: aiDependencies.outputs.azureStorageSubscriptionId
     azureStorageResourceGroupName: aiDependencies.outputs.azureStorageResourceGroupName
+
+    // Application Insights for telemetry
+    appInsightsName: ampls.outputs.appInsightsName
+    appInsightsConnectionString: ampls.outputs.appInsightsConnectionString
+    appInsightsResourceId: ampls.outputs.appInsightsResourceId
+
     // dependent resources
     accountName: aiAccount.outputs.accountName
   }

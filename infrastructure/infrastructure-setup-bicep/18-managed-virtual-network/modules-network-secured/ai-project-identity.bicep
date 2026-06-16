@@ -16,6 +16,15 @@ param azureStorageName string
 param azureStorageSubscriptionId string
 param azureStorageResourceGroupName string
 
+@description('Application Insights resource name for telemetry')
+param appInsightsName string = ''
+
+@description('Application Insights connection string')
+param appInsightsConnectionString string = ''
+
+@description('Application Insights resource ID')
+param appInsightsResourceId string = ''
+
 resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' existing = {
   name: aiSearchName
   scope: resourceGroup(aiSearchServiceSubscriptionId, aiSearchServiceResourceGroupName)
@@ -88,6 +97,23 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
       }
     }
     dependsOn: [project_connection_azure_storage]
+  }
+
+  resource project_connection_app_insights 'connections@2025-04-01-preview' = if (appInsightsName != '') {
+    name: appInsightsName
+    properties: {
+      category: 'AppInsights'
+      target: appInsightsResourceId
+      authType: 'ApiKey'
+      credentials: {
+        key: appInsightsConnectionString
+      }
+      metadata: {
+        ApiType: 'Azure'
+        ResourceId: appInsightsResourceId
+      }
+    }
+    dependsOn: [project_connection_azureai_search]
   }
 
 }

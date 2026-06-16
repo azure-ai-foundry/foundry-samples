@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.44.1.10279",
-      "templateHash": "4404295085759197571"
+      "templateHash": "5155895823004186245"
     }
   },
   "parameters": {
@@ -1365,6 +1365,279 @@
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
+      "name": "[format('ampls-{0}-deployment', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "suffix": {
+            "value": "[variables('uniqueSuffix')]"
+          },
+          "vnetName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.virtualNetworkName.value]"
+          },
+          "vnetResourceGroupName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.virtualNetworkResourceGroup.value]"
+          },
+          "vnetSubscriptionId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.virtualNetworkSubscriptionId.value]"
+          },
+          "peSubnetName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix'))), '2025-04-01').outputs.peSubnetName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "9631179584529129232"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all resources"
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Unique suffix for resource naming"
+              }
+            },
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the VNet to link DNS zones to"
+              }
+            },
+            "vnetResourceGroupName": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource group of the VNet"
+              }
+            },
+            "vnetSubscriptionId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subscription ID of the VNet"
+              }
+            },
+            "peSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the subnet for private endpoints"
+              }
+            }
+          },
+          "variables": {
+            "amplsDnsZones": [
+              "privatelink.monitor.azure.com",
+              "privatelink.oms.opinsights.azure.com",
+              "privatelink.ods.opinsights.azure.com",
+              "privatelink.agentsvc.azure-automation.net"
+            ]
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2022-10-01",
+              "name": "[format('log-analytics-{0}', parameters('suffix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": 30
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[format('app-insights-{0}', parameters('suffix'))]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('log-analytics-{0}', parameters('suffix')))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', format('log-analytics-{0}', parameters('suffix')))]"
+              ]
+            },
+            {
+              "type": "microsoft.insights/privateLinkScopes",
+              "apiVersion": "2021-07-01-preview",
+              "name": "[format('ampls-{0}', parameters('suffix'))]",
+              "location": "global",
+              "properties": {
+                "accessModeSettings": {
+                  "ingestionAccessMode": "PrivateOnly",
+                  "queryAccessMode": "PrivateOnly"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Insights/privateLinkScopes/scopedResources",
+              "apiVersion": "2021-07-01-preview",
+              "name": "[format('{0}/{1}', format('ampls-{0}', parameters('suffix')), 'appinsights-link')]",
+              "properties": {
+                "linkedResourceId": "[resourceId('Microsoft.Insights/components', format('app-insights-{0}', parameters('suffix')))]"
+              },
+              "dependsOn": [
+                "[resourceId('microsoft.insights/privateLinkScopes', format('ampls-{0}', parameters('suffix')))]",
+                "[resourceId('Microsoft.Insights/components', format('app-insights-{0}', parameters('suffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/privateLinkScopes/scopedResources",
+              "apiVersion": "2021-07-01-preview",
+              "name": "[format('{0}/{1}', format('ampls-{0}', parameters('suffix')), 'loganalytics-link')]",
+              "properties": {
+                "linkedResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('log-analytics-{0}', parameters('suffix')))]"
+              },
+              "dependsOn": [
+                "[resourceId('microsoft.insights/privateLinkScopes', format('ampls-{0}', parameters('suffix')))]",
+                "[resourceId('Microsoft.OperationalInsights/workspaces', format('log-analytics-{0}', parameters('suffix')))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "dnsZones",
+                "count": "[length(variables('amplsDnsZones'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[variables('amplsDnsZones')[copyIndex()]]",
+              "location": "global"
+            },
+            {
+              "copy": {
+                "name": "dnsZoneLinks",
+                "count": "[length(variables('amplsDnsZones'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', variables('amplsDnsZones')[copyIndex()], format('{0}-link', replace(variables('amplsDnsZones')[copyIndex()], '.', '-')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('vnetSubscriptionId'), parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[copyIndex()])]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-04-01",
+              "name": "[format('ampls-pe-{0}', parameters('suffix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('vnetSubscriptionId'), parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('peSubnetName'))]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "ampls-connection",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('microsoft.insights/privateLinkScopes', format('ampls-{0}', parameters('suffix')))]",
+                      "groupIds": [
+                        "azuremonitor"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('microsoft.insights/privateLinkScopes', format('ampls-{0}', parameters('suffix')))]",
+                "[resourceId('Microsoft.Insights/privateLinkScopes/scopedResources', format('ampls-{0}', parameters('suffix')), 'appinsights-link')]",
+                "[resourceId('Microsoft.Insights/privateLinkScopes/scopedResources', format('ampls-{0}', parameters('suffix')), 'loganalytics-link')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-04-01",
+              "name": "[format('{0}/{1}', format('ampls-pe-{0}', parameters('suffix')), 'ampls-dns-group')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "monitor",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[0])]"
+                    }
+                  },
+                  {
+                    "name": "oms",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[1])]"
+                    }
+                  },
+                  {
+                    "name": "ods",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[2])]"
+                    }
+                  },
+                  {
+                    "name": "agentsvc",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[3])]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('ampls-pe-{0}', parameters('suffix')))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[2])]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[1])]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[0])]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[3])]"
+              ]
+            }
+          ],
+          "outputs": {
+            "amplsResourceId": {
+              "type": "string",
+              "value": "[resourceId('microsoft.insights/privateLinkScopes', format('ampls-{0}', parameters('suffix')))]"
+            },
+            "appInsightsName": {
+              "type": "string",
+              "value": "[format('app-insights-{0}', parameters('suffix'))]"
+            },
+            "appInsightsResourceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', format('app-insights-{0}', parameters('suffix')))]"
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', format('app-insights-{0}', parameters('suffix'))), '2020-02-02').ConnectionString]"
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', format('log-analytics-{0}', parameters('suffix')))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('vnet-{0}-{1}-deployment', variables('trimVnetName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
       "name": "[format('managed-network-{0}-deployment', variables('uniqueSuffix'))]",
       "properties": {
         "expressionEvaluationOptions": {
@@ -1386,6 +1659,9 @@
           },
           "aiSearchResourceId": {
             "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', reference(resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.aiSearchServiceSubscriptionId.value, reference(resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.aiSearchServiceResourceGroupName.value), 'Microsoft.Search/searchServices', reference(resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.aiSearchName.value)]"
+          },
+          "amplsResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ampls-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.amplsResourceId.value]"
           }
         },
         "template": {
@@ -1395,7 +1671,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "13117200103483543551"
+              "templateHash": "567868772931859562"
             }
           },
           "parameters": {
@@ -1432,6 +1708,12 @@
               "type": "string",
               "metadata": {
                 "description": "Resource ID of the AI Search Service for outbound PE rule"
+              }
+            },
+            "amplsResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Azure Monitor Private Link Scope for telemetry"
               }
             }
           },
@@ -1514,6 +1796,23 @@
                 "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules', parameters('accountName'), 'default', 'cosmos-sql-rule')]",
                 "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks', parameters('accountName'), 'default')]"
               ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules",
+              "apiVersion": "2025-10-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), 'default', 'ampls-monitor-rule')]",
+              "properties": {
+                "type": "PrivateEndpoint",
+                "destination": {
+                  "serviceResourceId": "[parameters('amplsResourceId')]",
+                  "subresourceTarget": "azuremonitor"
+                },
+                "category": "UserDefined"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules', parameters('accountName'), 'default', 'aisearch-rule')]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks', parameters('accountName'), 'default')]"
+              ]
             }
           ],
           "outputs": {
@@ -1527,6 +1826,7 @@
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('ampls-{0}-deployment', variables('uniqueSuffix')))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('cosmosDBSubscriptionId'), variables('cosmosDBResourceGroupName')), 'Microsoft.Resources/deployments', format('network-approver-cosmos-{0}-deployment', variables('uniqueSuffix')))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('aiSearchServiceSubscriptionId'), variables('aiSearchServiceResourceGroupName')), 'Microsoft.Resources/deployments', format('network-approver-search-{0}-deployment', variables('uniqueSuffix')))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('azureStorageSubscriptionId'), variables('azureStorageResourceGroupName')), 'Microsoft.Resources/deployments', format('network-approver-storage-{0}-deployment', variables('uniqueSuffix')))]"
@@ -2219,6 +2519,15 @@
           "azureStorageResourceGroupName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.azureStorageResourceGroupName.value]"
           },
+          "appInsightsName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ampls-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.appInsightsName.value]"
+          },
+          "appInsightsConnectionString": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ampls-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.appInsightsConnectionString.value]"
+          },
+          "appInsightsResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ampls-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.appInsightsResourceId.value]"
+          },
           "accountName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountName.value]"
           }
@@ -2230,7 +2539,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "9290800260455731843"
+              "templateHash": "13496956959347764050"
             }
           },
           "parameters": {
@@ -2275,6 +2584,27 @@
             },
             "azureStorageResourceGroupName": {
               "type": "string"
+            },
+            "appInsightsName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Application Insights resource name for telemetry"
+              }
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Application Insights connection string"
+              }
+            },
+            "appInsightsResourceId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Application Insights resource ID"
+              }
             }
           },
           "resources": [
@@ -2335,6 +2665,28 @@
               ]
             },
             {
+              "condition": "[not(equals(parameters('appInsightsName'), ''))]",
+              "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), parameters('projectName'), parameters('appInsightsName'))]",
+              "properties": {
+                "category": "AppInsights",
+                "target": "[parameters('appInsightsResourceId')]",
+                "authType": "ApiKey",
+                "credentials": {
+                  "key": "[parameters('appInsightsConnectionString')]"
+                },
+                "metadata": {
+                  "ApiType": "Azure",
+                  "ResourceId": "[parameters('appInsightsResourceId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('accountName'), parameters('projectName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects/connections', parameters('accountName'), parameters('projectName'), parameters('aiSearchName'))]"
+              ]
+            },
+            {
               "type": "Microsoft.CognitiveServices/accounts/projects",
               "apiVersion": "2025-04-01-preview",
               "name": "[format('{0}/{1}', parameters('accountName'), parameters('projectName'))]",
@@ -2383,6 +2735,7 @@
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('ampls-{0}-deployment', variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.Resources/deployments', format('{0}-private-endpoint', variables('uniqueSuffix')))]"
       ]
     },

@@ -17,6 +17,9 @@ param cosmosDBResourceId string
 @description('Resource ID of the AI Search Service for outbound PE rule')
 param aiSearchResourceId string
 
+@description('Resource ID of the Azure Monitor Private Link Scope for telemetry')
+param amplsResourceId string
+
 // Reference the existing AI Services account in the same resource group
 resource aiAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
   name: accountName
@@ -98,6 +101,23 @@ resource aiSearchOutboundRule 'Microsoft.CognitiveServices/accounts/managedNetwo
     category: 'UserDefined'
   }
   dependsOn: [cosmosDBOutboundRule]
+}
+
+// Outbound PE rule for Azure Monitor Private Link Scope (AMPLS)
+// This allows the hosted agent to export telemetry to Application Insights privately
+#disable-next-line BCP081
+resource amplsOutboundRule 'Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules@2025-10-01-preview' = {
+  parent: managedNetwork
+  name: 'ampls-monitor-rule'
+  properties: {
+    type: 'PrivateEndpoint'
+    destination: {
+      serviceResourceId: amplsResourceId
+      subresourceTarget: 'azuremonitor'
+    }
+    category: 'UserDefined'
+  }
+  dependsOn: [aiSearchOutboundRule]
 }
 
 output managedNetworkSettingsName string = managedNetwork.name
