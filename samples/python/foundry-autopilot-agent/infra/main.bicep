@@ -33,7 +33,7 @@ param cognitiveServicesSku string = 'S0'
 @allowed(['Basic', 'Standard', 'Premium'])
 param containerRegistrySku string = 'Basic'
 
-param agentName string = 'foundry-agent'
+param agentName string = 'foundry-autopilot-agent'
 
 param maibName string = '${agentName}-maib'
 
@@ -51,10 +51,10 @@ param botDisplayName string = '${agentName} Bot'
 param botServiceSku string = 'F0'
 
 @description('Model name')
-param modelName string = 'gpt-5.3-chat'
+param modelName string = 'gpt-chat-latest'
 
 @description('Model version')
-param modelVersion string = '2026-03-03'
+param modelVersion string = '2026-05-28'
 
 // =================================================================================================
 // Common parameters

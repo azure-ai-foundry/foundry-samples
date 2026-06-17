@@ -1,8 +1,8 @@
 # Microsoft 365 Agents SDK — hosting + bot protocol
-microsoft-agents-hosting-aiohttp
-microsoft-agents-hosting-core
-microsoft-agents-authentication-msal
-microsoft-agents-activity
+microsoft-agents-hosting-aiohttp>=1.1.0.dev7
+microsoft-agents-hosting-core>=1.1.0.dev7
+microsoft-agents-authentication-msal>=1.1.0.dev7
+microsoft-agents-activity>=1.1.0.dev7
 
 # Microsoft Agent 365 SDK — notifications + observability
 microsoft_agents_a365_observability_core>=0.1.0
