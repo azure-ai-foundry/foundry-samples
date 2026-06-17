@@ -51,16 +51,37 @@ from microsoft_agents_a365.notifications.agent_notification import (
     AgentNotification,
     AgentNotificationActivity,
     ChannelId,
-    NotificationTypes,
 )
 
 from .agent_interface import AgentInterface, check_agent_inheritance
-from .msal_auth_patches import apply_msal_auth_patches
+from .email_channel_compat import (
+    is_email_activity,
+    is_email_notification,
+    is_wpx_comment_activity,
+)
 from .token_cache import cache_agentic_token, get_cached_agentic_token
 
-# Apply runtime patches to microsoft_agents.authentication.msal before any
-# MsalConnectionManager / MsalAuth instance is constructed.
-apply_msal_auth_patches()
+
+def is_wpx_comment_notification(notification_activity: AgentNotificationActivity) -> bool:
+    """Check if notification is a Word/Excel/PowerPoint comment notification."""
+    try:
+        from microsoft_agents_a365.notifications import NotificationTypes
+        notification_type = getattr(notification_activity, "notification_type", None)
+        if notification_type == NotificationTypes.WPX_COMMENT:
+            return True
+    except (ImportError, AttributeError):
+        pass
+    
+    notification_type = getattr(notification_activity, "notification_type", None)
+    value = getattr(notification_type, "value", notification_type)
+    normalized = str(value or "").lower()
+    return "comment" in normalized and (
+        "wpx" in normalized
+        or "word" in normalized
+        or "excel" in normalized
+        or "powerpoint" in normalized
+    )
+
 
 _LOG_LEVEL_NAME = os.getenv("LOG_LEVEL", "INFO").upper()
 _LOG_LEVEL = getattr(logging, _LOG_LEVEL_NAME, logging.INFO)
@@ -271,7 +292,8 @@ class GenericAgentHost:
 
         if not self.agent_instance:
             logger.error("Agent not available")
-            await context.send_activity("❌ Sorry, the agent is not available.")
+            if not is_email_activity(context.activity):
+                await context.send_activity("❌ Sorry, the agent is not available.")
             return None
 
         await self._setup_observability_token(context, tenant_id, agent_id)
@@ -334,10 +356,20 @@ class GenericAgentHost:
 
                     logger.info("📨 %s", user_message)
 
+                    if is_email_activity(context.activity):
+                        await self.agent_instance.process_user_message(
+                            user_message,
+                            self.agent_app.auth,
+                            self.auth_handler_name,
+                            context,
+                        )
+                        return
+
                     # Multi-message pattern: immediate ack, typing indicator loop,
                     # then the final LLM response. Mirrors the C# StreamingResponse
                     # flow (QueueInformativeUpdateAsync + QueueTextChunk).
-                    await context.send_activity("Working on your request...")
+                    if not is_wpx_comment_activity(context.activity):
+                        await context.send_activity("Working on your request...")
                     await context.send_activity(Activity(type="typing"))
 
                     async def _typing_loop() -> None:
@@ -366,6 +398,8 @@ class GenericAgentHost:
 
             except Exception as ex:
                 logger.exception("Error processing message")
+                if is_email_activity(context.activity):
+                    return
                 session_id = os.getenv("FOUNDRY_AGENT_SESSION_ID") or "(not set)"
                 await context.send_activity(
                     "Sorry, something went wrong while processing your message.\n"
@@ -404,6 +438,8 @@ class GenericAgentHost:
                         )
                         return
 
+                    is_email = is_email_notification(notification_activity)
+
                     response = await self.agent_instance.handle_agent_notification_activity(
                         notification_activity,
                         self.agent_app.auth,
@@ -411,14 +447,14 @@ class GenericAgentHost:
                         context,
                     )
 
-                    if (
-                        notification_activity.notification_type
-                        == NotificationTypes.EMAIL_NOTIFICATION
-                    ):
+                    if is_email:
                         response_activity = EmailResponse.create_email_response_activity(
                             response
                         )
                         await context.send_activity(response_activity)
+                        return
+
+                    if not response:
                         return
 
                     await context.send_activity(response)
