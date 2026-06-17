@@ -18,13 +18,13 @@ load_dotenv()
 def resolve_toolbox_endpoint() -> str:
     """Resolve the toolbox MCP endpoint URL.
 
-    Prefers the explicit ``FOUNDRY_TOOLBOX_ENDPOINT`` env var; falls back to
+    Prefers the explicit ``TOOLBOX_ENDPOINT`` env var; falls back to
     constructing the URL from ``FOUNDRY_PROJECT_ENDPOINT`` and ``TOOLBOX_NAME``
     (the variables injected by the Foundry hosting scaffolding after ``azd provision``).
     """
-    if (endpoint := os.environ.get("FOUNDRY_TOOLBOX_ENDPOINT")) is not None:
+    if (endpoint := os.environ.get("TOOLBOX_ENDPOINT")) is not None:
         if not endpoint:
-            raise ValueError("FOUNDRY_TOOLBOX_ENDPOINT is set but empty")
+            raise ValueError("TOOLBOX_ENDPOINT is set but empty")
         return endpoint
     project_endpoint = os.environ["FOUNDRY_PROJECT_ENDPOINT"].rstrip("/")
     toolbox_name = os.environ["TOOLBOX_NAME"]
