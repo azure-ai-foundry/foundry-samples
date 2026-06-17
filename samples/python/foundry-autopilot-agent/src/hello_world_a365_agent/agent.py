@@ -38,6 +38,7 @@ except Exception:  # pragma: no cover - optional dependency
     NotificationTypes = None  # type: ignore[assignment]
 
 from .agent_interface import AgentInterface
+from .email_channel_compat import is_email_notification
 from .token_cache import get_cached_agentic_token
 
 logger = logging.getLogger(__name__)
@@ -288,26 +289,21 @@ class FoundryDigitalWorkerAgent(AgentInterface):
                 getattr(conversation, "id", "") or f"notification:{notification_type}"
             )
 
-            is_email = (
-                NotificationTypes is not None
-                and notification_type == NotificationTypes.EMAIL_NOTIFICATION
-            )
-            is_wpx_comment = (
-                NotificationTypes is not None
-                and notification_type == NotificationTypes.WPX_COMMENT
-            )
+            is_email = is_email_notification(notification_activity)
+            is_wpx_comment = self._is_wpx_comment_notification(notification_type)
 
             if is_email:
-                email = getattr(notification_activity, "email", None)
-                email_body = (
-                    getattr(email, "html_body", "") or getattr(email, "body", "")
-                    if email
-                    else ""
+                from_prop = getattr(
+                    notification_activity, "from_property", None
+                ) or getattr(notification_activity, "from", None)
+                from_email = (
+                    getattr(from_prop, "id", "") or getattr(from_prop, "name", "")
                 )
+                email_details = self._serialize_notification(notification_activity)
                 msg = (
-                    getattr(notification_activity, "text", "")
-                    or "You have received the following email. Please follow any "
-                    f"instructions in it. {email_body}"
+                    "You received a new email. Please look at the email and return "
+                    "a response in html format. "
+                    f"From: {from_email}\nEmail details:\n{email_details}"
                 )
                 return await self._invoke_responses_api(
                     input_text=msg,
@@ -319,40 +315,12 @@ class FoundryDigitalWorkerAgent(AgentInterface):
                 ) or "Email notification processed."
 
             if is_wpx_comment:
-                wpx = getattr(notification_activity, "wpx_comment", None)
-                doc_id = getattr(wpx, "document_id", "") if wpx else ""
-                comment_id = getattr(wpx, "initiating_comment_id", "") if wpx else ""
-                drive_id = "default"
-                comment_text = getattr(notification_activity, "text", "") or ""
-
-                doc_message = (
-                    f"You have a new comment on the document with id '{doc_id}', "
-                    f"comment id '{comment_id}', drive id '{drive_id}'. Please "
-                    "retrieve the document as well as the comments and return it "
-                    "in text format."
+                return await self._handle_comment_notification(
+                    notification_activity,
+                    auth,
+                    auth_handler_name,
+                    context,
                 )
-                doc_content = await self._invoke_responses_api(
-                    input_text=doc_message,
-                    conversation_id=conversation_id,
-                    instructions=self.AGENT_PROMPT,
-                    auth=auth,
-                    auth_handler_name=auth_handler_name,
-                    context=context,
-                )
-
-                response_message = (
-                    "You have received the following document content and "
-                    "comments. Please refer to these when responding to "
-                    f"comment '{comment_text}'. {doc_content}"
-                )
-                return await self._invoke_responses_api(
-                    input_text=response_message,
-                    conversation_id=conversation_id,
-                    instructions=self.AGENT_PROMPT,
-                    auth=auth,
-                    auth_handler_name=auth_handler_name,
-                    context=context,
-                ) or "Comment notification processed."
 
             notification_message = (
                 getattr(notification_activity, "text", "")
@@ -369,6 +337,230 @@ class FoundryDigitalWorkerAgent(AgentInterface):
         except Exception as ex:
             logger.exception("Error processing notification")
             return f"Sorry, I encountered an error processing the notification: {ex}"
+
+    async def _handle_comment_notification(
+        self,
+        notification_activity: Any,
+        auth: Authorization,
+        auth_handler_name: Optional[str],
+        context: TurnContext,
+    ) -> str:
+        logger.info("Processing comment notification (Responses API)")
+
+        comment = self._get_comment_payload(notification_activity)
+        if comment is None:
+            logger.warning("Comment notification received without WpxComment payload")
+            return ""
+
+        document_id = self._get_first_value(comment, "document_id", "documentId")
+        comment_id = self._get_first_value(
+            comment,
+            "comment_id",
+            "commentId",
+            "initiating_comment_id",
+            "initiatingCommentId",
+        )
+        parent_comment_id = self._get_first_value(
+            comment,
+            "parent_comment_id",
+            "parentCommentId",
+        )
+
+        content_url = self._get_first_attachment_content_url(context)
+        if not content_url:
+            logger.warning(
+                "Comment notification for CommentId=%s on DocumentId=%s has no attachment ContentUrl",
+                comment_id,
+                document_id,
+            )
+            return ""
+
+        product_label, mcp_server_name = self._infer_product_from_activity(
+            context.activity,
+            content_url,
+        )
+        from_prop = getattr(
+            notification_activity, "from_property", None
+        ) or getattr(notification_activity, "from", None)
+        commenter = (
+            getattr(from_prop, "name", "")
+            or getattr(from_prop, "id", "")
+            or "the commenter"
+        )
+        comment_text = (
+            getattr(context.activity, "text", "")
+            or getattr(notification_activity, "text", "")
+            or ""
+        ).strip()
+        comment_snippet = comment_text or "(no comment text)"
+        document_id_for_prompt = document_id or "unknown-doc"
+        comment_id_for_prompt = comment_id or "unknown-comment"
+        parent_comment = parent_comment_id or "(none - this is a top-level comment)"
+        conversation_id = f"comment:{document_id_for_prompt}:{comment_id_for_prompt}"
+
+        prompt = f"""
+You have been @-mentioned in a {product_label} comment and must reply to it.
+
+Use the {mcp_server_name} MCP tools to do the following, in order:
+  1. Call GetDocumentContent with the sharing URL below to read the document and
+     locate the text that the comment refers to.
+  2. Call ReplyToComment with commentId="{comment_id_for_prompt}" to post your
+     reply directly on the thread. Do NOT respond via chat or email - the reply
+     must be posted through the {mcp_server_name} ReplyToComment tool so it
+     shows up on the comment thread in the document.
+
+Keep the reply concise, helpful, and grounded in the actual document content.
+Format the reply as plain text because the comment thread does not render HTML.
+
+Document URL: {content_url}
+DocumentId:   {document_id_for_prompt}
+CommentId:    {comment_id_for_prompt}
+ParentCommentId: {parent_comment}
+Commenter:    {commenter}
+Comment text: {comment_snippet}
+""".strip()
+
+        response = await self._invoke_responses_api(
+            input_text=prompt,
+            conversation_id=conversation_id,
+            instructions=self.AGENT_PROMPT,
+            auth=auth,
+            auth_handler_name=auth_handler_name,
+            context=context,
+        )
+
+        logger.info(
+            "Comment reply flow finished for %s CommentId=%s. Model output (for diagnostics only): %s",
+            product_label,
+            comment_id_for_prompt,
+            response.strip() if response and response.strip() else "(empty)",
+        )
+        return ""
+
+    @staticmethod
+    def _is_wpx_comment_notification(notification_type: Any) -> bool:
+        if (
+            NotificationTypes is not None
+            and notification_type == NotificationTypes.WPX_COMMENT
+        ):
+            return True
+
+        value = getattr(notification_type, "value", notification_type)
+        normalized = str(value or "").lower()
+        return "comment" in normalized and (
+            "wpx" in normalized
+            or "word" in normalized
+            or "excel" in normalized
+            or "powerpoint" in normalized
+        )
+
+    @staticmethod
+    def _get_comment_payload(notification_activity: Any) -> Any:
+        for name in (
+            "wpx_comment_notification",
+            "wpx_comment",
+            "wpxCommentNotification",
+            "wpxComment",
+        ):
+            value = FoundryDigitalWorkerAgent._get_first_value(
+                notification_activity,
+                name,
+            )
+            if value:
+                return value
+        return None
+
+    @staticmethod
+    def _get_first_attachment_content_url(context: TurnContext) -> str:
+        activity = getattr(context, "activity", None)
+        attachments = getattr(activity, "attachments", None) or []
+        for attachment in attachments:
+            content_url = FoundryDigitalWorkerAgent._get_first_value(
+                attachment,
+                "content_url",
+                "contentUrl",
+            )
+            if content_url:
+                return content_url
+        return ""
+
+    @staticmethod
+    def _infer_product_from_activity(
+        activity: Any,
+        content_url: str,
+    ) -> tuple[str, str]:
+        sub_channel = ""
+        channel_id = getattr(activity, "channel_id", None)
+        if channel_id is not None:
+            sub_channel = str(getattr(channel_id, "sub_channel", "") or "")
+            if not sub_channel:
+                _, _, sub_channel = str(channel_id).partition(":")
+
+        normalized = sub_channel.lower()
+        if "word" in normalized:
+            return "Word", "mcp_WordServer"
+        if "excel" in normalized:
+            return "Excel", "mcp_ExcelServer"
+        if "powerpoint" in normalized or "ppt" in normalized:
+            return "PowerPoint", "mcp_PowerPointServer"
+
+        return FoundryDigitalWorkerAgent._infer_product_from_url(content_url)
+
+    @staticmethod
+    def _infer_product_from_url(url: str) -> tuple[str, str]:
+        lower = str(url).lower()
+        if ".xlsx" in lower or ".xlsm" in lower or ".xlsb" in lower:
+            return "Excel", "mcp_ExcelServer"
+        if ".pptx" in lower or ".ppt" in lower:
+            return "PowerPoint", "mcp_PowerPointServer"
+        return "Word", "mcp_WordServer"
+
+    @staticmethod
+    def _get_first_value(value: Any, *names: str) -> Any:
+        if value is None:
+            return ""
+        if isinstance(value, dict):
+            for name in names:
+                item = value.get(name)
+                if item is not None and item != "":
+                    return item
+            return ""
+
+        for name in names:
+            item = getattr(value, name, None)
+            if item is not None and item != "":
+                return item
+        return ""
+
+    @staticmethod
+    def _serialize_notification(notification_activity: Any) -> str:
+        try:
+            dump_json = getattr(notification_activity, "model_dump_json", None)
+            if callable(dump_json):
+                return dump_json(indent=2)
+        except Exception as ex:
+            logger.warning(
+                "Failed to serialize notification via model_dump_json: %s", ex
+            )
+
+        try:
+            return json.dumps(
+                notification_activity,
+                default=FoundryDigitalWorkerAgent._json_default,
+                indent=2,
+            )
+        except Exception as ex:
+            logger.warning("Failed to serialize notification via json.dumps: %s", ex)
+            return str(notification_activity)
+
+    @staticmethod
+    def _json_default(value: Any) -> Any:
+        model_dump = getattr(value, "model_dump", None)
+        if callable(model_dump):
+            return model_dump(mode="json", by_alias=True, exclude_none=True)
+        if hasattr(value, "__dict__"):
+            return value.__dict__
+        return str(value)
 
     # ------------------------------------------------------------------
     # Azure OpenAI Responses API
