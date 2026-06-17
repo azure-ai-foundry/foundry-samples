@@ -64,55 +64,20 @@ Before running this sample, ensure you have:
 > - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
 > - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
 
-The agent reads `TOOLBOX_ENDPOINT` (a complete MCP URL) at startup. `azd ai agent init` + `azd up` will create the toolbox declared in [`agent.manifest.yaml`](agent.manifest.yaml) automatically. To create or manage the toolbox directly with `azd` (using the unified `microsoft.foundry` extension), follow these steps:
+The agent reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. The sample bundles a [`toolbox.yaml`](toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
 
-1. Point `azd` at your Foundry project (once per shell):
+```bash
+azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
+```
 
-   ```bash
-   export PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-   azd ai project set $PROJECT_ENDPOINT
-   ```
+The first version becomes the default automatically. Manage with `azd ai toolbox list`, `azd ai toolbox show my-toolbox`, `azd ai toolbox version list my-toolbox`, and `azd ai toolbox delete my-toolbox --force`.
 
-2. (Connections.) This sample's default tool — `web_search` — is built-in and does not require a project connection. For the 14 supported scenarios listed below (MCP key/OAuth/agent-identity, Azure AI Search, Bing Custom Search, etc.) you must create a connection first. The command shape is:
+To stage incremental changes safely, use `azd ai toolbox connection add/remove` and `azd ai toolbox skill add/list/remove` &mdash; each creates a new toolbox version that carries forward existing connections and skills but **doesn't** change the default. Promote a version with `azd ai toolbox publish my-toolbox <version>` when you're ready to make it active.
 
-   ```bash
-   azd ai connection create <name> \
-     --kind <remote-tool|remote-a2a|cognitive-search|GroundingWithCustomSearch> \
-     --target <endpoint-url> \
-     --auth-type <none|custom-keys|api-key|oauth2|user-entra-token|project-managed-identity|agentic-identity> \
-     [--custom-key "Header=Value" | --key <key> | --client-id ... --client-secret ... --authorization-url ... --token-url ... | --audience <aad-resource-uri>]
-   ```
+`azd ai toolbox create` prints the toolbox's versioned MCP endpoint. Copy that endpoint and set it as `TOOLBOX_ENDPOINT`: run `azd env set TOOLBOX_ENDPOINT "<endpoint>"` for deployed agents, or put it in `.env` for local runs. The endpoint looks like `https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/my-toolbox/versions/1/mcp?api-version=v1`.
 
-   Inspect with `azd ai connection list` / `azd ai connection show <name>`; remove with `azd ai connection delete <name> --force`.
-
-3. Author a `toolbox.yaml` that lists the tools (and any connection names they reference):
-
-   ```yaml
-   # toolbox.yaml
-   description: Web search tools for the BYO responses sample
-   tools:
-     - type: web_search
-       name: web
-   ```
-
-4. Create the toolbox:
-
-   ```bash
-   azd ai toolbox create web-search-tools --from-file ./toolbox.yaml
-   ```
-
-   The first version becomes the default automatically. Manage with `azd ai toolbox list`, `azd ai toolbox show web-search-tools`, `azd ai toolbox version list web-search-tools`, and `azd ai toolbox delete web-search-tools --force`.
-
-   To stage incremental changes safely, use `azd ai toolbox connection add/remove` and `azd ai toolbox skill add/list/remove` &mdash; each creates a new toolbox version that carries forward existing connections and skills but **doesn't** change the default. Promote a version with `azd ai toolbox publish web-search-tools <version>` when you're ready to make it active.
-
-5. Retrieve the MCP endpoint and expose it as `TOOLBOX_ENDPOINT`:
-
-   ```bash
-   azd ai toolbox show web-search-tools --output json
-   azd env set TOOLBOX_ENDPOINT "https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/web-search-tools/mcp?api-version=v1"
-   ```
-
-   For local runs, put the same URL into `.env` (see [Environment Variables](#environment-variables) below).
+> [!NOTE]
+> To attach tools that need credentials (MCP servers with API keys or OAuth, Azure AI Search, Bing Custom Search, and more), create a project connection with `azd ai connection create` and reference it from `toolbox.yaml`.
 
 ### Environment Variables
 
@@ -122,10 +87,11 @@ See [`.env.example`](.env.example) or `.env` for the full list of environment va
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers; set automatically by `azd ai agent run` locally. |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `agent.manifest.yaml`. |
-| `TOOLBOX_ENDPOINT` | Yes | Full toolbox MCP endpoint URL including toolbox name and `?api-version=v1`. Declared in `agent.manifest.yaml`. |
+| `TOOLBOX_ENDPOINT` | Yes | Full toolbox MCP endpoint URL. Copy the versioned endpoint from the `azd ai toolbox create` output. |
+| `TOOLBOX_NAME` | Optional | Toolbox name. If `TOOLBOX_ENDPOINT` isn't set, the agent builds the latest-version endpoint from this and `FOUNDRY_PROJECT_ENDPOINT`. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
 
-`TOOLBOX_ENDPOINT` must be the complete MCP URL for your toolbox. Two forms are supported:
+Set `TOOLBOX_ENDPOINT` to the full MCP URL. Two forms are supported:
 ```
 # Latest version:
 https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/<toolbox-name>/mcp?api-version=v1
@@ -133,7 +99,7 @@ https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/<toolbo
 # Pinned to a specific version:
 https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/<toolbox-name>/versions/<version>/mcp?api-version=v1
 ```
-Set it as an environment variable in `.env` for local dev, or via `azd env set TOOLBOX_ENDPOINT "<url>"` for deployed agents.
+Set `TOOLBOX_ENDPOINT` in `.env` for local dev, or via `azd env set TOOLBOX_ENDPOINT "<url>"` for deployed agents.
 
 ### Running the Sample
 
