@@ -53,18 +53,24 @@
 /samples/typescript/quickstart/chat-with-agent/src/quickstart-chat-with-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/create-agent/src/quickstart-create-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/responses/src/quickstart-responses.ts @microsoft-foundry/AI-Platform-Docs
+/samples/typescript/quickstart/agent-service/src/quickstart.ts @microsoft-foundry/AI-Platform-Docs
 
 #### Additional ownership entries (added via issue triage) ##############################################
 # Routing for sample paths that were uncovered during issue triage.
 # Owners chosen from CODEOWNERS pattern of peer directories and from git log of top contributors.
 
-# TS quickstart agent-service — peer of chat-with-agent / create-agent / responses
-/samples/typescript/quickstart/agent-service/ @microsoft-foundry/AI-Platform-Docs
-
 # Infrastructure (bicep) — networked agent setup templates
-/infrastructure/infrastructure-setup-bicep/01-connections/apim/ @meerakurup
+/infrastructure/infrastructure-setup-bicep/01-connections/apim/ @meerakurup @rayankhouryy
 /infrastructure/infrastructure-setup-bicep/15-private-network-standard-agent-setup/ @haflidif
-/infrastructure/infrastructure-setup-bicep/16-private-network-standard-agent-apim-setup/ @meerakurup
+/infrastructure/infrastructure-setup-bicep/16-private-network-standard-agent-apim-setup/ @meerakurup @rayankhouryy @m-gheini @meerakurup @karthiksaligrama
 
 # Infrastructure (terraform) — BYO-VNet variant
 /infrastructure/infrastructure-setup-terraform/15b-private-network-standard-agent-setup-byovnet/ @deeikele
+
+# Hosted-agents specific sub-areas — owners inferred from git log of top contributors
+# (parent `/samples/python/hosted-agents/` and `/samples/csharp/hosted-agents/` still
+# route to @microsoft-foundry/hosted-agents; these add finer-grained reviewers).
+/samples/csharp/hosted-agents/agent-framework/teams-activity/                  @therealjohn @tecton
+/samples/python/hosted-agents/bring-your-own/invocations/github-copilot/       @ankitbko @huimiu
+/samples/python/hosted-agents/bring-your-own/invocations/human-in-the-loop/    @ankitbko @huimiu
+/samples/python/hosted-agents/bring-your-own/responses/langgraph-toolbox/      @antriksh30 @lindazqli

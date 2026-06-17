@@ -20,16 +20,15 @@ serves responses over the Foundry Responses Protocol.
 3. Incoming requests are handled by `ResponsesAgentServerHost` on port `8088`.
 4. The agent is initialized **lazily** (once, on the first request) and reused for all
    subsequent turns — the MCP client is kept alive to prevent session garbage-collection.
-5. When the toolbox requires OAuth consent (e.g. a GitHub connection that hasn't been
-   authorized yet), the MCP server returns error code `-32006`. The agent detects this,
-   logs the consent URL, and surfaces it to the caller via a fallback tool instead of
-   crashing.
+5. If a toolbox tool requires OAuth consent, the MCP server returns error code `-32006`.
+   The agent detects this, logs the consent URL, and surfaces it to the caller via a
+   fallback tool instead of crashing.
 
 ## Prerequisites
 
 - Python 3.12+
-- A Microsoft Foundry project with a toolbox already created — see
-  [`../sample_toolboxes_crud.py`](../sample_toolboxes_crud.py) to create one
+- A Microsoft Foundry project with a toolbox created from the bundled
+  [`toolbox.yaml`](toolbox.yaml) — see [Create the toolbox with `azd ai`](#4-create-the-toolbox-with-azd-ai)
 - Azure CLI installed and logged in:
 
   ```bash
@@ -42,7 +41,7 @@ serves responses over the Foundry Responses Protocol.
 ```bash
 # 1. Copy and fill in the environment file
 cp .env.example .env  # skip if .env already exists
-# Edit .env — set FOUNDRY_PROJECT_ENDPOINT, MODEL_DEPLOYMENT_NAME,
+# Edit .env — set FOUNDRY_PROJECT_ENDPOINT, AZURE_AI_MODEL_DEPLOYMENT_NAME,
 #              and TOOLBOX_ENDPOINT at minimum
 
 # 2. Install dependencies
@@ -61,7 +60,7 @@ curl -X POST http://localhost:8088/responses \
 ```powershell
 # 1. Copy and fill in the environment file
 Copy-Item .env.example .env  # skip if .env already exists
-# Edit .env — set FOUNDRY_PROJECT_ENDPOINT, MODEL_DEPLOYMENT_NAME,
+# Edit .env — set FOUNDRY_PROJECT_ENDPOINT, AZURE_AI_MODEL_DEPLOYMENT_NAME,
 #              and TOOLBOX_ENDPOINT at minimum
 
 # 2. Install dependencies
@@ -126,61 +125,20 @@ azd auth login
 > - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
 > - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
 
-This sample exposes two tools through the toolbox: `web_search` (built-in, no connection required) and a `github` MCP server backed by a custom-keys connection that carries your GitHub PAT. `azd ai agent init` + `azd up` provisions both automatically from [`agent.manifest.yaml`](agent.manifest.yaml). To create them directly with `azd` instead, run:
+This sample exposes the toolbox tools to a LangGraph ReAct loop. The agent reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. The sample bundles a [`toolbox.yaml`](toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
 
-1. Point `azd` at your Foundry project (once per shell):
+```bash
+azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
+```
 
-   ```bash
-   export PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-   azd ai project set $PROJECT_ENDPOINT
-   ```
+The first version becomes the default automatically. Manage with `azd ai toolbox list`, `azd ai toolbox show my-toolbox`, `azd ai toolbox version list my-toolbox`, and `azd ai toolbox delete my-toolbox --force`.
 
-2. Create the GitHub MCP connection. The command shape is the same for any connection kind; the flags vary by auth type:
+To stage incremental changes safely, use `azd ai toolbox connection add/remove` and `azd ai toolbox skill add/list/remove` &mdash; each creates a new toolbox version that carries forward existing connections and skills but **doesn't** change the default. Promote a version with `azd ai toolbox publish my-toolbox <version>` when you're ready to make it active.
 
-   ```bash
-   export GITHUB_PAT="ghp_..."           # or github_pat_... (fine-grained)
-   azd ai connection create github-mcp-conn \
-     --kind remote-tool \
-     --target https://api.githubcopilot.com/mcp \
-     --auth-type custom-keys \
-     --custom-key "Authorization=Bearer $GITHUB_PAT"
-   ```
+`azd ai toolbox create` prints the toolbox's versioned MCP endpoint. Copy that endpoint and set it as `TOOLBOX_ENDPOINT`: run `azd env set TOOLBOX_ENDPOINT "<endpoint>"` for deployed agents, or put it in `.env` for local runs. The endpoint looks like `https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/my-toolbox/versions/1/mcp?api-version=v1`. The sample parses the toolbox name from the endpoint, so you don't need to set `TOOLBOX_NAME` separately.
 
-   Inspect with `azd ai connection list` and `azd ai connection show github-mcp-conn`. Remove with `azd ai connection delete github-mcp-conn --force`.
-
-3. Author a `toolbox.yaml` that references the connection by name (the YAML never embeds credentials):
-
-   ```yaml
-   # toolbox.yaml
-   description: Web search + GitHub MCP tools for the langgraph-toolbox sample
-   connections:
-     - name: github-mcp-conn
-   tools:
-     - type: web_search
-       name: web
-     - type: mcp
-       name: github
-       server_label: github
-       server_url: https://api.githubcopilot.com/mcp
-       project_connection_id: github-mcp-conn
-   ```
-
-4. Create the toolbox:
-
-   ```bash
-   azd ai toolbox create agent-tools --from-file ./toolbox.yaml
-   ```
-
-   The first version becomes the default automatically. Manage with `azd ai toolbox list`, `azd ai toolbox show agent-tools`, `azd ai toolbox version list agent-tools`, and `azd ai toolbox delete agent-tools --force`.
-
-   To stage incremental changes safely, use `azd ai toolbox connection add/remove` and `azd ai toolbox skill add/list/remove` &mdash; each creates a new toolbox version that carries forward existing connections and skills but **doesn't** change the default. Promote a version with `azd ai toolbox publish agent-tools <version>` when you're ready to make it active.
-
-5. Retrieve the MCP endpoint and expose it to the agent as `TOOLBOX_ENDPOINT`:
-
-   ```bash
-   azd ai toolbox show agent-tools --output json
-   azd env set TOOLBOX_ENDPOINT "https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/agent-tools/mcp?api-version=v1"
-   ```
+> [!NOTE]
+> To attach tools that need credentials (MCP servers with API keys or OAuth, Azure AI Search, Bing Custom Search, and more), create a project connection with `azd ai connection create` and reference it from `toolbox.yaml` by `project_connection_id`.
 
 #### 5. Fix git CRLF setting (Windows only)
 
@@ -275,11 +233,12 @@ my-project/
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | **Yes** | Project endpoint URL — platform-injected at runtime |
-| `MODEL_DEPLOYMENT_NAME` | **Yes** | Model deployment name (e.g. `gpt-4.1`) |
-| `TOOLBOX_ENDPOINT` | **Yes** | Full toolbox MCP endpoint URL including toolbox name and api-version |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | **Yes** | Model deployment name (e.g. `gpt-4.1`) |
+| `TOOLBOX_ENDPOINT` | **Yes** | Full toolbox MCP endpoint URL. Copy the versioned endpoint from the `azd ai toolbox create` output. |
+| `TOOLBOX_NAME` | No | Toolbox name. If `TOOLBOX_ENDPOINT` isn't set, the agent builds the latest-version endpoint from this and `FOUNDRY_PROJECT_ENDPOINT`. |
 | `FOUNDRY_AGENT_TOOLBOX_FEATURES` | No | Feature-flag header value — platform-injected (default: `Toolboxes=V1Preview`) |
 
-`TOOLBOX_ENDPOINT` is the full pre-constructed MCP URL. Two forms are supported:
+Set `TOOLBOX_ENDPOINT` to the full MCP URL. Two forms are supported:
 ```
 # Latest version:
 https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/<name>/mcp?api-version=v1
@@ -312,7 +271,7 @@ Check that `TOOLBOX_ENDPOINT` is set and the toolbox exists. The URL must includ
 
 ### OAuth consent required
 
-If a toolbox connection requires OAuth (e.g. GitHub), the agent logs:
+If a toolbox connection requires OAuth, the agent logs:
 ```
 OAuth consent required. Open the following URL in a browser to authorize...
 ```
