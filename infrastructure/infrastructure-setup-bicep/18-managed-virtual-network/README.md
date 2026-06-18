@@ -120,6 +120,8 @@ Use the table below to choose the right infrastructure template for your scenari
 
 1. Azure CLI installed and configured on your local workstation or deployment pipeline server. Azure CLI support is required to run the 'az rest' commands to update your managed virtual network. 
 
+> **💡 Recommended**: Run the [preflight check](../deployment-tools/preflight/README.md) before deploying to catch common misconfigurations (provider registration, soft-deleted accounts, BYO resource issues) before they surface as cryptic ARM errors mid-deploy.
+
 1. **Register Resource Providers**
 
    Make sure you have an active Azure subscription that allows registering resource providers. If it's not already registered, run the commands below:
@@ -293,6 +295,8 @@ az group delete --name <your-resource-group> --yes --no-wait
 ```
 
 > **Important**: Follow the [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance) to properly purge the account and wait for the capability host to fully unlink (~20 minutes).
+
+> **💡 Tip**: Use the [cleanup tool](../deployment-tools/cleanup/README.md) it handles the required deletion order (project caphost → account caphost → purge → SAL wait) automatically.
 
 ---
 

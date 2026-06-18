@@ -1,0 +1,9 @@
+# Post-Deployment Diagnostic Configuration
+# Uncomment and fill in the values below.
+
+# Required
+SubscriptionId=
+ResourceGroup=
+
+# Optional — auto-discovered if omitted
+# AccountName=

@@ -1,0 +1,40 @@
+# =============================================================================
+# Foundry Private Network — Preflight Check Configuration
+# =============================================================================
+# Fill in the values below and run:
+#   .\preflight-check.ps1 -ConfigFile .\preflight.config
+#
+# Explicit command-line params override config file values.
+# Do not quote values — no '' or "" around them.
+# =============================================================================
+
+# Required
+SubscriptionId=<subscription-id>
+ResourceGroup=<resource-group-name>
+Location=swedencentral
+
+# Optional — Existing VNet (full ARM resource ID)
+# Leave empty if the template will create a new VNet.
+# ExistingVnetId=/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Network/virtualNetworks/<vnet-name>
+
+# Optional — Bring-your-own resources (full ARM resource IDs)
+# Leave empty if the template will create new resources.
+# AiSearchResourceId=/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Search/searchServices/<search-name>
+# StorageAccountResourceId=/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Storage/storageAccounts/<storage-name>
+# CosmosDBResourceId=/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.DocumentDB/databaseAccounts/<cosmos-name>
+
+# Optional — Template-specific resources (full ARM resource IDs)
+# Set ApiManagementResourceId when deploying with APIM private network setup.
+# Set FabricWorkspaceResourceId when deploying with agent tools / MCP setup.
+# ApiManagementResourceId=/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/service/<apim-name>
+# FabricWorkspaceResourceId=/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Fabric/capacities/<fabric-name>
+
+# Optional — Model deployment (for quota checks)
+# Leave empty to skip model quota checks.
+# ModelFormat: OpenAI, Mistral AI, Meta, Cohere, etc. Must match the format from az cognitiveservices model list.
+# ModelSkuName: Standard, GlobalStandard, ProvisionedManaged, etc.
+# ModelCapacity: Requested TPM (tokens per minute) in thousands. e.g. 10 = 10K TPM.
+# ModelName=gpt-4o
+# ModelFormat=OpenAI
+# ModelSkuName=Standard
+# ModelCapacity=10
