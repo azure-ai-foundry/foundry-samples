@@ -104,6 +104,8 @@ Use the table below to choose the right infrastructure template for your scenari
     * If no parameters are passed in, this template creates an Microsoft Foundry resource, Foundry project, Azure Cosmos DB for NoSQL, Azure AI Search, and Azure Storage account
 1. Azure CLI installed and configured on your local workstation or deployment pipeline server
 
+> **💡 Recommended**: Run the [preflight check](../deployment-tools/preflight/README.md) before deploying to catch common misconfigurations (provider registration, subnet conflicts, soft-deleted accounts) before they surface as cryptic ARM errors mid-deploy.
+
 ---
 
 ## Pre-Deployment Steps
@@ -275,6 +277,8 @@ To use an existing Cosmos DB for NoSQL resource, set `existingAzureCosmosDBAccou
 To use an existing Azure AI Search resource, set `existingAiSearchResourceId` to the full ARM ID of the target search service.
  - `param existingAiSearchResourceId = '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Search/searchServices/{searchServiceName}'`
 
+> **AI Search → AI Services connectivity**: This template configures AI Services with `networkAcls.bypass: AzureServices`, which allows Azure AI Search to reach AI Services through the trusted-services bypass. This works for most scenarios. If your security policy requires removing the bypass (setting it to `None`), deploy [Shared Private Links](../deployment-tools/networking/README.md) from AI Search to AI Services instead — this creates a private endpoint from AI Search's managed infrastructure directly into AI Services via Private Link.
+
 
 4. **Use an existing Azure Storage account**
 
@@ -368,6 +372,8 @@ az group delete --name <your-resource-group> --yes --no-wait
 ```
 
 > **Important**: If you need to reuse the same subnet, follow the [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance) to properly purge the account and wait for the capability host to fully unlink (~20 minutes).
+
+> **💡 Tip**: For VNet-injection deployments, use the [cleanup tool](../deployment-tools/cleanup/README.md) it handles the required deletion order (project caphost → account caphost → purge → SAL wait) automatically.
 
 ---
 
