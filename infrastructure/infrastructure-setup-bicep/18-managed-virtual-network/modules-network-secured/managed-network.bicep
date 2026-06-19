@@ -20,6 +20,9 @@ param aiSearchResourceId string
 @description('Resource ID of the Azure Monitor Private Link Scope for telemetry')
 param amplsResourceId string
 
+@description('Resource ID of the Azure Container Registry for outbound PE rule. When empty, no ACR outbound rule is created.')
+param acrResourceId string = ''
+
 // Reference the existing AI Services account in the same resource group
 resource aiAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
   name: accountName
@@ -118,6 +121,23 @@ resource amplsOutboundRule 'Microsoft.CognitiveServices/accounts/managedNetworks
     category: 'UserDefined'
   }
   dependsOn: [aiSearchOutboundRule]
+}
+
+// Outbound PE rule for Azure Container Registry
+// This allows the hosted agent to pull container images from the private ACR
+#disable-next-line BCP081
+resource acrOutboundRule 'Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules@2025-10-01-preview' = if (!empty(acrResourceId)) {
+  parent: managedNetwork
+  name: 'acr-registry-rule'
+  properties: {
+    type: 'PrivateEndpoint'
+    destination: {
+      serviceResourceId: acrResourceId
+      subresourceTarget: 'registry'
+    }
+    category: 'UserDefined'
+  }
+  dependsOn: [amplsOutboundRule]
 }
 
 output managedNetworkSettingsName string = managedNetwork.name
