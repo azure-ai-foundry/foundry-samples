@@ -4,6 +4,8 @@ A realistic **multi-turn** [Agent Framework](https://github.com/microsoft/agent-
 
 > Read more about declarative workflows in the [Agent Framework documentation](https://learn.microsoft.com/en-us/agent-framework/workflows/declarative/?pivots=programming-language-python) and about workflow-as-an-agent in the [Workflow as an Agent documentation](https://learn.microsoft.com/en-us/agent-framework/workflows/as-agents?pivots=programming-language-python).
 
+> This sample currently requires using a Docker based deployment.
+
 ## How It Works
 
 ### The Workflow
