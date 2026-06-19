@@ -1,3 +1,6 @@
-agent-framework>=1.2.2
+# Use agent-framework-foundry instead of the agent-framework meta-package to
+# avoid pip resolution failures: agent-framework pins agent-framework-core==1.2.2
+# but agent-framework-orchestrations 1.0.0 requires agent-framework-core>=1.9.0.
+agent-framework-foundry
 agent-framework-foundry-hosting
 mcp>=1.24.0,<2

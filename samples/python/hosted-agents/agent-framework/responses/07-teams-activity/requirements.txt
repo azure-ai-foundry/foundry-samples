@@ -1,7 +1,7 @@
-# `agent-framework[foundry]` is required because main.py imports
-# `from agent_framework.foundry import FoundryChatClient`. In 1.3+ the
-# foundry submodule is an optional extra; installing the bare package
-# leaves agent_framework.foundry unimportable and the container crashes
-# at startup so /readiness never returns 200 -> 424 session_not_ready.
-agent-framework[foundry]>=1.2.2
+# Use agent-framework-foundry instead of the agent-framework meta-package
+# (or agent-framework[foundry]) to avoid pip resolution failures:
+# agent-framework pins agent-framework-core==1.2.2 but
+# agent-framework-orchestrations 1.0.0 requires agent-framework-core>=1.9.0.
+agent-framework-foundry
 agent-framework-foundry-hosting
+mcp>=1.24.0
