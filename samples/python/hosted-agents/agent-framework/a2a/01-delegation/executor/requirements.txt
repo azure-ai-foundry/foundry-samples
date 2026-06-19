@@ -1,2 +1,3 @@
-agent-framework>=1.2.2
+# Use the narrow Foundry subpackages to keep dependencies light.
+agent-framework-foundry
 agent-framework-foundry-hosting
