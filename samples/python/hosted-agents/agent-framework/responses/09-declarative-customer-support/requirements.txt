@@ -1,2 +1,5 @@
-agent-framework
+# Use the narrow Foundry subpackages to keep dependencies light.
+agent-framework-foundry
+agent-framework-declarative
 agent-framework-foundry-hosting
+mcp<2,>=1.24.0
