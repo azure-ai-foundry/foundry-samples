@@ -1,11 +1,6 @@
-# Install the narrow Foundry subpackages directly required by this sample
-# (Agent, SkillsProvider, FoundryChatClient, ResponsesHostServer, and
-# azure.ai.projects for the skills-download bootstrap) instead of the bare
-# ``agent-framework`` meta-package, which pulls in the full
-# ``agent-framework-core[all]`` set — including Linux-x86_64-only packages
-# such as ``agent-framework-hyperlight`` — and is prone to pip resolution
-# failures during the ``python:3.12-slim`` container build.
+# Use the narrow Foundry subpackages to keep dependencies light.
 agent-framework-foundry
 agent-framework-foundry-hosting
+mcp<2,>=1.24.0
 azure-ai-projects
 mcp>=1.24.0
