@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+    extensions:
+        azure.ai.agents: '>=0.1.0-preview'
+name: diagnostic-agent
+services:
+    diagnostic-agent:
+        project: .
+        host: azure.ai.agent
+        language: docker
+        config:
+            container:
+                resources:
+                    cpu: "0.25"
+                    memory: 0.5Gi
+                scale:
+                    maxReplicas: 1
+            startupCommand: python main.py
