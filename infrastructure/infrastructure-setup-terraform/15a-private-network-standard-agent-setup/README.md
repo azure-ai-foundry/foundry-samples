@@ -258,6 +258,7 @@ code/
 ├── data.tf                                         # Creates data objects for active subscription being deployed to and deployment security context
 ├── locals.tf                                       # Creates local variables for project GUID
 ├── main.tf                                         # Main deployment file        
+├── monitor.tf                                      # Azure Monitor (Application Insights + AMPLS) for agent tracing
 ├── outputs.tf                                      # Placeholder file for future outputs
 ├── providers.tf                                    # Terraform provider configuration 
 ├── example.tfvars                                  # Sample tfvars file

@@ -151,6 +151,14 @@ param existingDnsZones object = {
   'privatelink.azurecr.io': { subscriptionId: '', resourceGroup: '' }
 }
 
+@description('Object mapping Azure Monitor private DNS zone names to an existing zone subscription/resource group, or empty strings to create it. Use to bring your own centralized Private DNS Zones (e.g. an Azure Landing Zone) for agent tracing.')
+param existingMonitorDnsZones object = {
+  'privatelink.monitor.azure.com': { subscriptionId: '', resourceGroup: '' }
+  'privatelink.oms.opinsights.azure.com': { subscriptionId: '', resourceGroup: '' }
+  'privatelink.ods.opinsights.azure.com': { subscriptionId: '', resourceGroup: '' }
+  'privatelink.agentsvc.azure-automation.net': { subscriptionId: '', resourceGroup: '' }
+}
+
 var projectName = toLower('${firstProjectName}${uniqueSuffix}')
 var cosmosDBName = toLower('${aiServices}${uniqueSuffix}cosmosdb')
 var aiSearchName = toLower('${aiServices}${uniqueSuffix}search')
@@ -311,10 +319,43 @@ module acr 'modules-network-secured/container-registry.bicep' = if (enableContai
     peSubnetId: vnet.outputs.peSubnetId
     vnetId: vnet.outputs.virtualNetworkId
     suffix: uniqueSuffix
-    existingDnsZoneResourceGroup: existingDnsZones['privatelink.azurecr.io'].resourceGroup
+    // The central private-endpoint-and-dns module already creates privatelink.azurecr.io and
+    // links it to the VNet (azurecr is in existingDnsZones). Point the ACR module at that existing
+    // zone so it references it instead of creating a second (conflicting) VNet link.
+    existingDnsZoneResourceGroup: empty(existingDnsZones['privatelink.azurecr.io'].resourceGroup) ? resourceGroup().name : existingDnsZones['privatelink.azurecr.io'].resourceGroup
     dnsZonesSubscriptionId: empty(existingDnsZones['privatelink.azurecr.io'].subscriptionId) ? subscription().subscriptionId : existingDnsZones['privatelink.azurecr.io'].subscriptionId
     developerIpCidr: developerIpCidr
     projectPrincipalId: aiProject.outputs.projectPrincipalId
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+  ]
+}
+
+// Application Insights for hosted-agent tracing (this template ships none). Creates a
+// workspace-based Application Insights and connects it to the account so the agent exports traces.
+module applicationInsights 'modules-network-secured/application-insights.bicep' = {
+  name: 'app-insights-${uniqueSuffix}-deployment'
+  params: {
+    location: location
+    suffix: uniqueSuffix
+    aiAccountName: aiAccount.outputs.accountName
+    disablePublicIngestion: true
+  }
+}
+
+// Private trace ingestion path (Azure Monitor Private Link Scope) so an in-VNet agent's traces
+// reach Application Insights over the private link rather than the (disabled) public endpoint.
+module monitorPrivateLink 'modules-network-secured/monitor-private-link-scope.bicep' = {
+  name: 'monitor-pls-${uniqueSuffix}-deployment'
+  params: {
+    location: location
+    suffix: uniqueSuffix
+    appInsightsId: applicationInsights.outputs.appInsightsId
+    logAnalyticsId: applicationInsights.outputs.logAnalyticsId
+    vnetId: vnet.outputs.virtualNetworkId
+    peSubnetId: vnet.outputs.peSubnetId
+    existingDnsZones: existingMonitorDnsZones
   }
   dependsOn: [
     privateEndpointAndDNS
