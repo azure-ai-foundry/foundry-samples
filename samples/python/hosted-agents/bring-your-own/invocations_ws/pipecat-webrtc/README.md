@@ -146,10 +146,8 @@ The portal builds the upstream URL as:
 
 ```
 wss://{account}.services.ai.azure.com
-   /api/projects/agents/endpoint/protocols/invocations_ws
-   ?project_name={project}
-   &agent_name={PIPECAT_WEBRTC_AGENT_NAME}
-   &api-version={API_VERSION}
+   /api/projects/{project}/agents/{PIPECAT_WEBRTC_AGENT_NAME}/endpoint/protocols/invocations_ws
+   ?api-version={API_VERSION}
    &agent_session_id={generated-per-connection}
 ```
 

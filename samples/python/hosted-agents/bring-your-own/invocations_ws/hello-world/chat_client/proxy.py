@@ -52,7 +52,7 @@ import subprocess
 import sys
 import uuid
 from http import HTTPStatus
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
 import websockets
 from websockets.asyncio.server import serve
@@ -66,15 +66,18 @@ def _foundry_url(project_endpoint: str, agent: str, session_id: str, api_version
     parts = urlsplit(project_endpoint)
     project = parts.path.rstrip("/").rsplit("/", 1)[-1]
     qs = urlencode({
-        "project_name": project,
-        "agent_name": agent,
         "api-version": api_version,
         "agent_session_id": session_id,
     })
+    path = (
+        f"/api/projects/{quote(project, safe='')}"
+        f"/agents/{quote(agent, safe='')}"
+        "/endpoint/protocols/invocations_ws"
+    )
     return urlunsplit((
         "wss" if parts.scheme in ("https", "wss") else "ws",
         parts.netloc,
-        "/api/projects/agents/endpoint/protocols/invocations_ws",
+        path,
         qs, "",
     ))
 

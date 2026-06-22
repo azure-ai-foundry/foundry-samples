@@ -13,7 +13,7 @@ import logging
 import os
 import subprocess
 import time
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
 
 logger = logging.getLogger("chat-client.upstream")
@@ -41,15 +41,18 @@ def _build_url(agent_name: str, session_id: str) -> str:
     scheme = "wss" if parts.scheme in ("https", "wss") else "ws"
     project = parts.path.rstrip("/").rsplit("/", 1)[-1]
     qs = urlencode({
-        "project_name": project,
-        "agent_name": agent_name,
         "api-version": _api_version(),
         "agent_session_id": session_id,
     })
+    path = (
+        f"/api/projects/{quote(project, safe='')}"
+        f"/agents/{quote(agent_name, safe='')}"
+        "/endpoint/protocols/invocations_ws"
+    )
     return urlunsplit((
         scheme,
         parts.netloc,
-        "/api/projects/agents/endpoint/protocols/invocations_ws",
+        path,
         qs,
         "",
     ))

@@ -205,10 +205,8 @@ data-plane** WebSocket URL (the proxy and `E2ELocal` build this for
 you from `--foundry` + `--agent`):
 
 ```
-wss://<account>.services.ai.azure.com/api/projects/agents/endpoint/protocols/invocations_ws
+wss://<account>.services.ai.azure.com/api/projects/<project>/agents/<agent>/endpoint/protocols/invocations_ws
     ?api-version=v1
-    &project_name=<project>
-    &agent_name=<agent>
     &agent_session_id=<unique-session-id>
 ```
 
@@ -217,10 +215,10 @@ Where the segments come from:
 | Part | Value |
 |------|-------|
 | `<account>` | AI Services account host — the same host as your Foundry project endpoint (`https://<account>.services.ai.azure.com/api/projects/<project>`). |
-| `/api/projects/agents/endpoint/protocols/invocations_ws` | Fixed data-plane route — `agents` and `endpoint` are literal path segments, not your agent name. The actual agent is picked via the `agent_name` query parameter. |
+| `/api/projects/<project>/agents/<agent>/endpoint/protocols/invocations_ws` | Data-plane route; project and agent are URL-encoded path segments. |
 | `api-version=v1` | Foundry data-plane API version. |
-| `project_name=<project>` | The last segment of your project endpoint path. |
-| `agent_name=<agent>` | Matches the agent `name` in [`agent.manifest.yaml`](agent.manifest.yaml) — `hello-world-dotnet-invocations-ws`. |
+| `<project>` | The last segment of your project endpoint path. |
+| `<agent>` | Matches the agent `name` in [`agent.manifest.yaml`](agent.manifest.yaml) — `hello-world-dotnet-invocations-ws`. |
 | `agent_session_id=<unique-session-id>` | A caller-generated string that identifies the conversation. Reuse the same id to resume; use a fresh one (e.g. a GUID) to start a new session. |
 
 Every request must also include `Authorization: Bearer <Entra token>`

@@ -207,12 +207,11 @@ static string BuildFoundryUrl(string projectEndpoint, string agent, string sessi
     var parts = new Uri(projectEndpoint);
     var project = parts.AbsolutePath.TrimEnd('/').Split('/')[^1];
     var qs = HttpUtility.ParseQueryString(string.Empty);
-    qs["project_name"] = project;
-    qs["agent_name"] = agent;
     qs["api-version"] = apiVersion;
     qs["agent_session_id"] = sessionId;
     var scheme = parts.Scheme is "https" or "wss" ? "wss" : "ws";
-    return $"{scheme}://{parts.Host}/api/projects/agents/endpoint/protocols/invocations_ws?{qs}";
+    var path = $"/api/projects/{Uri.EscapeDataString(project)}/agents/{Uri.EscapeDataString(agent)}/endpoint/protocols/invocations_ws";
+    return $"{scheme}://{parts.Host}{path}?{qs}";
 }
 
 static async Task<string> GetEntraTokenAsync(string resource)
