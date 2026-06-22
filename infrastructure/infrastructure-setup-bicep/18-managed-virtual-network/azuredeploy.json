@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.44.1.10279",
-      "templateHash": "6450781060789677542"
+      "templateHash": "15438675374015107303"
     }
   },
   "parameters": {
@@ -1533,7 +1533,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "13762210290131983061"
+              "templateHash": "7265170931147016210"
             }
           },
           "parameters": {
@@ -1736,9 +1736,9 @@
               "dependsOn": [
                 "[resourceId('Microsoft.Network/privateEndpoints', format('ampls-pe-{0}', parameters('suffix')))]",
                 "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[0])]",
-                "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[2])]",
                 "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[3])]",
-                "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[1])]"
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[1])]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('amplsDnsZones')[2])]"
               ]
             }
           ],
@@ -3517,7 +3517,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "8509907656517137061"
+              "templateHash": "1735356790233715529"
             }
           },
           "parameters": {
@@ -3548,7 +3548,7 @@
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
               "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageName'))]",
-              "name": "[guid(resourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'), resourceId('Microsoft.Storage/storageAccounts', parameters('storageName')))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageName')), parameters('aiProjectPrincipalId'), resourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'), parameters('workspaceId'))]",
               "properties": {
                 "principalId": "[parameters('aiProjectPrincipalId')]",
                 "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')]",
