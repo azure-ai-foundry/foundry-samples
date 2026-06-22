@@ -514,6 +514,19 @@ Cosmos DB Account
   - Disabled local auth
   - Single region deployment
 
+Azure Monitor (Application Insights & Log Analytics)
+- Log Analytics Workspace: Microsoft.OperationalInsights/workspaces
+  - SKU: PerGB2018
+  - Retention: 30 days
+- Application Insights: Microsoft.Insights/components
+  - Kind: web
+  - Linked to Log Analytics workspace
+  - Public ingestion disabled (reached privately via AMPLS)
+- Azure Monitor Private Link Scope (AMPLS): microsoft.insights/privateLinkScopes
+  - Access mode: PrivateOnly ingestion, Open query
+  - Scoped resources: Application Insights + Log Analytics
+  - Enables hosted agents to export telemetry via private network
+
 ### Network Security Design
 This implementation utilizes a BYO VNet (Bring Your Own Virtual Network) approach, also known as custom VNet support with subnet delegation. Within your existing virtual network, delegated subnets will be created.
 
@@ -534,6 +547,7 @@ Private endpoints ensure secure, internal-only connectivity. Private endpoints a
 - Azure AI Search
 - Azure Storage
 - Azure Cosmos DB
+- Azure Monitor Private Link Scope (AMPLS) — enables telemetry export from hosted agents
 
 **Private DNS Zones**
 | Private Link Resource Type | Sub Resource | Private DNS Zone Name | Public DNS Zone Forwarders |
@@ -542,6 +556,7 @@ Private endpoints ensure secure, internal-only connectivity. Private endpoints a
 | **Azure AI Search**        | searchService| `privatelink.search.windows.net` | `search.windows.net` |
 | **Azure Cosmos DB**        | Sql          | `privatelink.documents.azure.com` | `documents.azure.com` |
 | **Azure Storage**          | blob         | `privatelink.blob.core.windows.net` | `blob.core.windows.net` |
+| **Azure Monitor (AMPLS)**  | azuremonitor | `privatelink.monitor.azure.com`<br>`privatelink.oms.opinsights.azure.com`<br>`privatelink.ods.opinsights.azure.com`<br>`privatelink.agentsvc.azure-automation.net` | `monitor.azure.com`<br>`oms.opinsights.azure.com`<br>`ods.opinsights.azure.com`<br>`agentsvc.azure-automation.net` |
 
 ### Authentication & Authorization
 
@@ -642,6 +657,7 @@ modules-network-secured/
 ├── ai-project-identity.bicep                       # Foundry project deployment and connection configuration
 ├── ai-project-identity-unique.bicep                # Modified project module with unique connection names
 ├── ai-search-role-assignments.bicep                # AI Search RBAC configuration
+├── application-insights.bicep                      # Workspace-based Application Insights for agent tracing
 ├── azure-storage-account-role-assignment.bicep     # Storage Account RBAC configuration
 ├── blob-storage-container-role-assignments.bicep   # Blob Storage Container RBAC configuration
 ├── blob-storage-container-role-assignments-unique.bicep # Modified storage role assignment module
@@ -649,6 +665,7 @@ modules-network-secured/
 ├── cosmosdb-account-role-assignment.bicep          # CosmosDB Account RBAC configuration
 ├── existing-vnet.bicep                             # Bring your existing virtual network to template deployment
 ├── format-project-workspace-id.bicep               # Formatting the project workspace ID
+├── monitor-private-link-scope.bicep                # Azure Monitor Private Link Scope (AMPLS) for private telemetry ingestion
 ├── network-agent-vnet.bicep                        # Logic for routing virtual network set-up if existing virtual network is selected
 ├── private-endpoint-and-dns.bicep                  # Creating virtual networks and DNS zones.
 ├── standard-dependent-resources.bicep              # Deploying CosmosDB, Storage, and Search
