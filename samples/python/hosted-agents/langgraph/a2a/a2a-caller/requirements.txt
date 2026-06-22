@@ -1,0 +1,5 @@
+langchain-azure-ai[hosting]>=1.2.4
+langchain
+langchain-mcp-adapters
+httpx
+python-dotenv

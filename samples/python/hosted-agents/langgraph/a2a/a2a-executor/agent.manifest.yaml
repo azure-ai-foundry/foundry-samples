@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: math-expert
+displayName: "LangGraph A2A Executor — Math Expert (Responses)"
+description: >
+  A LangGraph math-expert agent hosted on Foundry over the Responses protocol
+  using langchain_azure_ai.agents.hosting. Incoming A2A is declared natively via
+  `agent_endpoint` + `agent_card`, so `azd deploy` turns it on at agent create
+  time and other Foundry agents can reach it through Foundry's A2A endpoint.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Responses Protocol
+    - LangGraph
+    - LangChain
+    - A2A
+    - Incoming A2A
+    - Python
+template:
+  name: math-expert
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 1.0.0
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT is injected by the platform (hosted) and
+    # translated by azd (local) — do NOT declare it here.
+    #
+    # Model deployment name — resolved from the resources section below.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+  # Incoming A2A: declared natively so `azd deploy` exposes this agent over A2A
+  # (in addition to Responses) and publishes the agent card at create time.
+  agent_endpoint:
+    protocols:
+      - responses
+      - a2a
+  agent_card:
+    description: A math expert that performs arithmetic operations and explains the steps
+    version: 1.0.0
+    skills:
+      - id: arithmetic-and-math-expert
+        name: Arithmetic and math expert
+        description: Performs arithmetic operations (addition, subtraction, multiplication, division, exponentiation) and returns concise numeric answers.
+        tags:
+          - math
+        examples:
+          - What is 15 multiplied by 23?
+resources:
+  - kind: model
+    id: gpt-4.1-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME

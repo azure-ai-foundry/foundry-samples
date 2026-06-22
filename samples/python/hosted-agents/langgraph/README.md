@@ -22,6 +22,12 @@ This directory contains samples that demonstrate how to use [LangGraph](https://
 | --- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | [Chat](invocations/01-langgraph-chat/)          | A minimal LangGraph agent with two local tools, demonstrating session state via `agent_session_id` (URL param / `x-agent-session-id` response header) backed by a LangGraph checkpointer. |
 
+### Agent-to-Agent (A2A)
+
+| Sample                  | Description                                                                                                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [A2A delegation](a2a/)  | Two LangGraph Responses agents — a `concierge` that **delegates** math questions over A2A to a `math-expert` that publishes an incoming A2A endpoint + agent card. Wired with a `RemoteA2A` connection and an `a2a_preview` Toolbox loaded over MCP. |
+
 ## Running the Agent Host Locally
 
 ### Using `azd`
