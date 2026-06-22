@@ -371,6 +371,18 @@ By bundling these BYO features (file storage, search, and thread storage), the s
   - Disabled local auth
   - Single region deployment
 
+**Azure Monitor (Application Insights & Log Analytics)**
+- Log Analytics Workspace: Microsoft.OperationalInsights/workspaces
+  - SKU: PerGB2018
+  - Retention: 30 days
+- Application Insights: Microsoft.Insights/components
+  - Kind: web
+  - Linked to Log Analytics workspace
+  - Public ingestion disabled (reached privately via AMPLS)
+- Azure Monitor Private Link Scope (AMPLS): Microsoft.Insights/privateLinkScopes
+  - Access mode: PrivateOnly ingestion, Open query
+  - Scoped resources: Application Insights + Log Analytics
+
 ### Network Security Design
 
 This implementation utilizes a BYO VNet (Bring Your Own Virtual Network) approach with subnet delegation. The pre-existing virtual network must include subnets for agent delegation and private endpoints.
@@ -382,6 +394,7 @@ Private endpoints ensure secure, internal-only connectivity. Private endpoints a
 - Azure AI Search
 - Azure Storage
 - Azure Cosmos DB
+- Azure Monitor Private Link Scope (AMPLS)
 
 **Private DNS Zones**
 
@@ -391,6 +404,7 @@ Private endpoints ensure secure, internal-only connectivity. Private endpoints a
 | **Azure AI Search**        | searchService| `privatelink.search.windows.net` | `search.windows.net` |
 | **Azure Cosmos DB**        | Sql          | `privatelink.documents.azure.com` | `documents.azure.com` |
 | **Azure Storage**          | blob         | `privatelink.blob.core.windows.net` | `blob.core.windows.net` |
+| **Azure Monitor (AMPLS)**  | azuremonitor | `privatelink.monitor.azure.com`<br>`privatelink.oms.opinsights.azure.com`<br>`privatelink.ods.opinsights.azure.com`<br>`privatelink.agentsvc.azure-automation.net` | `monitor.azure.com`<br>`oms.opinsights.azure.com`<br>`ods.opinsights.azure.com`<br>`agentsvc.azure-automation.net` |
 
 ---
 
@@ -440,6 +454,7 @@ code/
 ├── data.tf                                         # Creates data objects for active subscription being deployed to and deployment security context
 ├── locals.tf                                       # Creates local variables for project GUID
 ├── main.tf                                         # Main deployment file        
+├── monitor.tf                                      # Azure Monitor (Application Insights + AMPLS) for agent tracing
 ├── outputs.tf                                      # Placeholder file for future outputs
 ├── providers.tf                                    # Terraform provider configuration 
 ├── example.tfvars                                  # Sample tfvars file

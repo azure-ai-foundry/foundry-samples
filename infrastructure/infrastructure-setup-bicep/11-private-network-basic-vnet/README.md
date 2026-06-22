@@ -339,6 +339,19 @@ az group delete --name <your-resource-group> --yes --no-wait
   - Format: From `modelFormat` parameter
   - Version: From `modelVersion` parameter
 
+Azure Monitor (Application Insights & Log Analytics)
+- Log Analytics Workspace: Microsoft.OperationalInsights/workspaces
+  - SKU: PerGB2018
+  - Retention: 30 days
+- Application Insights: Microsoft.Insights/components
+  - Kind: web
+  - Linked to Log Analytics workspace
+  - Public ingestion disabled (reached privately via AMPLS)
+- Azure Monitor Private Link Scope (AMPLS): microsoft.insights/privateLinkScopes
+  - Access mode: PrivateOnly ingestion, Open query
+  - Scoped resources: Application Insights + Log Analytics
+  - Enables hosted agents to export telemetry via private network
+
 ### Network Security Design
 
 This implementation utilizes a BYO VNet (Bring Your Own Virtual Network) approach with subnet delegation. Within your virtual network, two subnets are created: one delegated for agent workloads and one for private endpoints.
@@ -360,6 +373,7 @@ A private endpoint ensures secure, internal-only connectivity to the AI Services
 | Private Link Resource Type | Sub Resource | Private DNS Zone Name | Public DNS Zone Forwarders |
 |----------------------------|--------------|------------------------|-----------------------------|
 | **Microsoft Foundry** | account | `privatelink.cognitiveservices.azure.com`<br>`privatelink.openai.azure.com`<br>`privatelink.services.ai.azure.com` | `cognitiveservices.azure.com`<br>`openai.azure.com`<br>`services.ai.azure.com` |
+| **Azure Monitor (AMPLS)** | azuremonitor | `privatelink.monitor.azure.com`<br>`privatelink.oms.opinsights.azure.com`<br>`privatelink.ods.opinsights.azure.com`<br>`privatelink.agentsvc.azure-automation.net` | `monitor.azure.com`<br>`oms.opinsights.azure.com`<br>`ods.opinsights.azure.com`<br>`agentsvc.azure-automation.net` |
 
 ### Authentication & Authorization
 
@@ -380,6 +394,8 @@ A private endpoint ensures secure, internal-only connectivity to the AI Services
 modules-network-secured/
 ├── ai-account-identity.bicep                   # AI Services account with network injection
 ├── add-project-capability-host.bicep            # Basic capability host (no BYO connections)
+├── application-insights.bicep                   # Workspace-based Application Insights for agent tracing
+├── monitor-private-link-scope.bicep             # Azure Monitor Private Link Scope (AMPLS) for private telemetry ingestion
 ├── network-agent-vnet.bicep                     # VNet router (new or existing)
 ├── vnet.bicep                                   # New VNet creation
 ├── existing-vnet.bicep                          # Existing VNet integration

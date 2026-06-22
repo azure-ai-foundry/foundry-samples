@@ -93,6 +93,9 @@ terraform apply -var-file=terraform.tfvars
 - Capability Host (basic agent)
 - Model Deployment (GPT-4o)
 - Azure Container Registry with Private Endpoint (optional)
+- Application Insights and Log Analytics Workspace (agent tracing)
+- Azure Monitor Private Link Scope (AMPLS) with Private Endpoint
+- Private DNS Zones for Azure Monitor (monitor, oms, ods, agentsvc)
 
 ## Documentation
 
