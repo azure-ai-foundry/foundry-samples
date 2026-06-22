@@ -159,6 +159,12 @@ See [`langgraph/README.md`](langgraph/) for the full list and the local-run guid
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **[Chat](langgraph/invocations/01-langgraph-chat/)**  | Minimal LangGraph agent with local tools; session state via `agent_session_id` (URL param / `x-agent-session-id` header) backed by a LangGraph checkpointer. |
 
+### Agent-to-Agent (A2A)
+
+| Sample                              | What it shows                                                                                                                                |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[A2A Delegation](langgraph/a2a/)** | Two LangGraph Responses agents — a `concierge` that delegates math questions over A2A to a `math-expert` that publishes an incoming A2A endpoint + agent card, wired through a `RemoteA2A` connection and an `a2a_preview` Toolbox loaded over MCP. |
+
 ---
 
 ## Bring Your Own Framework samples
