@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+kind: hosted
+name: math-expert
+protocols:
+  - protocol: responses
+    version: 1.0.0
+resources:
+  cpu: "0.5"
+  memory: 1Gi
+environment_variables:
+  - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+    value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+# Incoming A2A: expose this agent over A2A (in addition to Responses) and
+# publish an agent card for client discovery. `azd deploy` sets both at agent
+# create time — no out-of-band PATCH required (azd ext >= 0.1.30).
+agent_endpoint:
+  protocols:
+    - responses
+    - a2a
+agent_card:
+  description: A math expert that performs arithmetic operations and explains the steps
+  version: 1.0.0
+  skills:
+    - id: arithmetic-and-math-expert
+      name: Arithmetic and math expert
+      description: Performs arithmetic operations (addition, subtraction, multiplication, division, exponentiation) and returns concise numeric answers.
+      tags:
+        - math
+      examples:
+        - What is 15 multiplied by 23?
