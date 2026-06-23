@@ -6,3 +6,4 @@ __pycache__
 .Python
 .env
 provision_memory_store.py
+hooks/
