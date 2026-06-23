@@ -1,0 +1,16 @@
+# Install the narrow Foundry subpackages directly required by this sample
+# (Agent, MCPStreamableHTTPTool, FoundryChatClient, ResponsesHostServer) instead
+# of the bare ``agent-framework`` meta-package. The meta-package pulls in
+# ``agent-framework-orchestrations``, whose latest release requires
+# ``agent-framework-core>=1.9.0`` while ``agent-framework`` pins
+# ``agent-framework-core==1.2.2`` — an unsatisfiable combination that fails the
+# remote build with ``ResolutionImpossible``. The narrow ``agent-framework-foundry``
+# subpackage still provides ``agent_framework`` and ``agent_framework.foundry``.
+agent-framework-foundry
+agent-framework-foundry-hosting
+# mcp backs MCPStreamableHTTPTool's runtime client and is imported by
+# agent-framework-foundry-hosting (``from mcp import McpError``); it is needed at
+# runtime but not declared as a required dependency of agent-framework-core. Pin
+# below 2.0: the 2.0 line renamed ``McpError`` to ``MCPError`` and breaks startup.
+mcp>=1.24.0,<2
+httpx

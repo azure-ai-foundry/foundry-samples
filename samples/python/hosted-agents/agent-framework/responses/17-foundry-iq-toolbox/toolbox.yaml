@@ -1,0 +1,30 @@
+# toolbox.yaml
+# Defines the toolbox this agent consumes. It exposes the Foundry IQ knowledge
+# base's MCP endpoint as a single tool (knowledge_base_retrieve), reached through
+# the `knowledge-base-mcp` connection.
+#
+# Create the connection (once) from the KB MCP endpoint printed by provision_kb.py:
+#   azd ai connection create knowledge-base-mcp --kind remote-tool \
+#     --target "<kb-mcp-endpoint>" --auth-type agentic-identity \
+#     --audience https://search.azure.com --metadata "ApiType=Azure"
+#
+# Then create the toolbox from this file:
+#   azd ai toolbox create knowledge-base --from-file ./toolbox.yaml
+#
+# `server_url` is the knowledge base's MCP endpoint and `project_connection_id`
+# supplies the keyless Agentic Identity auth for it. The postprovision hook
+# substitutes ${KB_MCP_ENDPOINT} (set by provision_kb.py) before creating the
+# toolbox; when running by hand, replace it with the endpoint provision_kb.py
+# printed.
+#
+# Copy the versioned MCP endpoint the create command prints and set it as the
+# TOOLBOX_ENDPOINT environment variable. The agent connects to that endpoint
+# at runtime using its managed identity (Agentic Identity).
+description: Foundry IQ knowledge base behind one endpoint
+tools:
+  - type: mcp
+    name: knowledge_base
+    server_label: knowledge_base
+    server_url: ${KB_MCP_ENDPOINT}
+    project_connection_id: knowledge-base-mcp
+    require_approval: never
