@@ -36,7 +36,7 @@ Depending on session state, the agent emits:
 
 Before running this sample, ensure you have:
 
-1. **Azure Developer CLI (`azd`)** (recommended)
+1. **Azure Developer CLI (`azd`)**
 	 - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) and the AI agent extension: `azd ext install azure.ai.agents`
 	 - Authenticated: `azd auth login`
 2. **Python 3.10 or later**
@@ -76,7 +76,7 @@ curl -sS -N -X POST "http://localhost:8088/invocations" \
 
 Use the same `agent_session_id` across turns to keep conversation and booking state.
 
-## Using `azd` (recommended)
+## Using `azd`
 
 No cloning required. Create a new folder, initialize from the manifest, then provision and run:
 
