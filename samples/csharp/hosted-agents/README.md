@@ -222,7 +222,8 @@ azd up
 azd down
 ```
 
-### Using the Foundry Toolkit VS Code Extension
+<details>
+<summary><h3>Using the Foundry Toolkit VS Code Extension</h3></summary>
 
 The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open any sample directly from the extension without cloning this repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
 
@@ -237,6 +238,8 @@ Or, if you've already cloned this repository:
    - On the **Review + Deploy** tab, confirm the auto-detected runtime details (language, entry point, or Dockerfile), pick a **CPU and Memory** size, and click **Deploy**.
 
    The extension builds the container image in ACR (or uploads the ZIP), creates the agent version, and assigns required RBAC roles automatically.
+
+</details>
 
 ### Other ways to invoke your agent
 

@@ -39,7 +39,7 @@ curl -sS -N -X POST http://localhost:8088/responses \
     -d '{"input": "I need a refund for order 12345", "stream": true}'
 ```
 
-## Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd) (recommended for CLI workflows)
+## Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
 
 No cloning required. Create a new folder, point azd at the manifest on GitHub, and it sets up the sample and generates Bicep infrastructure, agent.yaml, and env config automatically:
 

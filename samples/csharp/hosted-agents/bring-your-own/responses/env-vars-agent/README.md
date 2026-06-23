@@ -56,7 +56,7 @@ Built with [Azure.AI.AgentServer.Responses](https://www.nuget.org/packages/Azure
 - Foundry project with a deployed model (e.g., `gpt-4.1-mini`)
 - (For deployment) the project's hosted-agent feature enabled, plus the two connections referenced above (`dummy-api-key` ApiKey, `dummy-custom-keys` CustomKeys)
 
-### Using `azd` (Recommended)
+### Using `azd`
 
 ```bash
 azd ai agent run
@@ -64,7 +64,7 @@ azd ai agent run
 
 The agent starts on `http://localhost:8088/`.
 
-### Without `azd`
+### Manual setup
 
 ```bash
 dotnet build

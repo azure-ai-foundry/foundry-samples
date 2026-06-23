@@ -14,7 +14,7 @@ See [Program.cs](Program.cs) and [EchoAIAgent.cs](EchoAIAgent.cs) for the full i
 
 Before running this sample, ensure you have:
 
-1. **Azure Developer CLI (`azd`)** (recommended)
+1. **Azure Developer CLI (`azd`)**
    - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.25 or later) and the unified Foundry CLI extension: `azd ext install microsoft.foundry`
    - Authenticated: `azd auth login`
 
@@ -52,19 +52,22 @@ dotnet restore
 
 ### Running the Sample
 
-The recommended way to run and test hosted agents locally is with the Azure Developer CLI (`azd`) or the Foundry Toolkit VS Code extension.
+Run and test hosted agents locally with the Azure Developer CLI (`azd`) or the Foundry Toolkit VS Code extension.
 
-#### Using the Foundry Toolkit VS Code Extension
+<details>
+<summary><h4>Using the Foundry Toolkit VS Code Extension</h4></summary>
 
 The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open this sample directly from the extension without cloning the repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
 
 Chat with a running agent using the **Agent Inspector**:
 
-1. Start the agent locally first using **Using `azd`** or **Without `azd`** above. The agent listens on `http://localhost:8088/`.
+1. Start the agent locally first using **Using `azd`** or **Manual setup** above. The agent listens on `http://localhost:8088/`.
 2. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
 3. The Inspector auto-connects to the running agent. Send messages to chat with the agent and watch the streamed responses.
 
-#### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd) (recommended for CLI workflows)
+</details>
+
+#### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
 
 No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and generates Bicep infrastructure, `agent.yaml`, and env config automatically:
 
@@ -88,7 +91,7 @@ azd ai agent run
 > `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/invocations-echo-agent/agent.manifest.yaml`
 
 > [!NOTE]
-> If you already have a Foundry project, add `-p <project-id>` to `azd ai agent init` to target existing resources. You can also skip provisioning entirely and configure env vars manually — see [Without `azd`](#without-azd).
+> If you already have a Foundry project, add `-p <project-id>` to `azd ai agent init` to target existing resources. You can also skip provisioning entirely and configure env vars manually — see [Manual setup](#manual-setup).
 
 The agent starts on `http://localhost:8088/`. To invoke it:
 
@@ -132,7 +135,7 @@ curl -X POST "http://localhost:8088/invocations?agent_session_id=9370b9d4-cd13-4
   -d '{"message": "How are you?"}'
 ```
 
-#### Without `azd`
+#### Manual setup
 
 If running without `azd`, set environment variables manually if needed (see [Environment Variables](#environment-variables)), then:
 
@@ -191,7 +194,7 @@ For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.
 
 ### Images built on Apple Silicon or other ARM64 machines do not work on our service
 
-We **recommend deploying with `azd deploy`**, which uses ACR remote build and always produces images with the correct architecture.
+**Deploy with `azd deploy`**, which uses ACR remote build and always produces images with the correct architecture.
 
 If you choose to **build locally**, and your machine is **not `linux/amd64`** (for example, an Apple Silicon Mac), the image will **not be compatible with our service**, causing runtime failures.
 

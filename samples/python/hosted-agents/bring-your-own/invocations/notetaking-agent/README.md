@@ -25,23 +25,26 @@ A note-taking agent built with `azure-ai-agentserver-invocations` and Azure Open
 
 ## Run Locally
 
-### Using `azd` (Recommended)
+### Using `azd`
 
 ```bash
 azd ai agent run
 ```
 
-### Using the Foundry Toolkit VS Code Extension
+<details>
+<summary><h3>Using the Foundry Toolkit VS Code Extension</h3></summary>
 
 The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open this sample directly from the extension without cloning the repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
 
 Chat with a running agent using the **Agent Inspector**:
 
-1. Start the agent locally first using **Using `azd`** or **Without `azd`** above. The agent listens on `http://localhost:8088/`.
+1. Start the agent locally first using **Using `azd`** or **Manual setup** above. The agent listens on `http://localhost:8088/`.
 2. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
 3. The Inspector auto-connects to the running agent. Send messages to chat with the agent and watch the streamed responses.
 
-### Without `azd`
+</details>
+
+### Manual setup
 
 ```bash
 # Install dependencies

@@ -16,7 +16,7 @@ The agent receives a request via `POST /responses` with `"background": true`. Th
 - Azure CLI installed and authenticated (`az login`)
 - Foundry project with a deployed model
 
-### Using `azd` (Recommended)
+### Using `azd`
 
 ```bash
 azd ai agent run
@@ -24,17 +24,20 @@ azd ai agent run
 
 The agent starts on `http://localhost:8088/`.
 
-### Using the Foundry Toolkit VS Code Extension
+<details>
+<summary><h3>Using the Foundry Toolkit VS Code Extension</h3></summary>
 
 The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open this sample directly from the extension without cloning the repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
 
 Chat with a running agent using the **Agent Inspector**:
 
-1. Start the agent locally first using **Using `azd`** or **Without `azd`** above. The agent listens on `http://localhost:8088/`.
+1. Start the agent locally first using **Using `azd`** or **Manual setup** above. The agent listens on `http://localhost:8088/`.
 2. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
 3. The Inspector auto-connects to the running agent. Send messages to chat with the agent and watch the streamed responses.
 
-### Without `azd`
+</details>
+
+### Manual setup
 
 ```bash
 pip install -r requirements.txt
@@ -128,7 +131,7 @@ For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.
 
 ### Images built on Apple Silicon or other ARM64 machines do not work on our service
 
-We **recommend deploying with `azd deploy`**, which uses ACR remote build and always produces images with the correct architecture.
+**Deploy with `azd deploy`**, which uses ACR remote build and always produces images with the correct architecture.
 
 If you choose to **build locally**, and your machine is **not `linux/amd64`** (for example, an Apple Silicon Mac), the image will **not be compatible with our service**, causing runtime failures.
 
