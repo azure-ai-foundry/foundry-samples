@@ -33,47 +33,19 @@ The agent is hosted using the [Agent Framework](https://github.com/microsoft/age
 
 ### Required RBAC
 
-Your identity (or the Managed Identity running the container in production) needs **Azure AI User** on the Foundry project scope. This single role covers both provisioning the memory store with `provision_memory_store.py` and reading/writing memories from `main.py`.
+Your identity (or the Managed Identity running the container in production) needs **Azure AI User** on the Foundry project scope. This role covers provisioning the memory store with `provision_memory_store.py` and reading/writing memories from `main.py`.
 
-## Provisioning the memory store (one time)
+The memory store embeds and retrieves memories through the project's inference endpoint, so the same identity also needs **Cognitive Services OpenAI User** on the Foundry project scope to call the embedding deployment. Without it, memory writes fail with a `401` (`Authentication to the Azure OpenAI resource failed`) and the store stays empty. When deploying, grant both roles to the hosted agent's runtime identity (the `…-AgentIdentity` service principal) at the project scope.
 
-[`provision_memory_store.py`](provision_memory_store.py) creates a Foundry Memory Store with the user-profile capability enabled (and chat-summary disabled) using `AIProjectClient.beta.memory_stores.create`. It is safe to re-run: if a store with the same name already exists, the script leaves it alone.
-
-From this directory, with the venv activated and `az login` done:
-
-```bash
-export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
-export AZURE_AI_EMBEDDING_MODEL_DEPLOYMENT_NAME="text-embedding-3-small"
-export MEMORY_STORE_NAME="agent_framework_memory"
-python provision_memory_store.py
-```
-
-Or in PowerShell:
-
-```powershell
-$env:FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-$env:AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
-$env:AZURE_AI_EMBEDDING_MODEL_DEPLOYMENT_NAME="text-embedding-3-small"
-$env:MEMORY_STORE_NAME="agent_framework_memory"
-python provision_memory_store.py
-```
-
-Expected output (first run):
-
-```text
-Creating memory store 'agent_framework_memory'...
-Created memory store 'agent_framework_memory' (id=memstore_...).
-```
-
-> To delete the store manually, call `project.beta.memory_stores.delete("<name>")` on an `AIProjectClient` constructed with `allow_preview=True`.
 
 ## Option 1: Azure Developer CLI (`azd`)
 
-### Prerequisites
+With the bundled `postprovision` hook, a single `azd provision` creates the Foundry Memory Store and sets `MEMORY_STORE_NAME` for you.
 
-1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
-2. Install the AI agent extension:
+### 1. Install prerequisites
+
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.25 or later)
+2. Install the unified Foundry CLI extension bundle:
    ```bash
    azd ext install microsoft.foundry
    ```
@@ -82,7 +54,7 @@ Created memory store 'agent_framework_memory' (id=memstore_...).
    azd auth login
    ```
 
-### Initialize the agent project
+### 2. Initialize the agent project
 
 No cloning required. Create a new folder and initialize from the manifest:
 
@@ -92,17 +64,42 @@ mkdir my-memory-agent && cd my-memory-agent
 azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/13-foundry-memory/agent.manifest.yaml
 ```
 
-Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one. Initializing also sets the selected project as the active project, and copies this sample's files into a new service directory `src/<agent-name>/` — including [`provision_memory_store.py`](provision_memory_store.py) and the [`hooks/`](hooks/) scripts.
 
-### Provision Azure resources (if needed)
+### 3. Enable one-command provisioning (`postprovision` hook)
 
-If you don't already have a Foundry project and model deployment:
+Wire the bundled hook into the `azure.yaml` that `azd ai agent init` generated, so the memory store is created automatically every time you run `azd provision`. `postprovision` must be registered at the **top level** of `azure.yaml` (service-scoped hooks only support the package/deploy lifecycle), and the `run:` path must point at the hook inside the generated service directory. Add this top-level block, replacing `<agent-name>` with the service folder `azd ai agent init` created under `src/`:
+
+```yaml
+hooks:
+  postprovision:
+    posix:
+      shell: sh
+      run: ./src/<agent-name>/hooks/postprovision.sh
+    windows:
+      shell: pwsh
+      run: ./src/<agent-name>/hooks/postprovision.ps1
+```
+
+The hook ([`hooks/postprovision.sh`](hooks/postprovision.sh) / [`hooks/postprovision.ps1`](hooks/postprovision.ps1)) runs everything the [manual steps](#provision-manually-without-the-hook) below would, in one shot. It locates its own directory, so it works no matter where `azd` runs it from.
+
+### 4. Provision
+
+Point the hook at an embedding model deployment in your Foundry project (it powers the store's semantic memory, not the agent at runtime), then provision:
 
 ```bash
+azd env set AZURE_AI_EMBEDDING_MODEL_DEPLOYMENT_NAME "text-embedding-3-small"
 azd provision
 ```
 
-### Run the agent locally
+`azd provision` creates (or reuses) your Foundry project and chat model deployment, then the `postprovision` hook:
+
+1. Runs [`provision_memory_store.py`](provision_memory_store.py) to create the Foundry Memory Store (user-profile capability enabled, chat-summary disabled) and verifies it on the service.
+2. Sets `MEMORY_STORE_NAME` so the agent reads and writes that store. It persists the name both to the `azd` environment (for `azd ai agent run`) and into the generated `src/<agent-name>/agent.yaml` (so `azd deploy` ships it to the container — `azd ai agent init` resolves `${MEMORY_STORE_NAME}` to an empty value at init time, before the store name is known).
+
+> The hook defaults `MEMORY_STORE_NAME` to `agent_framework_memory`. To use a different name, set it first: `azd env set MEMORY_STORE_NAME "<your-store-name>"`.
+
+### 5. Run the agent locally
 
 ```bash
 azd ai agent run
@@ -115,18 +112,10 @@ The agent host will start on `http://localhost:8088`.
 In a separate terminal, from the project directory:
 
 ```bash
-azd ai agent invoke --local "Hi"
+azd ai agent invoke --local "Hi, my name is Alex and I'm vegetarian."
 ```
 
 ### Deploy to Foundry
-
-Once tested locally, deploy to Microsoft Foundry:
-
-Make sure `MEMORY_STORE_NAME` is set in your `azd` environment:
-
-```bash
-azd env set MEMORY_STORE_NAME "agent_framework_memory"
-```
 
 ```bash
 azd deploy
@@ -134,15 +123,48 @@ azd deploy
 
 For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
 
-The deployed agent's Managed Identity needs **Azure AI User** on the Foundry project to read and write memories at runtime. Make sure you have run `provision_memory_store.py` against the same Foundry project before deploying.
+The deployed agent's Managed Identity needs **Azure AI User** on the Foundry project to read and write memories at runtime. The `postprovision` hook already created the memory store against that same project.
 
 ### Invoke the deployed agent
 
 ```bash
-azd ai agent invoke "Hi"
+azd ai agent invoke "Do you remember my name and what I like to eat?"
 ```
 
+### Provision manually (without the hook)
+
+Prefer to run the step yourself (or skip the hook)? [`provision_memory_store.py`](provision_memory_store.py) creates a Foundry Memory Store with the user-profile capability enabled (and chat-summary disabled) using `AIProjectClient.beta.memory_stores.create`. It is safe to re-run: if a store with the same name already exists, the script leaves it alone.
+
+From the project directory, with the venv activated and `az login` done:
+
+```bash
+pip install azure-ai-projects azure-identity aiohttp python-dotenv
+
+export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
+export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+export AZURE_AI_EMBEDDING_MODEL_DEPLOYMENT_NAME="text-embedding-3-small"
+export MEMORY_STORE_NAME="agent_framework_memory"
+python provision_memory_store.py
+```
+
+In PowerShell, use `$env:NAME="value"` instead of `export`. Then point the agent at the same store name:
+
+```bash
+azd env set MEMORY_STORE_NAME "agent_framework_memory"
+```
+
+Expected output (first run):
+
+```text
+Creating memory store 'agent_framework_memory'...
+Created memory store 'agent_framework_memory' (id=memstore_...).
+```
+
+> To delete the store manually, call `project.beta.memory_stores.delete("<name>")` on an `AIProjectClient` constructed with `allow_preview=True`.
+
 ## Option 2: VS Code (Foundry Toolkit)
+
+> The VS Code flow doesn't run the `azd` hook — provision the memory store first with [Provision manually](#provision-manually-without-the-hook).
 
 ### Prerequisites
 
