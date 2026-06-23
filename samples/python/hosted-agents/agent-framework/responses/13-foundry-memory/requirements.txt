@@ -1,5 +1,9 @@
 # Use the narrow Foundry subpackages to keep dependencies light.
 agent-framework-foundry
 agent-framework-foundry-hosting
-mcp<2,>=1.24.0
+# mcp is a transitive dependency of agent-framework-core[all] that is needed
+# at runtime but not declared as a required dependency of agent-framework-core.
+# Pin below 2.0: agent-framework-foundry-hosting imports ``McpError`` from mcp,
+# which the 2.0 line renamed to ``MCPError`` — installing mcp 2.x breaks startup.
+mcp>=1.24.0,<2
 azure-ai-projects
