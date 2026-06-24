@@ -171,7 +171,8 @@ public static class Middlewares
             _logger.LogDebug("[streaming-middleware] Appending live_view_url");
             yield return new AgentResponseUpdate(
                 ChatRole.Assistant,
-                [new TextContent($"\n\n🔴 [Browser Live View]({liveViewUrl})")]);
+                [new TextContent($"\n\n🔴 [Browser Live View]({liveViewUrl})")])
+            { FinishReason = ChatFinishReason.Stop };
         }
     }
 }

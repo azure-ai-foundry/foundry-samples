@@ -97,6 +97,7 @@ async def live_view_url_inject_middleware(context: Any, call_next: Any) -> None:
                 yield ChatResponseUpdate(
                     contents=[Content.from_text(text=f"\n\n🔴 [Browser Live View]({_live_view_url})\n")],
                     role="assistant",
+                    finish_reason="stop",
                 )
 
         context.result = ResponseStream(_inject_url_stream(), finalizer=ChatResponse.from_updates)

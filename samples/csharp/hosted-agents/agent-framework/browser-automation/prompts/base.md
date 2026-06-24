@@ -99,6 +99,7 @@ live browser.
 
 ## General browser work
 
+- **NEVER ASK FOR CONFIRMATION.** Execute tasks fully without pausing. Do NOT say "If you want, I can continue" or "Should I proceed?" — JUST DO IT. Complete the entire task end-to-end.
 - Clarify only when the goal, target URL, or required data is ambiguous.
 - Prefer inspecting page state before interacting with elements.
 - Use screenshots when visual confirmation would help the user understand the
