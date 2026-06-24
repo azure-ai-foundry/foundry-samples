@@ -62,6 +62,7 @@ _toolbox = ToolboxClient(TOOLBOX_ENDPOINT, _token_provider)
 
 _sessions: dict[str, dict] = {}  # name -> {"browser": BrowserSession, "live_view_url": str}
 _last_session: str | None = None
+_used_sessions: set[str] = set()  # sessions touched in current request
 
 
 async def _create_session(name: str) -> dict:
@@ -152,6 +153,7 @@ async def _handle_tool_call(call) -> str:
             command = args.get("command", "")
             cmd_args = args.get("args") or []
             _last_session = sess_name
+            _used_sessions.add(sess_name)
             result = await browser.run(command, cmd_args)
 
         elif name == "run_parallel":
@@ -169,6 +171,7 @@ async def _handle_tool_call(call) -> str:
                 sess = task.get("session") or _last_session or "default"
                 if sess not in _sessions:
                     return {"session": sess, "error": f"Session '{sess}' not found"}
+                _used_sessions.add(sess)
                 browser = _sessions[sess]["browser"]
                 r = await browser.run(task.get("command", ""), task.get("args") or [])
                 return {"session": sess, "command": task.get("command", ""), **r}
@@ -242,7 +245,7 @@ async def _run_agent_loop_streaming(input_items: list[dict]):
 
             result_text = await _handle_tool_call(tc)
 
-            # Detect lazy session creation (e.g. run_browser auto-creates default)
+            # Detect new sessions (covers both explicit create_session and lazy creation via run_browser/run_parallel)
             new_sessions = set(_sessions.keys()) - sessions_before
             for new_sess in new_sessions:
                 url = _sessions[new_sess].get("live_view_url", "")
@@ -272,19 +275,7 @@ async def _run_agent_loop_streaming(input_items: list[dict]):
 
 def _format_tool_log(name: str, args: dict, result_text: str) -> tuple[str, str] | None:
     """Format a verbose log entry for a tool call. Returns (kind, text) or None."""
-    if name == "create_session":
-        sess_name = args.get("name", "?")
-        try:
-            result = json.loads(result_text)
-            url = result.get("live_view_url") or ""
-            if url:
-                return ("session", f"🌐 Created **{sess_name}** → [Live View]({url})\n")
-            else:
-                return ("session", f"🌐 Created **{sess_name}** (session ready, live view pending)\n")
-        except (json.JSONDecodeError, TypeError):
-            pass
-        return ("session", f"🌐 Created **{sess_name}**\n")
-    elif name == "end_session":
+    if name == "end_session":
         sess_name = args.get("name", "?")
         try:
             result = json.loads(result_text)
@@ -392,6 +383,7 @@ async def handler(
         history = []
 
     input_items = _build_input(user_input, history)
+    _used_sessions.clear()
     logger.info("Processing request %s (sessions: %s)", context.response_id, list(_sessions.keys()))
 
     message_item = stream.add_output_item_message()
@@ -431,11 +423,26 @@ async def handler(
         logger.exception("Agent loop failed: %s", exc)
         final_reply = f"Agent error: {exc}"
 
-    # Emit final reply (no session header — live view already shown in verbose logs)
+    # Emit final reply
     if verbose_text:
         yield text_content.emit_delta("\n---\n\n")
 
     yield text_content.emit_delta(final_reply)
+
+    # Append active session live view links at the end for easy access
+    if _sessions:
+        links = []
+        for name, s in _sessions.items():
+            url = s.get("live_view_url", "")
+            if url:
+                links.append(f"- **{name}**: [Live View]({url})")
+            else:
+                links.append(f"- **{name}**: (no live view)")
+        footer = "\n\n---\n**Active Sessions:**\n" + "\n".join(links)
+        if _used_sessions:
+            footer += f"\n\n_Used Sessions in this response: {', '.join(_used_sessions)}_"
+        yield text_content.emit_delta(footer + "\n")
+
     yield text_content.emit_text_done()
     yield text_content.emit_done()
     yield message_item.emit_done()
