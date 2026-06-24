@@ -3,3 +3,6 @@ azure-ai-projects
 langchain
 langchain-openai
 python-dotenv
+
+# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
+debugpy

@@ -4,3 +4,6 @@ langchain
 langchain-openai
 langgraph
 python-dotenv
+
+# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
+debugpy

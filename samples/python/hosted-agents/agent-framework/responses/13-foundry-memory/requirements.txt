@@ -7,3 +7,6 @@ agent-framework-foundry-hosting
 # which the 2.0 line renamed to ``MCPError`` — installing mcp 2.x breaks startup.
 mcp>=1.24.0,<2
 azure-ai-projects
+
+# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
+debugpy

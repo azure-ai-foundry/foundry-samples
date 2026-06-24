@@ -10,3 +10,6 @@ httpx
 # libs (libxcb1, libGL, ...) that aren't present in python:slim. Pin the
 # headless wheel here so pip won't install the GUI variant.
 opencv-python-headless
+
+# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
+debugpy
