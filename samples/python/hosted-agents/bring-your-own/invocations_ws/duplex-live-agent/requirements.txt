@@ -9,3 +9,6 @@ agent-framework-foundry
 agent-framework-orchestrations
 
 github-copilot-sdk>=0.2.0
+
+# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
+debugpy

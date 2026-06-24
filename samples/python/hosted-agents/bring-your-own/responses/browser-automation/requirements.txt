@@ -3,3 +3,6 @@ azure-ai-projects>=2.0.0
 azure-identity>=1.25.0
 httpx
 python-dotenv==1.1.1
+
+# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
+debugpy
