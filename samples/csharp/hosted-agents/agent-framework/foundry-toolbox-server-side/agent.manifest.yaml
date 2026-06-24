@@ -2,9 +2,9 @@
 name: foundry-toolbox-server-side-dotnet-agent-framework
 displayName: "Foundry Toolbox — Server-Side Tools (.NET, Agent Framework)"
 description: >
-  Agent Framework agent that loads a Foundry Toolbox and passes its tools to the
-  agent as server-side tools. The Foundry platform executes tool calls through the
-  Responses API — the agent does not connect to the toolbox MCP proxy locally.
+  Agent Framework agent that consumes a Foundry Toolbox as server-side tools. The
+  hosting layer connects to the toolbox's managed MCP proxy at startup and injects its
+  tools into every request, and the Foundry platform executes the tool calls.
 metadata:
   tags:
     - AI Agent Hosting

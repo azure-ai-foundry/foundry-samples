@@ -1,8 +1,8 @@
 # Foundry Toolbox — Server-Side Tools
 
-An agent that loads a Foundry Toolbox and passes its tools to the agent as **server-side tools**. The Foundry platform handles tool discovery and invocation through the Responses API — the agent process does not connect to the toolbox MCP proxy or invoke tools locally.
+An agent that consumes a Foundry Toolbox as **server-side tools**. The Agent Framework hosting layer connects to the toolbox's managed MCP proxy at startup, discovers its tools, and injects them into every request. Tool calls are brokered by the Foundry platform's toolbox proxy, so the agent never hard-codes or locally executes the tools.
 
-`GetToolboxToolsAsync()` fetches the tool definitions from the configured toolbox and they are then passed to `AsAIAgent(..., tools: ...)`. At runtime the Foundry platform invokes those tools server-side on the agent's behalf, so the agent container only needs the control-plane call to fetch the definitions — it does not broker MCP connections.
+`AddFoundryToolboxes(toolboxName)` registers the toolbox with the hosting layer. At startup the hosting layer connects to the toolbox's managed MCP proxy (derived from `FOUNDRY_PROJECT_ENDPOINT`), lists its tools, and caches them. Every incoming request then has those tools injected automatically, and the Foundry platform executes the tool calls through the proxy. The agent itself declares no toolbox tools.
 
 ## Creating a Foundry Toolbox
 
