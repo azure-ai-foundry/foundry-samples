@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+
+kind: hosted
+name: browser-automation-csharp-byo
+description: |
+    A Foundry-hosted browser automation agent (C#, BYO Responses) for general browsing, web scraping, and form filling.
+metadata:
+    tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Bring Your Own
+        - Browser Automation
+        - .NET
+protocols:
+    - protocol: responses
+      version: 1.0.0
+resources:
+    cpu: "0.25"
+    memory: 0.5Gi
+environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    - name: TOOLBOX_NAME
+      value: ${TOOLBOX_NAME}
