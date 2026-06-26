@@ -171,8 +171,22 @@ def get_target_foundry_endpoint(production_resource: Optional[str] = None, produ
     return None
 
 
-# Production token handling removed - now handled by PowerShell wrapper
-# which provides PRODUCTION_TOKEN environment variable
+def _source_endpoint_as_dedupe_target(project_endpoint: Optional[str]) -> Optional[str]:
+    """
+    For an in-place upgrade (source project == target project), return the
+    source *project_endpoint* normalized for use as the dedupe target, but only
+    when it is a Foundry endpoint (``*.services.ai.azure.com``).
+
+    Returns *None* for non-Foundry sources (Cosmos DB, the legacy v1 API, or an
+    OpenAI-compatible endpoint), where no target can be inferred from the
+    source and an explicit ``--production-*`` target is required.
+    """
+    if not project_endpoint:
+        return None
+    host = (urlparse(project_endpoint).hostname or "").lower()
+    if host.endswith(".services.ai.azure.com"):
+        return project_endpoint.rstrip('/')
+    return None
 
 # Production authentication is now handled by the PowerShell wrapper
 # which generates both AZ_TOKEN and PRODUCTION_TOKEN environment variables
@@ -1417,22 +1431,41 @@ def download_file_from_source(
     return result
 
 
+# Retry / polling configuration for file upload and vector-store ingestion.
+# Override via environment variables without code changes.
+FILE_UPLOAD_MAX_RETRIES = int(os.getenv("MIGRATION_FILE_UPLOAD_RETRIES", "3"))
+FILE_UPLOAD_BACKOFF_SECONDS = float(os.getenv("MIGRATION_FILE_UPLOAD_BACKOFF", "2"))
+VECTOR_STORE_FILE_POLL_ATTEMPTS = int(os.getenv("MIGRATION_VS_FILE_POLL_ATTEMPTS", "30"))
+VECTOR_STORE_FILE_POLL_INTERVAL = float(os.getenv("MIGRATION_VS_FILE_POLL_INTERVAL", "2"))
+
+# HTTP status codes that indicate a transient failure worth retrying.
+_RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
+
+
 def upload_file_to_target(
     target_endpoint: str,
     filename: str,
     content: bytes,
     purpose: str = "assistants",
     target_token: Optional[str] = None,
-) -> Optional[str]:
+    max_retries: int = FILE_UPLOAD_MAX_RETRIES,
+) -> tuple[Optional[str], Optional[str]]:
     """
-    Upload a file to the target endpoint.
+    Upload a file to the target endpoint, retrying transient failures with
+    exponential backoff.
 
-    Returns the new file ID on success, or *None* on failure.
+    Retries on network errors and transient HTTP status codes (408/429/5xx).
+    Does **not** retry client errors such as 400/415 (for example, an
+    unsupported file type), where a retry cannot succeed.
+
+    Returns a ``(file_id, None)`` tuple on success, or ``(None, reason)`` on
+    failure, where *reason* is a human-readable error string suitable for
+    surfacing to the user (terminal, failed_files list, JSON report).
     """
     token = target_token or PRODUCTION_TOKEN or TOKEN
     if not token:
         print(f"   ⚠️  No token available for file upload")
-        return None
+        return None, "no token available for file upload"
 
     base = target_endpoint.rstrip('/')
     headers = {"Authorization": f"Bearer {token}"}
@@ -1442,24 +1475,49 @@ def upload_file_to_target(
     # which is a different API surface.
     params = {"api-version": API_VERSION}
 
-    try:
-        resp = requests.post(
-            f"{base}/files",
-            headers=headers,
-            params=params,
-            data={"purpose": purpose},
-            files={"file": (filename, content)},
-            timeout=60,
-        )
-        resp.raise_for_status()
-        new_id = resp.json().get("id")
-        print(f"   📤 Uploaded {filename} -> {new_id}")
-        return new_id
-    except Exception as e:
-        print(f"   ❌ Failed to upload {filename}: {e}")
-        if hasattr(e, 'response') and e.response is not None:
-            print(f"      {e.response.text[:300]}")
-        return None
+    last_error = "unknown error"
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = requests.post(
+                f"{base}/files",
+                headers=headers,
+                params=params,
+                data={"purpose": purpose},
+                files={"file": (filename, content)},
+                timeout=60,
+            )
+        except requests.exceptions.RequestException as e:
+            # Network/timeout error (no HTTP response) — treat as transient.
+            last_error = f"network error: {e}"
+        else:
+            if resp.status_code < 400:
+                try:
+                    body = resp.json()
+                except ValueError:
+                    last_error = f"non-JSON success response: {resp.text[:200]}"
+                else:
+                    new_id = body.get("id") if isinstance(body, dict) else None
+                    if new_id:
+                        suffix = f" (attempt {attempt})" if attempt > 1 else ""
+                        print(f"   📤 Uploaded {filename} -> {new_id}{suffix}")
+                        return new_id, None
+                    last_error = f"success response missing file id: {resp.text[:200]}"
+            elif resp.status_code not in _RETRYABLE_STATUS:
+                # Client error (e.g. 400/415 unsupported type) — retrying won't help.
+                print(f"   ❌ Failed to upload {filename}: HTTP {resp.status_code}")
+                print(f"      {resp.text[:300]}")
+                return None, f"HTTP {resp.status_code}: {resp.text[:300]}"
+            else:
+                last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
+
+        if attempt < max_retries:
+            delay = FILE_UPLOAD_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            print(f"   🔁 Upload of {filename} failed (attempt {attempt}/{max_retries}); "
+                  f"retrying in {delay:.0f}s … [{last_error}]")
+            time.sleep(delay)
+
+    print(f"   ❌ Failed to upload {filename} after {max_retries} attempt(s): {last_error}")
+    return None, last_error
 
 
 def list_vector_store_files(
@@ -1494,17 +1552,138 @@ def list_vector_store_files(
         return []
 
 
+def _add_file_to_vector_store_and_poll(
+    base: str,
+    headers: Dict[str, str],
+    params: Dict[str, str],
+    vector_store_id: str,
+    file_id: str,
+    max_retries: int = FILE_UPLOAD_MAX_RETRIES,
+    poll_attempts: int = VECTOR_STORE_FILE_POLL_ATTEMPTS,
+    poll_interval: float = VECTOR_STORE_FILE_POLL_INTERVAL,
+) -> Optional[str]:
+    """
+    Attach a single *file_id* to *vector_store_id* and poll until ingestion
+    reaches a terminal state (``completed`` or ``failed``).
+
+    This mirrors the SDK ``vector_stores.files.upload_and_poll`` helper: each
+    file is ingested and polled individually, so a single file's failure is
+    isolated and retryable instead of being hidden behind an aggregate
+    vector-store status.
+
+    Returns *None* on success, or a human-readable failure reason on failure.
+    The whole add-and-poll is retried up to *max_retries* times.
+    """
+    last_reason = "unknown error"
+    for attempt in range(1, max_retries + 1):
+        # On a retry, clear any prior (failed) association so the re-add is clean.
+        if attempt > 1:
+            try:
+                requests.delete(
+                    f"{base}/vector_stores/{vector_store_id}/files/{file_id}",
+                    headers=headers, params=params, timeout=15,
+                )
+            except Exception:
+                pass
+
+        # 1. Attach the file to the vector store.
+        try:
+            add = requests.post(
+                f"{base}/vector_stores/{vector_store_id}/files",
+                headers=headers, params=params,
+                json={"file_id": file_id},
+                timeout=30,
+            )
+            add.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            resp_obj = getattr(e, "response", None)
+            status = getattr(resp_obj, "status_code", None)
+            text = resp_obj.text[:200] if resp_obj is not None else str(e)
+            last_reason = f"attach failed: HTTP {status} {text}"
+            if status is not None and status not in _RETRYABLE_STATUS:
+                # Permanent client error (e.g. 400/415 unsupported file type) —
+                # retrying will never succeed, so fail fast like the upload path.
+                print(f"   ❌ File {file_id} cannot be ingested (HTTP {status}); not retrying.")
+                return last_reason
+        except Exception as e:
+            resp_obj = getattr(e, "response", None)
+            if resp_obj is not None:
+                last_reason = f"attach failed: HTTP {resp_obj.status_code} {resp_obj.text[:200]}"
+            else:
+                last_reason = f"attach failed: {e}"
+        else:
+            # 2. Poll this file's ingestion status until terminal.
+            status = "in_progress"
+            for _ in range(poll_attempts):
+                time.sleep(poll_interval)
+                try:
+                    check = requests.get(
+                        f"{base}/vector_stores/{vector_store_id}/files/{file_id}",
+                        headers=headers, params=params, timeout=15,
+                    )
+                except Exception:
+                    continue
+                if check.status_code >= 400:
+                    if check.status_code in _RETRYABLE_STATUS:
+                        last_reason = f"poll transient error: HTTP {check.status_code} {check.text[:200]}"
+                        continue
+                    last_reason = f"poll failed: HTTP {check.status_code} {check.text[:200]}"
+                    return last_reason
+                body = check.json() if check.content else {}
+                status = body.get("status", "unknown") if isinstance(body, dict) else "unknown"
+                if status == "completed":
+                    suffix = f" (attempt {attempt})" if attempt > 1 else ""
+                    print(f"   ✅ Ingested file {file_id}{suffix}")
+                    return None
+                if status == "failed":
+                    err = body.get("last_error") or {}
+                    if isinstance(err, dict):
+                        # Surface both the error code and message so callers
+                        # get an actionable reason (e.g. "[invalid_file] ...").
+                        code = err.get("code")
+                        message = err.get("message") or "ingestion failed"
+                        last_reason = f"[{code}] {message}" if code else message
+                    else:
+                        last_reason = str(err) or "ingestion failed"
+                    break
+            else:
+                last_reason = f"ingestion did not complete (last status: {status})"
+
+        if attempt < max_retries:
+            delay = FILE_UPLOAD_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            print(f"   🔁 File {file_id} ingestion failed (attempt {attempt}/{max_retries}); "
+                  f"retrying in {delay:.0f}s … [{last_reason}]")
+            time.sleep(delay)
+
+    return last_reason
+
+
 def create_vector_store_on_target(
     target_endpoint: str,
     file_ids: List[str],
     name: str = "migrated-vector-store",
     target_token: Optional[str] = None,
-) -> Optional[str]:
+    max_file_retries: int = FILE_UPLOAD_MAX_RETRIES,
+) -> Optional[Dict[str, Any]]:
     """
-    Create a vector store on the target and attach *file_ids* to it.
+    Create a vector store on the target and ingest *file_ids* one at a time
+    using an add-and-poll pattern.
 
-    Polls until the vector store reaches ``completed`` status.
-    Returns the new vector-store ID, or *None* on failure.
+    Each file is added individually and polled until its ingestion finishes,
+    so per-file failures are visible and retried (up to *max_file_retries*).
+    Files that still fail are reported but do not abort the migration: the
+    vector store is created and attached with whatever files ingested
+    successfully.
+
+    Returns a dict::
+
+        {
+            "id":        vector_store_id,
+            "succeeded": [file_id, ...],
+            "failed":    [{"file_id": ..., "reason": ...}, ...],
+        }
+
+    or *None* if the vector store itself could not be created.
     """
     token = target_token or PRODUCTION_TOKEN or TOKEN
     if not token or not file_ids:
@@ -1517,41 +1696,49 @@ def create_vector_store_on_target(
     # (which targets a different OpenAI-compatible endpoint).
     params = {"api-version": API_VERSION}
 
+    # Create an empty vector store first, then ingest files one by one so that
+    # individual ingestion failures can be observed and retried. The bulk
+    # "file_ids" create only exposes an aggregate status and hides which files
+    # failed — the exact problem customers hit when some files showed as not
+    # succeeded in the UI.
     try:
         resp = requests.post(
             f"{base}/vector_stores",
             headers=headers, params=params,
-            json={"name": name, "file_ids": file_ids},
+            json={"name": name},
             timeout=30,
         )
         resp.raise_for_status()
         vs = resp.json()
         vs_id = vs.get("id")
-        print(f"   🗄️  Created vector store {vs_id} (status: {vs.get('status')})")
+        print(f"   🗄️  Created vector store {vs_id}")
     except Exception as e:
         print(f"   ❌ Failed to create vector store: {e}")
         if hasattr(e, 'response') and e.response is not None:
             print(f"      {e.response.text[:300]}")
         return None
 
-    # Poll until completed
-    import time as _time
-    for _ in range(20):
-        _time.sleep(2)
-        try:
-            check = requests.get(f"{base}/vector_stores/{vs_id}", headers=headers, params=params, timeout=15)
-            status = check.json().get("status", "unknown")
-            fc = check.json().get("file_counts", {})
-            if status == "completed":
-                print(f"   ✅ Vector store ready (completed={fc.get('completed', 0)})")
-                return vs_id
-            if status == "failed":
-                print(f"   ❌ Vector store indexing failed: {check.json()}")
-                return vs_id  # Return anyway — caller can decide
-        except Exception:
-            pass
-    print(f"   ⚠️  Vector store polling timed out (returning {vs_id})")
-    return vs_id
+    succeeded: List[str] = []
+    failed: List[Dict[str, str]] = []
+
+    for fid in file_ids:
+        reason = _add_file_to_vector_store_and_poll(
+            base, headers, params, vs_id, fid, max_retries=max_file_retries,
+        )
+        if reason is None:
+            succeeded.append(fid)
+        else:
+            failed.append({"file_id": fid, "reason": reason})
+
+    if failed:
+        print(f"   ⚠️  Vector store {vs_id}: {len(succeeded)} file(s) ingested, "
+              f"{len(failed)} failed:")
+        for f in failed:
+            print(f"        ❌ {f['file_id']}: {f['reason']}")
+    else:
+        print(f"   ✅ Vector store {vs_id} ready ({len(succeeded)} file(s) ingested)")
+
+    return {"id": vs_id, "succeeded": succeeded, "failed": failed}
 
 
 def migrate_assistant_files(
@@ -1569,15 +1756,19 @@ def migrate_assistant_files(
     Returns a **remapping dict**::
 
         {
-            "file_id_map":  {old_id: new_id, ...},
-            "vs_id_map":    {old_vs_id: new_vs_id, ...},
+            "file_id_map":   {old_id: new_id, ...},
+            "vs_id_map":     {old_vs_id: new_vs_id, ...},
+            "failed_files":  [{"scope": ..., "file_id": ..., "reason": ...}, ...],
         }
 
-    The caller should use these maps to rewrite IDs in the v2 tool
-    definitions before posting to the target API.
+    The caller should use the maps to rewrite IDs in the v2 tool
+    definitions before posting to the target API, and surface
+    ``failed_files`` so any file that did not migrate is flagged for
+    manual follow-up.
     """
     file_id_map: Dict[str, str] = {}
     vs_id_map: Dict[str, str] = {}
+    failed_files: List[Dict[str, str]] = []
 
     tool_resources = v1_assistant.get("tool_resources", {})
     if isinstance(tool_resources, str):
@@ -1598,13 +1789,17 @@ def migrate_assistant_files(
             if fid in file_id_map:
                 continue  # already migrated (shared with VS)
             downloaded = download_file_from_source(source_endpoint, fid, source_token)
-            if downloaded:
-                new_id = upload_file_to_target(
-                    target_endpoint, downloaded["filename"], downloaded["content"],
-                    purpose="assistants", target_token=target_token,
-                )
-                if new_id:
-                    file_id_map[fid] = new_id
+            if not downloaded:
+                failed_files.append({"scope": "code_interpreter", "file_id": fid, "reason": "download failed"})
+                continue
+            new_id, upload_err = upload_file_to_target(
+                target_endpoint, downloaded["filename"], downloaded["content"],
+                purpose="assistants", target_token=target_token,
+            )
+            if new_id:
+                file_id_map[fid] = new_id
+            else:
+                failed_files.append({"scope": "code_interpreter", "file_id": fid, "reason": upload_err or "upload failed after retries"})
 
     # ── 2. file_search vector stores ──────────────────────────────────
     vs_ids = tool_resources.get("file_search", {}).get("vector_store_ids", [])
@@ -1614,36 +1809,107 @@ def migrate_assistant_files(
             # List files in the source VS
             vs_file_ids = list_vector_store_files(source_endpoint, vs_id, source_token)
             new_vs_file_ids = []
+            # Map each target file ID back to its source file ID so ingestion
+            # failures can be reported against the original source file.
+            target_to_source: Dict[str, str] = {}
             for fid in vs_file_ids:
                 if fid in file_id_map:
                     new_vs_file_ids.append(file_id_map[fid])
+                    target_to_source[file_id_map[fid]] = fid
                     continue
                 downloaded = download_file_from_source(source_endpoint, fid, source_token)
-                if downloaded:
-                    new_id = upload_file_to_target(
-                        target_endpoint, downloaded["filename"], downloaded["content"],
-                        purpose="assistants", target_token=target_token,
-                    )
-                    if new_id:
-                        file_id_map[fid] = new_id
-                        new_vs_file_ids.append(new_id)
-
-            # Create new VS on target with the uploaded files
+                if not downloaded:
+                    failed_files.append({"scope": "file_search", "file_id": fid, "reason": f"download failed (vector store {vs_id})"})
+                    continue
+                new_id, upload_err = upload_file_to_target(
+                    target_endpoint, downloaded["filename"], downloaded["content"],
+                    purpose="assistants", target_token=target_token,
+                )
+                if new_id:
+                    file_id_map[fid] = new_id
+                    new_vs_file_ids.append(new_id)
+                    target_to_source[new_id] = fid
+                else:
+                    failed_files.append({"scope": "file_search", "file_id": fid, "reason": upload_err or f"upload failed after retries (vector store {vs_id})"})
+            # Create new VS on target and ingest the uploaded files one by one
+            # (add-and-poll) so individual ingestion failures are surfaced.
             if new_vs_file_ids:
-                new_vs_id = create_vector_store_on_target(
+                vs_result = create_vector_store_on_target(
                     target_endpoint, new_vs_file_ids,
                     name=f"migrated-{vs_id}",
                     target_token=target_token,
                 )
-                if new_vs_id:
-                    vs_id_map[vs_id] = new_vs_id
+                if vs_result and vs_result.get("id"):
+                    vs_id_map[vs_id] = vs_result["id"]
+                    for f in vs_result.get("failed", []):
+                        src_fid = target_to_source.get(f["file_id"], f["file_id"])
+                        failed_files.append({
+                            "scope": "file_search",
+                            "file_id": str(src_fid),
+                            "reason": f"ingestion failed (vector store {vs_id}): {f['reason']}",
+                        })
 
     if file_id_map or vs_id_map:
         print(f"   📊 File migration summary: {len(file_id_map)} file(s), {len(vs_id_map)} vector store(s) remapped")
     else:
         print(f"   ℹ️  No files to migrate for this assistant")
 
-    return {"file_id_map": file_id_map, "vs_id_map": vs_id_map}
+    if failed_files:
+        print(f"   ⚠️  {len(failed_files)} file(s) did not migrate successfully and need manual follow-up:")
+        for f in failed_files:
+            print(f"        ❌ [{f['scope']}] {f['file_id']}: {f['reason']}")
+
+    return {"file_id_map": file_id_map, "vs_id_map": vs_id_map, "failed_files": failed_files}
+
+
+# Path of the JSON report that accumulates per-file migration failures.
+# Override via env without code changes; the migration appends to this file so
+# any file that did not migrate is captured for manual follow-up after the run.
+FILE_FAILURE_REPORT_PATH = os.getenv("MIGRATION_FILE_FAILURE_REPORT", "migration_failed_files.json")
+
+
+def record_file_migration_failures(
+    assistant_id: str,
+    failed_files: List[Dict[str, str]],
+    report_path: str = FILE_FAILURE_REPORT_PATH,
+) -> None:
+    """
+    Append *failed_files* for *assistant_id* to the JSON failure report.
+
+    The report is a JSON list of records ``{assistant_id, file_id, scope,
+    reason, recorded_at}``.  It is read-modify-written so failures accumulate
+    across every assistant processed in a run.  Best-effort: any I/O error is
+    logged and swallowed so reporting never aborts the migration.
+    """
+    if not failed_files:
+        return
+    try:
+        existing: List[Dict[str, Any]] = []
+        if os.path.exists(report_path):
+            try:
+                with open(report_path, "r", encoding="utf-8") as fh:
+                    loaded = json.load(fh)
+                if isinstance(loaded, list):
+                    existing = loaded
+            except (json.JSONDecodeError, OSError):
+                # Corrupt/unreadable report — start fresh rather than fail.
+                existing = []
+
+        recorded_at = int(time.time())
+        for f in failed_files:
+            existing.append({
+                "assistant_id": assistant_id,
+                "file_id": f.get("file_id"),
+                "scope": f.get("scope"),
+                "reason": f.get("reason"),
+                "recorded_at": recorded_at,
+            })
+
+        with open(report_path, "w", encoding="utf-8") as fh:
+            json.dump(existing, fh, indent=2)
+        print(f"   📝 Recorded {len(failed_files)} file failure(s) to {report_path}")
+    except Exception as e:
+        print(f"   ⚠️  Could not write file-failure report to {report_path}: {e}")
 
 
 def apply_file_id_remapping(
@@ -1966,6 +2232,154 @@ def list_v1_assistants_from_openai_endpoint(project_endpoint: str) -> List[Dict[
             LAST_LEGACY_OPENAI_QUERY_ERROR = error_str
             print(f"   ⚠️  cognitiveservices endpoint query failed: {e} — skipping")
         return []
+
+
+def get_v1_assistant_from_openai_endpoint(project_endpoint: str, assistant_id: str) -> Dict[str, Any]:
+    """
+    Get a specific v1 assistant from the legacy OpenAI-compatible endpoint.
+
+    This is used as a fallback when a caller provides an assistant ID that
+    exists only on the older cognitiveservices backend and not on the Foundry
+    project endpoint.
+    """
+    openai_base_url = _derive_openai_endpoint(project_endpoint)
+    if not openai_base_url:
+        raise RuntimeError("Could not derive cognitiveservices URL from project endpoint")
+
+    openai_url = f"{openai_base_url.rstrip('/')}/assistants/{assistant_id}"
+    print(f"   🌐 Querying legacy OpenAI-compatible endpoint for assistant: {assistant_id}")
+    print(f"   📞 {openai_url}")
+    print(f"   🔧 Using API version: {OPENAI_COMPAT_API_VERSION}")
+
+    params = {"api-version": OPENAI_COMPAT_API_VERSION}
+    openai_scope = _infer_scope_for_url(openai_url)
+
+    if OPENAI_COMPAT_TOKEN and OPENAI_COMPAT_TOKEN_SCOPE == openai_scope:
+        global TOKEN, TOKEN_SCOPE
+        TOKEN = OPENAI_COMPAT_TOKEN
+        TOKEN_SCOPE = OPENAI_COMPAT_TOKEN_SCOPE
+    elif TOKEN_SCOPE != openai_scope:
+        if not set_api_token(force_refresh=True, scope=openai_scope):
+            raise RuntimeError(f"Unable to obtain token for scope {openai_scope}")
+
+    result = do_api_request("GET", openai_url, params=params).json()
+    if isinstance(result, dict):
+        result['_source_endpoint'] = 'openai'
+    print(f"   ✅ Successfully retrieved assistant from legacy OpenAI endpoint")
+    return result
+
+
+def list_v2_agents_from_project(project_endpoint: str, token: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+    """
+    List v2 named agents from the target project endpoint.
+
+    Uses the /agents surface (not /assistants) and paginates using the
+    `after` cursor when available.
+    """
+    api_url = project_endpoint.rstrip('/') + '/agents'
+    after: Optional[str] = None
+    agents: List[Dict[str, Any]] = []
+
+    while True:
+        params: Dict[str, Any] = {"api-version": API_VERSION, "limit": str(limit)}
+        if after:
+            params["after"] = after
+
+        if token:
+            response = do_api_request_with_token("GET", api_url, token, params=params)
+        else:
+            response = do_api_request("GET", api_url, params=params)
+
+        result = response.json()
+        page = result.get("data", []) if isinstance(result, dict) else []
+        if isinstance(page, list):
+            agents.extend(page)
+
+        has_more = bool(result.get("has_more")) if isinstance(result, dict) else False
+        after = result.get("last_id") if isinstance(result, dict) else None
+        if not has_more or not after:
+            break
+
+    return agents
+
+
+def list_agent_versions_from_project(project_endpoint: str, agent_name: str, token: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+    """
+    List versions for a specific v2 agent.
+    """
+    safe_agent_name = sanitize_agent_name(agent_name)
+    api_url = project_endpoint.rstrip('/') + f'/agents/{safe_agent_name}/versions'
+    after: Optional[str] = None
+    versions: List[Dict[str, Any]] = []
+
+    while True:
+        params: Dict[str, Any] = {"api-version": API_VERSION, "limit": str(limit)}
+        if after:
+            params["after"] = after
+
+        if token:
+            response = do_api_request_with_token("GET", api_url, token, params=params)
+        else:
+            response = do_api_request("GET", api_url, params=params)
+
+        result = response.json()
+        page = result.get("data", []) if isinstance(result, dict) else []
+        if isinstance(page, list):
+            versions.extend(page)
+
+        has_more = bool(result.get("has_more")) if isinstance(result, dict) else False
+        after = result.get("last_id") if isinstance(result, dict) else None
+        if not has_more or not after:
+            break
+
+    return versions
+
+
+def get_existing_migrated_agents_by_v1_id(project_endpoint: str, token: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+    """
+    Build an index of existing migrated v2 agents keyed by original v1 assistant ID.
+    """
+    existing: Dict[str, Dict[str, Any]] = {}
+    for agent in list_v2_agents_from_project(project_endpoint, token=token):
+        versions = agent.get("versions", {})
+        latest = versions.get("latest", {}) if isinstance(versions, dict) else {}
+        metadata = latest.get("metadata", {}) if isinstance(latest, dict) else {}
+        if not isinstance(metadata, dict):
+            continue
+
+        original_v1_id = metadata.get("original_v1_id")
+        if not original_v1_id:
+            continue
+
+        existing[str(original_v1_id)] = {
+            "agent_id": agent.get("id", ""),
+            "agent_name": agent.get("name", ""),
+            "latest_version_id": latest.get("id", ""),
+            "latest_version": str(latest.get("version", "")),
+            "raw": agent,
+        }
+
+    return existing
+
+
+def get_next_agent_version(project_endpoint: str, agent_name: str, token: Optional[str] = None) -> str:
+    """
+    Compute the next version string for an existing v2 agent.
+
+    If existing versions are numeric strings, increments the max numeric
+    version; otherwise falls back to a timestamp-based version string.
+    """
+    versions = list_agent_versions_from_project(project_endpoint, agent_name, token=token)
+    numeric_versions: List[int] = []
+    for version in versions:
+        value = str(version.get("version", "")).strip()
+        if value.isdigit():
+            numeric_versions.append(int(value))
+
+    if numeric_versions:
+        return str(max(numeric_versions) + 1)
+
+    return str(int(time.time()))
 
 
 def create_agent_version_via_api(agent_name: str, agent_version_data: Dict[str, Any], production_resource: Optional[str] = None, production_subscription: Optional[str] = None, production_token: Optional[str] = None) -> Dict[str, Any]:
@@ -2653,6 +3067,15 @@ def v1_assistant_to_v2_agent(v1_assistant: Dict[str, Any], agent_name: Optional[
                 if search_config:
                     # Remap any connection_id fields in the search config
                     remapped = remap_connection_ids_in_tool(search_config)
+                    indexes = remapped.get("indexes", [])
+                    if isinstance(indexes, list):
+                        cleaned_indexes = []
+                        for idx in indexes:
+                            if isinstance(idx, dict):
+                                cleaned_indexes.append({k: v for k, v in idx.items() if v is not None})
+                            else:
+                                cleaned_indexes.append(idx)
+                        remapped["indexes"] = cleaned_indexes
                     transformed_tool["azure_ai_search"] = remapped
                     
                     # Log what we found
@@ -2924,7 +3347,7 @@ def save_v2_agent_to_cosmos(v2_agent_data: Dict[str, Any], connection_string: st
         print(f"   Migration Doc: {migration_doc}")
         raise
 
-def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = None, cosmos_connection_string: Optional[str] = None, use_api: bool = False, project_endpoint: Optional[str] = None, project_connection_string: Optional[str] = None, project_subscription: Optional[str] = None, project_resource_group: Optional[str] = None, project_name: Optional[str] = None, production_resource: Optional[str] = None, production_subscription: Optional[str] = None, production_tenant: Optional[str] = None, source_tenant: Optional[str] = None, only_with_tools: bool = False, only_without_tools: bool = False, migrate_connections: bool = False, production_endpoint: Optional[str] = None, migrate_files: bool = True):
+def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = None, cosmos_connection_string: Optional[str] = None, use_api: bool = False, project_endpoint: Optional[str] = None, project_connection_string: Optional[str] = None, project_subscription: Optional[str] = None, project_resource_group: Optional[str] = None, project_name: Optional[str] = None, production_resource: Optional[str] = None, production_subscription: Optional[str] = None, production_tenant: Optional[str] = None, source_tenant: Optional[str] = None, only_with_tools: bool = False, only_without_tools: bool = False, migrate_connections: bool = False, production_endpoint: Optional[str] = None, migrate_files: bool = True, overwrite_already_migrated: bool = False):
     """
     Main processing function that reads v1 assistants from Cosmos DB, API, Project endpoint, or Project connection string,
     converts them to v2 agents, and saves via v2 API.
@@ -2943,6 +3366,8 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
         migrate_files: If True, download files and vector stores from the source and re-upload
             them via the target Foundry project endpoint so that file_search/code_interpreter references
             remain valid for agents.
+        overwrite_already_migrated: If True, remigrate assistants that already have a
+            v2 target agent with matching metadata.original_v1_id by creating a new version.
     """
     
     # Handle package version management based on usage
@@ -2997,8 +3422,14 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
                 assistant_data = get_assistant_from_project(project_endpoint, assistant_id, project_subscription, project_resource_group, project_name)
                 v1_assistants = [assistant_data]
             except Exception as e:
-                print(f"❌ Failed to fetch assistant {assistant_id} from project: {e}")
-                return
+                print(f"   ⚠️  Failed to fetch assistant {assistant_id} from Foundry endpoint: {e}")
+                print(f"   🔄 Attempting legacy OpenAI endpoint fallback...")
+                try:
+                    assistant_data = get_v1_assistant_from_openai_endpoint(project_endpoint, assistant_id)
+                    v1_assistants = [assistant_data]
+                except Exception as legacy_error:
+                    print(f"❌ Failed to fetch assistant {assistant_id} from project: {legacy_error}")
+                    return
         else:
             print("📊 Fetching all assistants from project")
             try:
@@ -3252,10 +3683,43 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
         print("❌ Error: Unable to obtain API authentication token for v2 API saving")
         print("Set AZ_TOKEN env var or ensure az CLI is installed and logged in")
         sys.exit(1)
+
+    target_v2_endpoint = get_target_foundry_endpoint(
+        production_resource=production_resource,
+        production_endpoint=production_endpoint,
+    )
+
+    # In-place upgrade (source == target): when no explicit target was supplied
+    # but the source project is itself a Foundry endpoint, reuse it as the target
+    # so the duplicate-migration guard still runs. Without this, re-running the
+    # migration against the same project would create duplicate v2 agents.
+    if not target_v2_endpoint:
+        inplace_target = _source_endpoint_as_dedupe_target(project_endpoint)
+        if inplace_target:
+            target_v2_endpoint = inplace_target
+            print(f"ℹ️  No explicit target; using source Foundry endpoint as target for dedupe: {target_v2_endpoint}")
+
+    existing_migrations: Dict[str, Dict[str, Any]] = {}
+    target_api_token = PRODUCTION_TOKEN
+    if not target_api_token and target_v2_endpoint:
+        target_scope = _infer_scope_for_url(target_v2_endpoint)
+        if TOKEN_SCOPE != target_scope:
+            set_api_token(force_refresh=True, scope=target_scope)
+        target_api_token = TOKEN
+    if target_v2_endpoint:
+        try:
+            existing_migrations = get_existing_migrated_agents_by_v1_id(target_v2_endpoint, token=target_api_token)
+            if existing_migrations:
+                print(f"📚 Found {len(existing_migrations)} existing migrated v2 agent(s) in target project")
+        except Exception as e:
+            print(f"⚠️  Could not inspect existing migrated v2 agents: {e}")
+            print("   Continuing without duplicate-migration safeguards")
+            existing_migrations = {}
     
     # Now we have uniform v1_assistants list regardless of source
     # Process each v1 assistant
     processed_count = 0
+    skipped_existing_count = 0
     for idx, v1_assistant in enumerate(v1_assistants):
         try:
             print(f"\n🔄 Processing record {idx + 1}/{len(v1_assistants)}")
@@ -3398,7 +3862,30 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
             pprint.pprint(v1_assistant, indent=2, width=80)
             print("=" * 60)
             
-            assistant_id = v1_assistant.get('id', 'unknown')
+            assistant_id = str(v1_assistant.get('id', 'unknown'))
+
+            existing_target = existing_migrations.get(assistant_id)
+            forced_agent_name: Optional[str] = None
+            target_version = "1"
+            if existing_target:
+                if not overwrite_already_migrated:
+                    print(
+                        f"   ⏭️  Skipping already migrated assistant '{assistant_id}' -> "
+                        f"agent '{existing_target.get('agent_name', '?')}' "
+                        f"(latest version {existing_target.get('latest_version', '?')})"
+                    )
+                    skipped_existing_count += 1
+                    continue
+
+                forced_agent_name = existing_target.get('agent_name') or None
+                if target_v2_endpoint and forced_agent_name:
+                    target_version = get_next_agent_version(target_v2_endpoint, forced_agent_name, token=target_api_token)
+                else:
+                    target_version = "2"
+                print(
+                    f"   ♻️  Re-migrating already migrated assistant '{assistant_id}' into "
+                    f"agent '{forced_agent_name or v1_assistant.get('name', '?')}' as version {target_version}"
+                )
             
             print(f"   Assistant ID: {assistant_id}")
             print(f"   Assistant Name: {v1_assistant.get('name', 'N/A')}")
@@ -3409,7 +3896,7 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
             print(f"   🔍 Detected Agent Kind: {detected_kind}")
             
             # Convert v1 to v2
-            v2_agent = v1_assistant_to_v2_agent(v1_assistant)
+            v2_agent = v1_assistant_to_v2_agent(v1_assistant, agent_name=forced_agent_name, version=target_version)
             
             # ── File migration ────────────────────────────────────
             # Download files / vector stores from the source endpoint
@@ -3441,6 +3928,10 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
                     )
                     file_id_map = remap.get("file_id_map", {})
                     vs_id_map = remap.get("vs_id_map", {})
+                    remap_failures = remap.get("failed_files", [])
+                    if remap_failures:
+                        print(f"   ⚠️  {len(remap_failures)} file(s) failed to migrate for this assistant — see details above; these need manual follow-up.")
+                        record_file_migration_failures(v1_assistant.get("id", "unknown"), remap_failures)
                 elif not source_ep:
                     print("   ⚠️  Cannot migrate files: no source endpoint available")
                 elif not target_foundry_ep:
@@ -3498,6 +3989,8 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
     
     print(f"\n🎉 Migration completed!")
     print(f"   Total records processed: {processed_count}/{len(v1_assistants)}")
+    if skipped_existing_count:
+        print(f"   Already migrated records skipped: {skipped_existing_count}")
     if project_connection_string:
         print(f"   Source: Project Connection String")
     elif project_endpoint:
@@ -3945,6 +4438,14 @@ Examples:
              'references remain valid. Pass this flag to copy agent definitions only '
              '(source file IDs will be broken on the target).'
     )
+
+    parser.add_argument(
+        '--overwrite-already-migrated',
+        action='store_true',
+        help='By default, assistants that already have a migrated v2 agent in the target '
+             'project are skipped based on metadata.original_v1_id. Pass this flag to '
+             're-migrate them by creating a new version on the existing target agent.'
+    )
     
     args = parser.parse_args()
     
@@ -4067,6 +4568,7 @@ Examples:
         migrate_connections=args.migrate_connections,
         production_endpoint=args.production_endpoint,
         migrate_files=args.migrate_files,
+        overwrite_already_migrated=args.overwrite_already_migrated,
     )
 
 if __name__ == "__main__":
