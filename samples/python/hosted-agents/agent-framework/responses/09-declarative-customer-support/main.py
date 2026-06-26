@@ -1,12 +1,17 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 import os
-from pathlib import Path
 from typing import Literal
 
-from agent_framework import Agent
+from agent_framework import (
+    Agent,
+    AgentResponse,
+    AgentResponseUpdate,
+    BaseAgent,
+    Content,
+    Message,
+)
 from agent_framework.foundry import FoundryChatClient
-from agent_framework_declarative import WorkflowFactory
 from agent_framework_foundry_hosting import ResponsesHostServer
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
@@ -83,18 +88,71 @@ ask for them one at a time. Keep responses short and polite.
 """.strip()
 
 
+# --- Routing agent ---------------------------------------------------------------
+
+_TECH_HANDOFF = "Connecting you with technical support..."
+_BILLING_HANDOFF = "Connecting you with billing support..."
+
+
+class CustomerSupportAgent(BaseAgent):
+    """A code-based replacement for the declarative triage workflow.
+
+    On every turn the hosting infrastructure passes the full conversation
+    history as ``messages``. We run the triage agent for a structured decision,
+    then route to a specialist or answer directly -- the same branching the
+    workflow.yaml ``ConditionGroup`` expressed, but in plain Python so no
+    PowerFx/.NET runtime is required.
+    """
+
+    def __init__(self, *, triage_agent: Agent, tech_support_agent: Agent, billing_agent: Agent, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._triage_agent = triage_agent
+        self._tech_support_agent = tech_support_agent
+        self._billing_agent = billing_agent
+
+    def run(self, messages=None, *, stream: bool = False, session=None, **kwargs):
+        return self._run_stream(messages) if stream else self._run(messages)
+
+    async def _route(self, messages) -> "tuple[str, Agent | None]":
+        """Map the triage decision to (text_to_send, specialist_or_None)."""
+        decision = (await self._triage_agent.run(messages)).value
+        if not isinstance(decision, TriageResponse):
+            return "Sorry, I couldn't process that. Could you rephrase?", None
+        if decision.NeedsClarification:
+            return decision.ClarificationQuestion or "Could you tell me a bit more?", None
+        if decision.Category == "Technical":
+            return _TECH_HANDOFF, self._tech_support_agent
+        if decision.Category == "Billing":
+            return _BILLING_HANDOFF, self._billing_agent
+        return decision.Reply or "", None
+
+    async def _run(self, messages) -> AgentResponse:
+        text, specialist = await self._route(messages)
+        out = [Message(role="assistant", contents=[Content.from_text(text=text)])]
+        if specialist is not None:
+            out += (await specialist.run(messages)).messages
+        return AgentResponse(messages=out)
+
+    async def _run_stream(self, messages):
+        text, specialist = await self._route(messages)
+        yield AgentResponseUpdate(role="assistant", contents=[Content.from_text(text=text)])
+        if specialist is not None:
+            async for update in specialist.run(messages, stream=True):
+                yield update
+
+
 # --- Host setup ------------------------------------------------------------------
 
 def main() -> None:
-    workflow_path = Path(__file__).parent / "workflow.yaml"
-
     client = FoundryChatClient(
         project_endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"],
         model=os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
         credential=DefaultAzureCredential(),
     )
 
-    # The workflow's InvokeAzureAgent actions reference these agents by name.
+    # One agent per role, all sharing the same FoundryChatClient. The triage
+    # agent emits a structured TriageResponse; the specialists reply in plain
+    # text. History is managed by the hosting infrastructure, so store=False.
     triage_agent = Agent(
         client=client,
         name="TriageAgent",
@@ -114,29 +172,21 @@ def main() -> None:
         default_options={"store": False},
     )
 
-    factory = WorkflowFactory(
-        agents={
-            "TriageAgent": triage_agent,
-            "TechSupportAgent": tech_support_agent,
-            "BillingAgent": billing_agent,
-        },
-    )
-
-    workflow = factory.create_workflow_from_yaml_path(str(workflow_path))
-
-    # Wrap the declarative workflow as an AIAgent so it can be served behind
-    # the Responses protocol. Each user turn re-runs the workflow with the
-    # full conversation history available via Conversation.messages.
-    workflow_agent = workflow.as_agent(
-        name="declarative-customer-support",
+    # The routing agent re-runs triage on every turn with the full conversation
+    # history the host provides, then dispatches to a specialist or replies
+    # directly -- the same logic the workflow.yaml ConditionGroup expressed.
+    support_agent = CustomerSupportAgent(
+        triage_agent=triage_agent,
+        tech_support_agent=tech_support_agent,
+        billing_agent=billing_agent,
+        name="customer-support-triage",
         description=(
-            "A multi-turn customer-support triage workflow that routes "
-            "between technical and billing specialists based on the "
-            "conversation history."
+            "A multi-turn customer-support triage agent that routes between "
+            "technical and billing specialists based on the conversation history."
         ),
     )
 
-    ResponsesHostServer(workflow_agent).run()
+    ResponsesHostServer(support_agent).run()
 
 
 if __name__ == "__main__":

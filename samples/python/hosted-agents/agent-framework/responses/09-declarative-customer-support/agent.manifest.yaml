@@ -1,14 +1,14 @@
 name: agent-framework-declarative-customer-support-responses
 description: >
-  A multi-turn Agent Framework declarative (YAML-defined) customer-support
-  triage workflow hosted by Foundry.
+  A multi-turn Agent Framework customer-support triage agent that routes
+  between technical and billing specialists, hosted by Foundry.
 metadata:
   tags:
     - Agent Framework
     - AI Agent Hosting
     - Azure AI AgentServer
     - Responses Protocol
-    - Declarative Workflow
+    - Multi-agent Routing
     - Multi-turn
 template:
   name: agent-framework-declarative-customer-support-responses
