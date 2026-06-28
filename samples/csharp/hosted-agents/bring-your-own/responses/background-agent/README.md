@@ -23,7 +23,7 @@ The handler itself stays simple — background mode, polling, and cancellation a
 | Variable | Description |
 |---|---|
 | `FOUNDRY_PROJECT_ENDPOINT` | Azure AI Foundry project endpoint (auto-injected when deployed) |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Azure OpenAI model deployment name (e.g., `gpt-4.1-mini`) |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Azure OpenAI model deployment name (e.g., `gpt-5.4-mini`) |
 
 ### Using `azd`
 
@@ -50,7 +50,7 @@ Chat with a running agent using the **Agent Inspector**:
 
 ```bash
 export FOUNDRY_PROJECT_ENDPOINT="https://your-resource.services.ai.azure.com/api/projects/your-project"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
 dotnet run
 ```
 

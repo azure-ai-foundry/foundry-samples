@@ -151,7 +151,7 @@ azd ai agent init \
 azd env set AZURE_VOICELIVE_MODEL    "gpt-realtime-1.5"
 azd env set AZURE_VOICELIVE_VOICE    "en-US-Ava:DragonHDLatestNeural"
 
-azd env set AZURE_TASK_MODEL  "gpt-4.1-mini"
+azd env set AZURE_TASK_MODEL  "gpt-5.4-mini"
 ```
 
 If you want to enable the Copilot agent, also need set the `GITHUB_TOKEN` env var before deploying:

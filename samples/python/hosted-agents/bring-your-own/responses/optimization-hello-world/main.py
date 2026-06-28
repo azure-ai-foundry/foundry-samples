@@ -57,11 +57,11 @@ if config is None:
         instructions=FALLBACK_INSTRUCTIONS,
         model=os.getenv("MODEL_DEPLOYMENT_NAME")
         or os.getenv("AZURE_AI_MODEL_DEPLOYMENT_NAME")
-        or "gpt-4.1-mini",
+        or "gpt-5.4-mini",
         source="defaults",
     )
 
-MODEL = config.model or os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-4.1-mini")
+MODEL = config.model or os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4-mini")
 ALL_INSTRUCTIONS = config.compose_instructions()
 
 logger.info(

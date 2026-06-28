@@ -35,7 +35,7 @@ via `previous_response_id` — no need for an in-memory session store.
 ## Prerequisites
 
 - Python 3.12+
-- Azure OpenAI resource with a deployed model (e.g., `gpt-4.1-mini`)
+- Azure OpenAI resource with a deployed model (e.g., `gpt-5.4-mini`)
 - Azure CLI login (`az login`) or other `DefaultAzureCredential` source
 
 ## Environment variables

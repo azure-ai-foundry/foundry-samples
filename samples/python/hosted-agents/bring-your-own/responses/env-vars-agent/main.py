@@ -18,7 +18,7 @@ that returns the runtime value with a kind-aware safety policy:
 
 Required environment variables:
     FOUNDRY_PROJECT_ENDPOINT: Foundry project endpoint (auto-injected by the platform)
-    AZURE_AI_MODEL_DEPLOYMENT_NAME: Model deployment name (e.g., gpt-4.1-mini)
+    AZURE_AI_MODEL_DEPLOYMENT_NAME: Model deployment name (e.g., gpt-5.4-mini)
 
 Example env vars (resolved from connections in hosted mode; set manually for local runs):
     SECRET_API_KEY     — ${{connections.api-key-conn.credentials.key}}            (ApiKey credentials.key)
@@ -30,7 +30,7 @@ Usage::
 
     # Set environment variables
     export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-    export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+    export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
     export SECRET_API_KEY="ab12-fake-test-key"
     export TARGET="https://api.example.com"
     export SECRET_KEY="p@ssw0rd-test-value"
