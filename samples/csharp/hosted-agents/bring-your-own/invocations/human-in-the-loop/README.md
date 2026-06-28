@@ -39,7 +39,7 @@ This pattern is useful for workflows where an AI agent should **not act autonomo
 
 ```bash
 export FOUNDRY_PROJECT_ENDPOINT="https://your-resource.openai.azure.com/api/projects/proj"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
 ```
 
 ### Start the Agent

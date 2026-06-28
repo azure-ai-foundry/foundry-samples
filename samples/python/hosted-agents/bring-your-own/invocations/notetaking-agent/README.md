@@ -13,7 +13,7 @@ A note-taking agent built with `azure-ai-agentserver-invocations` and Azure Open
 ## Prerequisites
 
 - Python 3.12+
-- Azure OpenAI resource with a deployed model (e.g., `gpt-4.1-mini`)
+- Azure OpenAI resource with a deployed model (e.g., `gpt-5.4-mini`)
 - Azure credentials configured (e.g., `az login`)
 
 ## Environment Variables
@@ -21,7 +21,7 @@ A note-taking agent built with `azure-ai-agentserver-invocations` and Azure Open
 | Variable | Description | Example |
 |---|---|---|
 | `FOUNDRY_PROJECT_ENDPOINT` | Foundry project endpoint (auto-injected when deployed) | `https://account.services.ai.azure.com/api/projects/proj` |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Model deployment name | `gpt-4.1-mini` |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Model deployment name | `gpt-5.4-mini` |
 
 ## Run Locally
 
@@ -52,7 +52,7 @@ pip install -r requirements.txt
 
 # Set environment variables
 export FOUNDRY_PROJECT_ENDPOINT="https://account.services.ai.azure.com/api/projects/proj"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
 
 # Start the agent
 python main.py

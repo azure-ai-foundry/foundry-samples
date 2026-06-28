@@ -34,7 +34,7 @@ parameters:
   properties: []
 resources:
   - kind: model
-    id: gpt-4.1-mini
+    id: gpt-5.4-mini
     name: AZURE_AI_MODEL_DEPLOYMENT_NAME
   - kind: model
     id: text-embedding-3-small

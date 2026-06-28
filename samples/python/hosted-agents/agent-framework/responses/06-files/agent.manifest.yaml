@@ -21,7 +21,7 @@ template:
       value: "agent-tools"
 resources:
   - kind: model
-    id: gpt-4.1-mini
+    id: gpt-5.4-mini
     name: AZURE_AI_MODEL_DEPLOYMENT_NAME
   - kind: toolbox
     name: agent-tools

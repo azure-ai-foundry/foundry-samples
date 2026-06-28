@@ -60,7 +60,7 @@ Built with `azure-ai-agentserver-responses` (BYO — no Agent Framework). The mo
 
 - Python 3.12+
 - Azure CLI installed and authenticated (`az login`)
-- Foundry project with a deployed model (e.g., `gpt-4.1-mini`)
+- Foundry project with a deployed model (e.g., `gpt-5.4-mini`)
 - (For deployment) the project's hosted-agent feature enabled, plus the two connections referenced above (`dummy-api-key` ApiKey, `dummy-custom-keys` CustomKeys)
 
 ### Using `azd`
@@ -77,7 +77,7 @@ The agent starts on `http://localhost:8088/`.
 pip install -r requirements.txt
 cp .env.example .env  # then edit values — fill in any test values you like (skip if .env already exists)
 export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
 export SECRET_API_KEY="ab12-fake-test-key"
 export TARGET="https://api.example.com"
 export SECRET_KEY="p@ssw0rd-test-value"

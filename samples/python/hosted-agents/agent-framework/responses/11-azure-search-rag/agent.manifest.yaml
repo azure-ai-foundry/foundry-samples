@@ -34,5 +34,5 @@ parameters:
       description: The name of the Azure AI Search index to use for RAG (e.g., contoso-outdoors)
 resources:
   - kind: model
-    id: gpt-4.1-mini
+    id: gpt-5.4-mini
     name: AZURE_AI_MODEL_DEPLOYMENT_NAME

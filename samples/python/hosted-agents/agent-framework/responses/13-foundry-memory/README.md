@@ -27,7 +27,7 @@ The agent is hosted using the [Agent Framework](https://github.com/microsoft/age
 ## Prerequisites
 
 - An Azure AI Foundry project with:
-  - A deployed chat model (e.g., `gpt-4.1-mini`)
+  - A deployed chat model (e.g., `gpt-5.4-mini`)
   - A deployed embedding model (e.g., `text-embedding-3-small`) — used by the memory store itself, not by the agent at runtime
 - Azure CLI logged in (`az login`)
 
@@ -141,7 +141,7 @@ From the project directory, with the venv activated and `az login` done:
 pip install azure-ai-projects azure-identity aiohttp python-dotenv
 
 export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
 export AZURE_AI_EMBEDDING_MODEL_DEPLOYMENT_NAME="text-embedding-3-small"
 export MEMORY_STORE_NAME="agent_framework_memory"
 python provision_memory_store.py

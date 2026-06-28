@@ -22,7 +22,7 @@ Usage::
 
     # Set environment variables
     export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-    export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+    export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
 
     # Start the agent
     python main.py

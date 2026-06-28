@@ -29,5 +29,5 @@ parameters:
       description: The name of the pre-provisioned Foundry Memory Store the agent will use (e.g., agent_framework_memory)
 resources:
   - kind: model
-    id: gpt-4.1-mini
+    id: gpt-5.4-mini
     name: AZURE_AI_MODEL_DEPLOYMENT_NAME
