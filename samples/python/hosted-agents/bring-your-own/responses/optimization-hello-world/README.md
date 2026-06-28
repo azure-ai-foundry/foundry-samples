@@ -57,7 +57,7 @@ See [`.env.example`](.env.example) for the full list.
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers. |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name (e.g., `gpt-4.1-mini`). |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name (e.g., `gpt-5.4-mini`). |
 | `OPTIMIZATION_LOCAL_DIR` | Yes | Path to agent config directory (default: `.agent_configs`). |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers. |
 
@@ -106,7 +106,7 @@ azd ai agent optimize
 
 The interactive flow prompts you to select:
 
-- **Eval model** — the model deployment used to score evaluation results (e.g., `gpt-4.1-mini`).
+- **Eval model** — the model deployment used to score evaluation results (e.g., `gpt-5.4-mini`).
 - **Optimization model** — the model deployment used to generate improved candidates (e.g., `gpt-5.4`).
 
 ### Monitor progress

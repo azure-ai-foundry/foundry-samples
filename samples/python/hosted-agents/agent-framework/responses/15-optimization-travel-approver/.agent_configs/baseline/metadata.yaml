@@ -1,4 +1,4 @@
-model: gpt-4.1-mini
+model: gpt-5.4-mini
 instruction_file: instructions.md
 skill_dir: ../../skills
 tools_file: tools.json

@@ -23,7 +23,7 @@ The agent uses `FoundryChatClient` from the Agent Framework to create an OpenAI-
 
 ## Prerequisites
 
-- An Azure AI Foundry project with a deployed chat model (e.g. `gpt-4.1-mini`).
+- An Azure AI Foundry project with a deployed chat model (e.g. `gpt-5.4-mini`).
 - An **Azure AI Search** service ([create one](https://learn.microsoft.com/azure/search/search-create-service-portal)) with a **system-assigned managed identity** and **RBAC** enabled (Portal → search service → **Keys** → **API Access control** → "Both" or "Role-based access control").
 - Azure CLI logged in (`az login`).
 
@@ -154,7 +154,7 @@ pip install requests azure-identity python-dotenv
 
 export AZURE_SEARCH_ENDPOINT="https://<your-search>.search.windows.net"
 export AZURE_OPENAI_ENDPOINT="https://<account>.openai.azure.com"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
+export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
 python provision_kb.py
 ```
 

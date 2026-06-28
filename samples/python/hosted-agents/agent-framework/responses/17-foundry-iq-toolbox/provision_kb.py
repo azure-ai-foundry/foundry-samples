@@ -23,7 +23,7 @@ Required env vars (also read from a local ``.env`` file if present):
 
     AZURE_SEARCH_ENDPOINT          e.g. https://<your-search>.search.windows.net
     AZURE_OPENAI_ENDPOINT          e.g. https://<account>.openai.azure.com
-    AZURE_AI_MODEL_DEPLOYMENT_NAME e.g. gpt-4.1-mini
+    AZURE_AI_MODEL_DEPLOYMENT_NAME e.g. gpt-5.4-mini
 
 Optional env vars (sensible defaults shown):
 
