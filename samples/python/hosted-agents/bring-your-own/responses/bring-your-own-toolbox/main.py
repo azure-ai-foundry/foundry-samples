@@ -53,6 +53,13 @@ from azure.ai.agentserver.responses import (
 )
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from azure.ai.projects import AIProjectClient
+
+# Container protocol v2.0.0 exposes the inbound per-request context
+# (call_id, session_id, ...) via a ContextVar populated by the runtime.
+from azure.ai.agentserver.core import (
+    FoundryAgentRequestContext,
+    get_request_context,
+)
 import asyncio
 import json
 import logging
@@ -122,6 +129,12 @@ elif "api-version=" not in TOOLBOX_ENDPOINT:
 # Feature-flag header value (e.g. "Toolboxes=V1Preview").
 _TOOLBOX_FEATURES = os.getenv("FOUNDRY_AGENT_TOOLBOX_FEATURES", "Toolboxes=V1Preview")
 
+# Platform-injected per-request call identifier (container protocol v2.0.0).
+# Extracted from the inbound responses request via ``get_request_context()`` and
+# forwarded verbatim on every egress call to the Foundry toolbox MCP proxy so the
+# platform can correlate the downstream tool calls with the originating request.
+# The header name is owned by the SDK; use ``platform_headers()`` to build it.
+
 _credential = DefaultAzureCredential()
 _project_client = AIProjectClient(endpoint=_endpoint, credential=_credential)
 _responses_client = _project_client.get_openai_client().responses
@@ -146,13 +159,16 @@ class _McpToolboxClient:
         self._session_id: str | None = None
         self._req_id = 0
 
-    def _headers(self) -> dict:
+    def _headers(self, call_id: str | None = None) -> dict:
         h = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self._get_token()}",
         }
         if _TOOLBOX_FEATURES:
             h["Foundry-Features"] = _TOOLBOX_FEATURES
+        # Forward the per-request call ID extracted from the inbound request.
+        if call_id:
+            h.update(FoundryAgentRequestContext(call_id=call_id).platform_headers())
         if self._session_id:
             h["mcp-session-id"] = self._session_id
         return h
@@ -161,12 +177,12 @@ class _McpToolboxClient:
         self._req_id += 1
         return self._req_id
 
-    def initialize(self) -> str:
+    def initialize(self, call_id: str | None = None) -> str:
         """Send MCP initialize + initialized notification."""
         with httpx.Client(timeout=60) as client:
             resp = client.post(
                 self.endpoint,
-                headers=self._headers(),
+                headers=self._headers(call_id),
                 json={
                     "jsonrpc": "2.0",
                     "id": self._next_id(),
@@ -185,29 +201,29 @@ class _McpToolboxClient:
             # Send initialized notification
             client.post(
                 self.endpoint,
-                headers=self._headers(),
+                headers=self._headers(call_id),
                 json={"jsonrpc": "2.0", "method": "notifications/initialized"},
             )
             return data.get("result", {}).get("serverInfo", {}).get("name", "unknown")
 
-    def list_tools(self) -> list[dict]:
+    def list_tools(self, call_id: str | None = None) -> list[dict]:
         """Call tools/list and return tool definitions."""
         with httpx.Client(timeout=60) as client:
             resp = client.post(
                 self.endpoint,
-                headers=self._headers(),
+                headers=self._headers(call_id),
                 json={"jsonrpc": "2.0", "id": self._next_id(
                 ), "method": "tools/list", "params": {}},
             )
             resp.raise_for_status()
             return resp.json().get("result", {}).get("tools", [])
 
-    def call_tool(self, name: str, arguments: dict) -> str:
+    def call_tool(self, name: str, arguments: dict, call_id: str | None = None) -> str:
         """Call a tool and return the text result."""
         with httpx.Client(timeout=120) as client:
             resp = client.post(
                 self.endpoint,
-                headers=self._headers(),
+                headers=self._headers(call_id),
                 json={
                     "jsonrpc": "2.0",
                     "id": self._next_id(),
@@ -239,7 +255,7 @@ _tool_definitions: list[dict] = []
 _tools_initialized = False
 
 
-def _ensure_tools():
+def _ensure_tools(call_id: str | None = None):
     global _mcp_client, _tool_definitions, _tools_initialized
     if _tools_initialized:
         return
@@ -257,8 +273,8 @@ def _ensure_tools():
     for attempt in range(1, 6):
         try:
             _mcp_client = _McpToolboxClient(TOOLBOX_ENDPOINT, _token_provider)
-            server_name = _mcp_client.initialize()
-            mcp_tools = _mcp_client.list_tools()
+            server_name = _mcp_client.initialize(call_id)
+            mcp_tools = _mcp_client.list_tools(call_id)
             if mcp_tools:
                 break
             logger.warning(
@@ -294,9 +310,9 @@ def _ensure_tools():
 _MAX_TOOL_ROUNDS = 10
 
 
-def _call_model(input_items: list[dict]) -> object:
+def _call_model(input_items: list[dict], call_id: str | None = None) -> object:
     """Call the model with tool definitions and return the response."""
-    _ensure_tools()
+    _ensure_tools(call_id)
     return _responses_client.create(
         model=_model,
         instructions=_SYSTEM_PROMPT,
@@ -306,7 +322,7 @@ def _call_model(input_items: list[dict]) -> object:
     )
 
 
-def _run_agent_loop(input_items: list[dict]) -> str:
+def _run_agent_loop(input_items: list[dict], call_id: str | None = None) -> str:
     """Execute the agentic tool-calling loop synchronously.
 
     Calls the model, checks for tool calls, executes them, feeds results
@@ -314,7 +330,7 @@ def _run_agent_loop(input_items: list[dict]) -> str:
     the max rounds limit.
     """
     for _ in range(_MAX_TOOL_ROUNDS):
-        response = _call_model(input_items)
+        response = _call_model(input_items, call_id)
 
         # Check if the model wants to call tools
         tool_calls = [
@@ -330,7 +346,7 @@ def _run_agent_loop(input_items: list[dict]) -> str:
             try:
                 arguments = json.loads(tc.arguments) if isinstance(
                     tc.arguments, str) else tc.arguments
-                result_text = _mcp_client.call_tool(tc.name, arguments)
+                result_text = _mcp_client.call_tool(tc.name, arguments, call_id)
                 logger.info("Tool '%s' returned %d chars",
                             tc.name, len(result_text))
             except Exception as e:
@@ -431,12 +447,20 @@ async def handler(
         history = []
     input_items = _build_input(user_input, history)
 
-    logger.info("Processing request %s", context.response_id)
+    # Extract the per-request call ID (container protocol v2.0.0) from the
+    # inbound request context so it can be forwarded on toolbox egress calls.
+    call_id = None
+    try:
+        call_id = get_request_context().call_id
+    except Exception:  # noqa: BLE001
+        call_id = None
+
+    logger.info("Processing request %s (call_id %s)", context.response_id, call_id)
 
     loop = asyncio.get_running_loop()
     try:
         assistant_reply = await asyncio.wait_for(
-            loop.run_in_executor(None, _run_agent_loop, input_items),
+            loop.run_in_executor(None, _run_agent_loop, input_items, call_id),
             timeout=240.0,
         )
     except asyncio.TimeoutError:
