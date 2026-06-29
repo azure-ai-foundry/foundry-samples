@@ -1,4 +1,4 @@
-azure-ai-agentserver-invocations>=1.0.0b4
+azure-ai-agentserver-invocations>=1.0.0b6
 azure-ai-voicelive[aiohttp]>=1.0.0b1
 azure-identity>=1.20.0
 python-dotenv>=1.0.0
