@@ -23,3 +23,5 @@ If you are new to template deployment, see:
 - [Azure AI services quickstart article](https://learn.microsoft.com/azure/cognitive-services/resource-manager-template)
 
 `Tags: Microsoft.CognitiveServices/accounts/projects`
+
+<!-- CI validation marker for infrastructure sample changes. -->
