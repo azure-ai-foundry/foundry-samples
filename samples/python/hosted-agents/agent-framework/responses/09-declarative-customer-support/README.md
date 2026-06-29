@@ -4,7 +4,8 @@ A realistic **multi-turn** [Agent Framework](https://github.com/microsoft/agent-
 
 > Read more about declarative workflows in the [Agent Framework documentation](https://learn.microsoft.com/en-us/agent-framework/workflows/declarative/?pivots=programming-language-python) and about workflow-as-an-agent in the [Workflow as an Agent documentation](https://learn.microsoft.com/en-us/agent-framework/workflows/as-agents?pivots=programming-language-python).
 
-> This sample currently requires using a Docker based deployment.
+> [!IMPORTANT]
+> Deploy this sample as a **container** (not Code/ZIP). Its declarative workflow uses Power Fx, which needs the .NET runtime included in the `Dockerfile`. Choose **Container** in every deploy flow.
 
 ## How It Works
 
@@ -141,7 +142,7 @@ Press **F5** to start the agent in debug mode. The agent host will start on `htt
 
 1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
 2. If prompted, complete **Foundry Project Setup** to select subscription and project.
-3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+3. On the **Basics** tab, choose **Container** as the deployment method (this sample requires it — see the note above) and confirm the agent name.
 4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
