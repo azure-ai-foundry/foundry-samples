@@ -50,13 +50,6 @@ from azure.ai.agentserver.responses.models import CreateResponse
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from langchain_azure_ai.tools import AzureAIProjectToolbox
 
-# Container protocol v2.0.0 exposes the inbound per-request context
-# (call_id, session_id, ...) via a ContextVar populated by the runtime.
-from azure.ai.agentserver.core import (
-    FoundryAgentRequestContext,
-    get_request_context,
-)
-
 # ── Agent name and logger ────────────────────────────────────────────────────
 
 
@@ -132,12 +125,6 @@ else:
 # Feature-flag header value (e.g. "Toolboxes=V1Preview").
 _TOOLBOX_FEATURES = os.getenv("FOUNDRY_AGENT_TOOLBOX_FEATURES", "Toolboxes=V1Preview")
 
-# Platform-injected per-request call identifier (container protocol v2.0.0).
-# Extracted from the inbound responses request via ``get_request_context()`` and
-# forwarded on the egress toolbox MCP calls so the platform can correlate the
-# downstream tool calls with the originating request. The header name is owned
-# by the SDK; use ``platform_headers()`` instead of hardcoding it.
-
 
 def _toolbox_name_from_endpoint(endpoint: str) -> str | None:
     """Extract toolbox name from endpoint URL path."""
@@ -166,7 +153,7 @@ def create_agent(model, tools):
     return create_react_agent(model, tools, prompt=SYSTEM_PROMPT)
 
 
-async def quickstart(call_id: str | None = None):
+async def quickstart():
     """Build and return a LangGraph agent wired to a Foundry toolbox.
 
     Uses AzureAIProjectToolbox from langchain-azure-ai to resolve and load
@@ -183,14 +170,6 @@ async def quickstart(call_id: str | None = None):
 
     logger.info(f"Connecting to toolbox: {TOOLBOX_ENDPOINT}")
     extra_headers = {"Foundry-Features": _TOOLBOX_FEATURES} if _TOOLBOX_FEATURES else {}
-    # Forward the inbound per-request call ID on toolbox egress calls. Note:
-    # AzureAIProjectToolbox only accepts static extra_headers at construction and
-    # the agent/toolbox is cached (see _get_agent), so the call ID captured on the
-    # first request is reused for the lifetime of the cached toolbox.
-    if call_id:
-        extra_headers.update(
-            FoundryAgentRequestContext(call_id=call_id).platform_headers()
-        )
     toolbox = AzureAIProjectToolbox(
         project_endpoint=PROJECT_ENDPOINT,
         toolbox_name=toolbox_name,
@@ -332,7 +311,7 @@ _mcp_client = None  # Keep MCP client alive to prevent session GC
 _agent_lock = asyncio.Lock()
 
 
-async def _get_agent(call_id: str | None = None):
+async def _get_agent():
     global _agent, _mcp_client
     if _agent is not None:
         return _agent
@@ -347,7 +326,7 @@ async def _get_agent(call_id: str | None = None):
         last_exc: Exception | None = None
         for attempt in range(1, 6):
             try:
-                agent, mcp_client = await quickstart(call_id)
+                agent, mcp_client = await quickstart()
                 bound_tools = getattr(agent, "tools", None) or []
                 if not bound_tools:
                     logger.warning(
@@ -365,7 +344,7 @@ async def _get_agent(call_id: str | None = None):
                 await asyncio.sleep(min(2 ** attempt, 15))
         if last_exc is not None:
             raise last_exc
-        _agent, _mcp_client = await quickstart(call_id)
+        _agent, _mcp_client = await quickstart()
         return _agent
 
 
@@ -394,16 +373,7 @@ async def handle_response(
         return
 
     try:
-        # Extract the per-request call ID (container protocol v2.0.0) from the
-        # inbound request context so it can be forwarded on toolbox egress calls.
-        call_id = None
-        try:
-            call_id = get_request_context().call_id
-        except Exception:  # noqa: BLE001
-            call_id = None
-        logger.info("Processing request %s (call_id %s)",
-                    context.response_id, call_id)
-        agent = await _get_agent(call_id)
+        agent = await _get_agent()
         result = await asyncio.wait_for(
             agent.ainvoke({"messages": [("user", user_input)]}),
             timeout=240.0,
