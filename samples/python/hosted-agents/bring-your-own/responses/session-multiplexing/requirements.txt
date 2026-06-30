@@ -1,0 +1,7 @@
+# AgentServer packages release independently; use the latest prerelease for each package.
+azure-ai-agentserver-responses==1.0.0b8
+azure-ai-projects==2.0.1
+azure-identity==1.25.3
+
+# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
+debugpy

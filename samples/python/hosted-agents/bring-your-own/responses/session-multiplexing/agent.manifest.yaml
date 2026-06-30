@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: hello-world-session-multiplexing-python-responses
+displayName: "Hello World Session Multiplexing (Python, Responses)"
+description: >
+  Minimal Hello World BYO Responses agent using protocol 2.0.0 to demonstrate
+  multiple callers sharing one hosted-agent session while previous_response_id
+  history remains scoped to the platform-resolved user.
+metadata:
+  tags:
+    - AI Agent Hosting
+    - Responses Protocol
+    - Bring Your Own
+    - Python
+    - Session Multiplexing
+template:
+  name: hello-world-session-multiplexing-python-responses
+  kind: hosted
+  protocols:
+    - protocol: responses
+      version: 2.0.0
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT and APPLICATIONINSIGHTS_CONNECTION_STRING
+    # are injected by the platform (hosted) and translated by azd (local)
+    # — do NOT declare them here.
+    #
+    # Model deployment name — resolved from the resources section below.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: "{{AZURE_AI_MODEL_DEPLOYMENT_NAME}}"
+resources:
+  - kind: model
+    id: gpt-5.4-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
