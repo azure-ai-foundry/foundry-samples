@@ -12,9 +12,9 @@
 
   <ItemGroup>
     <!-- Invocations protocol SDK — provides InvocationsServer, InvocationHandler, InvocationContext -->
-    <PackageReference Include="Azure.AI.AgentServer.Invocations" Version="1.0.0-beta.4" />
+    <PackageReference Include="Azure.AI.AgentServer.Invocations" Version="1.0.0-beta.5" />
     <!-- Foundry SDK — provides AIProjectClient and ProjectOpenAIClient -->
-    <PackageReference Include="Azure.AI.Projects" Version="2.0.0" />
+    <PackageReference Include="Azure.AI.Projects" Version="2.0.1" />
     <!-- OpenAI bridge for Foundry — provides GetProjectResponsesClientForModel(),
          CreateResponseOptions, ResponseItem, FunctionTool, FunctionCallResponseItem -->
     <PackageReference Include="Azure.AI.Extensions.OpenAI" Version="2.0.0" />

@@ -19,7 +19,7 @@ template:
   kind: hosted
   protocols:
     - protocol: invocations_ws
-      version: 1.0.0
+      version: 2.0.0
   resources:
     cpu: "1"
     memory: 2Gi
