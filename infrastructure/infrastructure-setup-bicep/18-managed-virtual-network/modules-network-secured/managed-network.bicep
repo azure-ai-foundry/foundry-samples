@@ -140,4 +140,26 @@ resource acrOutboundRule 'Microsoft.CognitiveServices/accounts/managedNetworks/o
   dependsOn: [amplsOutboundRule]
 }
 
+// Outbound service-tag rule for the Agent365 (A365) observability/tracing endpoint
+// agent365.svc.cloud.microsoft sits behind Azure Front Door, so allow egress to the
+// AzureFrontDoor.Frontend service tag on TCP 443. This lets the hosted agent export
+// traces to the A365 tracing endpoint. A service-tag rule does not require the
+// managed-network firewall SKU (unlike an FQDN rule).
+#disable-next-line BCP081
+resource a365FrontDoorOutboundRule 'Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules@2025-10-01-preview' = {
+  parent: managedNetwork
+  name: 'allow-a365-frontdoor-rule'
+  properties: {
+    type: 'ServiceTag'
+    destination: {
+      serviceTag: 'AzureFrontDoor.Frontend'
+      protocol: 'TCP'
+      portRanges: '443'
+      action: 'Allow'
+    }
+    category: 'UserDefined'
+  }
+  dependsOn: [acrOutboundRule]
+}
+
 output managedNetworkSettingsName string = managedNetwork.name

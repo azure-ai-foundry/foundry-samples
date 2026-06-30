@@ -28,6 +28,7 @@ param existingDnsZones = {
   'privatelink.blob.core.windows.net': ''                            
   'privatelink.documents.azure.com': ''
   'privatelink.azure-api.net': ''                       
+  'privatelink.azurecr.io': ''                       
 }
 
 //DNSZones names for validating if they exist
@@ -39,6 +40,7 @@ param dnsZoneNames = [
   'privatelink.blob.core.windows.net'
   'privatelink.documents.azure.com'
   'privatelink.azure-api.net'
+  'privatelink.azurecr.io'
 ]
 
 

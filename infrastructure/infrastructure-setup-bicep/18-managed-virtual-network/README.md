@@ -322,6 +322,16 @@ This script creates the following outbound PE rules:
 
 > **Note**: The AI Services managed identity must have the `Contributor` and `Azure AI Enterprise Network Connection Approver` roles at the resource group scope for outbound PE connections to auto-approve. The Bicep template assigns the Network Connection Approver role automatically.
 
+### Built-in Outbound Rule: Agent365 (A365) Tracing
+
+In addition to the private endpoint rules above, the template creates a **service-tag** outbound rule automatically at deploy time (in [`modules-network-secured/managed-network.bicep`](modules-network-secured/managed-network.bicep)). No post-deployment step is required for this rule.
+
+| Rule Name | Type | Destination | Port | Why |
+|-----------|------|-------------|------|-----|
+| `allow-a365-frontdoor-rule` | `ServiceTag` | `AzureFrontDoor.Frontend` | TCP 443 | Hosted agent → Agent365 (A365) observability/tracing endpoint |
+
+> **Why is this needed?** The managed VNet is **deny-by-default outbound** (`AllowOnlyApprovedOutbound`). Without an explicit allow rule, the agent's trace export to the A365 endpoint (`agent365.svc.cloud.microsoft`) is blocked and observability data never leaves the agent. A **service-tag** rule is used (rather than an FQDN rule) because it does not require the managed-network firewall SKU.
+
 ### Additional Helper Scripts
 
 | Script | Purpose |
@@ -819,6 +829,14 @@ az rest --method get \
 | `cosmosdb-pe` | Cosmos DB | `Sql` | Thread state persistence |
 | `search-pe` | Azure AI Search | `searchService` | Vector store and file search |
 | `tools-cae-pe` | Container App Environment | `managedEnvironments` | Hosted agent to tool server communication |
+
+### Quick Reference: Built-in Service-Tag Outbound Rule
+
+Created automatically by the template (no post-deployment step needed):
+
+| Rule Name | Type | Destination | Port | Why |
+|-----------|------|-------------|------|-----|
+| `allow-a365-frontdoor-rule` | `ServiceTag` | `AzureFrontDoor.Frontend` | TCP 443 | Hosted agent to Agent365 (A365) observability/tracing endpoint |
 
 ---
 
