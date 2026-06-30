@@ -1,5 +1,5 @@
 claude-agent-sdk>=0.1.74
-azure-ai-agentserver-invocations==1.0.0b4
+azure-ai-agentserver-invocations==1.0.0b6
 httpx<1.0
 
 # debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.

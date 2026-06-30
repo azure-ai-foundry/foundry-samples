@@ -18,7 +18,7 @@ template:
   kind: hosted
   protocols:
     - protocol: invocations
-      version: 1.0.0
+      version: 2.0.0
   # No environment_variables and no resources block:
   # the diagnostic-agent intentionally requires no model and no Foundry project
   # endpoint. Everything it needs is on the container itself.
