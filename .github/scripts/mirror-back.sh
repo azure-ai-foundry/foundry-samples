@@ -93,13 +93,15 @@ is_sync_bot_identity() {
 
 should_skip_commit() {
     local sha="$1"
-    local author_name author_email committer_name committer_email
+    local author_name author_email
     author_name=$(git -C "$PUBLIC_REPO_PATH" show -s --format='%an' "$sha")
     author_email=$(git -C "$PUBLIC_REPO_PATH" show -s --format='%ae' "$sha")
-    committer_name=$(git -C "$PUBLIC_REPO_PATH" show -s --format='%cn' "$sha")
-    committer_email=$(git -C "$PUBLIC_REPO_PATH" show -s --format='%ce' "$sha")
 
-    for value in "$author_name" "$author_email" "$committer_name" "$committer_email"; do
+    # Skip only when the AUTHOR is a sync-bot identity. The sync pipeline sets both
+    # author and committer to the bot identity. Human PRs merged via "direct rebase
+    # merge as the App" have a human author but a sync-bot committer — those must
+    # still be mirrored back to private.
+    for value in "$author_name" "$author_email"; do
         if is_sync_bot_identity "$value"; then
             return 0
         fi
