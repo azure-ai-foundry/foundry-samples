@@ -2,7 +2,7 @@ kind: hosted
 name: langgraph-observability-responses
 protocols:
   - protocol: responses
-    version: 1.0.0
+    version: 2.0.0
 resources:
   cpu: "0.25"
   memory: 0.5Gi
@@ -13,3 +13,4 @@ environment_variables:
     value: "true"
   - name: AZURE_TRACING_GEN_AI_CONTENT_RECORDING_ENABLED
     value: "true"
+
