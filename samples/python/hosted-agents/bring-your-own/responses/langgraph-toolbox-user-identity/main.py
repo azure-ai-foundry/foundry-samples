@@ -200,7 +200,7 @@ async def quickstart():
             schema["properties"] = props
 
     logger.info(f"Loaded {len(tools)} tools from MCP")
-    return create_agent(llm, tools), toolbox
+    return create_agent(llm, tools), toolbox, tools
 
 
 def _extract_assistant_text(result: dict) -> str:
@@ -326,9 +326,8 @@ async def _get_agent():
         last_exc: Exception | None = None
         for attempt in range(1, 6):
             try:
-                agent, mcp_client = await quickstart()
-                bound_tools = getattr(agent, "tools", None) or []
-                if not bound_tools:
+                agent, mcp_client, tools = await quickstart()
+                if not tools:
                     logger.warning(
                         "Toolbox returned 0 tools on attempt %d; retrying", attempt,
                     )
@@ -344,7 +343,7 @@ async def _get_agent():
                 await asyncio.sleep(min(2 ** attempt, 15))
         if last_exc is not None:
             raise last_exc
-        _agent, _mcp_client = await quickstart()
+        _agent, _mcp_client, _ = await quickstart()
         return _agent
 
 
