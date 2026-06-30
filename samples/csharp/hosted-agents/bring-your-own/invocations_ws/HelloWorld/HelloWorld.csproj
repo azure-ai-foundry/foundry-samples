@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <!-- Invocations protocol SDK — provides InvocationsServer, InvocationWebSocketHandler, InvocationContext -->
-    <PackageReference Include="Azure.AI.AgentServer.Invocations" Version="1.0.0-beta.4" />
+    <PackageReference Include="Azure.AI.AgentServer.Invocations" Version="1.0.0-beta.5" />
     <!-- Voice Live SDK — managed speech-to-speech (STT + LLM + TTS) over WebSocket -->
     <PackageReference Include="Azure.AI.VoiceLive" Version="1.1.0-beta.4" />
     <!-- Azure authentication via DefaultAzureCredential -->

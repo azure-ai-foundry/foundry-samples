@@ -1,4 +1,4 @@
-azure-ai-agentserver-responses==1.0.0b7
+azure-ai-agentserver-responses==1.0.0b8
 azure-identity==1.25.3
 openai-agents>=0.1.0
 
