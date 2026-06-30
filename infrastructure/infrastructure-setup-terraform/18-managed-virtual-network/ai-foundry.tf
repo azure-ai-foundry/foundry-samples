@@ -146,8 +146,8 @@ resource "azapi_resource" "managed_network" {
   body = {
     properties = {
       managedNetwork = {
-        isolationMode      = "AllowInternetOutbound"
-        managedNetworkKind = "V2"
+        isolationMode       = "AllowInternetOutbound"
+        managedNetworkKind  = "V2"
         provisionNetworkNow = true
       }
     }
@@ -224,6 +224,34 @@ resource "azapi_resource" "storage_outbound_rule" {
     azurerm_role_assignment.foundry_network_connection_approver,
     azurerm_role_assignment.foundry_storage_blob,
     azurerm_role_assignment.foundry_storage_contributor
+  ]
+}
+
+# Managed Network Outbound Rule for the Agent365 (A365) tracing endpoint (behind Azure Front Door).
+resource "azapi_resource" "a365_frontdoor_outbound_rule" {
+  count     = var.enable_networking ? 1 : 0
+  type      = "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules@2025-10-01-preview"
+  name      = "allow-a365-frontdoor-rule"
+  parent_id = azapi_resource.managed_network.id
+
+  schema_validation_enabled = false
+
+  body = {
+    properties = {
+      type = "ServiceTag"
+      destination = {
+        serviceTag = "AzureFrontDoor.Frontend"
+        protocol   = "TCP"
+        portRanges = "443"
+        action     = "Allow"
+      }
+      category = "UserDefined"
+    }
+  }
+
+  depends_on = [
+    azapi_resource.managed_network,
+    azapi_resource.ampls_outbound_rule
   ]
 }
 
@@ -326,7 +354,8 @@ resource "time_sleep" "wait_outbound_rules" {
     azapi_resource.storage_outbound_rule,
     azapi_resource.cosmos_outbound_rule,
     azapi_resource.aisearch_outbound_rule,
-    azapi_resource.ampls_outbound_rule
+    azapi_resource.ampls_outbound_rule,
+    azapi_resource.a365_frontdoor_outbound_rule
   ]
 }
 
