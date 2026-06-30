@@ -1,4 +1,4 @@
-langchain-azure-ai[hosting]>=1.2.4
+langchain-azure-ai[hosting]>=1.2.8
 azure-ai-projects
 langchain
 langchain-openai

@@ -19,7 +19,7 @@ template:
   kind: hosted
   protocols:
     - protocol: responses
-      version: 1.0.0
+      version: 2.0.0
   environment_variables:
     # FOUNDRY_PROJECT_ENDPOINT and APPLICATIONINSIGHTS_CONNECTION_STRING
     # are injected by the platform (hosted) and translated by azd (local)
@@ -39,3 +39,4 @@ resources:
   - kind: model
     id: gpt-5.4-mini
     name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+
