@@ -121,16 +121,6 @@ if "api-version=" not in TOOLBOX_ENDPOINT:
     sep = "&" if "?" in TOOLBOX_ENDPOINT else "?"
     TOOLBOX_ENDPOINT += f"{sep}api-version=v1"
 
-# Feature-flag header value (e.g. "Toolboxes=V1Preview").
-_TOOLBOX_FEATURES = os.getenv(
-    "FOUNDRY_AGENT_TOOLBOX_FEATURES", "Toolboxes=V1Preview")
-
-# Platform-injected per-request call identifier (container protocol v2.0.0).
-# Extracted from the inbound invocation context and forwarded verbatim on every
-# egress call to the Foundry toolbox MCP proxy so the platform can correlate the
-# downstream tool calls with the originating invocation. The header name is owned
-# by the SDK; use ``platform_headers()`` instead of hardcoding it.
-
 _credential = DefaultAzureCredential()
 _project_client = AIProjectClient(endpoint=_endpoint, credential=_credential)
 _responses_client = _project_client.get_openai_client().responses
@@ -160,11 +150,6 @@ class _McpToolboxClient:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self._get_token()}",
         }
-        if _TOOLBOX_FEATURES:
-            h["Foundry-Features"] = _TOOLBOX_FEATURES
-        # Forward the per-request call ID extracted from the inbound invocation.
-        if call_id:
-            h.update(FoundryAgentRequestContext(call_id=call_id).platform_headers())
         if self._session_id:
             h["mcp-session-id"] = self._session_id
         return h

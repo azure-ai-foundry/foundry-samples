@@ -11,8 +11,6 @@ namespace BrowserAutomation;
 /// </summary>
 public class ToolboxClient
 {
-    private const string ToolboxFeatures = "Toolboxes=V1Preview";
-
     private readonly string _endpoint;
     private readonly Func<string> _getToken;
     private readonly ILogger _logger;
@@ -152,7 +150,6 @@ public class ToolboxClient
             Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _getToken());
-        request.Headers.TryAddWithoutValidation("Foundry-Features", ToolboxFeatures);
         if (_sessionId != null)
             request.Headers.TryAddWithoutValidation("mcp-session-id", _sessionId);
 
