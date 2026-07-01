@@ -12,7 +12,7 @@
   <ItemGroup>
     <!-- Agent Framework hosting — provides AgentHost, AddFoundryResponses, MapFoundryResponses,
          and AddFoundryToolboxes for consuming Foundry Toolboxes. -->
-    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.11.0-preview.260623.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.12.0-preview.260629.1" />
     <!-- Foundry SDK — provides AIProjectClient and AsAIAgent. -->
     <PackageReference Include="Azure.AI.Projects" Version="2.1.0-beta.3" />
     <!-- .env file support for local development. -->

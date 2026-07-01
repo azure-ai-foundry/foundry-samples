@@ -12,8 +12,8 @@
   <ItemGroup>
     <!-- Agent Framework hosting — provides AgentHost, AddFoundryResponses, MapFoundryResponses,
          and the GetToolboxToolsAsync extension on AIProjectClient. -->
-    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.6.1-preview.260514.1" />
-    <PackageReference Include="Microsoft.Agents.AI.Foundry" Version="1.6.1-preview.260514.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.12.0-preview.260629.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Foundry" Version="1.12.0-preview.260629.1" />
     <!-- Foundry SDK — provides AIProjectClient and AsAIAgent. -->
     <!-- .env file support for local development. -->
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
