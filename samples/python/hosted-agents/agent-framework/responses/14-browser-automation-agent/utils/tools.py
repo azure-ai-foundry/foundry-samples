@@ -254,7 +254,6 @@ def make_toolbox_mcp_tool(
     token_provider = get_bearer_token_provider(credential, settings.azure_scope)
     http_client = httpx.AsyncClient(
         auth=ToolboxAuth(token_provider),
-        headers={"Foundry-Features": "Toolboxes=V1Preview"},
         timeout=settings.mcp_timeout_seconds,
     )
 

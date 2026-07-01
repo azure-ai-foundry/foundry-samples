@@ -66,7 +66,6 @@ async def main():
 
     http_client = httpx.AsyncClient(
         auth=ToolboxAuth(token_provider),
-        headers={"Foundry-Features": "Toolboxes=V1Preview"},
         timeout=120.0,
     )
 
