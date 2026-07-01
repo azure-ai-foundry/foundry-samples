@@ -1,6 +1,6 @@
 # Foundry Toolbox — Auth Paths
 
-A Foundry Toolbox that demonstrates the **authentication paths** a toolbox MCP tool can use to reach its upstream server. Like [`foundry-toolbox-server-side`](../foundry-toolbox-server-side/), the agent loads the toolbox with `GetToolboxToolsAsync()` and passes the tools to `AsAIAgent(..., tools: ...)` as **server-side tools** — Foundry executes them on the agent's behalf.
+A Foundry Toolbox that demonstrates the **authentication paths** a toolbox MCP tool can use to reach its upstream server. Like [`foundry-toolbox-server-side`](../foundry-toolbox-server-side/), the agent registers the toolbox with `AddFoundryToolboxes()`; the hosting layer discovers its tools and injects them as **server-side tools** — Foundry executes them on the agent's behalf.
 
 The key idea: **the agent code carries no auth logic**. Foundry resolves each tool's credential server-side when it proxies the MCP call, so `Program.cs` is identical regardless of which path a tool uses. The difference lives entirely in [`agent.manifest.yaml`](agent.manifest.yaml).
 
@@ -23,7 +23,7 @@ A `401`/`403` from a tool means that path's credential did not resolve. Send any
 
 ## All-or-nothing enumeration
 
-`GetToolboxToolsAsync()` fetches **all** tool definitions at startup. If any configured source is misconfigured (bad PAT, missing RBAC, unreachable server), the fetch fails and the host does not start. When adding a new auth path, **validate one source at a time** — comment out the others in the manifest until each one enumerates cleanly.
+`AddFoundryToolboxes()` makes the hosting layer fetch **all** tool definitions at startup. If any configured source is misconfigured (bad PAT, missing RBAC, unreachable server), the fetch fails and the host does not start. When adding a new auth path, **validate one source at a time** — comment out the others in the manifest until each one enumerates cleanly.
 
 ## Adding auth path 2 — Microsoft Entra agent identity
 

@@ -12,7 +12,7 @@
   <ItemGroup>
     <!-- Agent Framework hosting — provides AgentHost, AddFoundryResponses, MapFoundryResponses,
          and AddFoundryToolboxes for registering Foundry Toolboxes as host-side MCP tools. -->
-    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.10.0-preview.260610.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.12.0-preview.260629.1" />
     <!-- .env file support for local development. -->
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
   </ItemGroup>
