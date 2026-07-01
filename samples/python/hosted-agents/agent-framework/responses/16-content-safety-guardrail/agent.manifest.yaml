@@ -17,7 +17,7 @@ template:
   kind: hosted
   protocols:
     - protocol: responses
-      version: 1.0.0
+      version: 2.0.0
   # Content safety guardrail. Replace rai_policy_name with the full ARM resource
   # ID of an RAI policy on your Foundry resource. See README.md for how to create
   # one. Omit the policies block entirely to deploy the agent without a guardrail.

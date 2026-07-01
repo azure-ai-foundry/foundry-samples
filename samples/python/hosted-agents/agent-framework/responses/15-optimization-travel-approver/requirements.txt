@@ -1,7 +1,5 @@
-# Use the narrow Foundry subpackages to keep dependencies light.
 agent-framework-foundry
-agent-framework-foundry-hosting
-mcp<2,>=1.24.0
+agent-framework-foundry-hosting>=1.0.0a260630
 azure-identity>=1.15.0
 azure-ai-agentserver-optimization>=1.0.0b1
 
