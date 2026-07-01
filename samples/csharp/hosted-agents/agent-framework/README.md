@@ -2,6 +2,14 @@
 
 This directory contains samples that demonstrate how to use the [Agent Framework](https://github.com/microsoft/agent-framework) to host agents with different capabilities and configurations. Each sample includes a README with instructions on how to interact with the agent.
 
+> [!IMPORTANT]
+> **Responses container protocol v2.0.** These samples target the Foundry Responses container
+> protocol **v2.0** (declared in each `agent.yaml` / `agent.manifest.yaml`) and reference the
+> `Microsoft.Agents.AI.*` **1.12.0** package line that carries the AgentServer 2.0 migration. That
+> package line is not published yet, so `dotnet restore` will fail until it lands — the version pins
+> are placeholders (`1.12.0-preview.*` / `1.12.0-alpha.*`) and will be finalized when 1.12.0 ships.
+> For the previous protocol v1 definition, use the samples at the last commit on the 1.11.x line.
+
 ## Samples
 
 ### Responses API
@@ -14,7 +22,7 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | 4 | [mcp-tools](mcp-tools/) | An agent demonstrating client-side and server-side MCP tool integration. |
 | 5 | [text-search-rag](text-search-rag/) | A support agent with RAG capabilities using `TextSearchProvider`. |
 | 6 | [workflows](workflows/) | A multi-agent translation pipeline using `WorkflowBuilder`. |
-| 7 | [foundry-toolbox-server-side](foundry-toolbox-server-side/) | An agent that loads a Foundry Toolbox with `GetToolboxToolsAsync()` and passes its tools as server-side tools — Foundry executes them on the agent's behalf. |
+| 7 | [foundry-toolbox-server-side](foundry-toolbox-server-side/) | An agent that loads a Foundry Toolbox via `AddFoundryToolboxes()` and exposes its tools as server-side tools — Foundry executes them on the agent's behalf. |
 | 8 | [toolbox-auth-paths](toolbox-auth-paths/) | A multi-tool Foundry Toolbox demonstrating the authentication paths an MCP tool can use (key-based `CustomKeys`, public no-auth, and optional Entra agent identity) — all resolved server-side. |
 | 9 | [azure-search-rag](azure-search-rag/) | A support agent with RAG grounded in an Azure AI Search keyword index via `TextSearchProvider` over `Azure.Search.Documents`. |
 | 10 | [foundry-memory-rag](foundry-memory-rag/) | A personal-coach agent with persistent per-user memory that survives across requests and sessions using `FoundryMemoryProvider`. |

@@ -11,7 +11,7 @@ The caller sees the executor purely as an A2A skill discovered from the executor
 
 ```
 caller (hosted agent)
-  └─ Toolbox (loaded server-side via AIProjectClient.GetToolboxToolsAsync)
+  └─ Toolbox (registered server-side via AddFoundryToolboxes)
        └─ a2a_preview tool
             └─ RemoteA2A connection ──► executor's A2A endpoint
 ```
@@ -82,7 +82,7 @@ azd provision    # creates the RemoteA2A connection + a2a_preview toolbox from t
 azd deploy
 ```
 
-The caller's manifest declares a `kind: connection` (`RemoteA2A` / `UserEntraToken`) pointing at the A2A endpoint, and a `kind: toolbox` with one `a2a_preview` tool. `azd provision` creates both — there's nothing to wire by hand. At startup the caller resolves the toolbox by name (`TOOLBOX_NAME=a2a-delegation-tools`) via `AIProjectClient.GetToolboxToolsAsync` and passes the tools to the agent as server-side tools; the underlying connection is resolved on the server side.
+The caller's manifest declares a `kind: connection` (`RemoteA2A` / `UserEntraToken`) pointing at the A2A endpoint, and a `kind: toolbox` with one `a2a_preview` tool. `azd provision` creates both — there's nothing to wire by hand. At startup the caller registers the toolbox by name (`TOOLBOX_NAME=a2a-delegation-tools`) with `AddFoundryToolboxes`; the hosting layer discovers its tools and injects them into every request as server-side tools, and the underlying connection is resolved on the server side.
 
 ### 4. Invoke the caller
 

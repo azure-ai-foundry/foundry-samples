@@ -16,13 +16,13 @@
 
   <ItemGroup>
     <!-- Agent Framework core - provides AgentSkillsProviderBuilder and ChatClientAgent. -->
-    <PackageReference Include="Microsoft.Agents.AI" Version="1.8.0" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.12.0" />
     <!-- Agent Framework hosting - provides AgentHost, AddFoundryResponses, MapFoundryResponses. -->
-    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.8.0-preview.260528.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.12.0-preview.260629.1" />
     <!-- Agent Framework MCP integration - provides AgentSkillsProviderBuilder.UseMcpSkills(). -->
-    <PackageReference Include="Microsoft.Agents.AI.Mcp" Version="1.8.0-alpha.260528.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Mcp" Version="1.12.0-alpha.260629.1" />
     <!-- Foundry SDK - provides AIProjectClient and AsAIAgent. -->
-    <PackageReference Include="Azure.AI.Projects" Version="2.1.0-beta.2" />
+    <PackageReference Include="Azure.AI.Projects" Version="2.1.0-beta.3" />
     <!-- MCP client used to talk to the Foundry Toolbox MCP endpoint. -->
     <PackageReference Include="ModelContextProtocol" Version="1.2.0" />
     <!-- .env file support for local development. -->
