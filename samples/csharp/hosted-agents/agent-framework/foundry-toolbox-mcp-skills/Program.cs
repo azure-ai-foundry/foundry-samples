@@ -62,8 +62,6 @@ using var httpClient = new HttpClient(
 Console.WriteLine($"Connecting to Foundry Toolbox '{toolboxName}' MCP server...");
 
 // Connect to the Foundry Toolbox MCP endpoint.
-// The Foundry-Features: Toolboxes=V1Preview opt-in header is required while the
-// toolbox MCP surface is in preview.
 await using var mcpClient = await McpClient.CreateAsync(
     new HttpClientTransport(
         new HttpClientTransportOptions
@@ -71,10 +69,6 @@ await using var mcpClient = await McpClient.CreateAsync(
             Endpoint = new Uri(toolboxMcpServerUrl),
             Name = toolboxName,
             TransportMode = HttpTransportMode.StreamableHttp,
-            AdditionalHeaders = new Dictionary<string, string>
-            {
-                ["Foundry-Features"] = "Toolboxes=V1Preview",
-            },
         },
         httpClient));
 

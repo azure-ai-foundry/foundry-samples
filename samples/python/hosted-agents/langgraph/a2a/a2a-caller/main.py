@@ -78,7 +78,6 @@ async def _load_toolbox_tools() -> list[BaseTool]:
             "a2a-delegation": {
                 "transport": "streamable_http",
                 "url": _toolbox_mcp_url(),
-                "headers": {"Foundry-Features": "Toolboxes=V1Preview"},
                 "auth": _ToolboxAuth(token_provider),
             }
         }

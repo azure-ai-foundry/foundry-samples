@@ -29,7 +29,7 @@ You can also create a Foundry Toolbox in the Foundry portal. Read more about it 
 
 ### Toolbox tool loading
 
-[`langchain_azure_ai.tools.AzureAIProjectToolbox`](https://github.com/langchain-ai/langchain-azure/blob/main/libs/azure-ai/langchain_azure_ai/tools/_toolbox.py) opens an MCP session against the toolbox endpoint, authenticates with `DefaultAzureCredential`, injects the required `Foundry-Features` header, sanitizes tool schemas, and returns standard LangChain `BaseTool` instances. Tools are loaded **lazily** (once, on the first request) and reused for all subsequent turns; each tool invocation opens its own short-lived MCP session.
+[`langchain_azure_ai.tools.AzureAIProjectToolbox`](https://github.com/langchain-ai/langchain-azure/blob/main/libs/azure-ai/langchain_azure_ai/tools/_toolbox.py) opens an MCP session against the toolbox endpoint, authenticates with `DefaultAzureCredential`, sanitizes tool schemas, and returns standard LangChain `BaseTool` instances. Tools are loaded **lazily** (once, on the first request) and reused for all subsequent turns; each tool invocation opens its own short-lived MCP session.
 
 ### LangGraph Agent
 

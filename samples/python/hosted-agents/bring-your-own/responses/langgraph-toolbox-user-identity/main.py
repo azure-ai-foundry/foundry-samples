@@ -8,7 +8,6 @@ respond to user queries.
 The Foundry platform injects these at runtime:
 - `FOUNDRY_PROJECT_ENDPOINT` — project endpoint
 - `FOUNDRY_AGENT_TOOLBOX_ENDPOINT` — base URL for toolbox MCP proxy
-- `FOUNDRY_AGENT_TOOLBOX_FEATURES` — feature-flag headers for toolbox requests
 
 ## User-Defined Variables
 
@@ -129,15 +128,6 @@ elif _TOOLBOX_NAME:
 else:
     TOOLBOX_ENDPOINT = ""
 
-# Feature-flag header value (e.g. "Toolboxes=V1Preview").
-_TOOLBOX_FEATURES = os.getenv("FOUNDRY_AGENT_TOOLBOX_FEATURES", "Toolboxes=V1Preview")
-
-# Platform-injected per-request call identifier (container protocol v2.0.0).
-# Extracted from the inbound responses request via ``get_request_context()`` and
-# forwarded on the egress toolbox MCP calls so the platform can correlate the
-# downstream tool calls with the originating request. The header name is owned
-# by the SDK; use ``platform_headers()`` instead of hardcoding it.
-
 
 def _toolbox_name_from_endpoint(endpoint: str) -> str | None:
     """Extract toolbox name from endpoint URL path."""
@@ -182,20 +172,10 @@ async def quickstart(call_id: str | None = None):
         )
 
     logger.info(f"Connecting to toolbox: {TOOLBOX_ENDPOINT}")
-    extra_headers = {"Foundry-Features": _TOOLBOX_FEATURES} if _TOOLBOX_FEATURES else {}
-    # Forward the inbound per-request call ID on toolbox egress calls. Note:
-    # AzureAIProjectToolbox only accepts static extra_headers at construction and
-    # the agent/toolbox is cached (see _get_agent), so the call ID captured on the
-    # first request is reused for the lifetime of the cached toolbox.
-    if call_id:
-        extra_headers.update(
-            FoundryAgentRequestContext(call_id=call_id).platform_headers()
-        )
     toolbox = AzureAIProjectToolbox(
         project_endpoint=PROJECT_ENDPOINT,
         toolbox_name=toolbox_name,
         credential=DefaultAzureCredential(),
-        extra_headers=extra_headers,
     )
     tools = await toolbox.get_tools()
 

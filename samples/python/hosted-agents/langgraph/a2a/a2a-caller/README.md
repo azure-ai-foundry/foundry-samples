@@ -26,7 +26,6 @@ client = MultiServerMCPClient({
     "a2a-delegation": {
         "transport": "streamable_http",
         "url": f"{project_endpoint}/toolboxes/{toolbox_name}/mcp?api-version=v1",
-        "headers": {"Foundry-Features": "Toolboxes=V1Preview"},
         "auth": _ToolboxAuth(token_provider),  # fresh Entra token per request
     }
 })
