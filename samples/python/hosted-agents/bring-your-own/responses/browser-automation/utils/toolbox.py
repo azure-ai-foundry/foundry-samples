@@ -11,8 +11,6 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-_TOOLBOX_FEATURES = "Toolboxes=V1Preview"
-
 
 class ToolboxClient:
     """Lightweight MCP client for Foundry Toolbox browser session management."""
@@ -30,8 +28,6 @@ class ToolboxClient:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self._get_token()}",
         }
-        if _TOOLBOX_FEATURES:
-            h["Foundry-Features"] = _TOOLBOX_FEATURES
         if self._session_id:
             h["mcp-session-id"] = self._session_id
         return h

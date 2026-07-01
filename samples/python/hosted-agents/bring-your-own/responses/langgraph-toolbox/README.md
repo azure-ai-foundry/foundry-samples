@@ -236,7 +236,6 @@ my-project/
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | **Yes** | Model deployment name (e.g. `gpt-4.1`) |
 | `TOOLBOX_ENDPOINT` | **Yes** | Full toolbox MCP endpoint URL. Copy the versioned endpoint from the `azd ai toolbox create` output. |
 | `TOOLBOX_NAME` | No | Toolbox name. If `TOOLBOX_ENDPOINT` isn't set, the agent builds the latest-version endpoint from this and `FOUNDRY_PROJECT_ENDPOINT`. |
-| `FOUNDRY_AGENT_TOOLBOX_FEATURES` | No | Feature-flag header value — platform-injected (default: `Toolboxes=V1Preview`) |
 
 Set `TOOLBOX_ENDPOINT` to the full MCP URL. Two forms are supported:
 ```
