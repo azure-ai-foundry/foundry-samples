@@ -1,27 +1,29 @@
 package com.azure.ai.foundry.samples;
 
-import com.azure.ai.agents.persistent.PersistentAgentsClient;
-import com.azure.ai.agents.persistent.PersistentAgentsClientBuilder;
-import com.azure.ai.agents.persistent.PersistentAgentsAdministrationClient;
-import com.azure.ai.agents.persistent.models.CreateAgentOptions;
-import com.azure.ai.agents.persistent.models.CreateThreadAndRunOptions;
-import com.azure.ai.agents.persistent.models.PersistentAgent;
-import com.azure.ai.agents.persistent.models.ThreadRun;
+import com.azure.ai.agents.AgentsClient;
+import com.azure.ai.agents.AgentsClientBuilder;
+import com.azure.ai.agents.ResponsesClient;
+import com.azure.ai.agents.models.AgentDetails;
+import com.azure.ai.agents.models.AgentVersionDetails;
+import com.azure.ai.agents.models.PromptAgentDefinition;
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.exception.HttpResponseException;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.openai.client.OpenAIClient;
+import com.openai.models.conversations.Conversation;
+import com.openai.models.responses.Response;
 
 
 /**
- * Sample demonstrating how to work with Azure AI Agents using the Azure AI Agents Persistent SDK.
+ * Sample demonstrating how to work with Azure AI Agents using the Azure AI Agents SDK v2.
  * 
  * This sample shows how to:
  * - Set up authentication with Azure credentials
- * - Create a persistent agent with custom instructions
- * - Start a thread and run with the agent
- * - Access various properties of the agent and thread run
- * - Work with the PersistentAgentsClient and PersistentAgentsAdministrationClient
+ * - Create an agent with custom instructions
+ * - Start a conversation with the agent
+ * - Get responses from the agent
+ * - Work with the AgentsClient and ResponsesClient
  * 
  * Environment variables:
  * - AZURE_ENDPOINT: Optional fallback. The base endpoint for your Azure AI service if PROJECT_ENDPOINT is not provided.
@@ -34,14 +36,13 @@ import com.azure.identity.DefaultAzureCredentialBuilder;
  * multiple authentication methods including environment variables, managed identities, and interactive login.
  * 
  * SDK Features Demonstrated:
- * - Using the Azure AI Agents Persistent SDK (com.azure:azure-ai-agents-persistent:1.0.0-beta.2)
+ * - Using the Azure AI Agents SDK (com.azure:azure-ai-agents:2.0.0)
  * - Creating an authenticated client with DefaultAzureCredential
- * - Using the PersistentAgentsClientBuilder pattern for client instantiation
- * - Working with the PersistentAgentsAdministrationClient for agent management
+ * - Using the AgentsClientBuilder pattern for client instantiation
  * - Creating agents with specific configurations (name, model, instructions)
- * - Starting threads and runs for agent conversations
- * - Working with agent state and thread management
- * - Accessing agent and thread run properties
+ * - Creating conversations and getting responses from agents
+ * - Working with agent versions
+ * - Accessing agent properties
  * - Implementing proper error handling for Azure service interactions
  */
 public class AgentSample {
@@ -92,42 +93,41 @@ public class AgentSample {
         TokenCredential credential = new DefaultAzureCredentialBuilder().build();
 
         try {
-            // Build the general agents client
-            logger.info("Creating PersistentAgentsClient with endpoint: {}", projectEndpoint);
-            PersistentAgentsClient agentsClient = new PersistentAgentsClientBuilder()
-                .endpoint(projectEndpoint)
+            // Build the agents client and related clients
+            logger.info("Creating AgentsClient with endpoint: {}", projectEndpoint);
+            AgentsClientBuilder builder = new AgentsClientBuilder()
                 .credential(credential)
-                .buildClient();
+                .endpoint(projectEndpoint);
 
-            // Derive the administration client
-            logger.info("Getting PersistentAgentsAdministrationClient");
-            PersistentAgentsAdministrationClient adminClient =
-                agentsClient.getPersistentAgentsAdministrationClient();
+            AgentsClient agentsClient = builder.buildAgentsClient();
+            ResponsesClient responsesClient = builder.buildResponsesClient();
+            OpenAIClient openAIClient = builder.buildOpenAIClient();
 
             // Create an agent
             logger.info("Creating agent with name: {}, model: {}", agentName, modelName);
-            PersistentAgent agent = adminClient.createAgent(
-                new CreateAgentOptions(modelName)
-                    .setName(agentName)
-                    .setInstructions(instructions)
+            PromptAgentDefinition agentDefinition = new PromptAgentDefinition(modelName)
+                .setInstructions(instructions);
+            
+            AgentVersionDetails agent = agentsClient.createAgentVersion(
+                agentName,
+                new com.azure.ai.agents.models.CreateAgentVersionOptions(agentDefinition)
             );
-            logger.info("Agent created: ID={}, Name={}", agent.getId(), agent.getName());
+            logger.info("Agent created: Name={}, Version={}", agent.getName(), agent.getVersion());
             logger.info("Agent model: {}", agent.getModel());
 
-            // Start a thread/run on the general client
-            logger.info("Creating thread and run with agent ID: {}", agent.getId());
-            ThreadRun runResult = agentsClient.createThreadAndRun(
-                new CreateThreadAndRunOptions(agent.getId())
-            );
-            logger.info("ThreadRun created: ThreadId={}", runResult.getThreadId());
+            // Create a conversation
+            logger.info("Creating conversation with agent");
+            Conversation conversation = openAIClient.conversations().create();
+            logger.info("Conversation created: ID={}", conversation.id());
 
-            // List available getters on ThreadRun for informational purposes
-            logger.info("\nAvailable getters on ThreadRun:");
-            for (var method : ThreadRun.class.getMethods()) {
-                if (method.getName().startsWith("get")) {
-                    logger.info(" - {}", method.getName());
-                }
-            }
+            // Get a response from the agent
+            logger.info("Getting response from agent");
+            Response response = responsesClient.createResponse(
+                agentName,
+                conversation.id(),
+                "What are the key features of a helpful assistant?"
+            );
+            logger.info("Response received: {}", response.getOutputText());
 
             logger.info("\nDemo completed successfully!");
             

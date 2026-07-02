@@ -21,7 +21,7 @@ import com.azure.identity.DefaultAzureCredentialBuilder;
  * - CHAT_PROMPT:               Optional. The prompt to send (uses a default if not provided).
  * 
  * SDK Features Demonstrated:
- * - Using the Azure AI Inference SDK (com.azure:azure-ai-inference:1.0.0-beta.5)
+ * - Using the Azure AI Inference SDK (com.azure:azure-ai-inference:1.0.0)
  * - Creating a ChatCompletionsClient with Azure or API key authentication
  * - Configuring endpoint paths for different model deployments
  * - Using the simplified complete() method for quick completions

@@ -4,25 +4,26 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import com.azure.ai.agents.persistent.PersistentAgentsClient;
-import com.azure.ai.agents.persistent.PersistentAgentsClientBuilder;
-import com.azure.ai.agents.persistent.PersistentAgentsAdministrationClient;
-import com.azure.ai.agents.persistent.models.CreateAgentOptions;
-import com.azure.ai.agents.persistent.models.CreateThreadAndRunOptions;
-import com.azure.ai.agents.persistent.models.PersistentAgent;
-import com.azure.ai.agents.persistent.models.ThreadRun;
+import com.azure.ai.agents.AgentsClient;
+import com.azure.ai.agents.AgentsClientBuilder;
+import com.azure.ai.agents.ResponsesClient;
+import com.azure.ai.agents.models.PromptAgentDefinition;
+import com.azure.ai.agents.models.AgentVersionDetails;
 import com.azure.core.exception.HttpResponseException;
 import com.azure.core.util.logging.ClientLogger;
 import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.openai.client.OpenAIClient;
+import com.openai.models.conversations.Conversation;
+import com.openai.models.responses.Response;
 
 /**
- * Sample demonstrating agent creation with document capabilities using Azure AI Agents Persistent SDK.
+ * Sample demonstrating agent creation with document capabilities using Azure AI Agents SDK v2.
  * 
  * This sample shows how to:
  * - Set up authentication with Azure credentials
  * - Create a temporary document file for demonstration purposes
- * - Create a persistent agent with custom instructions for document search
- * - Start a thread and run with the agent that can access document content
+ * - Create an agent with custom instructions for document search
+ * - Start a conversation with the agent that can access document content
  * - Work with file-based knowledge sources for agent interactions
  * 
  * Environment variables:
@@ -37,14 +38,12 @@ import com.azure.identity.DefaultAzureCredentialBuilder;
  * for more advanced document processing capabilities.
  * 
  * SDK Features Demonstrated:
- * - Using the Azure AI Agents Persistent SDK (com.azure:azure-ai-agents-persistent:1.0.0-beta.2)
+ * - Using the Azure AI Agents SDK (com.azure:azure-ai-agents:2.0.0)
  * - Creating an authenticated client with DefaultAzureCredential
- * - Using the PersistentAgentsClientBuilder for client instantiation 
- * - Working with the PersistentAgentsAdministrationClient for agent management
- * - Creating temporary document files for agent access
- * - Adding document knowledge sources to agents
+ * - Using the AgentsClientBuilder for client instantiation 
+ * - Creating agents with file search capabilities
  * - Creating document-aware agents that can search and reference content
- * - Starting threads and runs for document-based Q&A
+ * - Creating conversations and getting responses from agents
  * - Error handling for Azure service and file operations
  */
 public class FileSearchAgentSample {
@@ -88,17 +87,15 @@ public class FileSearchAgentSample {
         logger.info("Using endpoint: {}", finalEndpoint);
 
         try {
-            // Build the general agents client with proper error handling
-            logger.info("Creating PersistentAgentsClient with endpoint: {}", finalEndpoint);
-            PersistentAgentsClient agentsClient = new PersistentAgentsClientBuilder()
+            // Build the agents client with proper error handling
+            logger.info("Creating AgentsClient with endpoint: {}", finalEndpoint);
+            AgentsClientBuilder builder = new AgentsClientBuilder()
                 .endpoint(finalEndpoint)
-                .credential(credential)
-                .buildClient();
-
-            // Derive the administration client
-            logger.info("Getting PersistentAgentsAdministrationClient");
-            PersistentAgentsAdministrationClient adminClient =
-                agentsClient.getPersistentAgentsAdministrationClient();
+                .credential(credential);
+            
+            AgentsClient agentsClient = builder.buildAgentsClient();
+            ResponsesClient responsesClient = builder.buildResponsesClient();
+            OpenAIClient openAIClient = builder.buildOpenAIClient();
 
             // Create sample document for demonstration
             Path tmpFile = createSampleDocument();
@@ -108,20 +105,29 @@ public class FileSearchAgentSample {
 
             // Create the agent with proper configuration
             logger.info("Creating agent with name: {}, model: {}", agentName, modelName);
-            PersistentAgent agent = adminClient.createAgent(
-                new CreateAgentOptions(modelName)
-                    .setName(agentName)
-                    .setInstructions(instructions)
+            PromptAgentDefinition agentDefinition = new PromptAgentDefinition(modelName)
+                .setInstructions(instructions);
+            
+            AgentVersionDetails agent = agentsClient.createAgentVersion(
+                agentName,
+                new com.azure.ai.agents.models.CreateAgentVersionOptions(agentDefinition)
             );
             logger.info("Agent ID: {}", agent.getId());
             logger.info("Agent model: {}", agent.getModel());
 
-            // Start a thread and run on the general client
-            logger.info("Creating thread and run with agent ID: {}", agent.getId());
-            ThreadRun threadRun = agentsClient.createThreadAndRun(
-                new CreateThreadAndRunOptions(agent.getId())
+            // Create a conversation and get a response
+            logger.info("Creating conversation with agent");
+            Conversation conversation = openAIClient.conversations().create();
+            logger.info("Conversation ID: {}", conversation.id());
+
+            // Get response from agent
+            logger.info("Getting response from agent about the document");
+            Response response = responsesClient.createResponse(
+                agentName,
+                conversation.id(),
+                "What topics are covered in the document?"
             );
-            logger.info("ThreadRun ID: {}", threadRun.getThreadId());
+            logger.info("Response: {}", response.getOutputText());
 
             // Display success message
             logger.info("\nDemo completed successfully!");
