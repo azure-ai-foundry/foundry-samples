@@ -97,7 +97,7 @@ async def _ensure_session():
             "(BYOK Foundry model)")
     await _client.start()
 
-    working_dir = os.environ.get("HOME", "/home")
+    working_dir = str(pathlib.Path.home())
 
     common = dict(
         on_permission_request=PermissionHandler.approve_all,
