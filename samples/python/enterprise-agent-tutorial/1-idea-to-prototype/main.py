@@ -170,7 +170,7 @@ CAPABILITIES:
     print(f"   Total tools: {len(tools)}")
 
     agent = project_client.agents.create_version(
-        agent_name="Modern Workplace Assistant",
+        agent_name="Modern-Workplace-Assistant",
         definition=PromptAgentDefinition(
             model=os.environ["FOUNDRY_MODEL_NAME"],
             instructions=instructions,
