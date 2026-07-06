@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: langgraph-files-responses
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  agent-tools:
+    host: azure.ai.toolbox
+    uses:
+      - ai-project
+    tools:
+      - type: code_interpreter
+        name: code_interpreter
+  langgraph-files-responses:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - LangGraph
+        - LangChain
+        - Foundry Toolbox
+        - Files
+        - Python
+    project: src/langgraph-files-responses
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+      - agent-tools
+    kind: hosted
+    name: langgraph-files-responses
+    displayName: LangGraph Files (Responses)
+    description: LangGraph agent hosted on Foundry over the Responses protocol, with local filesystem tools plus the code_interpreter tool from a Foundry Toolbox. Demonstrates working with files uploaded to a hosted agent session.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: TOOLBOX_NAME
+        value: agent-tools
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

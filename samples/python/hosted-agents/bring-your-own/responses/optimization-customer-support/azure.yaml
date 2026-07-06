@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: optimization-customer-support-python-responses
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+      - name: gpt-5.4
+        model:
+          format: OpenAI
+          name: gpt-5.4
+          version: '2025-04-14'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  optimization-customer-support-python-responses:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Bring Your Own
+        - Python
+        - Agent Optimization
+        - Customer Support
+    project: src/optimization-customer-support-python-responses
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: optimization-customer-support-python-responses
+    displayName: Optimization Customer Support (Python, Responses)
+    description: Realistic customer support agent for a consumer electronics company with agent optimizer support. Demonstrates meaningful instruction and skill optimization — ships with eval dataset for out-of-the-box optimization.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: OPTIMIZATION_LOCAL_DIR
+        value: .agent_configs
+    container:
+      resources:
+        cpu: '1'
+        memory: 2Gi
+infra:
+  provider: microsoft.foundry

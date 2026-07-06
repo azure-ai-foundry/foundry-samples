@@ -22,7 +22,7 @@ The graph state declares three channels:
 
 Routing out of `await_approval` is done by returning a [`Command(goto=...)`](https://langchain-ai.github.io/langgraph/how-tos/command/) instead of static edges, so the same node can finalize, loop, or stay paused depending on the resume value.
 
-State is persisted by an `InMemorySaver` checkpointer keyed by the `conversation.id` from the Responses request, so follow-up requests continue the paused run. See [main.py](main.py) for the full implementation.
+State is persisted by an `InMemorySaver` checkpointer keyed by the `conversation.id` from the Responses request, so follow-up requests continue the paused run. See [main.py](src/langgraph-human-in-the-loop-responses/main.py) for the full implementation.
 
 > **Production note.** `InMemorySaver` keeps the checkpoint in process memory only — a container restart loses paused runs. Production HITL agents should swap in a durable checkpointer (Cosmos DB, Redis, or a Foundry-managed store).
 

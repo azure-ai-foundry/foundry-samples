@@ -10,7 +10,7 @@ The agent uses `AsAIAgent` from the Foundry SDK (`Azure.AI.Projects`) to create 
 
 By default a Responses-protocol agent is reachable only through Responses. **Enabling incoming A2A** is a per-agent PATCH (REST API only — no portal UI yet) that publishes an `agent_card` for client discovery and adds `a2a` to `agent_endpoint.protocols`. After that, the agent answers both Responses **and** A2A requests at the same endpoint.
 
-The PATCH is performed by [`scripts/setup-a2a`](scripts/). This is the **only** step that has to happen out-of-band — `agent_card` and multi-protocol endpoints aren't AgentSchema concepts, so the manifest can't express them yet. The caller-side `RemoteA2A` connection and `a2a_preview` toolbox live in the [caller's manifest](../caller/agent.manifest.yaml) and are created by `azd provision` on the caller.
+The PATCH is performed by [`scripts/setup-a2a`](scripts/). This is the **only** step that has to happen out-of-band — `agent_card` and multi-protocol endpoints aren't AgentSchema concepts, so the manifest can't express them yet. The caller-side `RemoteA2A` connection and `a2a_preview` toolbox live in the [caller's manifest](../caller/azure.yaml) and are created by `azd provision` on the caller.
 
 The script's hard-coded `agent_card` (skills, description, version) describes this math-expert specifically; edit it if you adapt the executor for a different task, since the caller's tool routing depends on the advertised skill descriptions.
 

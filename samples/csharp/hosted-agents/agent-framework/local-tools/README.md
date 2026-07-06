@@ -6,7 +6,7 @@ A hotel search assistant with local C# function tools — the **Agent with Local
 
 The agent registers local C# functions as tools using `AIFunctionFactory.Create`. When a user asks about hotels, the LLM decides which tools to call (e.g., searching for hotels by location, dates, and price), the framework executes the C# functions locally, and feeds the results back to the model to compose a natural-language response.
 
-See [Program.cs](Program.cs) for the full implementation.
+See [Program.cs](src/local-tools/Program.cs) for the full implementation.
 
 ## Running the Agent Locally
 
@@ -33,7 +33,7 @@ Before running this sample, ensure you have:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers; set automatically by `azd ai agent run` locally. |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `agent.manifest.yaml`. |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `azure.yaml`. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
 
 **Local development (without `azd`):**
@@ -77,15 +77,15 @@ Chat with a running agent using the **Agent Inspector**:
 
 #### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
 
-No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and generates Bicep infrastructure, `agent.yaml`, and env config automatically:
+No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and adopts its `azure.yaml` as the project manifest and configures your environment automatically:
 
 ```bash
 # Create a new folder for the agent and navigate into it
 mkdir local-tools-agent && cd local-tools-agent
 
 # Initialize from the manifest — azd reads it, downloads the sample,
-# and generates Bicep infrastructure, agent.yaml, and env config
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/local-tools/agent.manifest.yaml
+# and adopts its azure.yaml as the project manifest and configures your environment
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/local-tools/azure.yaml
 
 # Provision Azure resources (Foundry project, model deployment, App Insights)
 azd provision
@@ -96,7 +96,7 @@ azd ai agent run
 
 > [!NOTE]
 > If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/local-tools/agent.manifest.yaml`
+> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/local-tools/azure.yaml`
 
 > [!NOTE]
 > If you already have a Foundry project and model deployment, add `-p <project-id> -d <deployment-name>` to `azd ai agent init` to target existing resources. You can also skip provisioning entirely and configure env vars manually — see [Manual setup](#manual-setup).

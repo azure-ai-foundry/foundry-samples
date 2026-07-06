@@ -8,7 +8,7 @@ You can create a Foundry Toolbox by code. Refer to this sample for an example: [
 
 You can also create a Foundry Toolbox in the Foundry portal. Read more about it [in the Foundry toolbox documentation](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/toolbox).
 
-This sample consumes a toolbox over its MCP endpoint. It bundles a [`toolbox.yaml`](toolbox.yaml) that defines 6 tools behind one endpoint:
+This sample consumes a toolbox over its MCP endpoint. It bundles a [`toolbox.yaml`](src/agent-framework-agent-with-foundry-toolbox-responses/toolbox.yaml) that defines 6 tools behind one endpoint:
 
 - **Web search**, which grounds responses in real-time public web results.
 - **Code interpreter**, which executes Python code in a secure sandbox and returns the output.
@@ -93,7 +93,7 @@ azd ai toolbox create agent-tools --from-file ./toolbox.yaml --project-endpoint 
 
 The agent uses `FoundryChatClient` from the Agent Framework to create an OpenAI-compatible Responses client. It connects to the toolbox's MCP endpoint via `FoundryToolbox` — a thin convenience wrapper over `MCPStreamableHTTPTool` that authenticates every request with the credential and forwards the platform per-request call-id — which discovers and invokes the toolbox's tools over MCP at runtime. `FoundryToolbox` resolves the endpoint from the `TOOLBOX_ENDPOINT` environment variable. If that variable isn't set, it builds the endpoint from `FOUNDRY_PROJECT_ENDPOINT` and `TOOLBOX_NAME`.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/agent-framework-agent-with-foundry-toolbox-responses/main.py) for the full implementation.
 
 ## Running the agent
 
@@ -121,7 +121,7 @@ No cloning required. Create a new folder and initialize from the manifest:
 ```bash
 mkdir my-toolbox-agent && cd my-toolbox-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/04-foundry-toolbox/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/04-foundry-toolbox/azure.yaml
 ```
 
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one. Initializing also sets the selected project as the active project for the `azd ai` commands that follow.
@@ -134,7 +134,7 @@ Follow the prompts to configure your Foundry project and model deployment. If yo
 > - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
 > - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
 
-The agent reads the toolbox's MCP endpoint from `TOOLBOX_ENDPOINT`. Create the toolbox once from the bundled [`toolbox.yaml`](toolbox.yaml):
+The agent reads the toolbox's MCP endpoint from `TOOLBOX_ENDPOINT`. Create the toolbox once from the bundled [`toolbox.yaml`](src/agent-framework-agent-with-foundry-toolbox-responses/toolbox.yaml):
 
 ```bash
 azd ai toolbox create agent-tools --from-file ./toolbox.yaml --project-endpoint https://<account>.services.ai.azure.com/api/projects/<project>
@@ -196,7 +196,7 @@ azd ai agent invoke "What tools do you have?"
 
 1. **VS Code** with the **[Foundry Toolkit](https://learn.microsoft.com/en-us/azure/foundry/how-to/develop/get-started-projects-vs-code)** extension installed.
 2. Sign in to Azure in VS Code.
-3. The `agent-tools` toolbox must exist in your Foundry project. Create it from the bundled [`toolbox.yaml`](toolbox.yaml) (`azd ai toolbox create agent-tools --from-file ./toolbox.yaml`) or in the Foundry portal before you run the agent.
+3. The `agent-tools` toolbox must exist in your Foundry project. Create it from the bundled [`toolbox.yaml`](src/agent-framework-agent-with-foundry-toolbox-responses/toolbox.yaml) (`azd ai toolbox create agent-tools --from-file ./toolbox.yaml`) or in the Foundry portal before you run the agent.
 
 #### Create the project
 

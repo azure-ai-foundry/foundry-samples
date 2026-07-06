@@ -17,7 +17,7 @@ this agent through Foundry's A2A gateway.
 The agent is built with `langchain.agents.create_agent(model, tools=[...])`,
 which returns a compiled LangGraph runnable implementing the standard ReAct loop.
 It registers one local tool, `calculator`, and a math-expert system prompt. See
-[main.py](main.py).
+[main.py](src/math-expert/main.py).
 
 ### Agent hosting
 
@@ -30,7 +30,7 @@ Conversation state is managed server-side by the platform via
 ### Incoming A2A (the key part)
 
 The agent **code** is a plain Responses agent. A2A is added **declaratively** in
-[agent.yaml](agent.yaml) / [agent.manifest.yaml](agent.manifest.yaml):
+[azure.yaml](azure.yaml) / [azure.yaml](azure.yaml):
 
 ```yaml
 agent_endpoint:
@@ -68,12 +68,12 @@ deploy, the agent card is served at:
 From an empty directory:
 
 ```bash
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-executor/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-executor/azure.yaml
 ```
 
 > [!NOTE]
 > If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/python/hosted-agents/langgraph/a2a/a2a-executor/agent.manifest.yaml`
+> `azd ai agent init -m <path-to-repo>/samples/python/hosted-agents/langgraph/a2a/a2a-executor/azure.yaml`
 
 This copies the agent source into `src/math-expert/` and
 wires it into `azure.yaml`. Add the caller next (see the

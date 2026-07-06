@@ -13,13 +13,13 @@ flowchart LR
     KB -.answer synthesis.-> M[[Azure OpenAI model]]
 ```
 
-1. **Knowledge base (data plane).** [`provision_kb.py`](provision_kb.py) creates an Azure AI Search index, seeds it with the "Earth at night" documents, and builds a **knowledge source** and a **knowledge base**. The knowledge base synthesizes answers with an Azure OpenAI model and exposes an MCP endpoint (`{search}/knowledgebases/{kb}/mcp`) whose only tool is `knowledge_base_retrieve`.
-2. **Toolbox connection.** A `RemoteTool` **connection** (`knowledge-base-mcp`) authenticates to the knowledge base's MCP endpoint with **Agentic Identity** — the agent's managed identity, keyless. A **toolbox** (defined in [`toolbox.yaml`](toolbox.yaml)) exposes that endpoint as an MCP tool: its `server_url` points at the knowledge base's MCP endpoint and `project_connection_id` supplies the connection's auth. Both are created for you by the `azd provision` `postprovision` hook (see [Provision and run the agent](#provision-and-run-the-agent)).
-3. **Agent.** [`main.py`](main.py) uses `FoundryChatClient` and connects to the toolbox's MCP endpoint with `FoundryToolbox`. The agent discovers `knowledge_base_retrieve` at runtime and grounds its answers in the retrieved sources.
+1. **Knowledge base (data plane).** [`provision_kb.py`](src/agent-framework-foundry-iq-knowledge-base-responses/provision_kb.py) creates an Azure AI Search index, seeds it with the "Earth at night" documents, and builds a **knowledge source** and a **knowledge base**. The knowledge base synthesizes answers with an Azure OpenAI model and exposes an MCP endpoint (`{search}/knowledgebases/{kb}/mcp`) whose only tool is `knowledge_base_retrieve`.
+2. **Toolbox connection.** A `RemoteTool` **connection** (`knowledge-base-mcp`) authenticates to the knowledge base's MCP endpoint with **Agentic Identity** — the agent's managed identity, keyless. A **toolbox** (defined in [`toolbox.yaml`](src/agent-framework-foundry-iq-knowledge-base-responses/toolbox.yaml)) exposes that endpoint as an MCP tool: its `server_url` points at the knowledge base's MCP endpoint and `project_connection_id` supplies the connection's auth. Both are created for you by the `azd provision` `postprovision` hook (see [Provision and run the agent](#provision-and-run-the-agent)).
+3. **Agent.** [`main.py`](src/agent-framework-foundry-iq-knowledge-base-responses/main.py) uses `FoundryChatClient` and connects to the toolbox's MCP endpoint with `FoundryToolbox`. The agent discovers `knowledge_base_retrieve` at runtime and grounds its answers in the retrieved sources.
 
 ### Model Integration
 
-The agent uses `FoundryChatClient` from the Agent Framework to create an OpenAI-compatible Responses client, and connects to the toolbox over MCP via `FoundryToolbox`. It reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. See [main.py](main.py) for the full implementation.
+The agent uses `FoundryChatClient` from the Agent Framework to create an OpenAI-compatible Responses client, and connects to the toolbox over MCP via `FoundryToolbox`. It reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. See [main.py](src/agent-framework-foundry-iq-knowledge-base-responses/main.py) for the full implementation.
 
 ## Prerequisites
 
@@ -63,10 +63,10 @@ No cloning required. Create a new folder and initialize from the manifest:
 ```bash
 mkdir my-foundry-iq-agent && cd my-foundry-iq-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/17-foundry-iq-toolbox/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/17-foundry-iq-toolbox/azure.yaml
 ```
 
-Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one. Initializing also sets the selected project as the active project, and copies this sample's files into a new service directory `src/<agent-name>/` — including [`provision_kb.py`](provision_kb.py), [`toolbox.yaml`](toolbox.yaml), and the [`hooks/`](hooks/) scripts.
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one. Initializing also sets the selected project as the active project, and copies this sample's files into a new service directory `src/<agent-name>/` — including [`provision_kb.py`](src/agent-framework-foundry-iq-knowledge-base-responses/provision_kb.py), [`toolbox.yaml`](src/agent-framework-foundry-iq-knowledge-base-responses/toolbox.yaml), and the [`hooks/`](hooks/) scripts.
 
 #### 3. Enable one-command provisioning (`postprovision` hook)
 
@@ -96,9 +96,9 @@ azd provision
 
 `azd provision` creates (or reuses) your Foundry project and model deployment, then the `postprovision` hook:
 
-1. Runs [`provision_kb.py`](provision_kb.py) to build the search index, knowledge source, and knowledge base, and stores the KB's MCP endpoint as `KB_MCP_ENDPOINT`.
+1. Runs [`provision_kb.py`](src/agent-framework-foundry-iq-knowledge-base-responses/provision_kb.py) to build the search index, knowledge source, and knowledge base, and stores the KB's MCP endpoint as `KB_MCP_ENDPOINT`.
 2. Creates the `knowledge-base-mcp` `RemoteTool` connection (Agentic Identity, keyless) targeting that endpoint.
-3. Creates the `knowledge-base` toolbox from [`toolbox.yaml`](toolbox.yaml).
+3. Creates the `knowledge-base` toolbox from [`toolbox.yaml`](src/agent-framework-foundry-iq-knowledge-base-responses/toolbox.yaml).
 4. Sets `TOOLBOX_ENDPOINT` so the agent connects to the toolbox.
 
 > The hook derives `AZURE_OPENAI_ENDPOINT` from your Foundry project endpoint for answer synthesis. To use a different Azure OpenAI resource, set it explicitly first: `azd env set AZURE_OPENAI_ENDPOINT "https://<account>.openai.azure.com"`.

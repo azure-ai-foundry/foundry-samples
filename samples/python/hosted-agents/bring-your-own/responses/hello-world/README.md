@@ -20,7 +20,7 @@ This is the simplest possible BYO integration — the protocol SDK handles the H
 
 The agent uses the Foundry SDK to create an OpenAI-compatible Responses client from the project endpoint. When a request arrives, the handler extracts the user's input text, calls the model via the Responses API, and returns the reply as a `TextResponse` — which the SDK automatically wraps in the correct SSE lifecycle events (`response.created` → `response.in_progress` → content events → `response.completed`).
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/hello-world-python-responses/main.py) for the full implementation.
 
 ### Agent Hosting
 
@@ -51,12 +51,12 @@ Before running this sample, ensure you have:
 
 ### Environment Variables
 
-See [`.env.example`](.env.example) or `.env` for the full list of environment variables this sample uses.
+See [`.env.example`](src/hello-world-python-responses/.env.example) or `.env` for the full list of environment variables this sample uses.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers; set automatically by `azd ai agent run` locally. |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `agent.manifest.yaml`. |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `azure.yaml`. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
 
 **Local development (without `azd`):**
@@ -101,15 +101,15 @@ Chat with a running agent using the **Agent Inspector**:
 
 #### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
 
-No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and generates Bicep infrastructure, `agent.yaml`, and env config automatically:
+No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and adopts its `azure.yaml` as the project manifest and configures your environment automatically:
 
 ```bash
 # Create a new folder for the agent and navigate into it
 mkdir hello-world-agent && cd hello-world-agent
 
 # Initialize from the manifest — azd reads it, downloads the sample,
-# and generates Bicep infrastructure, agent.yaml, and env config
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/responses/hello-world/agent.manifest.yaml
+# and adopts its azure.yaml as the project manifest and configures your environment
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/responses/hello-world/azure.yaml
 
 # Provision Azure resources (Foundry project, model deployment, App Insights)
 azd provision
@@ -120,7 +120,7 @@ azd ai agent run
 
 > [!NOTE]
 > If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/responses/hello-world/agent.manifest.yaml`
+> `azd ai agent init -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/responses/hello-world/azure.yaml`
 
 > [!NOTE]
 > If you already have a Foundry project and model deployment, add `-p <project-id> -d <deployment-name>` to `azd ai agent init` to target existing resources. You can also skip provisioning entirely and configure env vars manually — see [Manual setup](#manual-setup).

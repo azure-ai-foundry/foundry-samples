@@ -50,7 +50,7 @@ The two agents are set up in separate `azd` projects. Four steps:
 ```bash
 mkdir hosted-agent-a2a-executor-dotnet && cd hosted-agent-a2a-executor-dotnet
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/a2a/01-delegation/executor/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/a2a/01-delegation/executor/azure.yaml
 
 azd provision    # writes .env (FOUNDRY_PROJECT_ENDPOINT, AZURE_AI_MODEL_DEPLOYMENT_NAME)
 azd deploy
@@ -68,14 +68,14 @@ This PATCHes the executor to publish its `agent_card` and add `a2a` to `agent_en
 
 On success the script prints the executor's A2A endpoint URL — **copy it**, you'll paste it into the caller prompt in the next step.
 
-> The `RemoteA2A` connection and `a2a_preview` toolbox are **not** created here — they're declared in the caller's `agent.manifest.yaml` and created by `azd provision` on the caller (step 3).
+> The `RemoteA2A` connection and `a2a_preview` toolbox are **not** created here — they're declared in the caller's `azure.yaml` and created by `azd provision` on the caller (step 3).
 
 ### 3. Deploy the caller
 
 ```bash
 mkdir ../hosted-agent-a2a-caller-dotnet && cd ../hosted-agent-a2a-caller-dotnet
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/a2a/01-delegation/caller/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/a2a/01-delegation/caller/azure.yaml
 # Paste the A2A endpoint URL from step 2 when prompted for `a2a_executor_endpoint`.
 
 azd provision    # creates the RemoteA2A connection + a2a_preview toolbox from the manifest

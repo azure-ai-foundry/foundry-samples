@@ -27,7 +27,7 @@ The provisioning uses `ProjectAgentSkills.CreateSkillFromPackageAsync(directoryP
 
 ### Downloading skills at agent startup
 
-[`Program.cs`](Program.cs) reads the comma-separated `SKILL_NAMES` env var and, for each skill name, downloads the ZIP archive from Foundry via `ProjectAgentSkills.DownloadSkillAsync(name)`, then unpacks it into a **separate runtime directory** at `downloaded_skills/<name>/` (kept distinct from the static `skills/` source folder).
+[`Program.cs`](src/agent-skills/Program.cs) reads the comma-separated `SKILL_NAMES` env var and, for each skill name, downloads the ZIP archive from Foundry via `ProjectAgentSkills.DownloadSkillAsync(name)`, then unpacks it into a **separate runtime directory** at `downloaded_skills/<name>/` (kept distinct from the static `skills/` source folder).
 
 An `AgentSkillsProvider` is then built over `downloaded_skills/` and attached to the agent as an `AIContextProvider`. The provider follows the [Agent Skills](https://agentskills.io/) progressive-disclosure pattern:
 
@@ -42,7 +42,7 @@ The model only pays the token cost for a skill's full body when it actually need
 
 The agent is hosted using the [Agent Framework](https://github.com/microsoft/agent-framework) with the Responses API hosting layer (`AddFoundryResponses` / `MapFoundryResponses`).
 
-See [Program.cs](Program.cs) for the full implementation.
+See [Program.cs](src/agent-skills/Program.cs) for the full implementation.
 
 ## Running the Agent Locally
 
@@ -73,7 +73,7 @@ Your identity (or the Managed Identity running the container in production) need
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers; set automatically by `azd ai agent run` locally. |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match a deployment in your Foundry project. Declared in `agent.manifest.yaml`. |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match a deployment in your Foundry project. Declared in `azure.yaml`. |
 | `SKILL_NAMES` | Yes | Comma-separated list of Foundry skill names to download at startup (for example `support-style,escalation-policy`). |
 | `PROVISION_SAMPLE_SKILLS` | No | Sample convenience: set to `true` on a first run to upload this sample's `SKILL.md` files to Foundry. Leave unset or false in production. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
@@ -115,15 +115,15 @@ Follow the [VS Code quickstart](https://learn.microsoft.com/en-us/azure/foundry/
 
 #### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
 
-No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and generates Bicep infrastructure, `agent.yaml`, and env config automatically:
+No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and adopts its `azure.yaml` as the project manifest and configures your environment automatically:
 
 ```bash
 # Create a new folder for the agent and navigate into it
 mkdir agent-skills && cd agent-skills
 
 # Initialize from the manifest - azd reads it, downloads the sample,
-# and generates Bicep infrastructure, agent.yaml, and env config.
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/agent-skills/agent.manifest.yaml
+# and adopts its azure.yaml as the project manifest and configures your environment.
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/agent-skills/azure.yaml
 
 # Provision Azure resources (Foundry project, model deployment, App Insights).
 azd provision
@@ -140,7 +140,7 @@ azd ai agent run
 
 > [!NOTE]
 > If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/agent-skills/agent.manifest.yaml`
+> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/agent-skills/azure.yaml`
 
 On startup you should see:
 

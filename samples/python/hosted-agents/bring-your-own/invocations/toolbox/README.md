@@ -64,7 +64,7 @@ Before running this sample, ensure you have:
 > - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
 > - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
 
-The agent reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. The sample bundles a [`toolbox.yaml`](toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
+The agent reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. The sample bundles a [`toolbox.yaml`](src/toolbox-python-invocations/toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
 
 ```bash
 azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
@@ -81,12 +81,12 @@ To stage incremental changes safely, use `azd ai toolbox connection add/remove` 
 
 ### Environment Variables
 
-See [`.env.example`](.env.example) or `.env` for the full list of environment variables this sample uses.
+See [`.env.example`](src/toolbox-python-invocations/.env.example) or `.env` for the full list of environment variables this sample uses.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers; set automatically by `azd ai agent run` locally. |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `agent.manifest.yaml`. |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `azure.yaml`. |
 | `TOOLBOX_ENDPOINT` | Yes | Full toolbox MCP endpoint URL. Copy the versioned endpoint from the `azd ai toolbox create` output. |
 | `TOOLBOX_NAME` | Optional | Toolbox name. If `TOOLBOX_ENDPOINT` isn't set, the agent builds the latest-version endpoint from this and `FOUNDRY_PROJECT_ENDPOINT`. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
@@ -210,7 +210,7 @@ For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.
 
 ## Supported Scenarios
 
-The sample toolbox can be configured for any of these 14 scenarios. For each scenario, create a `agent.manifest.yaml` file (see examples below) and pass it to `azd ai agent init -m <manifest-file>`.
+The sample toolbox can be configured for any of these 14 scenarios. For each scenario, create a `azure.yaml` file (see examples below) and pass it to `azd ai agent init -m <manifest-file>`.
 
 <details>
 <summary><strong>View all 14 supported scenarios</strong></summary>
@@ -232,7 +232,7 @@ Refer to [`samples/python/toolbox/azd/README.md`](../../../../toolbox/azd/README
 13. **MCP OAuth (Entra Passthrough)** — User identity delegation
 14. **Multi-Tool Toolbox** — Web search + GitHub MCP combined
 
-Each scenario includes a complete `agent.manifest.yaml` example with parameter definitions and resource configurations.
+Each scenario includes a complete `azure.yaml` example with parameter definitions and resource configurations.
 
 </details>
 ## Troubleshooting

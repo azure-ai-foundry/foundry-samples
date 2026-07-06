@@ -4,13 +4,13 @@ An [Agent Framework](https://github.com/microsoft/agent-framework) hosted agent 
 
 After publishing, users can send messages with file attachments to the agent. It can also answer questions related with Teams and calendar.
 
-![Using Work IQ tool](./teams-activity.png)
+![Using Work IQ tool](src/agent-framework-agent-teams-activity/teams-activity.png)
 
 ## How It Works
 
 ### Model Integration
 
-See [main.py](main.py) for the full implementation. Work IQ tools are configured in toolbox that can be used by agent, so that it can answer questions to your Teams and calendar data.
+See [main.py](src/agent-framework-agent-teams-activity/main.py) for the full implementation. Work IQ tools are configured in toolbox that can be used by agent, so that it can answer questions to your Teams and calendar data.
 
 Set `ENABLE_WORK_IQ=true` in `environment_variables` to enable toolbox integration. When disabled, the agent runs as a plain chat assistant and does not support Work IQ tools.
 

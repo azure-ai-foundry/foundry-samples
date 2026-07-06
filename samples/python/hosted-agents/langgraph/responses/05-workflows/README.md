@@ -17,7 +17,7 @@ The graph state declares two channels:
 - **`messages`** — the channel the Responses host emits to the client. Only the **formatter** appends to it, so only the formatter's output is returned.
 - **`draft`** — a private scratchpad passed between nodes. The writer writes the initial slogan to `draft`; the legal reviewer rewrites it; the formatter reads it and produces the final styled message.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/langgraph-workflows-responses/main.py) for the full implementation.
 
 ### Agent Hosting
 

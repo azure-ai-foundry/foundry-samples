@@ -4,13 +4,13 @@ An [Agent Framework](https://github.com/microsoft/agent-framework) hosted agent 
 
 After publishing, users can send messages with file attachments to the agent. It can also answer questions related with Teams and calendar.
 
-![Using Work IQ tool](./teams-activity.png)
+![Using Work IQ tool](src/teams-activity-dotnet-agent-framework/teams-activity.png)
 
 ## How It Works
 
 ### Model Integration
 
-See [Program.cs](Program.cs) for the full implementation. Work IQ tools are configured in toolbox that can be used by agent, so that it can answer questions to your Teams and calendar data.
+See [Program.cs](src/teams-activity-dotnet-agent-framework/Program.cs) for the full implementation. Work IQ tools are configured in toolbox that can be used by agent, so that it can answer questions to your Teams and calendar data.
 
 ### Agent Hosting
 

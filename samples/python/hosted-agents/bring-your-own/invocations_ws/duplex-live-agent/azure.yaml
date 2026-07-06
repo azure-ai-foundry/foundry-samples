@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: duplex-live-agent
+services:
+  ai-project:
+    host: azure.ai.project
+  duplex-live-agent:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - WebSocket Protocol
+        - invocations_ws
+        - Voice Live
+        - Bring Your Own
+        - Python
+    project: src/duplex-live-agent
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: duplex-live-agent
+    displayName: Duplex Live Agent (invocations_ws)
+    description: 'Real-time duplex voice agent with two parallel tracks: a low-latency foreground router (Azure Voice Live speech-to-speech) and background task workers (e.g., Agent Framework handoff workflows and optional GitHub Copilot SDK tasks) whose updates are injected during conversational gaps.'
+    protocols:
+      - protocol: invocations_ws
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_VOICELIVE_MODEL
+        value: ${AZURE_VOICELIVE_MODEL}
+      - name: AZURE_VOICELIVE_VOICE
+        value: ${AZURE_VOICELIVE_VOICE}
+      - name: AZURE_TASK_MODEL
+        value: ${AZURE_TASK_MODEL}
+      - name: GITHUB_TOKEN
+        value: ${GITHUB_TOKEN}
+    container:
+      resources:
+        cpu: '1'
+        memory: 2Gi
+infra:
+  provider: microsoft.foundry

@@ -12,7 +12,7 @@ When you deploy a hosted agent to Foundry, the platform provisions a dedicated M
 
 ### Tools
 
-The tools are plain Python functions decorated with `@tool` and registered with the agent in [main.py](main.py). Each tool builds its client with `DefaultAzureCredential()` so the same code works locally (your developer identity) and in Foundry (the per-agent identity).
+The tools are plain Python functions decorated with `@tool` and registered with the agent in [main.py](src/agent-framework-agent-downstream-azure-responses/main.py). Each tool builds its client with `DefaultAzureCredential()` so the same code works locally (your developer identity) and in Foundry (the per-agent identity).
 
 | Service       | Tools                                                  | SDK                  |
 | ------------- | ------------------------------------------------------ | -------------------- |
@@ -188,7 +188,7 @@ Read the blob hello.txt and tell me what it contains.
 
 ## Deploying the Agent to Foundry
 
-[agent.yaml](agent.yaml) declares the same four environment variables and binds each value to an `${...}` placeholder that `azd` resolves from the **azd environment** at deploy time (your shell's `export` / `$env:` values are not propagated to the deployed agent). Set them once with `azd env set` before deploying:
+[azure.yaml](azure.yaml) declares the same four environment variables and binds each value to an `${...}` placeholder that `azd` resolves from the **azd environment** at deploy time (your shell's `export` / `$env:` values are not propagated to the deployed agent). Set them once with `azd env set` before deploying:
 
 ```powershell
 azd env set AZURE_STORAGE_ACCOUNT_NAME "<storage-account-name>"

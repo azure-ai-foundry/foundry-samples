@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: claude-agent-sdk-invocations
+services:
+  ai-project:
+    host: azure.ai.project
+  claude-agent-sdk-invocations:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Claude Agent SDK
+        - Anthropic
+        - Invocations Protocol
+        - Bring Your Own
+    project: src/claude-agent-sdk-invocations
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: claude-agent-sdk-invocations
+    displayName: Claude Agent SDK (Invocations)
+    description: A getting-started agent that uses the Claude Agent SDK with Microsoft Foundry authentication and the azure-ai-agentserver-invocations protocol, streaming assistant deltas as Server-Sent Events (SSE).
+    protocols:
+      - protocol: invocations
+        version: 2.0.0
+    environmentVariables:
+      - name: CLAUDE_CODE_USE_FOUNDRY
+        value: '1'
+      - name: ANTHROPIC_MODEL
+        value: claude-opus-4-7
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

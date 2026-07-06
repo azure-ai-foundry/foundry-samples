@@ -12,7 +12,7 @@ The agent uses `FoundryChatClient` from the Agent Framework to create a Response
 
 `AzureAISearchContextProvider` runs a search against the configured Azure AI Search index **before each model invocation** and injects the top results into the model context. The agent then composes a grounded answer and cites the source document.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/agent-framework-agent-azure-search-rag-responses/main.py) for the full implementation.
 
 ### Agent Hosting
 
@@ -38,7 +38,7 @@ The sample assumes the search index already exists and contains documents the ag
 
 ### Option A: Python script (recommended)
 
-[`provision_index.py`](provision_index.py) creates the index (if it doesn't already exist) and seeds it with the three Contoso Outdoors documents using `DefaultAzureCredential`. Your identity needs the following roles on the **Azure AI Search service** scope:
+[`provision_index.py`](src/agent-framework-agent-azure-search-rag-responses/provision_index.py) creates the index (if it doesn't already exist) and seeds it with the three Contoso Outdoors documents using `DefaultAzureCredential`. Your identity needs the following roles on the **Azure AI Search service** scope:
 
 - **Search Service Contributor** — to create the index
 - **Search Index Data Contributor** — to upload documents
@@ -139,7 +139,7 @@ No cloning required. Create a new folder and initialize from the manifest:
 ```bash
 mkdir my-search-rag-agent && cd my-search-rag-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/11-azure-search-rag/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/11-azure-search-rag/azure.yaml
 ```
 
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.

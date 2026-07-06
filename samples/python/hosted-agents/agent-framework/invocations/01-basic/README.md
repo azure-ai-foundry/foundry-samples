@@ -8,7 +8,7 @@ An [Agent Framework](https://github.com/microsoft/agent-framework) agent hosted 
 
 The agent uses `FoundryChatClient` from the Agent Framework to create a Responses client from the project endpoint and model deployment. When a request arrives, the handler looks up (or creates) a session by `session_id`, runs the agent with the user message and session context, and returns the reply. The agent supports both streaming (SSE events) and non-streaming (JSON) response modes.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/agent-framework-agent-basic-invocations/main.py) for the full implementation.
 
 ### Agent Hosting
 
@@ -35,7 +35,7 @@ No cloning required. Create a new folder and initialize from the manifest:
 ```bash
 mkdir my-invocations-agent && cd my-invocations-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/invocations/01-basic/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/invocations/01-basic/azure.yaml
 ```
 
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.

@@ -13,7 +13,7 @@ The agent is built with `langchain.agents.create_agent(model, tools=[...], check
 - `get_current_time` — returns the current UTC time.
 - `calculator` — evaluates a simple math expression.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/langgraph-chat-invocations/main.py) for the full implementation.
 
 ### Agent Hosting
 

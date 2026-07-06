@@ -12,7 +12,7 @@ A [LangGraph](https://langchain-ai.github.io/langgraph/) agent whose tools are l
 
 The compiled graph is built with `langchain.agents.create_agent(model, tools=tools)`, which returns a compiled LangGraph runnable implementing the standard ReAct loop (call model → if tool calls were requested, run them → loop back → return the final message). No system prompt is set — tool descriptions from the MCP server drive selection.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/langgraph-mcp-responses/main.py) for the full implementation.
 
 ### Agent Hosting
 
@@ -22,8 +22,8 @@ The compiled graph is hosted with `ResponsesHostServer`, which exposes the OpenA
 
 1. A [GitHub Personal Access Token](https://github.com/settings/tokens) with the scopes needed by the GitHub MCP tools you want the agent to call (e.g. `repo`, `read:user`).
 2. Provide the token to the agent. Pick the path that matches how you will run it:
-   - **`python main.py`** — set `GITHUB_PAT` in `.env` (see [.env.example](.env.example)).
-   - **`azd ai agent run` (local) or `azd deploy` (cloud)** — set it in the azd environment so `azd` can resolve the `${GITHUB_PAT}` placeholder in [agent.yaml](agent.yaml). Your shell's `export` / `$env:` values are not propagated to azd:
+   - **`python main.py`** — set `GITHUB_PAT` in `.env` (see [.env.example](src/langgraph-mcp-responses/.env.example)).
+   - **`azd ai agent run` (local) or `azd deploy` (cloud)** — set it in the azd environment so `azd` can resolve the `${GITHUB_PAT}` placeholder in [azure.yaml](azure.yaml). Your shell's `export` / `$env:` values are not propagated to azd:
 
      ```powershell
      azd env set GITHUB_PAT "<your-github-pat>"
@@ -79,7 +79,7 @@ List my 5 most recently updated GitHub repos.
 
 ## Targeting a different MCP server
 
-Set `MCP_SERVER_URL` to any HTTP-transport MCP endpoint and adjust `GITHUB_PAT` (or the `Authorization` header logic in [main.py](main.py)) to match its auth scheme.
+Set `MCP_SERVER_URL` to any HTTP-transport MCP endpoint and adjust `GITHUB_PAT` (or the `Authorization` header logic in [main.py](src/langgraph-mcp-responses/main.py)) to match its auth scheme.
 
 ## Deploying the Agent to Foundry
 

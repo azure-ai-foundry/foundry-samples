@@ -52,7 +52,7 @@ This means the agent works identically with or without optimization — no featu
 
 ### Environment Variables
 
-See [`.env.example`](.env.example) for the full list.
+See [`.env.example`](src/optimization-hello-world-python-responses/.env.example) for the full list.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -66,10 +66,10 @@ See [`.env.example`](.env.example) for the full list.
 ### Initialize the agent project
 
 ```bash
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/responses/optimization-hello-world/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/responses/optimization-hello-world/azure.yaml
 ```
 
-The interactive flow prompts for your Azure subscription, region, and model deployment settings. This generates `azure.yaml`, infrastructure-as-code files, and configures the environment.
+The interactive flow prompts for your Azure subscription, region, and model deployment settings. This adopts the sample's `azure.yaml` as your project manifest and configures the environment.
 
 ### Provision and deploy
 
@@ -132,8 +132,8 @@ azd ai agent invoke "Hello! What can you help me with?"
 | File | Purpose |
 |------|---------|
 | `main.py` | Agent entry point — Responses handler + optimization config loading |
-| `agent.yaml` | Hosted agent deployment config (protocols, resources, env vars) |
-| `agent.manifest.yaml` | Template manifest for `azd ai agent init` |
+| `azure.yaml` | Hosted agent deployment config (protocols, resources, env vars) |
+| `azure.yaml` | Template manifest for `azd ai agent init` |
 | `Dockerfile` | Container image build |
 | `requirements.txt` | Python dependencies (includes optimization wheel) |
 | `eval.yaml` | Agent optimizer configuration (dataset, evaluators, models) |

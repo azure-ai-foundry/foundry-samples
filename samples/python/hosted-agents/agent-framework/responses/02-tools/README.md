@@ -4,7 +4,7 @@ An [Agent Framework](https://github.com/microsoft/agent-framework) agent with **
 
 ## How it works
 
-The agent uses `FoundryChatClient` from the Agent Framework and is served via `ResponsesHostServer`. Custom tools are defined with the `@tool` decorator — the model sees each function's signature and docstring and decides when to call them. See [main.py](main.py) for the implementation.
+The agent uses `FoundryChatClient` from the Agent Framework and is served via `ResponsesHostServer`. Custom tools are defined with the `@tool` decorator — the model sees each function's signature and docstring and decides when to call them. See [main.py](src/agent-framework-agent-with-local-tools-responses/main.py) for the implementation.
 
 ## Option 1: Azure Developer CLI (`azd`)
 
@@ -27,7 +27,7 @@ No cloning required. Create a new folder and initialize from the manifest:
 ```bash
 mkdir my-tools-agent && cd my-tools-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/02-tools/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/02-tools/azure.yaml
 ```
 
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.

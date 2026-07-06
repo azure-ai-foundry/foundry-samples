@@ -48,7 +48,7 @@ This directory contains samples that demonstrate how to use [LangGraph](https://
 mkdir hosted-langgraph-agent && cd hosted-langgraph-agent
 
 # Initialize from the manifest (replace with the sample you want to try)
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/responses/01-langgraph-chat/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/responses/01-langgraph-chat/azure.yaml
 ```
 
 Follow the instructions from `azd ai agent init` to complete the agent initialization. If you don't have an existing Foundry project and a model deployment, `azd ai agent init` will guide you through creating them.
@@ -198,7 +198,7 @@ Once you've tested locally, deploy to Microsoft Foundry.
 
 If you already have a Foundry project and the necessary Azure resources provisioned, you can skip the setup steps and proceed directly to deploying the agent.
 
-After running `azd ai agent init -m <agent.manifest.yaml>` and following the prompts to configure your agent, you will have a project ready for deployment.
+After running `azd ai agent init -m <azure.yaml>` and following the prompts to configure your agent, you will have a project ready for deployment.
 
 ### Setting Up a New Foundry Project
 

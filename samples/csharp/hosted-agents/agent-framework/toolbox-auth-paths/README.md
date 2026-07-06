@@ -2,7 +2,7 @@
 
 A Foundry Toolbox that demonstrates the **authentication paths** a toolbox MCP tool can use to reach its upstream server. Like [`foundry-toolbox-server-side`](../foundry-toolbox-server-side/), the agent registers the toolbox with `AddFoundryToolboxes()`; the hosting layer discovers its tools and injects them as **server-side tools** — Foundry executes them on the agent's behalf.
 
-The key idea: **the agent code carries no auth logic**. Foundry resolves each tool's credential server-side when it proxies the MCP call, so `Program.cs` is identical regardless of which path a tool uses. The difference lives entirely in [`agent.manifest.yaml`](agent.manifest.yaml).
+The key idea: **the agent code carries no auth logic**. Foundry resolves each tool's credential server-side when it proxies the MCP call, so `Program.cs` is identical regardless of which path a tool uses. The difference lives entirely in [`azure.yaml`](azure.yaml).
 
 ## Auth path matrix
 
@@ -29,7 +29,7 @@ A `401`/`403` from a tool means that path's credential did not resolve. Send any
 
 Path 2 is documented rather than wired by default because it needs a post-deploy RBAC grant before the toolbox can enumerate it. To add it:
 
-1. Add a parameter and an `AgenticIdentity` connection, and reference it from a third toolbox tool, in [`agent.manifest.yaml`](agent.manifest.yaml):
+1. Add a parameter and an `AgenticIdentity` connection, and reference it from a third toolbox tool, in [`azure.yaml`](azure.yaml):
 
    ```yaml
    parameters:
@@ -64,7 +64,7 @@ The agent reads its toolbox from your Foundry project at startup, so the `auth-p
 
 ### Option 1 — `azd provision` (recommended)
 
-`azd provision` reads [`agent.manifest.yaml`](agent.manifest.yaml) and creates the connection and toolbox for you:
+`azd provision` reads [`azure.yaml`](azure.yaml) and creates the connection and toolbox for you:
 
 ```bash
 azd ai agent init          # prompts once for the gh_pat secret parameter

@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: toolbox-auth-paths-dotnet-agent-framework
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  github-mcp-conn:
+    host: azure.ai.connection
+    uses:
+      - ai-project
+    category: RemoteTool
+    target: https://api.githubcopilot.com/mcp
+    authType: CustomKeys
+    credentials:
+      type: CustomKeys
+      keys:
+        Authorization: Bearer ${gh_pat}
+  auth-paths-tools:
+    host: azure.ai.toolbox
+    uses:
+      - ai-project
+      - github-mcp-conn
+    tools:
+      - type: mcp
+        server_label: github
+        connection: github-mcp-conn
+  toolbox-auth-paths-dotnet-agent-framework:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Agent Framework
+        - Toolbox
+        - MCP
+        - Authentication
+        - .NET
+    project: src/toolbox-auth-paths-dotnet-agent-framework
+    language: csharp
+    codeConfiguration:
+      runtime: dotnet_10
+      entryPoint: toolbox-auth-paths.dll
+    uses:
+      - ai-project
+      - github-mcp-conn
+      - auth-paths-tools
+    kind: hosted
+    name: toolbox-auth-paths-dotnet-agent-framework
+    displayName: Foundry Toolbox — Auth Paths (.NET, Agent Framework)
+    description: 'Agent Framework agent that loads a Foundry Toolbox demonstrating the authentication paths a toolbox MCP tool can use to reach its upstream server: key-based (CustomKeys connection) by default, with Microsoft Entra agent identity documented in the README as an optional additive toolbox entry. The Foundry platform resolves each tool''s credential server-side when it proxies the MCP call, so the agent code carries no auth logic.'
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: TOOLBOX_NAME
+        value: ${TOOLBOX_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

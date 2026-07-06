@@ -138,15 +138,15 @@ For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.
 
 ```
 background-agent/
-├── Program.cs               # Agent entry point and handler implementation
-├── background-agent.csproj  # .NET project file with dependencies
-├── Dockerfile               # Container build definition
-├── agent.yaml               # Agent deployment configuration
-├── agent.manifest.yaml      # Agent manifest for Foundry
-├── .dockerignore            # Docker build exclusions
-├── .env.example or .env             # Example environment variables
-├── test-payload.txt         # Sample request payload for testing
-└── README.md                # This file
+├── README.md                # This file
+├── azure.yaml               # Unified manifest — project, model, and agent (name, protocols, resources, env vars)
+└── src/
+    └── background-agent-dotnet-responses/
+        ├── Program.cs               # Agent entry point and handler implementation
+        ├── background-agent.csproj  # .NET project file with dependencies
+        ├── Dockerfile               # Container build definition
+        ├── .dockerignore            # Docker build exclusions
+        └── .env.example             # Example environment variables
 ```
 
 ## Troubleshooting

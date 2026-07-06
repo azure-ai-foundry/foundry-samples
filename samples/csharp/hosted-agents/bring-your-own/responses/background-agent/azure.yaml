@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: background-agent-dotnet-responses
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  background-agent-dotnet-responses:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Bring Your Own
+        - Background Mode
+        - .NET
+    project: src/background-agent-dotnet-responses
+    language: csharp
+    codeConfiguration:
+      runtime: dotnet_10
+      entryPoint: background-agent.dll
+    uses:
+      - ai-project
+    kind: hosted
+    name: background-agent-dotnet-responses
+    displayName: Background Agent (.NET, Responses)
+    description: A long-running research agent that demonstrates the background execution pattern using the Azure.AI.AgentServer.Responses SDK with Azure OpenAI. Processes requests asynchronously via background=true, streaming LLM tokens as they arrive. Supports polling and cancellation.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

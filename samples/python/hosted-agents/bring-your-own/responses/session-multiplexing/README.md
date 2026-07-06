@@ -20,7 +20,7 @@ The session multiplexing behavior is the key difference: multiple acted-for user
 
 The agent uses the Foundry SDK to create an OpenAI-compatible Responses client from the project endpoint. When a request arrives, the handler extracts input text, loads platform conversation history with `context.get_history()`, calls the model, and returns the final response as a `TextResponse`.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/hello-world-session-multiplexing-python-responses/main.py) for the full implementation.
 
 ### Conversation state
 
@@ -73,12 +73,12 @@ Before running this sample, ensure you have:
 
 ### Environment variables
 
-See [`.env.example`](.env.example) or `.env` for the full list of environment variables this sample uses.
+See [`.env.example`](src/hello-world-session-multiplexing-python-responses/.env.example) or `.env` for the full list of environment variables this sample uses.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers; set automatically by `azd ai agent run` locally. |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name; declared in `agent.manifest.yaml`. |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name; declared in `azure.yaml`. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
 
 **Local development (without `azd`):**
@@ -111,14 +111,14 @@ Run and test hosted agents locally with the Azure Developer CLI (`azd`) or the F
 
 ```bash
 mkdir session-multiplexing-agent && cd session-multiplexing-agent
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/responses/session-multiplexing/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/responses/session-multiplexing/azure.yaml
 azd provision
 azd ai agent run
 ```
 
 > [!NOTE]
 > If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/responses/session-multiplexing/agent.manifest.yaml`
+> `azd ai agent init -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/responses/session-multiplexing/azure.yaml`
 
 The agent starts on `http://localhost:8088/`. Local requests do not include hosted protocol 2.0.0 platform context, so the handler fails closed until `get_request_context().user_id` and `get_request_context().call_id` are present.
 
@@ -219,8 +219,8 @@ The pool script owns session assignment. The A-A-B helper only proves isolation 
 | `scripts/invoke_session_pool.py` | Lazy sticky session-pool demo that calls the A-A-B helper with the assigned session |
 | `requirements.txt` | Python dependencies |
 | `Dockerfile` | Container image definition |
-| `agent.yaml` | Agent hosting configuration |
-| `agent.manifest.yaml` | Agent metadata and template |
+| `azure.yaml` | Agent hosting configuration |
+| `azure.yaml` | Agent metadata and template |
 | `.dockerignore` | Docker build exclusions |
 
 ## Troubleshooting

@@ -11,7 +11,7 @@ A realistic **multi-turn** [Agent Framework](https://github.com/microsoft/agent-
 
 ### The Workflow
 
-[`workflow.yaml`](workflow.yaml) describes a customer-support triage flow:
+[`workflow.yaml`](src/agent-framework-declarative-customer-support-responses/workflow.yaml) describes a customer-support triage flow:
 
 1. `InvokeAzureAgent: TriageAgent` — looks at the full conversation so far and emits a structured `TriageResponse` (`Category`, `NeedsClarification`, `ClarificationQuestion`, `Reply`).
 2. `ConditionGroup` routes on the triage decision:
@@ -24,7 +24,7 @@ Each user message re-runs the workflow from the trigger. Because `Workflow.as_ag
 
 ### Agent Hosting
 
-[`main.py`](main.py) builds three `Agent` instances on top of a shared `FoundryChatClient` (one per workflow role), registers them with the `WorkflowFactory` so the YAML's `InvokeAzureAgent` actions can resolve them by name, loads the workflow, wraps it with `.as_agent(...)`, and hands the agent to `ResponsesHostServer`, which provisions a REST API endpoint compatible with the OpenAI Responses protocol.
+[`main.py`](src/agent-framework-declarative-customer-support-responses/main.py) builds three `Agent` instances on top of a shared `FoundryChatClient` (one per workflow role), registers them with the `WorkflowFactory` so the YAML's `InvokeAzureAgent` actions can resolve them by name, loads the workflow, wraps it with `.as_agent(...)`, and hands the agent to `ResponsesHostServer`, which provisions a REST API endpoint compatible with the OpenAI Responses protocol.
 
 The triage agent is configured with `response_format=TriageResponse` (a Pydantic model) so the workflow can read its structured fields via `Local.Triage.*`. The specialist agents are plain text and use `autoSend: true` to deliver their reply straight to the caller.
 
@@ -49,7 +49,7 @@ No cloning required. Create a new folder and initialize from the manifest:
 ```bash
 mkdir my-declarative-agent && cd my-declarative-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/09-declarative-customer-support/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/09-declarative-customer-support/azure.yaml
 ```
 
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.

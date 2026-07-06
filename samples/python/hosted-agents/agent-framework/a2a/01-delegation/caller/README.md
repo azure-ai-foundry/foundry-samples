@@ -6,9 +6,9 @@ For the full two-agent walkthrough that pairs this caller with the included [exe
 
 ## How it works
 
-The caller reaches the executor through a Foundry **Toolbox** that exposes one `a2a_preview` tool, backed by a `RemoteA2A` project connection. Both are declared in [`agent.manifest.yaml`](agent.manifest.yaml) as `kind: connection` + `kind: toolbox` resources and created by `azd provision` (see [supported toolbox scenarios](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS.md) #10). The caller looks the toolbox up at runtime by name (`TOOLBOX_NAME`).
+The caller reaches the executor through a Foundry **Toolbox** that exposes one `a2a_preview` tool, backed by a `RemoteA2A` project connection. Both are declared in [`azure.yaml`](azure.yaml) as `kind: connection` + `kind: toolbox` resources and created by `azd provision` (see [supported toolbox scenarios](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS.md) #10). The caller looks the toolbox up at runtime by name (`TOOLBOX_NAME`).
 
-At runtime, the caller opens the toolbox MCP HTTP endpoint (`{project_endpoint}/toolboxes/{name}/mcp?api-version=v1`) using `MCPStreamableHTTPTool` from the Agent Framework SDK and lets the model auto-discover the executor's skills from the agent card. See [`main.py`](main.py).
+At runtime, the caller opens the toolbox MCP HTTP endpoint (`{project_endpoint}/toolboxes/{name}/mcp?api-version=v1`) using `MCPStreamableHTTPTool` from the Agent Framework SDK and lets the model auto-discover the executor's skills from the agent card. See [`main.py`](src/agent-framework-a2a-caller-responses/main.py).
 
 The agent uses `FoundryChatClient` for the model (Responses API on the project endpoint) and is hosted with `ResponsesHostServer` from the [Agent Framework Foundry hosting package](https://pypi.org/project/agent-framework-foundry-hosting/) on port `8088`.
 

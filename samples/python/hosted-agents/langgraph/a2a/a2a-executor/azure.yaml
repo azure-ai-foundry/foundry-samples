@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: math-expert
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  math-expert:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - LangGraph
+        - LangChain
+        - A2A
+        - Incoming A2A
+        - Python
+    project: src/math-expert
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: math-expert
+    displayName: LangGraph A2A Executor — Math Expert (Responses)
+    description: A LangGraph math-expert agent hosted on Foundry over the Responses protocol using langchain_azure_ai.agents.hosting. Incoming A2A is declared natively via `agent_endpoint` + `agent_card`, so `azd deploy` turns it on at agent create time and other Foundry agents can reach it through Foundry's A2A endpoint.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+    agentEndpoint:
+      protocols:
+        - responses
+        - a2a
+    agentCard:
+      description: A math expert that performs arithmetic operations and explains the steps
+      version: 1.0.0
+      skills:
+        - id: arithmetic-and-math-expert
+          name: Arithmetic and math expert
+          description: Performs arithmetic operations (addition, subtraction, multiplication, division, exponentiation) and returns concise numeric answers.
+          tags:
+            - math
+          examples:
+            - What is 15 multiplied by 23?
+infra:
+  provider: microsoft.foundry

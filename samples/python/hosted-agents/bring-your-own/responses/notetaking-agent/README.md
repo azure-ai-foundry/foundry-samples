@@ -21,7 +21,7 @@ A note-taking agent built with `azure-ai-agentserver-responses` and Azure OpenAI
 | Variable | Description | Example |
 |---|---|---|
 | `FOUNDRY_PROJECT_ENDPOINT` | Foundry project endpoint URL | `https://your-project.services.ai.azure.com/api/projects/your-project` |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Model deployment name declared in `agent.manifest.yaml` | `gpt-5.4-mini` |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Model deployment name declared in `azure.yaml` | `gpt-5.4-mini` |
 
 ## Run Locally
 
@@ -150,8 +150,8 @@ For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.
 | `note_store.py` | Thread-safe per-session JSONL note persistence |
 | `requirements.txt` | Python dependencies |
 | `Dockerfile` | Container image definition |
-| `agent.yaml` | Agent hosting configuration |
-| `agent.manifest.yaml` | Agent metadata and template |
+| `azure.yaml` | Agent hosting configuration |
+| `azure.yaml` | Agent metadata and template |
 | `.dockerignore` | Docker build exclusions |
 
 ## Troubleshooting

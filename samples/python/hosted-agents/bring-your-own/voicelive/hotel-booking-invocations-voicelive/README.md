@@ -17,7 +17,7 @@ This sample uses a small in-memory hotel catalog and keyword-based intent handli
 
 ## How it works
 
-The agent in [main.py](main.py) uses the [Azure AI AgentServer Invocations SDK](https://pypi.org/project/azure-ai-agentserver-invocations/) to host an invocations endpoint.
+The agent in [main.py](src/hotel-booking-python-invocations-voicelive/main.py) uses the [Azure AI AgentServer Invocations SDK](https://pypi.org/project/azure-ai-agentserver-invocations/) to host an invocations endpoint.
 
 At runtime it handles two input paths:
 
@@ -46,7 +46,7 @@ Before running this sample, ensure you have:
 
 This sample can run without extra environment variables.
 
-See [`.env.example`](.env.example). `FOUNDRY_PROJECT_ENDPOINT` is optional and only needed in scenarios where your workflow expects it.
+See [`.env.example`](src/hotel-booking-python-invocations-voicelive/.env.example). `FOUNDRY_PROJECT_ENDPOINT` is optional and only needed in scenarios where your workflow expects it.
 
 ### Install dependencies
 
@@ -83,7 +83,7 @@ No cloning required. Create a new folder, initialize from the manifest, then pro
 ```bash
 mkdir hotel-booking-agent && cd hotel-booking-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/voicelive/hotel-booking-invocations-voicelive/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/voicelive/hotel-booking-invocations-voicelive/azure.yaml
 
 azd provision
 azd ai agent run

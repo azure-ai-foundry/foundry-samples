@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: agent-skills
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  agent-skills:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Azure AI AgentServer
+        - Responses Protocol
+        - Agent Framework
+        - Agent Skills
+        - Foundry Skills
+    project: src/agent-skills
+    language: csharp
+    codeConfiguration:
+      runtime: dotnet_10
+      entryPoint: agent-skills.dll
+    uses:
+      - ai-project
+    kind: hosted
+    name: agent-skills
+    displayName: Agent Skills
+    description: Agent Framework agent that downloads its behavioral guidelines from the Foundry Skills REST API at startup, demonstrating how to decouple guidelines (tone, escalation policy, etc.) from agent code using AgentSkillsProvider with progressive disclosure.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: SKILL_NAMES
+        value: ${SKILL_NAMES}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

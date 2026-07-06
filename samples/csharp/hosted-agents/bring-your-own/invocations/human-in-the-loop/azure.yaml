@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: human-in-the-loop-dotnet-invocations
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  human-in-the-loop-dotnet-invocations:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Invocations Protocol
+        - Bring Your Own
+        - Human-in-the-Loop
+        - .NET
+    project: src/human-in-the-loop-dotnet-invocations
+    language: csharp
+    codeConfiguration:
+      runtime: dotnet_10
+      entryPoint: human-in-the-loop.dll
+    uses:
+      - ai-project
+    kind: hosted
+    name: human-in-the-loop-dotnet-invocations
+    displayName: Human-in-the-Loop (.NET, Invocations)
+    description: A human-in-the-loop agent that demonstrates the approval-gate pattern using the Azure.AI.AgentServer.Invocations SDK with Azure OpenAI. Generates a proposal, pauses for human review, and resumes after the human approves, requests a revision, or rejects. State is persisted as JSON files for durability across restarts.
+    protocols:
+      - protocol: invocations
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

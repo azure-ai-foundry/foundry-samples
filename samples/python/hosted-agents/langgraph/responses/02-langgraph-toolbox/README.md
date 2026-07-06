@@ -8,11 +8,11 @@ A [LangGraph](https://langchain-ai.github.io/langgraph/) ReAct agent wired to a 
 - A Microsoft Foundry project
 - Azure CLI installed and logged in (`az login`)
 
-The sample bundles a [`toolbox.yaml`](toolbox.yaml) that defines the tools. Neither tool requires a secret, so there's nothing extra to configure before you provision.
+The sample bundles a [`toolbox.yaml`](src/toolbox-langgraph/toolbox.yaml) that defines the tools. Neither tool requires a secret, so there's nothing extra to configure before you provision.
 
 ## Creating a Foundry Toolbox
 
-The sample bundles a [`toolbox.yaml`](toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
+The sample bundles a [`toolbox.yaml`](src/toolbox-langgraph/toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
 
 ```bash
 azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
@@ -20,7 +20,7 @@ azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
 
 You can also create a Foundry Toolbox in the Foundry portal. Read more about it [in the Foundry toolbox documentation](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/toolbox).
 
-> If you set up a project with this sample and provision the resources using `azd provision`, the toolbox declared in [`agent.manifest.yaml`](agent.manifest.yaml) (named `my-toolbox` with `web_search` and the Microsoft Learn MCP server) is created automatically.
+> If you set up a project with this sample and provision the resources using `azd provision`, the toolbox declared in [`azure.yaml`](azure.yaml) (named `my-toolbox` with `web_search` and the Microsoft Learn MCP server) is created automatically.
 
 > [!NOTE]
 > This sample identifies the toolbox by name (`TOOLBOX_NAME`) and always consumes its current default version. The `AzureAIProjectToolbox` helper builds the MCP endpoint from the toolbox name, so it can't pin the agent to a specific toolbox version. When you publish a new default version, the agent picks it up automatically.
@@ -47,7 +47,7 @@ Some MCP servers return tools with malformed JSON schemas (e.g. `object`-type sc
 
 The compiled graph is hosted with `ResponsesHostServer`, which exposes the OpenAI-compatible Responses endpoint at `/responses` and handles conversation history, streaming lifecycle events, and tool-call surfacing automatically.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/toolbox-langgraph/main.py) for the full implementation.
 
 ## Running the Agent Host
 
@@ -126,7 +126,7 @@ Follow the instructions in the [Deploying the Agent to Foundry](https://github.c
 
 ### Agent starts but returns no tools
 
-Check that the toolbox exists in your Foundry project and that `TOOLBOX_NAME` matches its name. `my-toolbox` is the default name provisioned by `azd up` against [agent.manifest.yaml](agent.manifest.yaml).
+Check that the toolbox exists in your Foundry project and that `TOOLBOX_NAME` matches its name. `my-toolbox` is the default name provisioned by `azd up` against [azure.yaml](azure.yaml).
 
 ### OAuth consent required
 

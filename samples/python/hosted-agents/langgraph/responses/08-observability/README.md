@@ -17,7 +17,7 @@ System prompt: *"You are a friendly assistant. Keep your answers brief."*
 
 The compiled graph is built with `langchain.agents.create_agent(model, tools=[...], system_prompt=...)`, which returns a compiled LangGraph runnable implementing the standard ReAct loop.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/langgraph-observability-responses/main.py) for the full implementation.
 
 ### Agent Hosting
 
@@ -34,7 +34,7 @@ enable_auto_tracing()
 
 This injects an `AzureAIOpenTelemetryTracer` into every LangChain `BaseCallbackManager` and into the LangGraph helper factories, so every node, LLM call, and tool invocation produces [GenAI semantic-convention](https://opentelemetry.io/docs/specs/semconv/gen-ai/) spans.
 
-The sample sets two tracing toggles in [agent.manifest.yaml](agent.manifest.yaml) and [agent.yaml](agent.yaml):
+The sample sets two tracing toggles in [azure.yaml](azure.yaml):
 
 | Variable | Purpose |
 |---|---|
@@ -45,7 +45,7 @@ The `APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable is injected whe
 
 ## Running the Agent Host
 
-Follow the instructions in the [Running the Agent Host Locally](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md#running-the-agent-host-locally) section of the README in the parent directory to run the agent host. To ship telemetry from a local run, also set `APPLICATIONINSIGHTS_CONNECTION_STRING` — see [.env.example](.env.example).
+Follow the instructions in the [Running the Agent Host Locally](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md#running-the-agent-host-locally) section of the README in the parent directory to run the agent host. To ship telemetry from a local run, also set `APPLICATIONINSIGHTS_CONNECTION_STRING` — see [.env.example](src/langgraph-observability-responses/.env.example).
 
 ## Interacting with the agent
 

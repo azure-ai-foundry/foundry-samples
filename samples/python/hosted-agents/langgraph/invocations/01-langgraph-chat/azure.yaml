@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: langgraph-chat-invocations
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  langgraph-chat-invocations:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Invocations Protocol
+        - LangGraph
+        - LangChain
+        - Tool Calling
+        - Python
+    project: src/langgraph-chat-invocations
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: langgraph-chat-invocations
+    displayName: LangGraph Chat (Invocations)
+    description: 'Multi-turn chat agent built with LangGraph and hosted on Foundry over the Invocations protocol using langchain_azure_ai.agents.hosting. Includes two local tools: get_current_time and calculator. Server-side conversation state via a MemorySaver checkpointer keyed by agent_session_id.'
+    protocols:
+      - protocol: invocations
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

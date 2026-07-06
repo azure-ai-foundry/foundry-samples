@@ -64,13 +64,13 @@ A sample for building real-time voice agents that maintain two parallel tracks s
 
 | File | Purpose |
 |------|---------|
-| [main.py](main.py) | The whole agent — `@app.ws_handler` opens a Voice Live session and runs two pumps. |
-| [agent.yaml](agent.yaml) | Hosted-agent runtime config (`invocations_ws`, 1 CPU / 1 Gi). |
-| [agent.manifest.yaml](agent.manifest.yaml) | `azd ai agent init` manifest. |
-| [Dockerfile](Dockerfile) | python:3.12-slim, installs dependencies from `requirements.txt`. |
-| [requirements.txt](requirements.txt) | Pins `azure-ai-agentserver-invocations>=1.0.0b4` + `azure-ai-voicelive[aiohttp]` + `azure-identity` + `python-dotenv`. |
-| [.env.example](.env.example) | Required Voice Live env vars. |
-| [e2e_local.py](e2e_local.py) | Headless E2E that streams a 1 kHz tone in and asserts audio + events come back. |
+| [main.py](src/duplex-live-agent/main.py) | The whole agent — `@app.ws_handler` opens a Voice Live session and runs two pumps. |
+| [azure.yaml](azure.yaml) | Hosted-agent runtime config (`invocations_ws`, 1 CPU / 1 Gi). |
+| [azure.yaml](azure.yaml) | `azd ai agent init` manifest. |
+| [Dockerfile](src/duplex-live-agent/Dockerfile) | python:3.12-slim, installs dependencies from `requirements.txt`. |
+| [requirements.txt](src/duplex-live-agent/requirements.txt) | Pins `azure-ai-agentserver-invocations>=1.0.0b4` + `azure-ai-voicelive[aiohttp]` + `azure-identity` + `python-dotenv`. |
+| [.env.example](src/duplex-live-agent/.env.example) | Required Voice Live env vars. |
+| [e2e_local.py](src/duplex-live-agent/e2e_local.py) | Headless E2E that streams a 1 kHz tone in and asserts audio + events come back. |
 
 ## Prerequisites
 
@@ -137,7 +137,7 @@ speak. The default WebSocket URL is `ws://localhost:8088/invocations_ws`.
 mkdir ~/azd-deploys/duplex-live-agent && cd ~/azd-deploys/duplex-live-agent
 
 azd ai agent init \
-  -m <repo>/samples/python/hosted-agents/bring-your-own/invocations_ws/duplex-live-agent/agent.manifest.yaml \
+  -m <repo>/samples/python/hosted-agents/bring-your-own/invocations_ws/duplex-live-agent/azure.yaml \
   -p "<foundry-project-resource-id-or-url>" \
   --no-prompt
 
