@@ -16,7 +16,7 @@ The full skill body and resources are only fetched from the toolbox when the age
 
 The agent is hosted using the [Agent Framework](https://github.com/microsoft/agent-framework) with the Responses API hosting layer (`AddFoundryResponses` / `MapFoundryResponses`).
 
-See [Program.cs](Program.cs) for the full implementation.
+See [Program.cs](src/foundry-toolbox-mcp-skills/Program.cs) for the full implementation.
 
 ## Prerequisites
 
@@ -63,8 +63,8 @@ The quickest path to deploy this sample to Microsoft Foundry:
 mkdir foundry-toolbox-mcp-skills && cd foundry-toolbox-mcp-skills
 
 # Initialize from the manifest - azd reads it, downloads the sample,
-# and generates Bicep infrastructure, agent.yaml, and env config.
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/foundry-toolbox-mcp-skills/agent.manifest.yaml
+# and adopts its azure.yaml as the project manifest and configures your environment.
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/foundry-toolbox-mcp-skills/azure.yaml
 
 # Provision Azure resources, build, push, and deploy the agent to Foundry.
 azd up

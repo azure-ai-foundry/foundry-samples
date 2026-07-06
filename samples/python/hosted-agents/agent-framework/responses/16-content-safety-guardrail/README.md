@@ -4,7 +4,7 @@ An [Agent Framework](https://github.com/microsoft/agent-framework) agent hosted 
 
 ## How it works
 
-The agent itself is the basic `FoundryChatClient` agent served via `ResponsesHostServer` — see [main.py](main.py). The guardrail is **not** code; it's a definition-level setting. The agent declares a `policies` list with a `rai_policy` entry that points to an RAI policy by its full Azure Resource Manager (ARM) resource ID:
+The agent itself is the basic `FoundryChatClient` agent served via `ResponsesHostServer` — see [main.py](src/agent-framework-content-safety-guardrail/main.py). The guardrail is **not** code; it's a definition-level setting. The agent declares a `policies` list with a `rai_policy` entry that points to an RAI policy by its full Azure Resource Manager (ARM) resource ID:
 
 ```yaml
 policies:
@@ -31,7 +31,7 @@ The platform applies that policy to the agent at runtime. When you omit the `pol
 
 ## Configure the guardrail
 
-Set `rai_policy_name` to your RAI policy's full ARM resource ID in both [agent.yaml](agent.yaml) and [agent.manifest.yaml](agent.manifest.yaml). Use the full ARM resource ID, not the bare policy name.
+Set `rai_policy_name` to your RAI policy's full ARM resource ID in [azure.yaml](azure.yaml). Use the full ARM resource ID, not the bare policy name.
 
 ## Option 1: Azure Developer CLI (`azd`)
 
@@ -42,13 +42,13 @@ No cloning required. Create a new folder and initialize from the manifest:
 ```bash
 mkdir my-guardrail-agent && cd my-guardrail-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/16-content-safety-guardrail/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/16-content-safety-guardrail/azure.yaml
 ```
 
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` guides you through creating one.
 
 > [!NOTE]
-> After init, confirm that `rai_policy_name` in the generated `agent.yaml` holds your policy's full ARM resource ID.
+> After init, confirm that `rai_policy_name` in the generated `azure.yaml` holds your policy's full ARM resource ID.
 
 ### Provision Azure resources (if needed)
 
@@ -59,7 +59,7 @@ azd provision
 ```
 
 > [!IMPORTANT]
-> If you provisioned a new Foundry project, it doesn't have your RAI policy yet. Before you deploy, [create an RAI policy](https://learn.microsoft.com/en-us/azure/foundry/guardrails/how-to-create-guardrails) on the provisioned account, then set `rai_policy_name` in the generated `agent.yaml` to that policy's full ARM resource ID. Deploying with a placeholder or nonexistent policy ID fails.
+> If you provisioned a new Foundry project, it doesn't have your RAI policy yet. Before you deploy, [create an RAI policy](https://learn.microsoft.com/en-us/azure/foundry/guardrails/how-to-create-guardrails) on the provisioned account, then set `rai_policy_name` in the generated `azure.yaml` to that policy's full ARM resource ID. Deploying with a placeholder or nonexistent policy ID fails.
 
 ### Deploy to Foundry
 
@@ -79,7 +79,7 @@ azd ai agent invoke "Write a short friendly hello message."
 
 1. Install the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.azure-ai-foundry)** extension and sign in to Azure.
 1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Create Hosted Agent**, then select this sample from the gallery. The extension scaffolds the project and generates `agent.yaml`.
-1. Set `rai_policy_name` in the generated `agent.yaml` to your policy's full ARM resource ID.
+1. Set `rai_policy_name` in the generated `azure.yaml` to your policy's full ARM resource ID.
 1. Run **Foundry Toolkit: Deploy Hosted Agent** and follow the wizard to deploy.
 
 ## Verify the guardrail

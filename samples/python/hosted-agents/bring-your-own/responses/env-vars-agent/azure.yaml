@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: env-vars-agent-responses-python
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  env-vars-agent-responses-python:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Bring Your Own
+        - Function Calling
+        - Connection Resolution
+        - Python
+    project: src/env-vars-agent-responses-python
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: env-vars-agent-responses-python
+    displayName: Env Vars Agent (Python, Responses)
+    description: |-
+      A hosted agent that returns environment variables injected by Foundry's
+      connection-templated secret resolver. Demonstrates all four corners of
+      the connection grid (ApiKey x CustomKeys, secret x non-secret) and a
+      kind-aware safety policy in the agent: metadata and target values are
+      returned verbatim; credentials are returned only as a safe fingerprint.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: gpt-5.4-mini
+      - name: SECRET_API_KEY
+        value: ${{connections.dummy-api-key.credentials.key}}
+      - name: TARGET
+        value: ${{connections.dummy-api-key.target}}
+      - name: SECRET_KEY
+        value: ${{connections.dummy-custom-keys.credentials.secret-key}}
+      - name: NON_SECRET_KEY
+        value: ${{connections.dummy-custom-keys.metadata.plain-key}}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

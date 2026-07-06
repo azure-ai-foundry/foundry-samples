@@ -9,12 +9,12 @@ The agent registers a `FoundryMemoryProvider` as an `AIContextProvider`. When th
 The store is created on startup via `EnsureMemoryStoreCreatedAsync` (idempotent), so a fresh `azd provision` produces a fully working agent on first invocation.
 
 > [!NOTE]
-> Provisioning of the Foundry project, model deployments, and supporting Azure resources is handled by the [`azd-ai-starter-basic`](https://github.com/Azure-Samples/azd-ai-starter-basic) template, which `azd ai agent init` pulls in automatically. The chat and embedding deployments declared under `resources:` in `agent.manifest.yaml` flow into the starter's `AI_PROJECT_DEPLOYMENTS` parameter.
+> Provisioning of the Foundry project, model deployments, and supporting Azure resources is handled by the [`azd-ai-starter-basic`](https://github.com/Azure-Samples/azd-ai-starter-basic) template, which `azd ai agent init` pulls in automatically. The chat and embedding deployments declared under `resources:` in `azure.yaml` flow into the starter's `AI_PROJECT_DEPLOYMENTS` parameter.
 
 > [!NOTE]
-> This sample uses a single shared memory scope so any caller writes to and reads from the same partition. Production agents should partition memory per end user using the platform-injected isolation headers. See the comment near `stateInitializer` in [Program.cs](Program.cs) for the pattern that becomes available once the `HostedSessionContext` API ships in a future `Microsoft.Agents.AI.Foundry.Hosting` release.
+> This sample uses a single shared memory scope so any caller writes to and reads from the same partition. Production agents should partition memory per end user using the platform-injected isolation headers. See the comment near `stateInitializer` in [Program.cs](src/foundry-memory-rag/Program.cs) for the pattern that becomes available once the `HostedSessionContext` API ships in a future `Microsoft.Agents.AI.Foundry.Hosting` release.
 
-See [Program.cs](Program.cs) for the full implementation.
+See [Program.cs](src/foundry-memory-rag/Program.cs) for the full implementation.
 
 ## Running the Agent Locally
 
@@ -41,8 +41,8 @@ Before running this sample, ensure you have:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers; set automatically by `azd ai agent run` locally. |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Chat model deployment name. Declared in `agent.manifest.yaml`. |
-| `AZURE_AI_EMBEDDING_DEPLOYMENT_NAME` | Yes | Embedding model deployment name (used by Foundry Memory). Declared in `agent.manifest.yaml`. |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Chat model deployment name. Declared in `azure.yaml`. |
+| `AZURE_AI_EMBEDDING_DEPLOYMENT_NAME` | Yes | Embedding model deployment name (used by Foundry Memory). Declared in `azure.yaml`. |
 | `AZURE_AI_MEMORY_STORE_ID` | No | Memory store name. Defaults to `foundry-memory-rag-store`. The store is created on startup if it does not exist. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
 
@@ -88,15 +88,15 @@ Chat with a running agent using the **Agent Inspector**:
 
 #### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
 
-No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample, generates Bicep infrastructure, `agent.yaml`, and env config:
+No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample, adopts its `azure.yaml` as the project manifest and configures your environment:
 
 ```bash
 # Create a new folder for the agent and navigate into it
 mkdir foundry-memory-rag-agent && cd foundry-memory-rag-agent
 
 # Initialize from the manifest. azd reads it, downloads the sample,
-# and generates Bicep infrastructure, agent.yaml, and env config
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/foundry-memory-rag/agent.manifest.yaml
+# and adopts its azure.yaml as the project manifest and configures your environment
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/foundry-memory-rag/azure.yaml
 
 # Provision Azure resources (Foundry project, chat + embedding deployments, App Insights)
 azd provision
@@ -107,7 +107,7 @@ azd ai agent run
 
 > [!NOTE]
 > If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/foundry-memory-rag/agent.manifest.yaml`
+> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/foundry-memory-rag/azure.yaml`
 
 > [!NOTE]
 > If you already have a Foundry project and model deployments, add `-p <project-id> -d <chat-deployment-name>` to `azd ai agent init` to target existing resources. You also need an embedding deployment (default `text-embedding-3-small`); set its name via `AZURE_AI_EMBEDDING_DEPLOYMENT_NAME` if it differs from the default.

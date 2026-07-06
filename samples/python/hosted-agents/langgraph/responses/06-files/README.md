@@ -21,7 +21,7 @@ System prompt: *"You are a friendly assistant. Keep your answers brief. Make sur
 
 The compiled graph is built with `langchain.agents.create_agent(model, tools=[...], system_prompt=...)`, which returns a compiled LangGraph runnable implementing the standard ReAct loop (call model → if tool calls were requested, run them → loop back → return the final message).
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/langgraph-files-responses/main.py) for the full implementation.
 
 ### Agent Hosting
 

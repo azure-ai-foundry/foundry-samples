@@ -36,7 +36,7 @@ The agent is hosted using the [Agent Framework](https://github.com/microsoft/age
 
 The agent reads a single base prompt from `prompts/base.md`. That prompt contains the browser lifecycle, safety, web extraction, and form-filling guidance used at runtime.
 
-See [Program.cs](Program.cs) for the full implementation.
+See [Program.cs](src/browser-automation-csharp-maf-sample-foundry/Program.cs) for the full implementation.
 
 ## Repository layout
 
@@ -87,7 +87,7 @@ $env:AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1"
 | --- | --- | --- |
 | `FOUNDRY_PROJECT_ENDPOINT` | Required locally; provided by hosted agent runtime when deployed | Foundry project endpoint used for model and Toolbox MCP calls. |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Required | Model deployment name. For hosted deployment, this is set from the model deployment selected during `azd ai agent init`; for local runs, set it in your shell or `.env` file. |
-| `TOOLBOX_NAME` | `browser-automation-tools` | Foundry Toolbox name declared in `agent.manifest.yaml`. The default `browser-automation-tools` is hardcoded in the manifest; override only if using a different pre-existing toolbox. |
+| `TOOLBOX_NAME` | `browser-automation-tools` | Foundry Toolbox name declared in `azure.yaml`. The default `browser-automation-tools` is hardcoded in the manifest; override only if using a different pre-existing toolbox. |
 | `BROWSER_AGENT_PLAYWRIGHT_CLI_TIMEOUT_SECONDS` | `180` | Optional timeout for each Playwright CLI command. |
 | `BROWSER_AGENT_MCP_TIMEOUT_SECONDS` | `120` | Optional timeout for Toolbox MCP calls. |
 
@@ -95,7 +95,7 @@ The Toolbox endpoint is resolved as `<FOUNDRY_PROJECT_ENDPOINT>/toolboxes/<TOOLB
 
 ### Provisioning parameters
 
-`PLAYWRIGHT_SERVICE_URL`, `PLAYWRIGHT_SERVICE_RESOURCE_ID`, and `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` are not read by the C# agent at runtime. They are `azd` provisioning inputs used by [`agent.manifest.yaml`](agent.manifest.yaml) to create a `PlaywrightWorkspace` project connection with API key authentication and the default `browser-automation-tools` toolbox wired to that connection. `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is marked as a secret parameter in the manifest.
+`PLAYWRIGHT_SERVICE_URL`, `PLAYWRIGHT_SERVICE_RESOURCE_ID`, and `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` are not read by the C# agent at runtime. They are `azd` provisioning inputs used by [`azure.yaml`](azure.yaml) to create a `PlaywrightWorkspace` project connection with API key authentication and the default `browser-automation-tools` toolbox wired to that connection. `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is marked as a secret parameter in the manifest.
 
 Set these values with `azd env set` before running `azd provision`. `azd` stores them in `.azure/<environment-name>/.env`; the sample's root `.env` file is only for local execution.
 
@@ -176,7 +176,7 @@ azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/<subscription-id>/res
 azd env set PLAYWRIGHT_SERVICE_ACCESS_TOKEN "<playwright-workspace-access-token>"
 ```
 
-If these are not set, running `azd ai agent init -m <agent.manifest.yaml>` will prompt you to enter them interactively.
+If these are not set, running `azd ai agent init -m <azure.yaml>` will prompt you to enter them interactively.
 
 Run `azd provision` before `azd deploy`:
 
@@ -213,7 +213,7 @@ This sample is intended as a starting point, not a production-ready browser auto
 
 The `run_playwright_cli` tool intentionally invokes only `playwright-cli` with a named session and optional `PLAYWRIGHT_MCP_CDP_ENDPOINT`; it does not expose general shell execution.
 
-The default hosted container resources (`cpu: "0.25"`, `memory: "0.5Gi"`) are minimal. Increase them in `agent.yaml` for multi-step scraping, longer QA sessions, or data-heavy browser automation.
+The default hosted container resources (`cpu: "0.25"`, `memory: "0.5Gi"`) are minimal. Increase them in `azure.yaml` for multi-step scraping, longer QA sessions, or data-heavy browser automation.
 
 Useful references:
 

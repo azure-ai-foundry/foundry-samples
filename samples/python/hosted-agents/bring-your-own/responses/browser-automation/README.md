@@ -20,19 +20,21 @@ There is a simple sample available available at agent-framework/responses/14-bro
 
 ```
 browser-automation/
-├── main.py              # Responses handler, session management, agentic tool loop
-├── toolbox.py           # MCP client for Foundry Toolbox (browser session lifecycle)
-├── browser.py           # playwright-cli subprocess wrapper (BrowserSession class)
-├── skills.py            # Skill markdown loader
-├── constants.py         # System prompt, tool definitions, config constants
-├── skills/
-│   ├── form-filler.md   # Form-filling workflow with date picker handling
-│   └── web-scraper.md   # Data extraction with pagination support
-├── agent.yaml           # Hosted agent deployment config
-├── agent.manifest.yaml  # Agent init manifest for azd tooling
-├── Dockerfile           # Container build
-├── requirements.txt     # Python dependencies
-└── README.md
+├── README.md
+├── azure.yaml               # Unified manifest — project, model, and agent (name, protocols, resources, env vars)
+└── src/
+    └── browser-automation-agent-sample-foundry/
+        ├── main.py            # Responses handler, session management, agentic tool loop
+        ├── requirements.txt   # Python dependencies
+        ├── Dockerfile         # Container build
+        ├── skills/
+        │   ├── form-filler.md # Form-filling workflow with date picker handling
+        │   └── web-scraper.md # Data extraction with pagination support
+        └── utils/
+            ├── browser.py     # playwright-cli subprocess wrapper (BrowserSession class)
+            ├── toolbox.py     # MCP client for Foundry Toolbox (browser session lifecycle)
+            ├── skills.py      # Skill markdown loader
+            └── constants.py   # System prompt, tool definitions, config constants
 ```
 
 ## How It Works
@@ -117,7 +119,7 @@ Open **Agent Inspector** in VS Code (Command Palette → **Foundry Toolkit: Open
 # from this sample folder) so azd scaffolds the project alongside the
 # sample rather than inside it.
 cd ..
-azd ai agent init -m ./browser-automation/agent.manifest.yaml
+azd ai agent init -m ./browser-automation/azure.yaml
 
 # Set Playwright workspace connection values
 azd env set PLAYWRIGHT_SERVICE_URL "wss://<region>.api.playwright.microsoft.com/playwrightworkspaces/<workspace-id>/browsers"
@@ -129,12 +131,11 @@ azd deploy
 ```
 
 > [!IMPORTANT]
-> Run `azd ai agent init` from a directory **outside** the sample folder — either a new empty directory, or one level up from this sample as shown above. Do **not** run it from inside the sample directory itself. Because the sample folder already contains `agent.manifest.yaml`, initializing in place fails with:
+> Run `azd ai agent init` from a directory **outside** the sample folder — either a new empty directory, or one level up from this sample as shown above. Do **not** run it from inside the sample directory itself. Because the sample folder already contains `azure.yaml`, initializing in place fails with:
 >
 > ```
-> ERROR: downloading agent.yaml: cannot copy agent files: target '...' is inside the
-> manifest directory '...'. Move the manifest to a separate directory containing only the
-> agent files.
+> ERROR: a project azure.yaml already exists in '.', so the sample's unified
+> azure.yaml cannot be adopted there
 > ```
 >
 > The `cd ..` step above (or using a fresh, empty directory with the remote manifest URL) avoids this.
@@ -242,4 +243,4 @@ The model loads skills on demand via the `load_skill` tool when it needs guided 
 - Edit `constants.py` to modify the system prompt or tool definitions.
 - Add new skills as `.md` files in `skills/`.
 - Modify `browser.py` to add/restrict allowed playwright-cli commands.
-- Adjust `agent.yaml` resources (`cpu`, `memory`) for heavier workloads.
+- Adjust `azure.yaml` resources (`cpu`, `memory`) for heavier workloads.

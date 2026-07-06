@@ -3,7 +3,7 @@
 This directory contains samples that demonstrate how to use the [Agent Framework](https://github.com/microsoft/agent-framework) to host agents with different capabilities and configurations. Each sample includes a README with instructions on how to set up, run, and interact with the agent.
 
 > [!IMPORTANT]
-> **Migrating from Protocol version 1.0.0 to 2.0.0:** The Foundry Hosted Agents service has been updated to use Protocol version 2.0.0. If your application is using Protocol version 1.0.0, upgrade to Protocol version 2.0.0 in your `agent.manifest.yaml` or `agent.yaml` and upgrade to the latest `agent-framework-foundry-hosting` package. `agent-framework-foundry-hosting==1.0.0a260625` is the last version that supports Protocol version 1.0.0.
+> **Migrating from Protocol version 1.0.0 to 2.0.0:** The Foundry Hosted Agents service has been updated to use Protocol version 2.0.0. If your application is using Protocol version 1.0.0, upgrade to Protocol version 2.0.0 in your `azure.yaml` or `azure.yaml` and upgrade to the latest `agent-framework-foundry-hosting` package. `agent-framework-foundry-hosting==1.0.0a260625` is the last version that supports Protocol version 1.0.0.
 >
 > The `agent-framework-foundry-hosting` Python API surface is intended to remain stable, but protocol 1.0.0 and 2.0.0 are incompatible.
 
@@ -68,7 +68,7 @@ You can run any sample in this folder using one of three approaches. Pick the on
 mkdir hosted-agent-framework-agent && cd hosted-agent-framework-agent
 
 # Initialize from the manifest
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/01-basic/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/01-basic/azure.yaml
 ```
 
 Follow the instructions from `azd ai agent init` to complete the agent initialization. If you don't have an existing Foundry project and a model deployment, `azd ai agent init` will guide you through creating them.
@@ -243,7 +243,7 @@ Once you've tested locally, deploy to Microsoft Foundry. You can use either `azd
 
 If you already have a Foundry project and the necessary Azure resources provisioned, you can skip the setup steps and proceed directly to deploying the agent.
 
-After running `azd ai agent init -m <agent.manifest.yaml>` and following the prompts to configure your agent, you will have a project ready for deployment.
+After running `azd ai agent init -m <azure.yaml>` and following the prompts to configure your agent, you will have a project ready for deployment.
 
 #### Setting Up a New Foundry Project
 

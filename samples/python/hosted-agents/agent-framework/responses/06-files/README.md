@@ -8,7 +8,7 @@ An [Agent Framework](https://github.com/microsoft/agent-framework) agent that us
 
 The agent uses `FoundryChatClient` from the Agent Framework to create a Responses client from the project endpoint and model deployment. The agent supports both streaming (SSE events) and non-streaming (JSON) response modes.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/agent-framework-agent-files-responses/main.py) for the full implementation.
 
 ### Agent Hosting
 
@@ -46,7 +46,7 @@ No cloning required. Create a new folder and initialize from the manifest:
 ```bash
 mkdir my-files-agent && cd my-files-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/06-files/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/06-files/azure.yaml
 ```
 
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
@@ -67,7 +67,7 @@ azd ai agent run
 
 The agent host will start on `http://localhost:8088`.
 
-> This sample requires a Foundry Toolbox. The `TOOLBOX_NAME` environment variable is configured in `agent.manifest.yaml` and will be prompted during `azd ai agent init`.
+> This sample requires a Foundry Toolbox. The `TOOLBOX_NAME` environment variable is configured in `azure.yaml` and will be prompted during `azd ai agent init`.
 
 ### Invoke the local agent
 

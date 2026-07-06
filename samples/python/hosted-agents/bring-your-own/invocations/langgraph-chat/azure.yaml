@@ -1,33 +1,51 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
 requiredVersions:
-    extensions:
-        azure.ai.agents: '>=0.1.0-preview'
-name: ai-foundry-starter-basic
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: langgraph-chat-invocations
 services:
-    langgraph-chat-invocations:
-        project: .
-        host: azure.ai.agent
-        language: docker
-        docker:
-            remoteBuild: true
-        config:
-            container:
-                resources:
-                    cpu: "0.25"
-                    memory: 0.5Gi
-                scale:
-                    maxReplicas: 1
-            deployments:
-                - model:
-                    format: OpenAI
-                    name: gpt-5.4-mini
-                    version: "2026-03-17"
-                  name: gpt-5.4-mini
-                  sku:
-                    capacity: 5719
-                    name: GlobalStandard
-            startupCommand: python main.py
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  langgraph-chat-invocations:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Invocations Protocol
+        - Bring Your Own
+        - LangGraph
+        - Tool Calling
+        - Python
+    project: src/langgraph-chat-invocations
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: langgraph-chat-invocations
+    displayName: LangGraph Chat (Invocations)
+    description: Multi-turn chat agent built with LangGraph and the Invocations protocol. Demonstrates a tool-calling agent graph (chatbot ↔ tools) with get_current_time and calculator tools.
+    protocols:
+      - protocol: invocations
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: gpt-5.4-mini
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
 infra:
-    provider: bicep
-    path: ./infra
+  provider: microsoft.foundry

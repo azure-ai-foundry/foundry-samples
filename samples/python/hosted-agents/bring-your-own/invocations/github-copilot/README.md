@@ -137,7 +137,7 @@ AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4o \
 python main.py
 ```
 
-Authentication uses Managed Identity via `DefaultAzureCredential`. When deployed as a hosted agent, `FOUNDRY_PROJECT_ENDPOINT` is auto-injected by the platform — you only need to set `AZURE_AI_MODEL_DEPLOYMENT_NAME` in `agent.yaml`.
+Authentication uses Managed Identity via `DefaultAzureCredential`. When deployed as a hosted agent, `FOUNDRY_PROJECT_ENDPOINT` is auto-injected by the platform — you only need to set `AZURE_AI_MODEL_DEPLOYMENT_NAME` in `azure.yaml`.
 
 ## Deploying the Agent to Microsoft Foundry
 

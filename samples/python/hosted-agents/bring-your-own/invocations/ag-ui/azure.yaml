@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: ag-ui-invocations
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  ag-ui-invocations:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - AG-UI Protocol
+        - Pydantic AI
+        - Invocations Protocol
+        - Bring Your Own
+    project: src/ag-ui-invocations
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: ag-ui-invocations
+    displayName: AG-UI (Invocations)
+    description: AG-UI protocol over Foundry invocations using Pydantic AI with Azure OpenAI. Streams standard AG-UI events (RUN_STARTED, TEXT_MESSAGE_CONTENT, RUN_FINISHED, etc.) with zero manual event translation.
+    protocols:
+      - protocol: invocations
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: '${AZURE_AI_MODEL_DEPLOYMENT_NAME}'
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

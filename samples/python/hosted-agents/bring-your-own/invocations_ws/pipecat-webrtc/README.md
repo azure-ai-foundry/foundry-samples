@@ -74,8 +74,8 @@ Failure to properly secure these components may result in credential theft, serv
 | `bot_websocket_server.py`     | Bundled copy of the sibling sample's agent classes             |
 | `azure_*.py`                  | Bundled copies of the Azure STT / TTS helper services          |
 | `Dockerfile`                  | Container image for Foundry deployment (`linux/amd64`, port 8088) |
-| `agent.manifest.yaml`         | Foundry hosted-agent manifest                                  |
-| `agent.yaml`                  | Foundry hosted-agent definition (kind / protocols / resources) |
+| `azure.yaml`         | Foundry hosted-agent manifest                                  |
+| `azure.yaml`                  | Foundry hosted-agent definition (kind / protocols / resources) |
 | `requirements.txt`            | Bot deps (`pipecat-ai[silero,webrtc,websocket,azure]`)         |
 | `.env.example`                | Required Azure Speech / Foundry env vars for the bot           |
 | [`chat_client/`](chat_client/) | Browser portal — pipecat WebRTC signaling proxy |
@@ -107,7 +107,7 @@ The server may also push `{ "type": "closed" }` if the peer connection is torn d
 
 ## Environment Variables
 
-### Server ([`pipecat-webrtc/.env`](.env.example))
+### Server ([`pipecat-webrtc/.env`](src/pipecat-ws-webrtc/.env.example))
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -234,14 +234,14 @@ The recommended path is `azd`, which uses ACR remote build (so Apple Silicon mac
 # Create a fresh folder for the azd project
 mkdir ~/azd-deploys/pipecat-ws-webrtc && cd ~/azd-deploys/pipecat-ws-webrtc
 
-# Point azd at the agent.manifest.yaml that ships with the sample
+# Point azd at the azure.yaml that ships with the sample
 azd ai agent init \
-  -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/invocations_ws/pipecat-webrtc/agent.manifest.yaml \
+  -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/invocations_ws/pipecat-webrtc/azure.yaml \
   -p "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>/projects/<foundry-project>" \
   --no-prompt
 ```
 
-`azd` downloads the sample into `src/pipecat-ws-webrtc/`, generates Bicep + `azure.yaml`, and seeds an env file under `.azure/<env-name>/.env`.
+`azd` downloads the sample into `src/pipecat-ws-webrtc/`, adopts its `azure.yaml`, and seeds an env file under `.azure/<env-name>/.env`.
 
 > [!NOTE]
 > Omit `-p` to let `azd provision` create a new Foundry project for you.
@@ -259,7 +259,7 @@ azd env set CONTAINER_REGISTRY_RESOURCE_GROUP <acr-rg>
 
 ### 3. Bump the container resources (optional)
 
-The default scaffold uses `0.25` CPU / `0.5Gi`, which is too small for pipecat. Edit `src/pipecat-ws-webrtc/agent.yaml` and `azure.yaml` to:
+The default scaffold uses `0.25` CPU / `0.5Gi`, which is too small for pipecat. Edit `azure.yaml` to:
 
 ```yaml
 resources:
@@ -269,7 +269,7 @@ resources:
 
 ### 4. Set the runtime environment variables
 
-`agent.yaml` declares the env vars the hosted container needs and resolves them from your azd environment at deploy time, so secrets stay out of the image. Set them once with `azd env set`:
+`azure.yaml` declares the env vars the hosted container needs and resolves them from your azd environment at deploy time, so secrets stay out of the image. Set them once with `azd env set`:
 
 ```bash
 azd env set AZURE_SPEECH_API_KEY      <speech-key>
@@ -283,7 +283,7 @@ azd env set WEBRTC_TURN_USERNAME      <username>
 azd env set WEBRTC_TURN_CREDENTIAL    <credential>
 ```
 
-> The local `.env` file is excluded from the Docker image via `.dockerignore` and is **only** used for local runs. For the hosted agent, values must come from the azd environment (or be edited directly into `agent.yaml` under `environment_variables`).
+> The local `.env` file is excluded from the Docker image via `.dockerignore` and is **only** used for local runs. For the hosted agent, values must come from the azd environment (or be edited directly into `azure.yaml` under `environment_variables`).
 
 ### 5. Deploy
 

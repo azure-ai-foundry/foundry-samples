@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: teams-activity-dotnet-agent-framework
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  workiq-teams-conn:
+    host: azure.ai.connection
+    uses:
+      - ai-project
+    category: RemoteTool
+    target: https://agent365.svc.cloud.microsoft/agents/servers/mcp_TeamsServer
+    authType: UserEntraToken
+    audience: ea9ffc3e-8a23-4a7d-836d-234d7c7565c1
+    metadata:
+      type: catalog_MCP
+      toolEntityId: azureml://location/eastus/apiCenter/registry-prod-bl/type/tools/objectId/microsoft-teams-mcp-frontier/version/1
+  workiq-calendar-conn:
+    host: azure.ai.connection
+    uses:
+      - ai-project
+    category: RemoteTool
+    target: https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools
+    authType: UserEntraToken
+    audience: ea9ffc3e-8a23-4a7d-836d-234d7c7565c1
+    metadata:
+      type: catalog_MCP
+      toolEntityId: azureml://location/eastus/apiCenter/registry-prod-bl/type/tools/objectId/microsoft-outlook-calendar-mcp-frontier/version/1
+  teams-tools:
+    host: azure.ai.toolbox
+    uses:
+      - ai-project
+      - workiq-teams-conn
+      - workiq-calendar-conn
+    tools:
+      - type: mcp
+        server_label: workiq-teams
+        connection: workiq-teams-conn
+        server_url: https://agent365.svc.cloud.microsoft/agents/servers/mcp_TeamsServer
+      - type: mcp
+        server_label: workiq-calendar
+        connection: workiq-calendar-conn
+        server_url: https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools
+  teams-activity-dotnet-agent-framework:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Agent Framework
+        - Toolbox
+        - MCP
+        - Server-Side Tools
+        - .NET
+        - Teams
+    project: src/teams-activity-dotnet-agent-framework
+    language: csharp
+    codeConfiguration:
+      runtime: dotnet_10
+      entryPoint: teams-activity.dll
+    uses:
+      - ai-project
+      - workiq-teams-conn
+      - workiq-calendar-conn
+      - teams-tools
+    kind: hosted
+    name: teams-activity-dotnet-agent-framework
+    displayName: Foundry Teams Activity (.NET, Agent Framework)
+    description: An Agent Framework agent connected to Teams
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: TOOLBOX_NAME
+        value: ${TOOLBOX_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

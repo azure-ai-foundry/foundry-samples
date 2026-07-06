@@ -134,7 +134,7 @@ azd auth login
 > - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
 > - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
 
-This sample wires three MCP servers into a single toolbox: WorkIQ Mail and WorkIQ Calendar (both user-identity, `UserEntraToken`) and a GitHub MCP server protected by managed OAuth2. `azd ai agent init` + `azd up` provisions all three connections and the toolbox from [`agent.manifest.yaml`](agent.manifest.yaml) automatically. To create them directly with `azd` instead, run:
+This sample wires three MCP servers into a single toolbox: WorkIQ Mail and WorkIQ Calendar (both user-identity, `UserEntraToken`) and a GitHub MCP server protected by managed OAuth2. `azd ai agent init` + `azd up` provisions all three connections and the toolbox from [`azure.yaml`](azure.yaml) automatically. To create them directly with `azd` instead, run:
 
 1. Point `azd` at your Foundry project (once per shell):
 
@@ -226,15 +226,15 @@ git config --global core.autocrlf false
 > It tells the command where to find your agent definition and source files.
 >
 > `-m` can point to either:
-> - **A specific `agent.manifest.yaml` file** — init copies all files from the same directory as the manifest
-> - **A folder containing `agent.manifest.yaml`** — init copies all files from that folder
+> - **A specific `azure.yaml` file** — init copies all files from the same directory as the manifest
+> - **A folder containing `azure.yaml`** — init copies all files from that folder
 
 ```bash
 # 1. Create a new directory and initialize the agent project
 mkdir my-langgraph-agent && cd my-langgraph-agent
 PROJECT_ID="/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<account>/projects/<project>"
 azd ai agent init \
-  -m /path/to/samples/python/hosted-agents/bring-your-own/responses/langgraph-toolbox-user-identity/agent.manifest.yaml \
+  -m /path/to/samples/python/hosted-agents/bring-your-own/responses/langgraph-toolbox-user-identity/azure.yaml \
   --project-id $PROJECT_ID \
   --no-prompt \
   -e my-env
@@ -258,7 +258,7 @@ After `azd ai agent init`, perform these steps before `azd up` will work:
 |---|--------|-----|
 | 1 | `azd env set enableHostedAgentVNext "true"` | Without this, container health probes fail |
 | 2 | Edit `src/<agent>/agent.yaml`: replace all `${{VAR}}` with `${VAR}` | Init scaffolds broken double-brace syntax that is NOT resolved at deploy time |
-| 3 | Verify `agent.yaml` uses **flat format** (`kind: hosted` at root) | The nested `template:` format silently fails during deploy |
+| 3 | Verify `azure.yaml` uses **flat format** (`kind: hosted` at root) | The nested `template:` format silently fails during deploy |
 | 4 | `azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "<deployment-name>"` | Must match the deployment `name` in `azure.yaml`; platform injection is unreliable without this (container crashes on startup) |
 | 5 | Verify `main.py` checks `FOUNDRY_PROJECT_ENDPOINT` first | Platform injects this var, NOT `AZURE_AI_PROJECT_ENDPOINT` |
 | 6 | **If using existing project with AppInsights already connected:** `azd env set ENABLE_MONITORING "false"` | Provision fails with duplicate App Insights connection error |
@@ -406,7 +406,7 @@ kind: hosted          # MUST be at root level
 name: toolbox-langgraph-agent
 protocols:
   - protocol: responses
-    version: 1.0.0
+    version: 2.0.0
 environment_variables:
   - name: AZURE_OPENAI_ENDPOINT
     value: ${AZURE_OPENAI_ENDPOINT}     # Single-brace syntax

@@ -37,7 +37,7 @@ and Azure OpenAI, hosted via the **invocations** protocol.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | — | Foundry project endpoint URL |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | — | Model deployment name declared in `agent.manifest.yaml` |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | — | Model deployment name declared in `azure.yaml` |
 
 ## Running locally
 

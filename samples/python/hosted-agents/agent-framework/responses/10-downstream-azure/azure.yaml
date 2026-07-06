@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: agent-framework-agent-downstream-azure-responses
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  agent-framework-agent-downstream-azure-responses:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - Agent Framework
+        - AI Agent Hosting
+        - Azure AI AgentServer
+        - Responses Protocol
+        - Agent Identity
+        - Azure Storage
+        - Azure Service Bus
+    project: src/agent-framework-agent-downstream-azure-responses
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: agent-framework-agent-downstream-azure-responses
+    description: An Agent Framework hosted agent that operates on Azure Blob Storage and Service Bus using its per-agent Microsoft Entra identity. Demonstrates the manual RBAC assignment pattern for Azure data-plane services.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: AZURE_STORAGE_ACCOUNT_NAME
+        value: ${AZURE_STORAGE_ACCOUNT_NAME}
+      - name: AZURE_STORAGE_CONTAINER_NAME
+        value: ${AZURE_STORAGE_CONTAINER_NAME}
+      - name: AZURE_SERVICEBUS_FQDN
+        value: ${AZURE_SERVICEBUS_FQDN}
+      - name: AZURE_SERVICEBUS_QUEUE_NAME
+        value: ${AZURE_SERVICEBUS_QUEUE_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

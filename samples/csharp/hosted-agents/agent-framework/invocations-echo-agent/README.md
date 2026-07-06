@@ -6,7 +6,7 @@ A minimal echo agent hosted as a Foundry Hosted Agent using the **Invocations pr
 
 The agent registers a custom `EchoAIAgent` that implements the Invocations protocol. When a POST request arrives at `/invocations` with a JSON body containing a `"message"` field, the agent echoes the input back as `"Echo: <input>"`. Because no model is involved, this sample requires no Azure OpenAI deployment or Foundry project endpoint — making it ideal for testing the hosting infrastructure in isolation.
 
-See [Program.cs](Program.cs) and [EchoAIAgent.cs](EchoAIAgent.cs) for the full implementation.
+See [Program.cs](src/invocations-echo-agent/Program.cs) and [EchoAIAgent.cs](src/invocations-echo-agent/EchoAIAgent.cs) for the full implementation.
 
 ## Running the Agent Locally
 
@@ -69,15 +69,15 @@ Chat with a running agent using the **Agent Inspector**:
 
 #### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
 
-No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and generates Bicep infrastructure, `agent.yaml`, and env config automatically:
+No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and adopts its `azure.yaml` as the project manifest and configures your environment automatically:
 
 ```bash
 # Create a new folder for the agent and navigate into it
 mkdir echo-agent && cd echo-agent
 
 # Initialize from the manifest — azd reads it, downloads the sample,
-# and generates Bicep infrastructure, agent.yaml, and env config
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/invocations-echo-agent/agent.manifest.yaml
+# and adopts its azure.yaml as the project manifest and configures your environment
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/invocations-echo-agent/azure.yaml
 
 # Provision Azure resources (Foundry project, App Insights)
 azd provision
@@ -88,7 +88,7 @@ azd ai agent run
 
 > [!NOTE]
 > If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/invocations-echo-agent/agent.manifest.yaml`
+> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/invocations-echo-agent/azure.yaml`
 
 > [!NOTE]
 > If you already have a Foundry project, add `-p <project-id>` to `azd ai agent init` to target existing resources. You can also skip provisioning entirely and configure env vars manually — see [Manual setup](#manual-setup).

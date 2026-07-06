@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: pipecat-ws-webrtc
+services:
+  ai-project:
+    host: azure.ai.project
+  pipecat-ws-webrtc:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - WebSocket Protocol
+        - WebRTC
+        - Bring Your Own
+    project: src/pipecat-ws-webrtc
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: server.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: pipecat-ws-webrtc
+    displayName: Pipecat WebRTC Server
+    description: Pipecat-based WebRTC agent. Uses a WebSocket as the WebRTC signaling channel (offer / answer / ICE candidates) and SmallWebRTCTransport for the actual audio media. Reuses the same multi-agent (greeter + check-order) pipeline as the sibling pipecat-ws-server sample.
+    protocols:
+      - protocol: invocations_ws
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_SPEECH_API_KEY
+        value: ${AZURE_SPEECH_API_KEY}
+      - name: AZURE_SPEECH_REGION
+        value: ${AZURE_SPEECH_REGION}
+      - name: AZURE_FOUNDRY_API_KEY
+        value: ${AZURE_FOUNDRY_API_KEY}
+      - name: AZURE_OPENAI_ENDPOINT
+        value: ${AZURE_OPENAI_ENDPOINT}
+      - name: AZURE_LLM_MODEL
+        value: ${AZURE_LLM_MODEL}
+      - name: WEBRTC_TURN_URL
+        value: ${WEBRTC_TURN_URL}
+      - name: WEBRTC_TURN_STUN_URL
+        value: ${WEBRTC_TURN_STUN_URL}
+      - name: WEBRTC_TURN_USERNAME
+        value: ${WEBRTC_TURN_USERNAME}
+      - name: WEBRTC_TURN_CREDENTIAL
+        value: ${WEBRTC_TURN_CREDENTIAL}
+    container:
+      resources:
+        cpu: '2'
+        memory: 4Gi
+infra:
+  provider: microsoft.foundry

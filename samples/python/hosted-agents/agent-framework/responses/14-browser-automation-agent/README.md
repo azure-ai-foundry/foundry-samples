@@ -82,7 +82,7 @@ $env:AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1"
 | --- | --- | --- |
 | `FOUNDRY_PROJECT_ENDPOINT` | Required locally; provided by hosted agent runtime when deployed | Foundry project endpoint used for model and Toolbox MCP calls. |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Required | Model deployment name. For hosted deployment, this is set from the model deployment selected during `azd ai agent init`; for local runs, set it in your shell or `.env` file. |
-| `TOOLBOX_NAME` | `browser-automation-tools` | Foundry Toolbox name declared in `agent.manifest.yaml`. The default `browser-automation-tools` is hardcoded in the manifest; override only if using a different pre-existing toolbox. |
+| `TOOLBOX_NAME` | `browser-automation-tools` | Foundry Toolbox name declared in `azure.yaml`. The default `browser-automation-tools` is hardcoded in the manifest; override only if using a different pre-existing toolbox. |
 | `BROWSER_AGENT_PLAYWRIGHT_CLI_TIMEOUT_SECONDS` | `180` | Optional timeout for each Playwright CLI command. |
 | `BROWSER_AGENT_MCP_TIMEOUT_SECONDS` | `120` | Optional timeout for Toolbox MCP calls. |
 
@@ -90,7 +90,7 @@ The Toolbox endpoint is resolved as `<FOUNDRY_PROJECT_ENDPOINT>/toolboxes/<TOOLB
 
 ### Provisioning parameters
 
-`PLAYWRIGHT_SERVICE_URL`, `PLAYWRIGHT_SERVICE_RESOURCE_ID`, and `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` are not read by the Python agent at runtime. They are `azd` provisioning inputs used by [`agent.manifest.yaml`](agent.manifest.yaml) to create a `PlaywrightWorkspace` project connection with API key authentication and the default `browser-automation-tools` toolbox wired to that connection. `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is marked as a secret parameter in the manifest.
+`PLAYWRIGHT_SERVICE_URL`, `PLAYWRIGHT_SERVICE_RESOURCE_ID`, and `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` are not read by the Python agent at runtime. They are `azd` provisioning inputs used by [`azure.yaml`](azure.yaml) to create a `PlaywrightWorkspace` project connection with API key authentication and the default `browser-automation-tools` toolbox wired to that connection. `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is marked as a secret parameter in the manifest.
 
 Set these values with `azd env set` before running `azd provision`. `azd` stores them in `.azure/<environment-name>/.env`; the sample's root `.env` file is only for local Python execution.
 
@@ -162,20 +162,19 @@ Open https://example.com and report the page title.
 
 To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
 
-When running `azd ai agent init -m ./14-browser-automation-agent/agent.manifest.yaml` from the parent directory (one level above this sample folder), you can customize the hosted agent name with the `AGENT_NAME` parameter. Leave it blank to use the default name, `browser-automation-agent-sample-foundry`.
+When running `azd ai agent init -m ./14-browser-automation-agent/azure.yaml` from the parent directory (one level above this sample folder), you can customize the hosted agent name with the `AGENT_NAME` parameter. Leave it blank to use the default name, `browser-automation-agent-sample-foundry`.
 
 > [!IMPORTANT]
-> Run `azd ai agent init` from a directory **outside** this sample folder — either a new empty directory, or one level up from this sample (i.e. `samples/python/hosted-agents/agent-framework/responses/`). Do **not** run it from inside `14-browser-automation-agent/` itself. Because the sample folder already contains `agent.manifest.yaml`, initializing in place fails with:
+> Run `azd ai agent init` from a directory **outside** this sample folder — either a new empty directory, or one level up from this sample (i.e. `samples/python/hosted-agents/agent-framework/responses/`). Do **not** run it from inside `14-browser-automation-agent/` itself. Because the sample folder already contains `azure.yaml`, initializing in place fails with:
 >
 > ```
-> ERROR: downloading agent.yaml: cannot copy agent files: target '...' is inside the
-> manifest directory '...'. Move the manifest to a separate directory containing only the
-> agent files.
+> ERROR: a project azure.yaml already exists in '.', so the sample's unified
+> azure.yaml cannot be adopted there
 > ```
 >
 > Using the parent-directory invocation shown above (or a fresh empty folder with the remote manifest URL) avoids this.
 
-The same init flow also asks for the model deployment because [`agent.manifest.yaml`](agent.manifest.yaml) declares a `model` resource named `AZURE_AI_MODEL_DEPLOYMENT_NAME`. The selected deployment is used for the generated Azure deployment configuration and for the hosted agent's `AZURE_AI_MODEL_DEPLOYMENT_NAME` runtime environment variable. It does not update the sample's local `.env` file; set that file separately only when running the agent locally.
+The same init flow also asks for the model deployment because [`azure.yaml`](azure.yaml) declares a `model` resource named `AZURE_AI_MODEL_DEPLOYMENT_NAME`. The selected deployment is used for the generated Azure deployment configuration and for the hosted agent's `AZURE_AI_MODEL_DEPLOYMENT_NAME` runtime environment variable. It does not update the sample's local `.env` file; set that file separately only when running the agent locally.
 
 Choose one toolbox setup path:
 
@@ -191,7 +190,7 @@ azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/<subscription-id>/res
 azd env set PLAYWRIGHT_SERVICE_ACCESS_TOKEN "<playwright-workspace-access-token>"
 ```
 
-If these are not set, running `azd ai agent init -m <agent.manifest.yaml>` will prompt you to enter them interactively.
+If these are not set, running `azd ai agent init -m <azure.yaml>` will prompt you to enter them interactively.
 
 Run `azd provision` before `azd deploy`:
 
@@ -239,7 +238,7 @@ This sample is intended as a starting point, not a production-ready browser auto
 
 The `run_playwright_cli` tool intentionally invokes only `playwright-cli` with a named session and optional `PLAYWRIGHT_MCP_CDP_ENDPOINT`; it does not expose general shell execution.
 
-The default hosted container resources (`cpu: "0.25"`, `memory: "0.5Gi"`) are minimal. Increase them in `agent.yaml` for multi-step scraping, longer QA sessions, or data-heavy browser automation.
+The default hosted container resources (`cpu: "0.25"`, `memory: "0.5Gi"`) are minimal. Increase them in `azure.yaml` for multi-step scraping, longer QA sessions, or data-heavy browser automation.
 
 Useful references:
 

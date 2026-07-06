@@ -1,19 +1,38 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
 requiredVersions:
-    extensions:
-        azure.ai.agents: '>=0.1.0-preview'
-name: diagnostic-agent
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: diagnostic-agent-python-invocations
 services:
-    diagnostic-agent:
-        project: .
-        host: azure.ai.agent
-        language: docker
-        config:
-            container:
-                resources:
-                    cpu: "0.25"
-                    memory: 0.5Gi
-                scale:
-                    maxReplicas: 1
-            startupCommand: python main.py
+  ai-project:
+    host: azure.ai.project
+  diagnostic-agent-python-invocations:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Invocations Protocol
+        - Bring Your Own
+        - Python
+        - Diagnostics
+    project: src/diagnostic-agent-python-invocations
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: diagnostic-agent-python-invocations
+    displayName: Diagnostic Agent (Python, Invocations)
+    description: Network and environment diagnostic agent. On invocation, runs DNS / TCP / TLS / HTTP probes against caller-supplied hostnames (e.g. a private ACR), dumps the container's networking state (IP, routes, resolvers). Designed to verify what a hosted-agent runtime can actually reach from inside the delegated agent subnet.
+    protocols:
+      - protocol: invocations
+        version: 2.0.0
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

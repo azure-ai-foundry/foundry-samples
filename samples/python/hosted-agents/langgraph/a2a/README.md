@@ -10,26 +10,26 @@ It shows how one hosted agent can call another.
 
 | Folder | Agent | Role |
 | --- | --- | --- |
-| [`a2a-executor/`](a2a-executor/README.md) | `math-expert` | **Math expert.** A Responses agent that *also* publishes an **incoming A2A** endpoint + agent card (declared in `agent.yaml`). |
+| [`a2a-executor/`](a2a-executor/README.md) | `math-expert` | **Math expert.** A Responses agent that *also* publishes an **incoming A2A** endpoint + agent card (declared in `azure.yaml`). |
 | [`a2a-caller/`](a2a-caller/README.md) | `concierge` | **Concierge.** A Responses agent that **delegates** math questions to the executor through a Foundry **Toolbox** `a2a_preview` tool loaded over MCP. |
 
 ### How A2A is wired
 
 - **Executor (incoming A2A)** — the agent *code* is a plain LangGraph Responses
   agent. A2A is added **declaratively** in
-  [`a2a-executor/agent.yaml`](a2a-executor/agent.yaml) via `agent_endpoint`
+  [`a2a-executor/azure.yaml`](a2a-executor/azure.yaml) via `agent_endpoint`
   (adds the `a2a` protocol) + `agent_card` (the discovery document). `azd deploy`
   applies both at agent create time — no setup script.
 - **Caller (outgoing A2A)** — declares a `RemoteA2A` **connection** pointing at
   the executor's A2A endpoint plus a **toolbox** with an `a2a_preview` tool, both
-  in [`a2a-caller/agent.manifest.yaml`](a2a-caller/agent.manifest.yaml). At
+  in [`a2a-caller/azure.yaml`](a2a-caller/azure.yaml). At
   runtime the container loads the toolbox over MCP
   (`langchain-mcp-adapters` → `MultiServerMCPClient`) and hands the
   `math_expert` tool to LangGraph.
 
 ## Scaffolding into an azd project
 
-Each agent is self-contained (its `agent.manifest.yaml` sits next to its code),
+Each agent is self-contained (its `azure.yaml` sits next to its code),
 so you scaffold a fresh azd project from these manifests with
 `azd ai agent init -m <manifest>`. Because the caller's A2A connection must point
 at the executor's *live* endpoint, the executor is **provisioned and deployed
@@ -40,8 +40,8 @@ first** — then the caller is added and pointed at the real endpoint.
 From an **empty directory**:
 
 ```bash
-# Creates azure.yaml + infra + src/math-expert
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-executor/agent.manifest.yaml
+# Adopts the sample's azure.yaml + src/math-expert
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-executor/azure.yaml
 
 # Provision the Foundry project and deploy the executor
 cd math-expert   # init roots the project in this subfolder
@@ -50,7 +50,7 @@ azd up
 
 > [!NOTE]
 > If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/python/hosted-agents/langgraph/a2a/a2a-executor/agent.manifest.yaml`
+> `azd ai agent init -m <path-to-repo>/samples/python/hosted-agents/langgraph/a2a/a2a-executor/azure.yaml`
 
 ### Step 2 — Capture the executor's A2A endpoint
 
@@ -72,7 +72,7 @@ $executorA2A   # copy this value
 
 ```bash
 # Run from inside the same project root (where azure.yaml is located) created in Step 1
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-caller/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-caller/azure.yaml
 ```
 
 At the `a2a_executor_endpoint` prompt, paste the `$executorA2A` value from

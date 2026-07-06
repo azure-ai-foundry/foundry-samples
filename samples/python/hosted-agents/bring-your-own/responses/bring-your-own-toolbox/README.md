@@ -64,7 +64,7 @@ Before running this sample, ensure you have:
 > - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
 > - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
 
-The agent reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. The sample bundles a [`toolbox.yaml`](toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
+The agent reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. The sample bundles a [`toolbox.yaml`](src/toolbox-python-responses/toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
 
 ```bash
 azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
@@ -81,12 +81,12 @@ To stage incremental changes safely, use `azd ai toolbox connection add/remove` 
 
 ### Environment Variables
 
-See [`.env.example`](.env.example) or `.env` for the full list of environment variables this sample uses.
+See [`.env.example`](src/toolbox-python-responses/.env.example) or `.env` for the full list of environment variables this sample uses.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers; set automatically by `azd ai agent run` locally. |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `agent.manifest.yaml`. |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `azure.yaml`. |
 | `TOOLBOX_ENDPOINT` | Yes | Full toolbox MCP endpoint URL. Copy the versioned endpoint from the `azd ai toolbox create` output. |
 | `TOOLBOX_NAME` | Optional | Toolbox name. If `TOOLBOX_ENDPOINT` isn't set, the agent builds the latest-version endpoint from this and `FOUNDRY_PROJECT_ENDPOINT`. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
@@ -217,7 +217,7 @@ git config --global core.autocrlf false
 mkdir my-agent && cd my-agent
 PROJECT_ID="/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<account>/projects/<project>"
 azd ai agent init \
-  -m /path/to/samples/python/hosted-agents/bring-your-own/responses/bring-your-own-toolbox/agent.manifest.yaml \
+  -m /path/to/samples/python/hosted-agents/bring-your-own/responses/bring-your-own-toolbox/azure.yaml \
   --project-id $PROJECT_ID \
   --no-prompt \
   -e my-env
@@ -241,7 +241,7 @@ After `azd ai agent init`, perform these steps before `azd up` will work:
 |---|--------|-----|
 | 1 | `azd env set enableHostedAgentVNext "true"` | Without this, container health probes fail |
 | 2 | Edit `src/<agent>/agent.yaml`: replace all `${{VAR}}` with `${VAR}` | Init scaffolds broken double-brace syntax that is NOT resolved at deploy time |
-| 3 | Verify `agent.yaml` uses **flat format** (`kind: hosted` at root) | The nested `template:` format silently fails during deploy |
+| 3 | Verify `azure.yaml` uses **flat format** (`kind: hosted` at root) | The nested `template:` format silently fails during deploy |
 | 4 | `azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "<deployment-name>"` | Must match the deployment `name` in `azure.yaml`; platform injection is unreliable without this (container crashes on startup) |
 | 5 | Verify `main.py` checks `FOUNDRY_PROJECT_ENDPOINT` first | Platform injects this var, NOT `AZURE_AI_PROJECT_ENDPOINT` |
 | 6 | **If using existing project with AppInsights already connected:** `azd env set ENABLE_MONITORING "false"` | Provision fails with duplicate App Insights connection error |
@@ -294,7 +294,7 @@ This forces the image to be built for the required `amd64` architecture.
 
 ## Supported Scenarios
 
-The sample toolbox can be configured for any of these 14 scenarios. For each scenario, create a `agent.manifest.yaml` file (see examples below) and pass it to `azd ai agent init -m <manifest-file>`.
+The sample toolbox can be configured for any of these 14 scenarios. For each scenario, create a `azure.yaml` file (see examples below) and pass it to `azd ai agent init -m <manifest-file>`.
 
 <details>
 <summary><strong>View all 14 supported scenarios</strong></summary>
@@ -316,6 +316,6 @@ Refer to [`samples/python/toolbox/azd/README.md`](../../../../toolbox/azd/README
 13. **MCP OAuth (Entra Passthrough)** — User identity delegation
 14. **Multi-Tool Toolbox** — Web search + GitHub MCP combined
 
-Each scenario includes a complete `agent.manifest.yaml` example with parameter definitions and resource configurations.
+Each scenario includes a complete `azure.yaml` example with parameter definitions and resource configurations.
 
 </details>

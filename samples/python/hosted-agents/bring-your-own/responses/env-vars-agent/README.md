@@ -2,7 +2,7 @@
 
 # Env Vars Agent — Python (Responses Protocol)
 
-A hosted agent built with `azure-ai-agentserver-responses` that demonstrates Foundry's **connection-templated environment-variable injection**. Four example env vars are declared in `agent.manifest.yaml` — covering all four corners of the connection grid (ApiKey × CustomKeys × secret × non-secret) — and injected into the container at runtime by the platform's secret resolver.
+A hosted agent built with `azure-ai-agentserver-responses` that demonstrates Foundry's **connection-templated environment-variable injection**. Four example env vars are declared in `azure.yaml` — covering all four corners of the connection grid (ApiKey × CustomKeys × secret × non-secret) — and injected into the container at runtime by the platform's secret resolver.
 
 The agent exposes a single function-calling tool, `get_env_var(name, kind)`, that returns the runtime value with a **kind-aware safety policy**:
 
@@ -28,7 +28,7 @@ Built with `azure-ai-agentserver-responses` (BYO — no Agent Framework). The mo
 1. **Connection setup (one-time)**: in your Foundry project, create
    - an **ApiKey** connection named `dummy-api-key` (give it a `target` URL and a `key`), and
    - a **CustomKeys** connection named `dummy-custom-keys` with two custom keys — `secret-key` (marked **as secret**) and `plain-key` (plain).
-2. **Template declaration**: `agent.manifest.yaml` declares the four env vars with placeholder values:
+2. **Template declaration**: `azure.yaml` declares the four env vars with placeholder values:
    ```yaml
    - name: SECRET_API_KEY
      value: "${{connections.dummy-api-key.credentials.key}}"
@@ -187,8 +187,8 @@ The agent's `get_env_var(name, kind)` tool mirrors this three-way split: pass `k
 |------|---------|
 | `main.py` | `ResponsesAgentServerHost` startup + Responses-API function-calling loop with the `get_env_var` tool |
 | `requirements.txt` | Python dependencies — `azure-ai-agentserver-responses` + `azure-ai-projects` + `azure-identity` |
-| `agent.yaml` | Container agent spec (`kind: hosted`, protocol, resources) |
-| `agent.manifest.yaml` | Foundry deployment manifest — model, env vars, connection placeholders |
+| `azure.yaml` | Container agent spec (`kind: hosted`, protocol, resources) |
+| `azure.yaml` | Foundry deployment manifest — model, env vars, connection placeholders |
 | `Dockerfile` | python:3.12-slim image, exposes port 8088 |
 | `.env.example` or `.env` | Template for local-run env vars |
 | `.dockerignore` | Excludes build artifacts and `.env` from the container image |

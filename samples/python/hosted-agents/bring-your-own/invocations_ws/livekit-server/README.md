@@ -49,11 +49,11 @@ theft, service abuse, or data exposure.
 
 | File | Purpose |
 | --- | --- |
-| `agent.py` | LiveKit Agents worker. Defines a small multi-agent workflow (`GreeterAgent` ⇄ `CheckOrderAgent`) using the [LiveKit handoff pattern](https://docs.livekit.io/agents/logic/agents-handoffs/) — each specialist has its own Azure TTS voice. Uses `livekit-plugins-azure` for STT and `livekit-plugins-openai` (Azure OpenAI variant) for the LLM. For TTS it uses the in-repo [`azure_tts_text_streaming.py`](azure_tts_text_streaming.py) plugin (Azure Speech `TextStream` over websocket v2) for token-level streaming, instead of the chunked SSML path in `livekit-plugins-azure`. Registers with `agent_name=foundry-azure-voice` for explicit dispatch so it never competes with other agents on the same LiveKit project. |
+| `agent.py` | LiveKit Agents worker. Defines a small multi-agent workflow (`GreeterAgent` ⇄ `CheckOrderAgent`) using the [LiveKit handoff pattern](https://docs.livekit.io/agents/logic/agents-handoffs/) — each specialist has its own Azure TTS voice. Uses `livekit-plugins-azure` for STT and `livekit-plugins-openai` (Azure OpenAI variant) for the LLM. For TTS it uses the in-repo [`azure_tts_text_streaming.py`](src/livekit-server/azure_tts_text_streaming.py) plugin (Azure Speech `TextStream` over websocket v2) for token-level streaming, instead of the chunked SSML path in `livekit-plugins-azure`. Registers with `agent_name=foundry-azure-voice` for explicit dispatch so it never competes with other agents on the same LiveKit project. |
 | `azure_tts_text_streaming.py` | LiveKit `tts.TTS` subclass that wraps the Azure Speech SDK's `SpeechSynthesisRequest(TextStream)` API. LLM tokens are written into a persistent `input_stream` as they arrive on the LiveKit `SynthesizeStream._input_ch`, and audio chunks stream back over a single websocket — noticeably lower TTFA than the stock SSML-per-utterance plugin. |
 | `server.py` | FastAPI `/invocations_ws` signaling endpoint. Mints a JWT (with a `RoomAgentDispatch` targeting this worker) and hands the browser `{type: "config", livekit_url, token, room, identity}`. Also spawns `agent.py start` as a child process so one command boots everything. |
 | `Dockerfile` | Container image for hosted deployment. Runs `python server.py`. |
-| `agent.yaml` / `agent.manifest.yaml` | Foundry hosted-agent manifests. |
+| `azure.yaml` / `azure.yaml` | Foundry hosted-agent manifests. |
 | `.env.example` | Copy to `.env` and fill in Azure + LiveKit credentials. |
 | [`chat_client/`](chat_client/) | Browser portal — LiveKit signaling proxy. |
 
@@ -142,12 +142,12 @@ mkdir ~/azd-deploys/livekit-server && cd ~/azd-deploys/livekit-server
 az account set --subscription <subscription-id>
 
 azd ai agent init \
-  -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/invocations_ws/livekit-server/agent.manifest.yaml \
+  -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/invocations_ws/livekit-server/azure.yaml \
   -p "/subscriptions/<subscription-id>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>/projects/<foundry-project>" \
   --no-prompt
 ```
 
-`azd` downloads the sample into `src/livekit-server-azd/`, generates Bicep +
+`azd` downloads the sample into `src/livekit-server-azd/`, adopts its
 `azure.yaml`, and seeds an env file under `.azure/<env-name>/.env`.
 
 ### 2. (Optional) reuse an existing ACR attached to your project
@@ -161,7 +161,7 @@ azd env set CONTAINER_REGISTRY_RESOURCE_GROUP <acr-rg>
 
 ### 3. Set the runtime environment variables
 
-`agent.yaml` resolves these from your azd environment so secrets stay out
+`azure.yaml` resolves these from your azd environment so secrets stay out
 of the image:
 
 ```bash
@@ -201,7 +201,7 @@ az account set --subscription <subscription-id>
 mkdir -p ~/azd-deploys/livekit-server && cd ~/azd-deploys/livekit-server
 
 azd ai agent init \
-  -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/invocations_ws/livekit-server/agent.manifest.yaml \
+  -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/invocations_ws/livekit-server/azure.yaml \
   -p "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>/projects/<foundry-project>" \
   --no-prompt
 

@@ -50,14 +50,14 @@ shuttle audio bytes and control events.
 
 | File | Purpose |
 |------|---------|
-| [main.py](main.py) | The whole agent — `@app.ws_handler` opens a Voice Live session and runs two pumps. |
-| [agent.yaml](agent.yaml) | Hosted-agent runtime config (`invocations_ws`, 1 CPU / 2 Gi). |
-| [agent.manifest.yaml](agent.manifest.yaml) | `azd ai agent init` manifest. |
-| [Dockerfile](Dockerfile) | python:3.12-slim, installs dependencies from `requirements.txt`. |
-| [requirements.txt](requirements.txt) | Container/runtime deps — `azure-ai-agentserver-invocations>=1.0.0b4` + `azure-ai-voicelive[aiohttp]` + `azure-identity` + `python-dotenv`. |
-| [requirements-dev.txt](requirements-dev.txt) | **Local-only** test/proxy deps (`websockets`) used by `e2e_local.py` and `chat_client/proxy.py`. Not installed into the container. |
-| [.env.example](.env.example) | Required Voice Live env vars. |
-| [e2e_local.py](e2e_local.py) | Headless E2E that streams a 1 kHz tone in and asserts audio + events come back. Supports `--foundry`/`--agent` to run against a deployed hosted agent. |
+| [main.py](src/hello-world/main.py) | The whole agent — `@app.ws_handler` opens a Voice Live session and runs two pumps. |
+| [azure.yaml](azure.yaml) | Hosted-agent runtime config (`invocations_ws`, 1 CPU / 2 Gi). |
+| [azure.yaml](azure.yaml) | `azd ai agent init` manifest. |
+| [Dockerfile](src/hello-world/Dockerfile) | python:3.12-slim, installs dependencies from `requirements.txt`. |
+| [requirements.txt](src/hello-world/requirements.txt) | Container/runtime deps — `azure-ai-agentserver-invocations>=1.0.0b4` + `azure-ai-voicelive[aiohttp]` + `azure-identity` + `python-dotenv`. |
+| [requirements-dev.txt](src/hello-world/requirements-dev.txt) | **Local-only** test/proxy deps (`websockets`) used by `e2e_local.py` and `chat_client/proxy.py`. Not installed into the container. |
+| [.env.example](src/hello-world/.env.example) | Required Voice Live env vars. |
+| [e2e_local.py](src/hello-world/e2e_local.py) | Headless E2E that streams a 1 kHz tone in and asserts audio + events come back. Supports `--foundry`/`--agent` to run against a deployed hosted agent. |
 | [chat_client/index.html](chat_client/index.html) | Standalone browser client (mic + transcript). |
 | [chat_client/proxy.py](chat_client/proxy.py) | Local proxy that serves `index.html` and injects an `Authorization: Bearer` header onto the upstream WebSocket — used to talk to a deployed Foundry agent from the browser. |
 
@@ -148,7 +148,7 @@ fresh `az account get-access-token` token.
 mkdir ~/azd-deploys/hello-world && cd ~/azd-deploys/hello-world
 
 azd ai agent init \
-  -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/invocations_ws/hello-world/agent.manifest.yaml \
+  -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/invocations_ws/hello-world/azure.yaml \
   -p "<foundry-project-resource-id-or-url>" \
   --no-prompt
 
@@ -210,12 +210,12 @@ Where the segments come from:
 | `/api/projects/<project>/agents/<agent>/endpoint/protocols/invocations_ws` | Data-plane route; project and agent are URL-encoded path segments. |
 | `api-version=v1` | Foundry data-plane API version. |
 | `<project>` | The last segment of your project endpoint path. |
-| `<agent>` | Matches the agent `name` in [`agent.manifest.yaml`](agent.manifest.yaml) — `hello-world`. |
+| `<agent>` | Matches the agent `name` in [`azure.yaml`](azure.yaml) — `hello-world`. |
 | `agent_session_id=<unique-session-id>` | A caller-generated string that identifies the conversation. Reuse the same id to resume; use a fresh one (e.g. a UUID) to start a new session. |
 
 Every request must also include `Authorization: Bearer <Entra token>`
 for the `https://ai.azure.com` resource. Browsers can't set headers on
-a `WebSocket`, which is why the [`e2e_local.py`](e2e_local.py) CLI
+a `WebSocket`, which is why the [`e2e_local.py`](src/hello-world/e2e_local.py) CLI
 fetches a token with `az account get-access-token` and sends it in the
 upgrade handshake.
 

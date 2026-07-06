@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: foundry-toolbox-mcp-skills
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  foundry-toolbox-mcp-skills:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Azure AI AgentServer
+        - Responses Protocol
+        - Agent Framework
+        - Agent Skills
+        - MCP
+        - Foundry Toolbox
+        - Foundry Toolbox Skills
+        - .NET
+    project: src/foundry-toolbox-mcp-skills
+    language: csharp
+    codeConfiguration:
+      runtime: dotnet_10
+      entryPoint: foundry-toolbox-mcp-skills.dll
+    uses:
+      - ai-project
+    kind: hosted
+    name: foundry-toolbox-mcp-skills
+    displayName: Foundry Toolbox - MCP Skills (.NET, Agent Framework)
+    description: Agent Framework agent that discovers MCP-based skills from a Foundry Toolbox and exposes them to the agent via AgentSkillsProvider with progressive disclosure (advertise, load, read resources).
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: TOOLBOX_NAME
+        value: ${TOOLBOX_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

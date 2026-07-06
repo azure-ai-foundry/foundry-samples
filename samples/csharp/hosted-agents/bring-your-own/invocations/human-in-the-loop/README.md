@@ -176,15 +176,16 @@ For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.
 
 ```
 human-in-the-loop/
-├── Program.cs                # Entry point, DI setup, and InvocationHandler implementation
-├── SessionStore.cs           # Session state persistence (JSON files in $HOME)
-├── human-in-the-loop.csproj  # Project file with NuGet dependencies
-├── Dockerfile                # Multi-stage Docker build
-├── .dockerignore             # Docker build exclusions
-├── .env.example or .env              # Example environment variables
-├── agent.yaml                # Agent deployment configuration
-├── agent.manifest.yaml       # Agent manifest with metadata and resources
-└── README.md                 # This file
+├── README.md                 # This file
+├── azure.yaml                # Unified manifest — project, model, and agent (name, protocols, resources, env vars)
+└── src/
+    └── human-in-the-loop-dotnet-invocations/
+        ├── Program.cs                # Entry point, DI setup, and InvocationHandler implementation
+        ├── SessionStore.cs           # Session state persistence (JSON files in $HOME)
+        ├── human-in-the-loop.csproj  # Project file with NuGet dependencies
+        ├── Dockerfile                # Multi-stage Docker build
+        ├── .dockerignore             # Docker build exclusions
+        └── .env.example              # Example environment variables
 ```
 
 ## Troubleshooting

@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: toolbox-langgraph-user-identity
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  workiq-mail-conn:
+    host: azure.ai.connection
+    uses:
+      - ai-project
+    category: RemoteTool
+    target: https://agent365.svc.cloud.microsoft/agents/servers/mcp_MailTools
+    authType: UserEntraToken
+    audience: ea9ffc3e-8a23-4a7d-836d-234d7c7565c1
+  workiq-calendar-conn:
+    host: azure.ai.connection
+    uses:
+      - ai-project
+    category: RemoteTool
+    target: https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools
+    authType: UserEntraToken
+    audience: ea9ffc3e-8a23-4a7d-836d-234d7c7565c1
+  github-oauth-conn:
+    host: azure.ai.connection
+    uses:
+      - ai-project
+    category: RemoteTool
+    target: https://api.githubcopilot.com/mcp
+    authType: OAuth2
+    credentials:
+      type: OAuth2
+  langgraph-toolbox-user-identity-tools:
+    host: azure.ai.toolbox
+    uses:
+      - ai-project
+      - workiq-mail-conn
+      - workiq-calendar-conn
+      - github-oauth-conn
+    tools:
+      - type: mcp
+        server_label: workiq-mail
+        connection: workiq-mail-conn
+        server_url: https://agent365.svc.cloud.microsoft/agents/servers/mcp_MailTools
+      - type: mcp
+        server_label: workiq-calendar
+        connection: workiq-calendar-conn
+        server_url: https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools
+      - type: mcp
+        server_label: github
+        connection: github-oauth-conn
+        server_url: https://api.githubcopilot.com/mcp
+  toolbox-langgraph-user-identity:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - LangGraph
+        - Toolbox
+        - MCP
+        - OAuth2
+        - User Identity
+        - Microsoft Foundry
+    project: src/toolbox-langgraph-user-identity
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+      - workiq-mail-conn
+      - workiq-calendar-conn
+      - github-oauth-conn
+      - langgraph-toolbox-user-identity-tools
+    kind: hosted
+    name: toolbox-langgraph-user-identity
+    displayName: LangGraph Toolbox User Identity Agent
+    description: LangGraph agent with toolbox MCP tools using user identity and OAuth.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: TOOLBOX_NAME
+        value: ${TOOLBOX_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

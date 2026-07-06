@@ -153,8 +153,8 @@ For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.
 | `note_store.py` | Thread-safe per-session JSONL note persistence |
 | `requirements.txt` | Python dependencies |
 | `Dockerfile` | Container image definition with SSL cert support |
-| `agent.yaml` | Agent hosting configuration |
-| `agent.manifest.yaml` | Agent metadata and template |
+| `azure.yaml` | Agent hosting configuration |
+| `azure.yaml` | Agent metadata and template |
 | `.dockerignore` | Docker build exclusions |
 
 ## Troubleshooting

@@ -41,15 +41,15 @@ curl -sS -N -X POST http://localhost:8088/responses \
 
 ## Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
 
-No cloning required. Create a new folder, point azd at the manifest on GitHub, and it sets up the sample and generates Bicep infrastructure, agent.yaml, and env config automatically:
+No cloning required. Create a new folder, point azd at the manifest on GitHub, and it sets up the sample and adopts its azure.yaml as the project manifest and configures your environment automatically:
 
 ```bash
 # Create a new folder for the agent and navigate into it
 mkdir handoff-agent-sample && cd handoff-agent-sample
 
 # Initialize from the manifest — azd reads it, downloads the sample,
-# and generates Bicep infrastructure, agent.yaml, and env config
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/voicelive/handoff-langgraph-responses-voicelive/agent.manifest.yaml
+# and adopts its azure.yaml as the project manifest and configures your environment
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/bring-your-own/voicelive/handoff-langgraph-responses-voicelive/azure.yaml
 
 # Provision Azure resources (Foundry project, model deployment, App Insights)
 azd provision

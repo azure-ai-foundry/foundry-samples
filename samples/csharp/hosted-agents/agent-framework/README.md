@@ -4,7 +4,7 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 
 > [!IMPORTANT]
 > **Responses container protocol v2.0.** These samples target the Foundry Responses container
-> protocol **v2.0** (declared in each `agent.yaml` / `agent.manifest.yaml`) and reference the
+> protocol **v2.0** (declared in each `azure.yaml`) and reference the
 > `Microsoft.Agents.AI.*` **1.12.0** package line that carries the AgentServer 2.0 migration. That
 > package line is not published yet, so `dotnet restore` will fail until it lands — the version pins
 > are placeholders (`1.12.0-preview.*` / `1.12.0-alpha.*`) and will be finalized when 1.12.0 ships.
@@ -68,7 +68,7 @@ You can run any sample in this folder using one of three approaches. Pick the on
 mkdir hosted-agent-framework-agent && cd hosted-agent-framework-agent
 
 # Initialize from the manifest
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/hello-world/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/hello-world/azure.yaml
 ```
 
 Follow the instructions from `azd ai agent init` to complete the agent initialization. If you don't have an existing Foundry project and a model deployment, `azd ai agent init` will guide you through creating them.
@@ -249,7 +249,7 @@ Once you've tested locally, deploy to Microsoft Foundry. You can use either `azd
 
 If you already have a Foundry project and the necessary Azure resources provisioned, you can skip the setup steps and proceed directly to deploying the agent.
 
-After running `azd ai agent init -m <agent.manifest.yaml>` and following the prompts to configure your agent, you will have a project ready for deployment.
+After running `azd ai agent init -m <azure.yaml>` and following the prompts to configure your agent, you will have a project ready for deployment.
 
 #### Setting Up a New Foundry Project
 

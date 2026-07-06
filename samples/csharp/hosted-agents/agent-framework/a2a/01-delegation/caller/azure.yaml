@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: agent-framework-a2a-caller-responses-dotnet
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  math-expert-a2a:
+    host: azure.ai.connection
+    uses:
+      - ai-project
+    category: RemoteA2A
+    target: '${a2a_executor_endpoint}'
+    authType: UserEntraToken
+    audience: https://ai.azure.com
+    metadata:
+      AgentCardPath: /agentCard/v0.3
+  a2a-delegation-tools:
+    host: azure.ai.toolbox
+    uses:
+      - ai-project
+      - math-expert-a2a
+    description: Toolbox exposing the math-expert A2A executor agent.
+    tools:
+      - type: a2a_preview
+        name: math_expert
+        description: Delegates arithmetic and math questions to the math-expert A2A agent.
+        connection: math-expert-a2a
+        agent_card_path: agentCard/v0.3
+  agent-framework-a2a-caller-responses-dotnet:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - Agent Framework
+        - AI Agent Hosting
+        - Azure AI AgentServer
+        - Responses Protocol
+        - A2A
+        - .NET
+    project: src/agent-framework-a2a-caller-responses-dotnet
+    language: csharp
+    codeConfiguration:
+      runtime: dotnet_10
+      entryPoint: caller.dll
+    uses:
+      - ai-project
+      - math-expert-a2a
+      - a2a-delegation-tools
+    kind: hosted
+    name: agent-framework-a2a-caller-responses-dotnet
+    displayName: A2A Caller — Concierge (.NET, Agent Framework)
+    description: An Agent Framework hosted agent (Responses protocol) that delegates tasks to a Foundry-hosted A2A executor agent through a Foundry Toolbox A2A connection.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: TOOLBOX_NAME
+        value: ${TOOLBOX_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

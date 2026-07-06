@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: toolbox-langgraph
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  toolbox-langgraph:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - LangGraph
+        - LangChain
+        - Toolbox
+        - MCP
+        - Microsoft Foundry
+        - Python
+    project: src/toolbox-langgraph
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: toolbox-langgraph
+    displayName: LangGraph Toolbox Agent (Responses)
+    description: LangGraph ReAct agent wired to a Foundry Toolbox in Microsoft Foundry. The toolbox exposes `web_search` plus a connection-backed GitHub Copilot MCP tool. Tools are loaded via langchain_azure_ai.tools.AzureAIProjectToolbox and hosted on Foundry over the Responses protocol.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: TOOLBOX_NAME
+        value: my-toolbox
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

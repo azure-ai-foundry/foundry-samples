@@ -10,7 +10,7 @@ You can create a Foundry Toolbox by code. Refer to this sample for an example: [
 
 You can also create a Foundry Toolbox in the Foundry portal. Read more about it [in the Foundry toolbox documentation](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/toolbox).
 
-> If you set up a project with this sample and provision the resources using `azd provision`, a Foundry Toolbox will be created with the tools declared in [`agent.manifest.yaml`](agent.manifest.yaml) — by default, `code_interpreter` (server-side code execution) plus an `mcp` tool pointing at the public `https://gitmcp.io/Azure/azure-rest-api-specs` MCP server. Swap either out for any other toolbox tool type that fits your scenario.
+> If you set up a project with this sample and provision the resources using `azd provision`, a Foundry Toolbox will be created with the tools declared in [`azure.yaml`](azure.yaml) — by default, `code_interpreter` (server-side code execution) plus an `mcp` tool pointing at the public `https://gitmcp.io/Azure/azure-rest-api-specs` MCP server. Swap either out for any other toolbox tool type that fits your scenario.
 
 ## Running the Agent Host
 

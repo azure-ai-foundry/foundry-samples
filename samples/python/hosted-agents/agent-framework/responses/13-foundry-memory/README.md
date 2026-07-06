@@ -18,7 +18,7 @@ The agent uses `FoundryChatClient` from the Agent Framework to create a Response
 
 Crucially, the provider is constructed with `project_client=client.project_client` — i.e. it reuses the `AIProjectClient` that `FoundryChatClient` already created, instead of allocating a second one. This keeps a single authentication context and connection pool for both chat and memory operations.
 
-See [main.py](main.py) for the full implementation.
+See [main.py](src/agent-framework-agent-foundry-memory-responses/main.py) for the full implementation.
 
 ### Agent Hosting
 
@@ -61,10 +61,10 @@ No cloning required. Create a new folder and initialize from the manifest:
 ```bash
 mkdir my-memory-agent && cd my-memory-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/13-foundry-memory/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/13-foundry-memory/azure.yaml
 ```
 
-Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one. Initializing also sets the selected project as the active project, and copies this sample's files into a new service directory `src/<agent-name>/` — including [`provision_memory_store.py`](provision_memory_store.py) and the [`hooks/`](hooks/) scripts.
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one. Initializing also sets the selected project as the active project, and copies this sample's files into a new service directory `src/<agent-name>/` — including [`provision_memory_store.py`](src/agent-framework-agent-foundry-memory-responses/provision_memory_store.py) and the [`hooks/`](hooks/) scripts.
 
 ### 3. Enable one-command provisioning (`postprovision` hook)
 
@@ -94,8 +94,8 @@ azd provision
 
 `azd provision` creates (or reuses) your Foundry project and chat model deployment, then the `postprovision` hook:
 
-1. Runs [`provision_memory_store.py`](provision_memory_store.py) to create the Foundry Memory Store (user-profile capability enabled, chat-summary disabled) and verifies it on the service.
-2. Sets `MEMORY_STORE_NAME` so the agent reads and writes that store. It persists the name both to the `azd` environment (for `azd ai agent run`) and into the generated `src/<agent-name>/agent.yaml` (so `azd deploy` ships it to the container — `azd ai agent init` resolves `${MEMORY_STORE_NAME}` to an empty value at init time, before the store name is known).
+1. Runs [`provision_memory_store.py`](src/agent-framework-agent-foundry-memory-responses/provision_memory_store.py) to create the Foundry Memory Store (user-profile capability enabled, chat-summary disabled) and verifies it on the service.
+2. Sets `MEMORY_STORE_NAME` so the agent reads and writes that store. It persists the name both to the `azd` environment (for `azd ai agent run`) and into the agent service in `azure.yaml` (so `azd deploy` ships it to the container — `azd ai agent init` resolves `${MEMORY_STORE_NAME}` to an empty value at init time, before the store name is known).
 
 > The hook defaults `MEMORY_STORE_NAME` to `agent_framework_memory`. To use a different name, set it first: `azd env set MEMORY_STORE_NAME "<your-store-name>"`.
 
@@ -133,7 +133,7 @@ azd ai agent invoke "Do you remember my name and what I like to eat?"
 
 ### Provision manually (without the hook)
 
-Prefer to run the step yourself (or skip the hook)? [`provision_memory_store.py`](provision_memory_store.py) creates a Foundry Memory Store with the user-profile capability enabled (and chat-summary disabled) using `AIProjectClient.beta.memory_stores.create`. It is safe to re-run: if a store with the same name already exists, the script leaves it alone.
+Prefer to run the step yourself (or skip the hook)? [`provision_memory_store.py`](src/agent-framework-agent-foundry-memory-responses/provision_memory_store.py) creates a Foundry Memory Store with the user-profile capability enabled (and chat-summary disabled) using `AIProjectClient.beta.memory_stores.create`. It is safe to re-run: if a store with the same name already exists, the script leaves it alone.
 
 From the project directory, with the venv activated and `az login` done:
 

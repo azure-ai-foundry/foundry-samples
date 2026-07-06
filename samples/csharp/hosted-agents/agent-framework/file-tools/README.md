@@ -24,7 +24,7 @@ Each `Read*` tool takes a `fileName` (no path components allowed) and enforces t
 
 Failures return a controlled `"File '<input>' not found in <scope>."` rather than throwing or exposing the canonical path. The model cannot read or list arbitrary container paths, even via indirect prompt injection in an uploaded file.
 
-See [Program.cs](Program.cs) for the full implementation.
+See [Program.cs](src/file-tools/Program.cs) for the full implementation.
 
 ## Running the Agent Locally
 
@@ -51,7 +51,7 @@ Before running this sample, ensure you have:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers; set automatically by `azd ai agent run` locally. |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `agent.manifest.yaml`. |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name — must match your Foundry project deployment. Declared in `azure.yaml`. |
 | `BUNDLED_FILES_DIR` | No | Override the bundled-files root the tools read from. Defaults to `<process base dir>/resources` (`/app/resources/` in container). |
 | `HOME` | No | The per-session sandbox volume root the session-files tools read from. Set by the Foundry platform; can be overridden for local testing. Defaults to `/home/session`. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
@@ -97,15 +97,15 @@ Chat with a running agent using the **Agent Inspector**:
 
 #### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
 
-No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and generates Bicep infrastructure, `agent.yaml`, and env config automatically:
+No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and adopts its `azure.yaml` as the project manifest and configures your environment automatically:
 
 ```bash
 # Create a new folder for the agent and navigate into it
 mkdir file-tools-agent && cd file-tools-agent
 
 # Initialize from the manifest — azd reads it, downloads the sample,
-# and generates Bicep infrastructure, agent.yaml, and env config
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/file-tools/agent.manifest.yaml
+# and adopts its azure.yaml as the project manifest and configures your environment
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/file-tools/azure.yaml
 
 # Provision Azure resources (Foundry project, model deployment, App Insights)
 azd provision
@@ -116,7 +116,7 @@ azd ai agent run
 
 > [!NOTE]
 > If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/file-tools/agent.manifest.yaml`
+> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/file-tools/azure.yaml`
 
 > [!NOTE]
 > If you already have a Foundry project and model deployment, add `-p <project-id> -d <deployment-name>` to `azd ai agent init` to target existing resources. You can also skip provisioning entirely and configure env vars manually — see [Manual setup](#manual-setup).

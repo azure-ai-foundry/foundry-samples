@@ -56,7 +56,7 @@ The browser client lives in [`chat_client/`](chat_client/) — a small FastAPI p
 
 ## Environment Variables
 
-### Server ([`pipecat-ws-server/.env`](.env.example))
+### Server ([`pipecat-ws-server/.env`](src/pipecat-ws-server/.env.example))
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -173,14 +173,14 @@ The recommended path is `azd`, which uses ACR remote build (so Apple Silicon mac
 # Create a fresh folder for the azd project
 mkdir ~/azd-deploys/pipecat-ws-server && cd ~/azd-deploys/pipecat-ws-server
 
-# Point azd at the agent.manifest.yaml that ships with the sample
+# Point azd at the azure.yaml that ships with the sample
 azd ai agent init \
-  -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/invocations_ws/pipecat-ws-server/agent.manifest.yaml \
+  -m <path-to-repo>/samples/python/hosted-agents/bring-your-own/invocations_ws/pipecat-ws-server/azure.yaml \
   -p "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>/projects/<foundry-project>" \
   --no-prompt
 ```
 
-`azd` downloads the sample into `src/pipecat-ws-server-azd/`, generates Bicep + `azure.yaml`, and seeds an env file under `.azure/<env-name>/.env`.
+`azd` downloads the sample into `src/pipecat-ws-server-azd/`, adopts its `azure.yaml`, and seeds an env file under `.azure/<env-name>/.env`.
 
 > [!NOTE]
 > Omit `-p` to let `azd provision` create a new Foundry project for you.
@@ -198,7 +198,7 @@ azd env set CONTAINER_REGISTRY_RESOURCE_GROUP <acr-rg>
 
 ### 3. Bump the container resources (optional)
 
-The default scaffold uses `0.25` CPU / `0.5Gi`, which is too small for pipecat. Edit `src/pipecat-ws-server-azd/agent.yaml` and `azure.yaml` to:
+The default scaffold uses `0.25` CPU / `0.5Gi`, which is too small for pipecat. Edit `azure.yaml` to:
 
 ```yaml
 resources:
@@ -208,7 +208,7 @@ resources:
 
 ### 4. Set the runtime environment variables
 
-`agent.yaml` declares the env vars the hosted container needs and resolves them from your azd environment at deploy time, so secrets stay out of the image. Set them once with `azd env set`:
+`azure.yaml` declares the env vars the hosted container needs and resolves them from your azd environment at deploy time, so secrets stay out of the image. Set them once with `azd env set`:
 
 ```bash
 azd env set AZURE_SPEECH_API_KEY      <speech-key>
@@ -218,7 +218,7 @@ azd env set AZURE_OPENAI_ENDPOINT     https://<your-aoai>.openai.azure.com
 azd env set AZURE_LLM_MODEL           gpt-4o-mini
 ```
 
-> The local `.env` file is excluded from the Docker image via `.dockerignore` and is **only** used for local runs. For the hosted agent, values must come from the azd environment (or be edited directly into `agent.yaml` under `environment_variables`).
+> The local `.env` file is excluded from the Docker image via `.dockerignore` and is **only** used for local runs. For the hosted agent, values must come from the azd environment (or be edited directly into `azure.yaml` under `environment_variables`).
 
 ### 5. Deploy
 

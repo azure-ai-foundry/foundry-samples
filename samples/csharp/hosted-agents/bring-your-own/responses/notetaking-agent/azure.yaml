@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: notetaking-agent-dotnet-responses
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  notetaking-agent-dotnet-responses:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Bring Your Own
+        - Function Calling
+        - Note Taking
+        - .NET
+    project: src/notetaking-agent-dotnet-responses
+    language: csharp
+    codeConfiguration:
+      runtime: dotnet_10
+      entryPoint: notetaking-agent.dll
+    uses:
+      - ai-project
+    kind: hosted
+    name: notetaking-agent-dotnet-responses
+    displayName: Notetaking Agent (.NET, Responses)
+    description: A note-taking agent using the Responses protocol with Azure OpenAI function calling in C#. Demonstrates tool use (save_note, get_notes) with per-session JSONL persistence.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

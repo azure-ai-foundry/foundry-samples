@@ -19,7 +19,7 @@ Pick the tool that matches your workflow — both deploy the same sample image t
 
 ```bash
 mkdir my-agent && cd my-agent
-azd ai agent init -m ../agent-framework/responses/01-basic/agent.manifest.yaml
+azd ai agent init -m ../agent-framework/responses/01-basic/azure.yaml
 azd up
 ```
 
@@ -57,7 +57,7 @@ Hosted agents support two protocols. Pick the one that matches your scenario.
 | Protocol bridge (GitHub Copilot, proprietary systems)             | **Invocations**              | The caller has its own protocol that doesn't map to `/responses`.                                                                 |
 | Inter-service orchestration (Durable Functions, Logic Apps)       | **Invocations**              | The caller sends structured task payloads, not chat messages.                                                                     |
 
-> **Still not sure?** Start with **Responses**. You can always add an Invocations endpoint later — a hosted agent can support both protocols simultaneously by listing both in `agent.yaml`.
+> **Still not sure?** Start with **Responses**. You can always add an Invocations endpoint later — a hosted agent can support both protocols simultaneously by listing both in `azure.yaml`.
 
 > **Other protocols:** Hosted agents can also expose the **Activity** protocol (for Teams and M365 integration) and the **A2A** protocol (for agent-to-agent delegation).
 
@@ -73,7 +73,7 @@ Hosted agents support two protocols. Pick the one that matches your scenario.
 | **Streaming**                 | Framework-managed `ResponseEventStream` with lifecycle events (`created`, `in_progress`, `delta`, `completed`) | Raw SSE — you format and write events directly                                 |
 | **Background / long-running** | Built-in (`background: true` + platform-managed polling)                                                       | Manual task tracking and custom polling endpoints                              |
 | **Server SDK**                | `azure-ai-agentserver-responses`                                                                               | `azure-ai-agentserver-invocations`                                             |
-| **agent.yaml**                | `protocol: responses`, `version: v0.1.0`                                                                       | `protocol: invocations`, `version: v0.0.1`                                     |
+| **azure.yaml**                | `protocol: responses`, `version: v0.1.0`                                                                       | `protocol: invocations`, `version: v0.0.1`                                     |
 
 </details>
 
@@ -206,7 +206,7 @@ Every sample deploys the same way and supports two equivalent paths. Pick the on
 | | **Azure Developer CLI (`azd`)** | **Foundry Toolkit VS Code Extension** |
 | --- | --- | --- |
 | **Install** | [Install `azd`](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) + `azd ext install microsoft.foundry` | Install the Foundry Toolkit VS Code extension |
-| **Open the sample** | `azd ai agent init -m <agent.manifest.yaml>` — generates Bicep, `azure.yaml`, `agent.yaml`, env config | Clone the repo and open the sample folder in VS Code |
+| **Open the sample** | `azd ai agent init -m <azure.yaml>` — adopts the sample's `azure.yaml` and sets up env config | Clone the repo and open the sample folder in VS Code |
 | **Run locally** | `azd ai agent run` (or `python main.py`) | Same as `azd`/manual, then open **Foundry Toolkit: Open Agent Inspector** to chat with the running agent |
 | **Provision Azure resources** | `azd provision` (creates Foundry project, model deployment, ACR, App Insights if needed) | Guided dialog in **Foundry Toolkit: Deploy Hosted Agent** — reuses existing project or provisions a new one |
 | **Deploy to Foundry** | `azd deploy` (or `azd up` to provision + deploy) | **Foundry Toolkit: Deploy Hosted Agent** — builds image in ACR, registers the agent version, assigns RBAC |
@@ -218,7 +218,7 @@ Every sample deploys the same way and supports two equivalent paths. Pick the on
 mkdir my-agent && cd my-agent
 
 # Scaffold from the sample manifest — azd generates all the deployment files
-azd ai agent init -m ../agent-framework/responses/01-basic/agent.manifest.yaml
+azd ai agent init -m ../agent-framework/responses/01-basic/azure.yaml
 
 # Build, push, and deploy
 azd up

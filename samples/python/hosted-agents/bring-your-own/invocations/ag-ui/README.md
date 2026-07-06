@@ -15,7 +15,7 @@ A minimal getting-started agent implementing the [AG-UI protocol](https://docs.a
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint (auto-injected in hosted containers) |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name declared in `agent.manifest.yaml` |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Model deployment name declared in `azure.yaml` |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | No | Application Insights connection string (auto-injected in hosted containers) |
 
 > **Note:** Authentication uses `DefaultAzureCredential` (managed identity, Azure CLI, etc.) — no API key needed.

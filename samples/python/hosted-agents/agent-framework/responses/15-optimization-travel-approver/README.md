@@ -69,7 +69,7 @@ The `eval/` directory contains the evaluation dataset with travel request scenar
 
 ### Environment Variables
 
-See [`.env.example`](.env.example) for the full list.
+See [`.env.example`](src/optimization-travel-approver-python-responses/.env.example) for the full list.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -83,10 +83,10 @@ See [`.env.example`](.env.example) for the full list.
 ### Initialize the agent project
 
 ```bash
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/15-optimization-travel-approver/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/15-optimization-travel-approver/azure.yaml
 ```
 
-The interactive flow prompts for your Azure subscription, region, and model deployment settings. This generates `azure.yaml`, infrastructure-as-code files, and configures the environment.
+The interactive flow prompts for your Azure subscription, region, and model deployment settings. This adopts the sample's `azure.yaml` as your project manifest and configures the environment.
 
 ### Provision and deploy
 
@@ -144,8 +144,8 @@ azd ai agent invoke "I need to fly to London tomorrow for an emergency meeting. 
 | File | Purpose |
 |------|---------|
 | `main.py` | Agent entry point — Agent Framework + optimization config loading |
-| `agent.yaml` | Hosted agent deployment config |
-| `agent.manifest.yaml` | Template manifest for `azd ai agent init` |
+| `azure.yaml` | Hosted agent deployment config |
+| `azure.yaml` | Template manifest for `azd ai agent init` |
 | `Dockerfile` | Container image build |
 | `requirements.txt` | Python dependencies (Agent Framework + optimization wheel) |
 | `eval.yaml` | Agent optimizer configuration (dataset, evaluators, models) |

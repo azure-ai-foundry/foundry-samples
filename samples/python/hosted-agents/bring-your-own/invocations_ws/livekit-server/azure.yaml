@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: livekit-server
+services:
+  ai-project:
+    host: azure.ai.project
+  livekit-server:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - WebSocket Protocol
+        - WebRTC
+        - LiveKit
+        - Bring Your Own
+    project: src/livekit-server
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: server.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: livekit-server
+    displayName: LiveKit Voice Agent (Azure)
+    description: LiveKit voice agent using Azure Speech (STT + TTS) and Azure OpenAI (LLM). Exposes an invocations_ws signaling endpoint that hands the browser a LiveKit URL and access token; media flows over LiveKit's WebRTC stack.
+    protocols:
+      - protocol: invocations_ws
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_SPEECH_API_KEY
+        value: ${AZURE_SPEECH_API_KEY}
+      - name: AZURE_SPEECH_REGION
+        value: ${AZURE_SPEECH_REGION}
+      - name: AZURE_FOUNDRY_API_KEY
+        value: ${AZURE_FOUNDRY_API_KEY}
+      - name: AZURE_OPENAI_ENDPOINT
+        value: ${AZURE_OPENAI_ENDPOINT}
+      - name: AZURE_OPENAI_API_VERSION
+        value: ${AZURE_OPENAI_API_VERSION}
+      - name: AZURE_LLM_MODEL
+        value: ${AZURE_LLM_MODEL}
+      - name: LIVEKIT_URL
+        value: ${LIVEKIT_URL}
+      - name: LIVEKIT_API_KEY
+        value: ${LIVEKIT_API_KEY}
+      - name: LIVEKIT_API_SECRET
+        value: ${LIVEKIT_API_SECRET}
+    container:
+      resources:
+        cpu: '2'
+        memory: 4Gi
+infra:
+  provider: microsoft.foundry

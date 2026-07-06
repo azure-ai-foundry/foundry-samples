@@ -4,7 +4,7 @@ An [Agent Framework](https://github.com/microsoft/agent-framework) agent that co
 
 ## How it works
 
-The agent uses `FoundryChatClient` from the Agent Framework and is served via `ResponsesHostServer`. It registers a remote MCP tool pointing at `https://api.githubcopilot.com/mcp/`, authenticating with a GitHub PAT. When the model decides to call a tool, the framework forwards the call to the MCP server and returns the result to the model for the final reply. See [main.py](main.py) for the implementation.
+The agent uses `FoundryChatClient` from the Agent Framework and is served via `ResponsesHostServer`. It registers a remote MCP tool pointing at `https://api.githubcopilot.com/mcp/`, authenticating with a GitHub PAT. When the model decides to call a tool, the framework forwards the call to the MCP server and returns the result to the model for the final reply. See [main.py](src/agent-framework-agent-with-remote-mcp-tools-responses/main.py) for the implementation.
 
 ## Option 1: Azure Developer CLI (`azd`)
 
@@ -28,7 +28,7 @@ No cloning required. Create a new folder and initialize from the manifest:
 ```bash
 mkdir my-mcp-agent && cd my-mcp-agent
 
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/03-mcp/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/03-mcp/azure.yaml
 ```
 
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.

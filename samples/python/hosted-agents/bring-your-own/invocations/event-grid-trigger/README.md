@@ -27,7 +27,7 @@ Event Grid supports [delivery with managed identity](https://learn.microsoft.com
 
 ### The handler
 
-See [`main.py`](main.py). The handler accepts three POST shapes:
+See [`main.py`](src/event-grid-trigger-python-invocations/main.py). The handler accepts three POST shapes:
 
 1. **Event Grid `SubscriptionValidationEvent`** — answered with `{"validationResponse": "<code>"}` so the EG subscription can finish provisioning.
 2. **Event Grid `Microsoft.Storage.BlobCreated` batch** — the container and blob name are extracted from `data.url`.
@@ -69,7 +69,7 @@ $FOUNDRY_PROJECT_NAME = "<your-foundry-project-name>"
 
 ## 1. Deploy the agent
 
-[agent.yaml](agent.yaml) declares two environment variables and binds each value to an `${...}` placeholder that `azd` resolves from the **azd environment** at deploy time (your shell's `export` / `$env:` values are not propagated to the deployed agent). Set them once with `azd env set` before deploying:
+[azure.yaml](azure.yaml) declares two environment variables and binds each value to an `${...}` placeholder that `azd` resolves from the **azd environment** at deploy time (your shell's `export` / `$env:` values are not propagated to the deployed agent). Set them once with `azd env set` before deploying:
 
 ```powershell
 azd env set AZURE_STORAGE_ACCOUNT_NAME "<storage-account-name>"

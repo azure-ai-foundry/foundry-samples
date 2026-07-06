@@ -14,7 +14,7 @@ This is the **caller** half of the A2A pair.
 
 The agent is built with `langchain.agents.create_agent(model, tools=[...])` and
 a concierge system prompt. The LLM decides when to call the delegation tool. See
-[main.py](main.py).
+[main.py](src/concierge/main.py).
 
 ### Delegation over A2A (the key part)
 
@@ -33,7 +33,7 @@ tools = await client.get_tools()
 ```
 
 The toolbox itself is declared **declaratively** in
-[agent.manifest.yaml](agent.manifest.yaml), not in code:
+[azure.yaml](azure.yaml), not in code:
 
 ```yaml
 resources:
@@ -73,7 +73,7 @@ in short:
 
 ```bash
 # 1. Scaffold + deploy the executor
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-executor/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-executor/azure.yaml
 cd math-expert
 azd up
 
@@ -82,7 +82,7 @@ endpoint=$(azd env get-value FOUNDRY_PROJECT_ENDPOINT)
 echo "$endpoint/agents/math-expert/endpoint/protocols/a2a/"
 
 # 3. Add the caller; paste the value above at the a2a_executor_endpoint prompt
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-caller/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-caller/azure.yaml
 azd up
 ```
 
@@ -90,7 +90,7 @@ Or in PowerShell:
 
 ```powershell
 # 1. Scaffold + deploy the executor
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-executor/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-executor/azure.yaml
 cd math-expert
 azd up
 
@@ -99,7 +99,7 @@ $endpoint = azd env get-value FOUNDRY_PROJECT_ENDPOINT
 "$endpoint/agents/math-expert/endpoint/protocols/a2a/"
 
 # 3. Add the caller; paste the value above at the a2a_executor_endpoint prompt
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-caller/agent.manifest.yaml
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/a2a/a2a-caller/azure.yaml
 azd up
 ```
 

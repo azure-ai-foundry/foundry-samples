@@ -10,12 +10,12 @@ The agent uses a `TextSearchProvider` wired to an `Azure.Search.Documents.Search
 > The agent assumes the search index already exists and is populated. It does **not** create or seed the index at runtime. See [Provisioning the search index](#provisioning-the-search-index) below for a one-time setup script that creates `contoso-outdoors` and seeds it with three Contoso Outdoors documents (return policy, shipping guide, tent care).
 
 > [!NOTE]
-> Provisioning of the Foundry project, model deployment, and the Azure AI Search service is handled by the [`azd-ai-starter-basic`](https://github.com/Azure-Samples/azd-ai-starter-basic) template, which `azd ai agent init` pulls in automatically. The chat model under `resources:` in `agent.manifest.yaml` flows into the starter's `AI_PROJECT_DEPLOYMENTS` parameter, and the `kind: tool` `id: azure_ai_search` entry flows into `AI_PROJECT_DEPENDENT_RESOURCES` to provision the Azure AI Search service plus a project-scoped connection.
+> Provisioning of the Foundry project, model deployment, and the Azure AI Search service is handled by the [`azd-ai-starter-basic`](https://github.com/Azure-Samples/azd-ai-starter-basic) template, which `azd ai agent init` pulls in automatically. The chat model under `resources:` in `azure.yaml` flows into the starter's `AI_PROJECT_DEPLOYMENTS` parameter, and the `kind: tool` `id: azure_ai_search` entry flows into `AI_PROJECT_DEPENDENT_RESOURCES` to provision the Azure AI Search service plus a project-scoped connection.
 
 > [!IMPORTANT]
 > The starter's Azure AI Search bicep currently requires a co-provisioned storage account, but `azd ai agent init` does not auto-prompt for storage. After running `azd ai agent init`, manually edit the generated `azure.yaml` and add a `storage` entry to the agent's `resources:` array so both resources get provisioned together. See [Provisioning workaround](#provisioning-workaround-storage-dependency) below.
 
-See [Program.cs](Program.cs) for the full implementation.
+See [Program.cs](src/azure-search-rag/Program.cs) for the full implementation.
 
 ## Running the Agent Locally
 
@@ -42,8 +42,8 @@ Before running this sample, ensure you have:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Yes | Foundry project endpoint. Auto-injected in hosted containers; set automatically by `azd ai agent run` locally. |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Chat model deployment name. Declared in `agent.manifest.yaml`. |
-| `AZURE_SEARCH_ENDPOINT` | Yes | Azure AI Search service endpoint. Derived from `AZURE_AI_SEARCH_SERVICE_NAME` (auto-injected by the starter) via the binding in `agent.yaml`. Set manually only when running without `azd`. |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Yes | Chat model deployment name. Declared in `azure.yaml`. |
+| `AZURE_SEARCH_ENDPOINT` | Yes | Azure AI Search service endpoint. Derived from `AZURE_AI_SEARCH_SERVICE_NAME` (auto-injected by the starter) via the binding in `azure.yaml`. Set manually only when running without `azd`. |
 | `AZURE_SEARCH_INDEX_NAME` | Yes | Search index name. Defaults to `contoso-outdoors`. **Must exist before the agent starts** (see [Provisioning the search index](#provisioning-the-search-index)). |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
 
@@ -90,15 +90,15 @@ Chat with a running agent using the **Agent Inspector**:
 
 #### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
 
-No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample, generates Bicep infrastructure, `agent.yaml`, and env config:
+No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample, adopts its `azure.yaml` as the project manifest and configures your environment:
 
 ```bash
 # Create a new folder for the agent and navigate into it
 mkdir azure-search-rag-agent && cd azure-search-rag-agent
 
 # Initialize from the manifest. azd reads it, downloads the sample,
-# and generates Bicep infrastructure, agent.yaml, and env config
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/azure-search-rag/agent.manifest.yaml
+# and adopts its azure.yaml as the project manifest and configures your environment
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/azure-search-rag/azure.yaml
 
 # IMPORTANT: apply the storage workaround documented below before provisioning.
 
@@ -128,7 +128,7 @@ Tracking issue: [Azure-Samples/azd-ai-starter-basic — make storage optional in
 
 > [!NOTE]
 > If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/azure-search-rag/agent.manifest.yaml`
+> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/azure-search-rag/azure.yaml`
 
 > [!NOTE]
 > If you already have a Foundry project, model deployment, and Azure AI Search service, add `-p <project-id> -d <deployment-name>` to `azd ai agent init` to target existing resources. You can also skip provisioning entirely and configure env vars manually, see [Manual setup](#manual-setup).

@@ -28,7 +28,7 @@ serves responses over the Foundry Responses Protocol.
 
 - Python 3.12+
 - A Microsoft Foundry project with a toolbox created from the bundled
-  [`toolbox.yaml`](toolbox.yaml) — see [Create the toolbox with `azd ai`](#4-create-the-toolbox-with-azd-ai)
+  [`toolbox.yaml`](src/toolbox-langgraph/toolbox.yaml) — see [Create the toolbox with `azd ai`](#4-create-the-toolbox-with-azd-ai)
 - Azure CLI installed and logged in:
 
   ```bash
@@ -125,7 +125,7 @@ azd auth login
 > - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
 > - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
 
-This sample exposes the toolbox tools to a LangGraph ReAct loop. The agent reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. The sample bundles a [`toolbox.yaml`](toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
+This sample exposes the toolbox tools to a LangGraph ReAct loop. The agent reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. The sample bundles a [`toolbox.yaml`](src/toolbox-langgraph/toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
 
 ```bash
 azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
@@ -152,15 +152,15 @@ git config --global core.autocrlf false
 > It tells the command where to find your agent definition and source files.
 >
 > `-m` can point to either:
-> - **A specific `agent.manifest.yaml` file** — init copies all files from the same directory as the manifest
-> - **A folder containing `agent.manifest.yaml`** — init copies all files from that folder
+> - **A specific `azure.yaml` file** — init copies all files from the same directory as the manifest
+> - **A folder containing `azure.yaml`** — init copies all files from that folder
 
 ```bash
 # 1. Create a new directory and initialize the agent project
 mkdir my-langgraph-agent && cd my-langgraph-agent
 PROJECT_ID="/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<account>/projects/<project>"
 azd ai agent init \
-  -m /path/to/samples/python/hosted-agents/bring-your-own/responses/langgraph-toolbox/agent.manifest.yaml \
+  -m /path/to/samples/python/hosted-agents/bring-your-own/responses/langgraph-toolbox/azure.yaml \
   --project-id $PROJECT_ID \
   --no-prompt \
   -e my-env
@@ -184,7 +184,7 @@ After `azd ai agent init`, perform these steps before `azd up` will work:
 |---|--------|-----|
 | 1 | `azd env set enableHostedAgentVNext "true"` | Without this, container health probes fail |
 | 2 | Edit `src/<agent>/agent.yaml`: replace all `${{VAR}}` with `${VAR}` | Init scaffolds broken double-brace syntax that is NOT resolved at deploy time |
-| 3 | Verify `agent.yaml` uses **flat format** (`kind: hosted` at root) | The nested `template:` format silently fails during deploy |
+| 3 | Verify `azure.yaml` uses **flat format** (`kind: hosted` at root) | The nested `template:` format silently fails during deploy |
 | 4 | `azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "<deployment-name>"` | Must match the deployment `name` in `azure.yaml`; platform injection is unreliable without this (container crashes on startup) |
 | 5 | Verify `main.py` checks `FOUNDRY_PROJECT_ENDPOINT` first | Platform injects this var, NOT `AZURE_AI_PROJECT_ENDPOINT` |
 | 6 | **If using existing project with AppInsights already connected:** `azd env set ENABLE_MONITORING "false"` | Provision fails with duplicate App Insights connection error |
@@ -333,7 +333,7 @@ kind: hosted          # MUST be at root level
 name: toolbox-langgraph-agent
 protocols:
   - protocol: responses
-    version: 1.0.0
+    version: 2.0.0
 environment_variables:
   - name: AZURE_OPENAI_ENDPOINT
     value: ${AZURE_OPENAI_ENDPOINT}     # Single-brace syntax
