@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import os
+import tempfile
 from urllib.parse import urlsplit, urlunsplit
 
 try:
@@ -35,51 +36,55 @@ logging.basicConfig(
 )
 
 # --- File logging: write detailed turn logs to rotating files ---
-_log_dir = os.environ.get("DUPLEX_LOG_DIR", "logs")
-os.makedirs(_log_dir, exist_ok=True)
+# Hosted agent containers can have a read-only filesystem, so file logging is
+# best-effort: fall back to console-only logging when the log directory or a
+# handler cannot be created.
+_log_dir = os.environ.get("DUPLEX_LOG_DIR") or os.path.join(
+    tempfile.gettempdir(), "duplex-live-agent-logs"
+)
 
 _file_formatter = logging.Formatter(
     "%(asctime)s %(name)s %(levelname)s: %(message)s"
 )
 
+_file_logging_enabled = False
+if _file_logging_enabled:
+    try:
+        os.makedirs(_log_dir, exist_ok=True)
+    except OSError as exc:
+        _file_logging_enabled = False
+        logger.warning(
+            "File logging disabled: cannot create log directory %r (%s)", _log_dir, exc
+        )
+
+
+def _add_rotating_file_handler(logger_name: str, filename: str) -> None:
+    """Attach a rotating file handler to *logger_name*, tolerating FS errors."""
+    _target = logging.getLogger(logger_name)
+    _target.setLevel(logging.INFO)
+    if not _file_logging_enabled:
+        return
+    try:
+        _handler = logging.handlers.RotatingFileHandler(
+            os.path.join(_log_dir, filename),
+            maxBytes=10 * 1024 * 1024,  # 10 MB
+            backupCount=5,
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.warning("File logging disabled for %s: %s", logger_name, exc)
+        return
+    _handler.setLevel(logging.INFO)
+    _handler.setFormatter(_file_formatter)
+    _target.addHandler(_handler)
+
+
 # Realtime router I/O (user speech, bot replies, tool calls)
-_rt_file_handler = logging.handlers.RotatingFileHandler(
-    os.path.join(_log_dir, "realtime_turns.log"),
-    maxBytes=10 * 1024 * 1024,  # 10 MB
-    backupCount=5,
-    encoding="utf-8",
-)
-_rt_file_handler.setLevel(logging.INFO)
-_rt_file_handler.setFormatter(_file_formatter)
-_realtime_io_logger = logging.getLogger("duplex_agent.realtime_io")
-_realtime_io_logger.addHandler(_rt_file_handler)
-_realtime_io_logger.setLevel(logging.INFO)
-
+_add_rotating_file_handler("duplex_agent.realtime_io", "realtime_turns.log")
 # LLM calls (handoff workflow requests/responses)
-_llm_file_handler = logging.handlers.RotatingFileHandler(
-    os.path.join(_log_dir, "llm_calls.log"),
-    maxBytes=10 * 1024 * 1024,
-    backupCount=5,
-    encoding="utf-8",
-)
-_llm_file_handler.setLevel(logging.INFO)
-_llm_file_handler.setFormatter(_file_formatter)
-_llm_calls_logger = logging.getLogger("duplex_agent.llm_calls")
-_llm_calls_logger.addHandler(_llm_file_handler)
-_llm_calls_logger.setLevel(logging.INFO)
-
+_add_rotating_file_handler("duplex_agent.llm_calls", "llm_calls.log")
 # Workflow events
-_evt_file_handler = logging.handlers.RotatingFileHandler(
-    os.path.join(_log_dir, "workflow_events.log"),
-    maxBytes=10 * 1024 * 1024,
-    backupCount=5,
-    encoding="utf-8",
-)
-_evt_file_handler.setLevel(logging.INFO)
-_evt_file_handler.setFormatter(_file_formatter)
-_workflow_events_logger = logging.getLogger("duplex_agent.workflow_events")
-_workflow_events_logger.addHandler(_evt_file_handler)
-_workflow_events_logger.setLevel(logging.INFO)
+_add_rotating_file_handler("duplex_agent.workflow_events", "workflow_events.log")
 
 # Enable detailed LLM request/response logging with LOG_LEVEL=DEBUG or:
 #   DUPLEX_EVENT_LOG_LEVEL=DEBUG to see every workflow event
