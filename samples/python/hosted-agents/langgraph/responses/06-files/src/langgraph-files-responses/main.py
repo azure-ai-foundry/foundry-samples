@@ -89,6 +89,8 @@ def _build_chat_model() -> ChatOpenAI:
         model=deployment,
         base_url=str(openai_client.base_url),
         api_key=token_provider,
+        use_responses_api=True,
+        output_version="responses/v1",
     )
 
 
