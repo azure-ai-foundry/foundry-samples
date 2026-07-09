@@ -96,3 +96,12 @@
 
 # Python hosted-agents declarative customer support (issue #799)
 /samples/python/hosted-agents/agent-framework/responses/09-declarative-customer-support/ @TaoChenOSU @alliscode @lindazqli
+
+# TypeScript quickstart — issue #734 — top committers from git log
+# (AI-Platform-Docs owns specific .ts snippet files above; this routes the rest of the directory)
+/samples/typescript/quickstart/ @aahill @glharper @sdgilley @kuojianlu
+
+# Enterprise agent tutorial — issue #685 — top committers from git log
+# (AI-Platform-Docs owns specific Program.cs / main.py snippet files above; this routes the rest)
+/samples/csharp/enterprise-agent-tutorial/ @jonburchel @sdgilley @nick863
+/samples/python/enterprise-agent-tutorial/ @jonburchel @sdgilley @nick863
