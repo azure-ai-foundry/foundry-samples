@@ -10,7 +10,7 @@ languages:
 - json
 ---
 
-# Microsoft Foundry: Basic Agent Setup with E2E Network Isolation (without Tools behind VNET)
+# Microsoft Foundry: Basic Agent Setup with E2E Network Isolation
 
 > **NEW**
 > For support on deploying the right network isolation template, check out the [GitHub Copilot for Azure skill for private networking](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/resource/private-network/private-network.md) set-up!
