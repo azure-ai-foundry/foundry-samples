@@ -148,15 +148,24 @@ The extension also adds an **Agent Inspector** UI for chatting with a hosted age
 #### Prerequisites
 
 1. **Foundry Toolkit VS Code Extension** — [install from the VS Code marketplace](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode) and sign in to Azure.
-2. The agent is already running locally — start it with [`azd ai agent run`](#using-azd) or [`python main.py`](#using-python) first.
+2. For debugging Python in VS Code, install the **[Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)** extension pack.
 
-#### Open the Agent Inspector
+#### Set up the Python virtual environment
 
-With the agent running on `http://localhost:8088/`:
+- Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** (or **Python: Select Interpreter** to use an existing one).
+- Install dependencies: `pip install uv && uv pip install -r requirements.txt`
+
+#### Run and debug with F5 (recommended)
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically.
+
+#### Or run manually, then open the Inspector
+
+Once the agent is running on `http://localhost:8088/` (via [`azd ai agent run`](#using-azd) or [`python main.py`](#using-python)):
 
 1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
 2. The Inspector auto-connects to the running agent.
-3. Send messages from the Inspector to chat with the agent and watch the streamed responses.
+3. Send messages to chat and watch the streamed responses.
 
 </details>
 

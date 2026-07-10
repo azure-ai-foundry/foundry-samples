@@ -77,10 +77,39 @@ azd ai agent invoke "Write a short friendly hello message."
 
 ## Option 2: VS Code (Foundry Toolkit)
 
-1. Install the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.azure-ai-foundry)** extension and sign in to Azure.
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Create Hosted Agent**, then select this sample from the gallery. The extension scaffolds the project and generates `agent.yaml`.
-1. Set `rai_policy_name` in the generated `azure.yaml` to your policy's full ARM resource ID.
-1. Run **Foundry Toolkit: Deploy Hosted Agent** and follow the wizard to deploy.
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. For debugging Python in VS Code, install the **[Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)** extension pack.
+
+### Set up the Python virtual environment
+
+- Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** to create a virtual environment in the workspace (or **Python: Select Interpreter** to use an existing one).
+- Install dependencies in the virtual environment:
+
+  ```bash
+  # use uv to accelerate
+  pip install uv
+  uv pip install -r requirements.txt
+
+  # or pure pip
+  pip install -r requirements.txt
+  ```
+
+### Run and debug the agent
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+### Or run manually, then open the Inspector
+
+1. Set the required environment variables and sign in to Azure with the Azure CLI (`az login`).
+2. Start the agent: `python main.py` (listens on `http://localhost:8088`).
+3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Set `rai_policy_name` in `azure.yaml` to your policy's full ARM resource ID.
+2. Run **Foundry Toolkit: Deploy Hosted Agent** and follow the wizard to deploy.
 
 ## Verify the guardrail
 

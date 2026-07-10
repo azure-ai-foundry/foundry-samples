@@ -52,7 +52,7 @@ If a user has no sticky mapping yet, the caller reuses an existing session with 
 
 The agent is hosted using the [Azure AI AgentServer Responses SDK](https://pypi.org/project/azure-ai-agentserver-responses/), which provisions a REST API endpoint compatible with the OpenAI Responses protocol.
 
-## Running the agent locally
+## Option 1: Azure Developer CLI (`azd`)
 
 ### Prerequisites
 
@@ -103,11 +103,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Running the sample
-
-Run and test hosted agents locally with the Azure Developer CLI (`azd`) or the Foundry Toolkit VS Code extension.
-
-#### Using `azd`
+### Run the agent locally
 
 ```bash
 mkdir session-multiplexing-agent && cd session-multiplexing-agent
@@ -122,24 +118,20 @@ azd ai agent run
 
 The agent starts on `http://localhost:8088/`. Local requests do not include hosted protocol 2.0.0 platform context, so the handler fails closed until `get_request_context().user_id` and `get_request_context().call_id` are present.
 
-#### Manual setup
+To run without `azd`, set the required environment variables manually, then start the agent with `python main.py`.
 
-If running without `azd`, set environment variables manually, then:
+### Deploy to Foundry
 
-```bash
-python main.py
-```
-
-## Deploying the agent to Microsoft Foundry
-
-Once you've tested startup locally, deploy to Microsoft Foundry:
+Once tested locally, deploy to Microsoft Foundry:
 
 ```bash
 azd provision
 azd deploy
 ```
 
-After deployment, invoke the agent running in Foundry:
+For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
+
+### Invoke the deployed agent
 
 ```bash
 azd ai agent invoke "Remember that my code word is BLUE-LANTERN"
@@ -151,7 +143,44 @@ To stream logs from the running agent:
 azd ai agent monitor
 ```
 
-For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
+## Option 2: VS Code (Foundry Toolkit)
+
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. For debugging Python in VS Code, install the **[Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)** extension pack.
+
+### Set up the Python virtual environment
+
+- Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** to create a virtual environment in the workspace (or **Python: Select Interpreter** to use an existing one).
+- Install dependencies in the virtual environment:
+
+  ```bash
+  # use uv to accelerate
+  pip install uv
+  uv pip install -r requirements.txt
+
+  # or pure pip
+  pip install -r requirements.txt
+  ```
+
+### Run and debug the agent
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+### Or run manually, then open the Inspector
+
+1. Set the required environment variables and sign in to Azure with the Azure CLI (`az login`).
+2. Start the agent: `python main.py` (listens on `http://localhost:8088`).
+3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
+5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
 ## Testing session multiplexing after deployment
 

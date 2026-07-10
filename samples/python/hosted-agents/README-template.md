@@ -1,29 +1,52 @@
+<!--
+README template for a PYTHON hosted-agent sample.
+
+How to use:
+  1. Copy this file into your sample folder as README.md.
+  2. Replace every {{placeholder}}.
+  3. Delete any section that does not apply, but keep the section order.
+  4. Delete this comment block.
+-->
+
 # What this sample demonstrates
 
-An [Agent Framework](https://github.com/microsoft/agent-framework) agent hosted using the **Invocations protocol** with session management. Unlike the Responses protocol, the Invocations protocol does **not** provide built-in server-side conversation history — this agent maintains an in-memory session store keyed by `agent_session_id`. In production, replace it with durable storage (Redis, Cosmos DB, etc.) so history survives restarts.
+{{One or two sentences: what the agent does and which framework it uses.}}
 
-## How It Works
+## How it works
 
-### Model Integration
+{{Short description of how the agent is wired.}} See `main.py` for the implementation.
 
-The agent uses `FoundryChatClient` from the Agent Framework to create a Responses client from the project endpoint and model deployment. When a request arrives, the handler looks up (or creates) a session by `session_id`, runs the agent with the user message and session context, and returns the reply. The agent supports both streaming (SSE events) and non-streaming (JSON) response modes.
+<!--
+Sample-specific *background* subsections (e.g. "Environment variables", "Architecture",
+"Features") belong here, right after "How it works" and before "Prerequisites" — they give
+context a reader needs before running. Keep run/deploy steps out of them; those live in the
+Options below. Deep-dive/customization/reference sections go *after* the two options.
+-->
 
-See [main.py](src/agent-framework-agent-basic-invocations/main.py) for the full implementation.
+## Prerequisites
 
-### Agent Hosting
+What the **sample itself** needs, independent of how you run it. The tooling for each run
+path (`azd` or the VS Code Foundry Toolkit) is listed under its option below.
 
-The agent is hosted using the [Azure AI AgentServer Invocations SDK](https://pypi.org/project/azure-ai-agentserver-invocations/) (`InvocationAgentServerHost`), which provisions a REST API endpoint compatible with the Azure AI Invocations protocol.
+1. An existing Foundry project with a deployed model (or create them during setup in Option 1).
+2. **Python 3.10 or later.**
+3. **Roles (RBAC):** {{Azure roles the identity running the sample needs on the Foundry project or other resources, e.g. `Azure AI User`. Delete if project access is sufficient.}}
+4. **Additional Azure resources:** {{Extra resources the sample depends on — a toolbox, connection, storage account, etc. If declared in the sample's `azure.yaml`, `azd provision` (Option 1) creates them; otherwise create them before running (Foundry portal, SDK, or `azd ai`). Delete if none.}}
+5. **Environment variables / secrets:** {{Required env vars or secrets, e.g. `GITHUB_PAT`, and how to obtain them. Delete if none.}}
 
 ## Option 1: Azure Developer CLI (`azd`)
 
 ### Prerequisites
 
 1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
-2. Install the AI agent extension:
+2. Install the Foundry extension:
+
    ```bash
    azd ext install microsoft.foundry
    ```
+
 3. Authenticate:
+
    ```bash
    azd auth login
    ```
@@ -33,9 +56,8 @@ The agent is hosted using the [Azure AI AgentServer Invocations SDK](https://pyp
 No cloning required. Create a new folder and initialize from the manifest:
 
 ```bash
-mkdir my-invocations-agent && cd my-invocations-agent
-
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/invocations/01-basic/azure.yaml
+mkdir my-agent && cd my-agent
+azd ai agent init -m {{URL to your sample's azure.yaml on GitHub}}
 ```
 
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
@@ -58,16 +80,10 @@ The agent host will start on `http://localhost:8088`.
 
 ### Invoke the local agent
 
-In a separate terminal, from the project directory. The Invocations protocol uses a `{"message": "..."}` payload:
+In a separate terminal, from the project directory:
 
 ```bash
-azd ai agent invoke --local '{"message": "Hi"}'
-```
-
-For multi-turn conversations:
-
-```bash
-azd ai agent invoke --local '{"message": "How are you?"}'
+azd ai agent invoke --local "{{prompt}}"
 ```
 
 ### Deploy to Foundry
@@ -83,7 +99,7 @@ For the full deployment guide, see [Deploy a hosted agent](https://learn.microso
 ### Invoke the deployed agent
 
 ```bash
-azd ai agent invoke '{"message": "Hi"}'
+azd ai agent invoke "{{prompt}}"
 ```
 
 ## Option 2: VS Code (Foundry Toolkit)
@@ -125,7 +141,24 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
+<!--
+Sample-specific deep-dive sections go here, AFTER the two options, so the run/deploy
+lifecycle stays consistent across samples. Give each its own `##` heading. Common kinds:
+  - Customization  — swapping a dependency/endpoint (e.g. "Targeting a different MCP server",
+                     "Using your own Foundry model", "Adding skills").
+  - Advanced demos — behavior worth showing after deploy (e.g. "Uploading files to a hosted
+                     session", "Testing session multiplexing after deployment").
+  - Reference      — protocol/wire format, event shapes, or project structure.
+Delete this comment and add the real sections your sample needs.
+-->
+
+## Troubleshooting
+
+> Delete if not needed. List errors specific to this sample and their fixes.
+
+{{Symptom → cause → fix.}}
+
 ## Next steps
 
-- [Quickstart: Create a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent) — end-to-end walkthrough using `azd`
-- [Manage hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/manage-hosted-agent) — monitor and manage deployed agents
+- [Quickstart: Create a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent)
+- {{Links to related samples.}}

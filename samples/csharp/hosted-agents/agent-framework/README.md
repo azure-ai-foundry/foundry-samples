@@ -141,22 +141,22 @@ Or in PowerShell:
 <details>
 <summary><h3>Using the Foundry Toolkit VS Code Extension</h3></summary>
 
-The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open this sample directly from the extension without cloning the repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
-
-The extension also adds an **Agent Inspector** UI for chatting with a hosted agent that is already running locally, plus a guided **Deploy Hosted Agent** command (see [Deploying the Agent to Foundry](#deploying-the-agent-to-foundry) below).
+The [Foundry Toolkit VS Code extension](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio) has a built-in sample gallery. You can open a sample directly from the extension without cloning the repository — it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience. It also adds an **Agent Inspector** UI for chatting with a running agent and a guided **Deploy Hosted Agent** command (see [Deploying the Agent to Foundry](#deploying-the-agent-to-foundry) below).
 
 #### Prerequisites
 
-1. **Foundry Toolkit VS Code Extension** — [install from the VS Code marketplace](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode) and sign in to Azure.
-2. The agent is already running locally — start it with [`azd ai agent run`](#using-azd) or [`dotnet run`](#using-dotnet-run) first.
+1. **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed and signed in to Azure.
+2. **[C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit)** extension. Run Command Palette (`Ctrl+Shift+P`) → **C#: Check Workspace Requirements** to confirm the toolchain.
 
-#### Open the Agent Inspector
+#### Run and debug the agent
 
-With the agent running on `http://localhost:8088/`:
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
-2. The Inspector auto-connects to the running agent.
-3. Send messages from the Inspector to chat with the agent and watch the streamed responses.
+#### Or run manually, then open the Inspector
+
+1. Start the agent with [`azd ai agent run`](#using-azd) or [`dotnet run`](#using-dotnet-run) — it listens on `http://localhost:8088/`.
+2. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
+3. The Inspector auto-connects to the running agent. Send messages to chat and watch the streamed responses.
 
 </details>
 

@@ -47,68 +47,75 @@ Built with [Azure.AI.AgentServer.Responses](https://www.nuget.org/packages/Azure
    - `get_env_var("SECRET_KEY", "credentials")` → `{ status: "RESOLVED", length: 24, head: "p@ss", … }` *(no raw value)*
 5. The model's tool result is fed back for a natural-language reply.
 
-## Running Locally
+## Prerequisites
+
+1. An existing Foundry project with a deployed model (e.g., `gpt-5.4-mini`), or create them during setup in Option 1.
+2. **[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)** or later.
+3. **Foundry connections** (for deployment): an **ApiKey** connection `dummy-api-key` and a **CustomKeys** connection `dummy-custom-keys` (with a secret `secret-key` and a plain `plain-key`), as described in [How It Works](#how-it-works). The placeholders in `azure.yaml` resolve against these at container startup.
+
+## Option 1: Azure Developer CLI (`azd`)
 
 ### Prerequisites
 
-- .NET 10.0 SDK
-- Azure CLI installed and authenticated (`az login`)
-- Foundry project with a deployed model (e.g., `gpt-5.4-mini`)
-- (For deployment) the project's hosted-agent feature enabled, plus the two connections referenced above (`dummy-api-key` ApiKey, `dummy-custom-keys` CustomKeys)
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
 
-### Using `azd`
+   ```bash
+   azd ext install microsoft.foundry
+   ```
+
+3. Authenticate:
+
+   ```bash
+   azd auth login
+   ```
+
+### Initialize the agent project
+
+No cloning required. Create a new folder and initialize from the manifest:
+
+```bash
+mkdir env-vars-agent && cd env-vars-agent
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/bring-your-own/responses/env-vars-agent/azure.yaml
+```
+
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
+
+### Provision Azure resources (if needed)
+
+If you don't already have a Foundry project and model deployment:
+
+```bash
+azd provision
+```
+
+### Run the agent locally
 
 ```bash
 azd ai agent run
 ```
 
-The agent starts on `http://localhost:8088/`.
+The agent host will start on `http://localhost:8088`.
 
-### Manual setup
+### Invoke the local agent
 
-```bash
-dotnet build
-cp .env.example .env  # then edit values — fill in any test values you like (skip if .env already exists)
-export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
-export SECRET_API_KEY="ab12-fake-test-key"
-export TARGET="https://api.example.com"
-export SECRET_KEY="p@ssw0rd-test-value"
-export NON_SECRET_KEY="westus2"
-dotnet run
-```
-
-The agent starts on `http://localhost:8088/`.
-
-### Test
-
-#### 1. Test with azd
-
-##### Read the ApiKey target (whole value)
+Ask the agent about each env var. The tool returns whole values for `target`/`metadata` and a safe fingerprint for `credentials`:
 
 ```bash
+# ApiKey target (whole value)
 azd ai agent invoke --local "what is TARGET? it is the target of an ApiKey connection."
-```
 
-##### Read the ApiKey credentials (fingerprint only)
-
-```bash
+# ApiKey credentials (fingerprint only)
 azd ai agent invoke --local "did SECRET_API_KEY resolve? it is a credentials placeholder."
-```
 
-##### Read the CustomKeys metadata (whole value)
-
-```bash
+# CustomKeys metadata (whole value)
 azd ai agent invoke --local "what is NON_SECRET_KEY? it is metadata from a CustomKeys connection."
-```
 
-##### Read the CustomKeys credentials (fingerprint only)
-
-```bash
+# CustomKeys credentials (fingerprint only)
 azd ai agent invoke --local "did SECRET_KEY resolve? it is a credentials placeholder."
 ```
 
-#### 2. Test with curl
+Or use curl directly:
 
 ```bash
 curl -X POST http://localhost:8088/responses \
@@ -122,43 +129,65 @@ curl -X POST http://localhost:8088/responses \
   --no-buffer
 ```
 
-#### 3. Test in Agent Inspector
+### Deploy to Foundry
 
-Once the agent is running, open **Agent Inspector** in VS Code to interactively send messages and view responses.
-
-```
-what is TARGET? it is the target of an ApiKey connection.
-```
-
-```
-did SECRET_KEY resolve? it is a credentials placeholder.
-```
-
-## Deploying the Agent to Microsoft Foundry
-
-Once you've tested locally, deploy to Microsoft Foundry:
+Once tested locally, deploy to Microsoft Foundry:
 
 ```bash
-# Provision Azure resources (skip if already done during local setup)
-azd provision
-
-# Build, push, and deploy the agent to Foundry
 azd deploy
 ```
 
-After deploying, invoke the agent running in Foundry:
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
+
+### Invoke the deployed agent
 
 ```bash
 azd ai agent invoke "did SECRET_API_KEY resolve? it is a credentials placeholder."
 ```
 
-To stream logs from the running agent:
+Stream logs from the running agent with `azd ai agent monitor`.
 
-```bash
-azd ai agent monitor
+## Option 2: VS Code (Foundry Toolkit)
+
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. [C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension.
+3. Command Palette (`Ctrl+Shift+P`) → **C#: Check Workspace Requirements** to confirm the toolchain is ready.
+
+### Run and debug the agent
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Try a message such as:
+
+```
+what is TARGET? it is the target of an ApiKey connection.
 ```
 
-For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
+### Or run manually, then open the Inspector
+
+1. Sign in to Azure with the Azure CLI (`az login`), build, and set test env values:
+
+   ```bash
+   dotnet build
+   cp .env.example .env  # then edit values — fill in any test values you like (skip if .env already exists)
+   export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
+   export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
+   export SECRET_API_KEY="ab12-fake-test-key"
+   export TARGET="https://api.example.com"
+   export SECRET_KEY="p@ssw0rd-test-value"
+   export NON_SECRET_KEY="westus2"
+   ```
+
+2. Start the agent: `dotnet run` (listens on `http://localhost:8088`).
+3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
+5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
 ## How the Connection Resolution Works
 

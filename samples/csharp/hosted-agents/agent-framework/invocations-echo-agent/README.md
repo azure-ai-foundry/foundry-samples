@@ -8,27 +8,11 @@ The agent registers a custom `EchoAIAgent` that implements the Invocations proto
 
 See [Program.cs](src/invocations-echo-agent/Program.cs) and [EchoAIAgent.cs](src/invocations-echo-agent/EchoAIAgent.cs) for the full implementation.
 
-## Running the Agent Locally
+## Prerequisites
 
-### Prerequisites
+1. **[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)** or later. This sample does **not** call an LLM, so no Foundry project or model deployment is required — though `azd provision` (Option 1) is still available if you want to set up infrastructure for deployment.
 
-Before running this sample, ensure you have:
-
-1. **Azure Developer CLI (`azd`)**
-   - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.25 or later) and the unified Foundry CLI extension: `azd ext install microsoft.foundry`
-   - Authenticated: `azd auth login`
-
-2. **Azure CLI**
-   - Installed and authenticated: `az login`
-
-3. **.NET 10.0 SDK or later**
-   - Verify your version: `dotnet --version`
-   - Download from [https://dotnet.microsoft.com/download](https://dotnet.microsoft.com/download)
-
-> [!NOTE]
-> This sample does **not** call an LLM, so you do **not** need a Foundry project or model deployment. However, `azd provision` is still available if you want to set up infrastructure for deployment.
-
-### Environment Variables
+### Environment variables
 
 This agent does **not** require a model deployment — no `FOUNDRY_PROJECT_ENDPOINT` or `AZURE_AI_MODEL_DEPLOYMENT_NAME` is needed.
 
@@ -36,71 +20,64 @@ This agent does **not** require a model deployment — no `FOUNDRY_PROJECT_ENDPO
 |----------|----------|-------------|
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
 
-> [!NOTE]
-> When using `azd ai agent run`, environment variables are handled automatically — no manual setup needed.
+When using `azd ai agent run`, these are handled automatically.
 
-### Installing Dependencies
+## Option 1: Azure Developer CLI (`azd`)
 
-> [!NOTE]
-> If using `azd ai agent run`, dependencies are restored automatically — skip to [Running the Sample](#running-the-sample).
+### Prerequisites
 
-Dependencies are restored automatically when building the project:
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
+
+   ```bash
+   azd ext install microsoft.foundry
+   ```
+
+3. Authenticate:
+
+   ```bash
+   azd auth login
+   ```
+
+### Initialize the agent project
+
+No cloning required. Create a new folder and initialize from the manifest:
 
 ```bash
-dotnet restore
+mkdir echo-agent && cd echo-agent
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/invocations-echo-agent/azure.yaml
 ```
 
-### Running the Sample
+Follow the prompts to configure your project. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one (not required for this LLM-free sample, but useful for deployment).
 
-Run and test hosted agents locally with the Azure Developer CLI (`azd`) or the Foundry Toolkit VS Code extension.
+> If you already have a Foundry project, add `-p <project-id>` to `azd ai agent init` to target existing resources.
 
-<details>
-<summary><h4>Using the Foundry Toolkit VS Code Extension</h4></summary>
+### Provision Azure resources (if needed)
 
-The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open this sample directly from the extension without cloning the repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
-
-Chat with a running agent using the **Agent Inspector**:
-
-1. Start the agent locally first using **Using `azd`** or **Manual setup** above. The agent listens on `http://localhost:8088/`.
-2. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
-3. The Inspector auto-connects to the running agent. Send messages to chat with the agent and watch the streamed responses.
-
-</details>
-
-#### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
-
-No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and adopts its `azure.yaml` as the project manifest and configures your environment automatically:
+Only needed if you plan to deploy:
 
 ```bash
-# Create a new folder for the agent and navigate into it
-mkdir echo-agent && cd echo-agent
-
-# Initialize from the manifest — azd reads it, downloads the sample,
-# and adopts its azure.yaml as the project manifest and configures your environment
-azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/invocations-echo-agent/azure.yaml
-
-# Provision Azure resources (Foundry project, App Insights)
 azd provision
+```
 
-# Run the agent locally (handles env vars, build, and startup)
+### Run the agent locally
+
+```bash
 azd ai agent run
 ```
 
-> [!NOTE]
-> If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/invocations-echo-agent/azure.yaml`
+The agent host will start on `http://localhost:8088`.
 
-> [!NOTE]
-> If you already have a Foundry project, add `-p <project-id>` to `azd ai agent init` to target existing resources. You can also skip provisioning entirely and configure env vars manually — see [Manual setup](#manual-setup).
+### Invoke the local agent
 
-The agent starts on `http://localhost:8088/`. To invoke it:
+In a separate terminal, invoke the running agent:
 
-**Bash:**
 ```bash
 azd ai agent invoke --local '{"message": "Hello, world!"}'
 ```
 
-**PowerShell:**
+In PowerShell:
+
 ```powershell
 azd ai agent invoke --local '{\"message\": \"Hello, world!\"}'
 ```
@@ -113,7 +90,7 @@ curl -X POST http://localhost:8088/invocations -i \
   -d '{"message": "Hello, world!"}'
 ```
 
-The server will respond with a JSON object containing the response text. The `-i` flag includes the HTTP response headers in the output, which includes the session ID that can be used for multi-turn conversations. Here is an example of the response:
+The server responds with a JSON object containing the response text. The `-i` flag includes the HTTP response headers, which include the session ID used for multi-turn conversations:
 
 ```
 HTTP/1.1 200
@@ -125,9 +102,7 @@ x-platform-server: azure-ai-agentserver-core/2.0.0 (dotnet/10.0)
 {"response":"Echo: Hello, world!"}
 ```
 
-### Multi-turn conversation
-
-To have a multi-turn conversation with the agent, take the session ID from the response headers of the previous request and include it in URL parameters for the next request:
+For a multi-turn conversation, take the session ID from the response headers and pass it as an `agent_session_id` URL parameter:
 
 ```bash
 curl -X POST "http://localhost:8088/invocations?agent_session_id=9370b9d4-cd13-4436-a57f-03b843ac0e17" -i \
@@ -135,59 +110,64 @@ curl -X POST "http://localhost:8088/invocations?agent_session_id=9370b9d4-cd13-4
   -d '{"message": "How are you?"}'
 ```
 
-#### Manual setup
+### Deploy to Foundry
 
-If running without `azd`, set environment variables manually if needed (see [Environment Variables](#environment-variables)), then:
-
-```bash
-dotnet run
-```
-
-### Deploying the Agent to Microsoft Foundry
-
-Once you've tested locally, deploy to Microsoft Foundry:
+Once tested locally, deploy to Microsoft Foundry:
 
 ```bash
-# Provision Azure resources (skip if already done during local setup)
-azd provision
-
-# Build, push, and deploy the agent to Foundry
 azd deploy
 ```
 
-After deploying, invoke the agent running in Foundry:
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
 
-**Bash:**
+### Invoke the deployed agent
+
 ```bash
 azd ai agent invoke '{"message": "Hello, world!"}'
 ```
 
-**PowerShell:**
+In PowerShell:
+
 ```powershell
 azd ai agent invoke '{\"message\": \"Hello, world!\"}'
 ```
 
-To stream logs from the running agent:
+Stream logs from the running agent with `azd ai agent monitor`.
 
-```bash
-azd ai agent monitor
-```
+## Option 2: VS Code (Foundry Toolkit)
 
-For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
+### Prerequisites
 
-#### Deploying with the Foundry Toolkit VS Code Extension
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. [C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension.
+3. Command Palette (`Ctrl+Shift+P`) → **C#: Check Workspace Requirements** to confirm the toolchain is ready.
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate what it can.
-2. If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
-3. On the **Basics** tab, configure the core deployment settings:
-   - **Deployment Method**: **Code** (upload as a ZIP) or **Container** (Docker image via ACR).
-   - For **Code**, pick a packaging option: **Remote** or **Local**.
-   - For **Container**, pick a registry option: default ACR, your own ACR, or a prebuilt ACR image.
-   - **Hosted Agent Name**: confirm the name to register with the hosting service.
-4. On the **Review + Deploy** tab, finalize the runtime and resources:
-   - Confirm the auto-detected runtime details (language, entry point, or Dockerfile).
-   - Pick a **CPU and Memory** size.
-   - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
+### Run and debug the agent
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+### Or run manually, then open the Inspector
+
+1. Restore dependencies:
+
+   ```bash
+   dotnet restore
+   ```
+
+2. Start the agent (listens on `http://localhost:8088`) — this LLM-free sample needs no environment variables or Azure sign-in to run locally:
+
+   ```bash
+   dotnet run
+   ```
+
+3. Open the Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
 ## Troubleshooting
