@@ -10,160 +10,142 @@ The agent receives natural language messages via `POST /responses` and uses Azur
 
 Notes are stored per session in `notes_{session_id}.jsonl` files, demonstrating **session persistence** — notes survive across multiple invocations within the same session.
 
-## Running Locally
+## Prerequisites
+
+1. An existing Foundry project with a deployed model (e.g., `gpt-5.4-mini`), or create them during setup in Option 1.
+2. **[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)** or later.
+
+## Option 1: Azure Developer CLI (`azd`)
 
 ### Prerequisites
 
-- .NET 10.0 SDK
-- Azure CLI installed and authenticated (`az login`)
-- Foundry project with a deployed model (e.g., `gpt-5.4-mini`)
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
 
-### Using `azd`
+   ```bash
+   azd ext install microsoft.foundry
+   ```
+
+3. Authenticate:
+
+   ```bash
+   azd auth login
+   ```
+
+### Initialize the agent project
+
+No cloning required. Create a new folder and initialize from the manifest:
+
+```bash
+mkdir notetaking-agent && cd notetaking-agent
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/bring-your-own/responses/notetaking-agent/azure.yaml
+```
+
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
+
+### Provision Azure resources (if needed)
+
+If you don't already have a Foundry project and model deployment:
+
+```bash
+azd provision
+```
+
+### Run the agent locally
 
 ```bash
 azd ai agent run
 ```
 
-The agent starts on `http://localhost:8088/`.
+The agent host will start on `http://localhost:8088`.
 
-<details>
-<summary><h3>Using the Foundry Toolkit VS Code Extension</h3></summary>
+### Invoke the local agent
 
-The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open this sample directly from the extension without cloning the repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
-
-Chat with a running agent using the **Agent Inspector**:
-
-1. Start the agent locally first using **Using `azd`** or **Manual setup** above. The agent listens on `http://localhost:8088/`.
-2. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
-3. The Inspector auto-connects to the running agent. Send messages to chat with the agent and watch the streamed responses.
-
-</details>
-
-### Manual setup
-
-```bash
-dotnet build
-cp .env.example .env  # then edit values (skip if .env already exists)
-export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
-dotnet run
-```
-
-The agent starts on `http://localhost:8088/`.
-
-### Test
-
-#### 1. Test with azd
-
-> **Note:** Run all `azd` commands from this sample directory (where `azure.yaml` is located) so that session state is persisted across calls.
-
-##### Save a note
+> Run `azd` commands from the project directory (where `azure.yaml` is) so session state persists across calls.
 
 ```bash
 azd ai agent invoke --local "save a note - book reservation for dinner"
-```
-
-##### Save another note
-
-```bash
 azd ai agent invoke --local "save a note - buy groceries"
-```
-
-##### Get all notes
-
-```bash
 azd ai agent invoke --local "get all my notes"
-```
 
-##### Start a new session
-
-```bash
+# Start a new session
 azd ai agent invoke --local --new-session --new-conversation "get all my notes"
 ```
 
-#### 2. Test with curl
-
-##### Save a note
+Or use curl directly (pass a stable `agent_session_id` to persist notes across calls):
 
 ```bash
 curl -X POST http://localhost:8088/responses \
   -H "Content-Type: application/json" \
   -d '{"input": "save a note - book reservation for dinner", "agent_session_id": "my-session"}' \
   --no-buffer
-```
 
-##### Get all notes
-
-```bash
 curl -X POST http://localhost:8088/responses \
   -H "Content-Type: application/json" \
   -d '{"input": "get all my notes", "agent_session_id": "my-session"}' \
   --no-buffer
 ```
 
-#### 3. Test in Agent Inspector
+### Deploy to Foundry
 
-Once the agent is running, open **Agent Inspector** in VS Code to interactively send messages and view responses.
-
-![Agent Inspector](../../../../assets/agent-inspector-responses.png)
-
-##### Save a note
-
-```
-save a note - book reservation for dinner
-```
-
-##### Save another note
-
-```
-save a note - buy groceries
-```
-
-##### Get all notes
-
-```
-get all my notes
-```
-
-## Deploying the Agent to Microsoft Foundry
-
-Once you've tested locally, deploy to Microsoft Foundry:
+Once tested locally, deploy to Microsoft Foundry:
 
 ```bash
-# Provision Azure resources (skip if already done during local setup)
-azd provision
-
-# Build, push, and deploy the agent to Foundry
 azd deploy
 ```
 
-After deploying, invoke the agent running in Foundry:
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
+
+### Invoke the deployed agent
 
 ```bash
 azd ai agent invoke "save a note - book reservation for dinner"
 ```
 
-To stream logs from the running agent:
+Stream logs from the running agent with `azd ai agent monitor`.
 
-```bash
-azd ai agent monitor
+## Option 2: VS Code (Foundry Toolkit)
+
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. [C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension.
+3. Command Palette (`Ctrl+Shift+P`) → **C#: Check Workspace Requirements** to confirm the toolchain is ready.
+
+### Run and debug the agent
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector:
+
+![Agent Inspector](../../../../assets/agent-inspector-responses.png)
+
+Try:
+
+```
+save a note - book reservation for dinner
+save a note - buy groceries
+get all my notes
 ```
 
-For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
+### Or run manually, then open the Inspector
 
-### Deploying with the Foundry Toolkit VS Code Extension
+1. Sign in to Azure with the Azure CLI (`az login`), build, and set env values:
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate what it can.
-2. If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
-3. On the **Basics** tab, configure the core deployment settings:
-   - **Deployment Method**: **Code** (upload as a ZIP) or **Container** (Docker image via ACR).
-   - For **Code**, pick a packaging option: **Remote** or **Local**.
-   - For **Container**, pick a registry option: default ACR, your own ACR, or a prebuilt ACR image.
-   - **Hosted Agent Name**: confirm the name to register with the hosting service.
-4. On the **Review + Deploy** tab, finalize the runtime and resources:
-   - Confirm the auto-detected runtime details (language, entry point, or Dockerfile).
-   - Pick a **CPU and Memory** size.
-   - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
+   ```bash
+   dotnet build
+   cp .env.example .env  # then edit values (skip if .env already exists)
+   export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
+   export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
+   ```
+
+2. Start the agent: `dotnet run` (listens on `http://localhost:8088`).
+3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
 ## Troubleshooting

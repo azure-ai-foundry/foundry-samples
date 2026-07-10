@@ -21,42 +21,67 @@ The compiled graph is hosted with `InvocationsHostServer`, which exposes the Inv
 
 Multi-turn continuity is provided by the LangGraph `MemorySaver` checkpointer: the host wires the resolved `agent_session_id` into `RunnableConfig.configurable.thread_id`, so each session's history is preserved across turns. Replace `MemorySaver` with a durable checkpointer (Redis, Cosmos DB, etc.) for production.
 
-## Running the Agent Host
+## Option 1: Azure Developer CLI (`azd`)
 
-Follow the instructions in the [Running the Agent Host Locally](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md#running-the-agent-host-locally) section of the README in the parent directory to run the agent host.
+### Prerequisites
 
-## Interacting with the agent
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
 
-> Depending on how you run the agent host, you can invoke the agent using `curl` (`Invoke-WebRequest` in PowerShell) or `azd`. Please refer to the [parent README](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md) for more details. Use this README for sample queries you can send to the agent.
+   ```bash
+   azd ext install microsoft.foundry
+   ```
 
-Send a POST request with a JSON body containing a `"message"` field. The `-i` flag includes the response headers, which carry the `x-agent-session-id` header you need for multi-turn conversations:
+3. Authenticate:
+
+   ```bash
+   azd auth login
+   ```
+
+### Initialize the agent project
+
+No cloning required. Create a new folder and initialize from the manifest:
 
 ```bash
-# Turn 1 — triggers the get_current_time tool
+mkdir hosted-langgraph-agent && cd hosted-langgraph-agent
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/invocations/01-langgraph-chat/azure.yaml
+```
+
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
+
+### Provision Azure resources (if needed)
+
+If you don't already have a Foundry project and model deployment:
+
+```bash
+azd provision
+```
+
+### Run the agent locally
+
+```bash
+azd ai agent run
+```
+
+The agent host will start on `http://localhost:8088`.
+
+### Invoke the local agent
+
+In a separate terminal, invoke the running agent:
+
+```bash
+azd ai agent invoke --local '{"message": "What time is it right now?"}'
+```
+
+Or invoke directly with curl. The `-i` flag surfaces the `x-agent-session-id` response header you need for multi-turn conversations:
+
+```bash
+# Turn 1 — triggers the get_current_time tool (note the x-agent-session-id response header)
 curl -i -X POST http://localhost:8088/invocations \
     -H "Content-Type: application/json" \
     -d '{"message": "What time is it right now?"}'
-```
 
-```powershell
-# Turn 1 — triggers the get_current_time tool (response object exposes both Headers and Content)
-Invoke-WebRequest -Uri http://localhost:8088/invocations -Method POST -ContentType "application/json" -Body '{"message": "What time is it right now?"}'
-```
-
-Example response:
-
-```
-HTTP/1.1 200
-content-type: application/json
-x-agent-session-id: 9370b9d4-cd13-4436-a57f-03b843ac0e17
-
-{"response": "The current UTC time is ..."}
-```
-
-Take the `x-agent-session-id` from the previous response and pass it as a URL parameter on the next requests to continue the conversation:
-
-```bash
-# Turn 2 — triggers the calculator tool
+# Turn 2 — pass the session id from Turn 1; triggers the calculator tool
 curl -X POST 'http://localhost:8088/invocations?agent_session_id=REPLACE_WITH_SESSION_ID' \
     -H "Content-Type: application/json" \
     -d '{"message": "What is 42 * 17?"}'
@@ -67,17 +92,7 @@ curl -X POST 'http://localhost:8088/invocations?agent_session_id=REPLACE_WITH_SE
     -d '{"message": "Add 100 to that result."}'
 ```
 
-```powershell
-# Turn 2 — triggers the calculator tool
-(Invoke-WebRequest -Uri "http://localhost:8088/invocations?agent_session_id=REPLACE_WITH_SESSION_ID" -Method POST -ContentType "application/json" -Body '{"message": "What is 42 * 17?"}').Content
-
-# Turn 3 — context recall (no tool call)
-(Invoke-WebRequest -Uri "http://localhost:8088/invocations?agent_session_id=REPLACE_WITH_SESSION_ID" -Method POST -ContentType "application/json" -Body '{"message": "Add 100 to that result."}').Content
-```
-
-### Streaming
-
-Add `"stream": true` to receive per-token text deltas as SSE `data:` lines, followed by `event: done`:
+Add `"stream": true` to receive per-token SSE deltas, followed by `event: done`:
 
 ```bash
 curl -N -X POST http://localhost:8088/invocations \
@@ -85,42 +100,63 @@ curl -N -X POST http://localhost:8088/invocations \
     -d '{"message": "Count to 5.", "stream": true}'
 ```
 
-```powershell
-# Note: Invoke-WebRequest buffers the full response; the SSE deltas are visible in .Content but not delivered incrementally.
-(Invoke-WebRequest -Uri http://localhost:8088/invocations -Method POST -ContentType "application/json" -Body '{"message": "Count to 5.", "stream": true}').Content
+### Deploy to Foundry
+
+Once tested locally, deploy to Microsoft Foundry:
+
+```bash
+azd deploy
 ```
 
-Invoke with `azd`:
+For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
 
-```powershell
-azd ai agent invoke --local '{"message": "What time is it right now?"}'
+### Invoke the deployed agent
+
+```bash
+azd ai agent invoke '{"message": "What time is it right now?"}'
 ```
 
-### Test in Agent Inspector
+## Option 2: VS Code (Foundry Toolkit)
 
-Once the agent is running locally, open **Agent Inspector** in VS Code (Command Palette: **Foundry Toolkit: Open Agent Inspector**) to interactively send messages and view responses.
+### Prerequisites
 
-Type the following message in Inspector:
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. For debugging Python in VS Code, install the **[Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)** extension pack.
 
-```
-What time is it right now?
-```
+### Set up the Python virtual environment
 
-## Deploying the Agent to Foundry
+- Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** to create a virtual environment in the workspace (or **Python: Select Interpreter** to use an existing one).
+- Ensure `pip` is version 26.1 or newer (check with `pip --version`). Older versions fail to resolve this sample's dependencies. Upgrade if needed:
 
-To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
+  ```bash
+  python -m pip install --upgrade pip
+  ```
 
-### Deploying with the Foundry Toolkit VS Code Extension
+- Install dependencies in the virtual environment. One transitive dependency ships as a pre-release, so pre-releases must be allowed when using `uv`:
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate what it can.
-2. If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
-3. On the **Basics** tab, configure the core deployment settings:
-   - **Deployment Method**: **Code** (upload as a ZIP) or **Container** (Docker image via ACR).
-   - For **Code**, pick a packaging option: **Remote** or **Local**.
-   - For **Container**, pick a registry option: default ACR, your own ACR, or a prebuilt ACR image.
-   - **Hosted Agent Name**: confirm the name to register with the hosting service.
-4. On the **Review + Deploy** tab, finalize the runtime and resources:
-   - Confirm the auto-detected runtime details (language, entry point, or Dockerfile).
-   - Pick a **CPU and Memory** size.
-   - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
+  ```bash
+  # use uv to accelerate
+  pip install uv
+  uv pip install --prerelease=allow -r requirements.txt
+
+  # or pure pip
+  pip install -r requirements.txt
+  ```
+
+### Run and debug the agent
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+### Or run manually, then open the Inspector
+
+1. Set the required environment variables and sign in to Azure with the Azure CLI (`az login`).
+2. Start the agent: `python main.py` (listens on `http://localhost:8088`).
+3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.

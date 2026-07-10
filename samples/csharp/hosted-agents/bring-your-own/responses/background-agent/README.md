@@ -10,67 +10,71 @@ The agent receives a request via `POST /responses` with `"background": true`. Th
 
 The handler itself stays simple — background mode, polling, and cancellation are all managed by the SDK automatically.
 
-## Running Locally
+## Prerequisites
 
-### Prerequisites
+1. An existing Foundry project with an Azure OpenAI model deployment (or create them during setup in Option 1).
+2. **[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)** or later.
 
-- [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- Azure CLI installed and authenticated (`az login`)
-- An Azure AI Foundry project with an Azure OpenAI deployment
-
-### Environment Variables
+### Environment variables
 
 | Variable | Description |
 |---|---|
 | `FOUNDRY_PROJECT_ENDPOINT` | Azure AI Foundry project endpoint (auto-injected when deployed) |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Azure OpenAI model deployment name (e.g., `gpt-5.4-mini`) |
 
-### Using `azd`
+## Option 1: Azure Developer CLI (`azd`)
+
+### Prerequisites
+
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
+
+   ```bash
+   azd ext install microsoft.foundry
+   ```
+
+3. Authenticate:
+
+   ```bash
+   azd auth login
+   ```
+
+### Initialize the agent project
+
+No cloning required. Create a new folder and initialize from the manifest:
+
+```bash
+mkdir background-agent && cd background-agent
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/bring-your-own/responses/background-agent/azure.yaml
+```
+
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
+
+### Provision Azure resources (if needed)
+
+If you don't already have a Foundry project and model deployment:
+
+```bash
+azd provision
+```
+
+### Run the agent locally
 
 ```bash
 azd ai agent run
 ```
 
-The agent starts on `http://localhost:8088/`.
+The agent host will start on `http://localhost:8088`.
 
-<details>
-<summary><h3>Using the Foundry Toolkit VS Code Extension</h3></summary>
+### Invoke the local agent
 
-The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open this sample directly from the extension without cloning the repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
-
-Chat with a running agent using the **Agent Inspector**:
-
-1. Start the agent locally first using **Using `azd`** or **Manual setup** above. The agent listens on `http://localhost:8088/`.
-2. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
-3. The Inspector auto-connects to the running agent. Send messages to chat with the agent and watch the streamed responses.
-
-</details>
-
-### Manual setup
-
-```bash
-export FOUNDRY_PROJECT_ENDPOINT="https://your-resource.services.ai.azure.com/api/projects/your-project"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
-dotnet run
-```
-
-The agent starts on `http://localhost:8088/`.
-
-## Invoke with azd
-
-### Local
+In a separate terminal, invoke the running agent:
 
 ```bash
 azd ai agent invoke --local "Analyze the impact of AI on healthcare"
 ```
 
-### Remote (after `azd up`)
-
-```bash
-azd ai agent invoke "Analyze the impact of AI on healthcare"
-```
-
-### Test — Background Mode
+**Background mode** — submit asynchronously, then poll for the result:
 
 ```bash
 # Submit a background research analysis
@@ -85,7 +89,7 @@ curl http://localhost:8088/responses/<response_id>
 curl -X POST http://localhost:8088/responses/<response_id>/cancel
 ```
 
-### Test — Default Mode (Synchronous)
+**Default (synchronous) mode:**
 
 ```bash
 curl -X POST http://localhost:8088/responses \
@@ -93,45 +97,71 @@ curl -X POST http://localhost:8088/responses \
   -d '{"model": "research", "input": "Analyze the impact of AI on healthcare"}'
 ```
 
-## Deploying the Agent to Microsoft Foundry
+### Deploy to Foundry
 
-Once you've tested locally, deploy to Microsoft Foundry:
+Once tested locally, deploy to Microsoft Foundry:
 
 ```bash
-# Provision Azure resources (skip if already done during local setup)
-azd provision
-
-# Build, push, and deploy the agent to Foundry
 azd deploy
 ```
 
-After deploying, invoke the agent running in Foundry:
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
+
+### Invoke the deployed agent
 
 ```bash
 azd ai agent invoke "Analyze the impact of AI on healthcare"
 ```
 
-To stream logs from the running agent:
+Stream logs from the running agent with `azd ai agent monitor`.
 
-```bash
-azd ai agent monitor
-```
+## Option 2: VS Code (Foundry Toolkit)
 
-For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
+### Prerequisites
 
-### Deploying with the Foundry Toolkit VS Code Extension
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. [C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension.
+3. Command Palette (`Ctrl+Shift+P`) → **C#: Check Workspace Requirements** to confirm the toolchain is ready.
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate what it can.
-2. If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
-3. On the **Basics** tab, configure the core deployment settings:
-   - **Deployment Method**: **Code** (upload as a ZIP) or **Container** (Docker image via ACR).
-   - For **Code**, pick a packaging option: **Remote** or **Local**.
-   - For **Container**, pick a registry option: default ACR, your own ACR, or a prebuilt ACR image.
-   - **Hosted Agent Name**: confirm the name to register with the hosting service.
-4. On the **Review + Deploy** tab, finalize the runtime and resources:
-   - Confirm the auto-detected runtime details (language, entry point, or Dockerfile).
-   - Pick a **CPU and Memory** size.
-   - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
+### Run and debug the agent
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+### Or run manually, then open the Inspector
+
+1. Restore dependencies:
+
+   ```bash
+   dotnet restore
+   ```
+
+2. Set the required environment variables:
+
+   ```bash
+   export FOUNDRY_PROJECT_ENDPOINT="https://your-resource.services.ai.azure.com/api/projects/your-project"
+   export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
+   ```
+
+3. Sign in to Azure with the Azure CLI:
+
+   ```bash
+   az login
+   ```
+
+4. Start the agent (listens on `http://localhost:8088`):
+
+   ```bash
+   dotnet run
+   ```
+
+5. Open the Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
 ## Project Structure

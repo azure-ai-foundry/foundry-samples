@@ -62,7 +62,7 @@ Path 2 is documented rather than wired by default because it needs a post-deploy
 
 The agent reads its toolbox from your Foundry project at startup, so the `auth-paths-tools` toolbox (and the `github-mcp-conn` connection that backs the key-based path) must exist in the project before you run. You have two ways to create them.
 
-### Option 1 — `azd provision` (recommended)
+### Provision with `azd` (recommended)
 
 `azd provision` reads [`azure.yaml`](azure.yaml) and creates the connection and toolbox for you:
 
@@ -73,7 +73,7 @@ azd provision              # creates github-mcp-conn (CustomKeys) + auth-paths-t
 
 The `gh_pat` value is stored only in the Foundry connection secret store. It is never written to disk or passed to the container as an env var. Use a GitHub PAT (classic `ghp_...` or fine-grained `github_pat_...`) scoped to read the repositories your prompts ask about. Public-repo read is enough for the sample prompts.
 
-### Option 2 — create the toolbox yourself
+### Create the toolbox yourself
 
 Create the same two resources in the [Foundry portal](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/toolbox) or in code with the [Foundry Toolbox CRUD sample](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/hosted_agents/sample_toolboxes_crud.py):
 
@@ -84,7 +84,7 @@ Once the toolbox exists, set `TOOLBOX_NAME=auth-paths-tools` (already the manife
 
 ## Continuous integration
 
-The `hosted-agents-cloud-e2e` workflow treats this as a **toolbox sample** (its directory name contains `toolbox`) and runs with `SKIP_PROVISION=true`, so it does **not** run `azd provision` and never receives a PAT. Instead it consumes a toolbox that already exists in a shared Foundry project, the same way [`langgraph-toolbox`](../../../python/hosted-agents/bring-your-own/responses/langgraph-toolbox/) does. To enable it there, register an `auth-paths-tools` toolbox in that project (Option 2 above) and add one `label=url|query` line to the `TOOLBOX_ENDPOINT` repository variable:
+The `hosted-agents-cloud-e2e` workflow treats this as a **toolbox sample** (its directory name contains `toolbox`) and runs with `SKIP_PROVISION=true`, so it does **not** run `azd provision` and never receives a PAT. Instead it consumes a toolbox that already exists in a shared Foundry project, the same way [`langgraph-toolbox`](../../../python/hosted-agents/bring-your-own/responses/langgraph-toolbox/) does. To enable it there, register an `auth-paths-tools` toolbox in that project (see [Create the toolbox yourself](#create-the-toolbox-yourself), above) and add one `label=url|query` line to the `TOOLBOX_ENDPOINT` repository variable:
 
 ```
 auth-paths=https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/auth-paths-tools/mcp?api-version=v1|<query that exercises the github tool>
@@ -92,13 +92,53 @@ auth-paths=https://<account>.services.ai.azure.com/api/projects/<project>/toolbo
 
 The workflow derives `TOOLBOX_NAME` from the URL slug (`.../toolboxes/auth-paths-tools/mcp`) and drives the toolbox with that query. Until the toolbox is registered, add a `.ci-skip` file in this directory to keep the sample out of the gated set.
 
-## Running the Agent Host
+## Option 1: Azure Developer CLI (`azd`)
 
-Follow the instructions in the [Running the Agent Host Locally](../README.md#running-the-agent-host-locally) section of the parent README to run the agent host.
+### Prerequisites
 
-## Interacting with the agent
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
 
-With the agent host running locally on `http://localhost:8088/`, use `azd ai agent invoke --local` to send a prompt:
+   ```bash
+   azd ext install microsoft.foundry
+   ```
+
+3. Authenticate:
+
+   ```bash
+   azd auth login
+   ```
+
+### Initialize the agent project
+
+No cloning required. Create a new folder and initialize from the manifest:
+
+```bash
+mkdir toolbox-auth-paths-agent && cd toolbox-auth-paths-agent
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/toolbox-auth-paths/azure.yaml
+```
+
+`azd ai agent init` prompts once for the `gh_pat` secret parameter. Follow the prompts to configure your Foundry project and model deployment.
+
+### Provision Azure resources (if needed)
+
+The agent reads its toolbox from your Foundry project at startup, so the `auth-paths-tools` toolbox and `github-mcp-conn` connection must exist first — see [Provisioning the toolbox in your environment](#provisioning-the-toolbox-in-your-environment). With the manifest, `azd provision` creates them (along with a Foundry project and model deployment if you don't have one):
+
+```bash
+azd provision
+```
+
+### Run the agent locally
+
+```bash
+azd ai agent run
+```
+
+The agent host will start on `http://localhost:8088`.
+
+### Invoke the local agent
+
+In a separate terminal, send a prompt:
 
 ```bash
 azd ai agent invoke --local "What tools do you have available?"
@@ -107,8 +147,68 @@ azd ai agent invoke --local "Search the microsoft/agent-framework repo for open 
 
 A GitHub answer means the key-based **CustomKeys** path (path 1) resolved its PAT correctly. A `401`/`403` means the connection credential did not resolve.
 
-> You can also invoke with `curl` (`Invoke-WebRequest` in PowerShell) against `http://localhost:8088/responses`, or use the **Agent Inspector** in the Foundry Toolkit VS Code extension. See the [parent README](../README.md) for details.
+Or use curl directly against `http://localhost:8088/responses`:
 
-## Deploying the Agent to Foundry
+```bash
+curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d '{"input": "What tools do you have available?", "stream": false}'
+```
 
-To deploy the agent to Foundry, follow the instructions in the [Deploying the Agent to Foundry](../README.md#deploying-the-agent-to-foundry) section of the parent README.
+### Deploy to Foundry
+
+Once tested locally, deploy to Microsoft Foundry:
+
+```bash
+azd deploy
+```
+
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
+
+### Invoke the deployed agent
+
+```bash
+azd ai agent invoke "What tools do you have available?"
+```
+
+## Option 2: VS Code (Foundry Toolkit)
+
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. [C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension.
+3. Command Palette (`Ctrl+Shift+P`) → **C#: Check Workspace Requirements** to confirm the toolchain is ready.
+
+### Run and debug the agent
+
+The `auth-paths-tools` toolbox must already exist (see [Provisioning the toolbox in your environment](#provisioning-the-toolbox-in-your-environment)). Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+### Or run manually, then open the Inspector
+
+1. Restore dependencies:
+
+   ```bash
+   dotnet restore
+   ```
+
+2. Configure the agent: copy `.env.example` to `.env` and fill in the required variables (including `TOOLBOX_NAME=auth-paths-tools`). The sample loads `.env` automatically on startup.
+
+3. Sign in to Azure with the Azure CLI so `DefaultAzureCredential` can authenticate the terminal process (the **F5** path reuses the Azure sign-in from the Foundry Toolkit, so it doesn't need a separate `az login`):
+
+   ```bash
+   az login
+   ```
+
+4. Start the agent (listens on `http://localhost:8088`):
+
+   ```bash
+   dotnet run
+   ```
+
+5. Open the Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
+5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.

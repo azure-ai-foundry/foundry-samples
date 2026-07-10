@@ -43,26 +43,58 @@ The Responses host emits two paired output items for each pause, both keyed by t
 
 The compiled graph is hosted with `ResponsesHostServer`, which exposes the OpenAI-compatible Responses endpoint at `/responses` and handles conversation history, interrupt serialization, and streaming lifecycle events automatically.
 
-## Running the Agent Host
+## Option 1: Azure Developer CLI (`azd`)
 
-Follow the instructions in the [Running the Agent Host Locally](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md#running-the-agent-host-locally) section of the README in the parent directory to run the agent host.
+### Prerequisites
 
-## Interacting with the agent
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
 
-> Depending on how you run the agent host, you can invoke the agent using `curl` (`Invoke-WebRequest` in PowerShell) or `azd`. Please refer to the [parent README](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md) for more details. Use this README for sample queries you can send to the agent.
+   ```bash
+   azd ext install microsoft.foundry
+   ```
 
-### Step 1 — Submit the task
+3. Authenticate:
 
-Send a POST request with a `conversation.id` so the checkpoint can be matched on subsequent requests:
+   ```bash
+   azd auth login
+   ```
+
+### Initialize the agent project
+
+No cloning required. Create a new folder and initialize from the manifest:
+
+```bash
+mkdir hosted-langgraph-agent && cd hosted-langgraph-agent
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/responses/07-human-in-the-loop/azure.yaml
+```
+
+### Provision Azure resources (if needed)
+
+If you don't already have a Foundry project and model deployment:
+
+```bash
+azd provision
+```
+
+### Run the agent locally
+
+```bash
+azd ai agent run
+```
+
+The agent host will start on `http://localhost:8088`.
+
+### Invoke the local agent
+
+This sample uses a human-in-the-loop approval flow: submit a task, then approve, reject, or revise the proposed draft. Run the requests below from a separate terminal.
+
+**Step 1 — Submit the task.** Send a POST request with a `conversation.id` so the checkpoint can be matched on subsequent requests:
 
 ```bash
 curl -X POST http://localhost:8088/responses \
     -H "Content-Type: application/json" \
     -d '{"input": "Draft a marketing email for our new AI product launch.", "conversation": {"id": "demo-hitl-1"}}'
-```
-
-```powershell
-(Invoke-WebRequest -Uri http://localhost:8088/responses -Method POST -ContentType "application/json" -Body '{"input": "Draft a marketing email for our new AI product launch.", "conversation": {"id": "demo-hitl-1"}}').Content
 ```
 
 The response `output` will contain an `mcp_approval_request` whose `arguments` JSON describes the proposed draft:
@@ -73,9 +105,9 @@ The response `output` will contain an `mcp_approval_request` whose `arguments` J
 
 Note the `id` field of the `mcp_approval_request` item — you will reference it as `approval_request_id` (or as the `call_id` of the paired `function_call`) in the next request.
 
-### Step 2 — Send a decision
+**Step 2 — Send a decision.**
 
-**Approve** — the host resumes the graph and emits the final draft:
+*Approve* — the host resumes the graph and emits the final draft:
 
 ```bash
 curl -X POST http://localhost:8088/responses \
@@ -83,11 +115,7 @@ curl -X POST http://localhost:8088/responses \
     -d '{"conversation": {"id": "demo-hitl-1"}, "input": [{"type": "mcp_approval_response", "approval_request_id": "<id>", "approve": true}]}'
 ```
 
-```powershell
-(Invoke-WebRequest -Uri http://localhost:8088/responses -Method POST -ContentType "application/json" -Body '{"conversation": {"id": "demo-hitl-1"}, "input": [{"type": "mcp_approval_response", "approval_request_id": "<id>", "approve": true}]}').Content
-```
-
-**Reject** — the turn ends with `response.failed` `code="interrupt_rejected"`; the pending interrupt remains in the checkpoint:
+*Reject* — the turn ends with `response.failed` `code="interrupt_rejected"`; the pending interrupt remains in the checkpoint:
 
 ```bash
 curl -X POST http://localhost:8088/responses \
@@ -95,11 +123,7 @@ curl -X POST http://localhost:8088/responses \
     -d '{"conversation": {"id": "demo-hitl-1"}, "input": [{"type": "mcp_approval_response", "approval_request_id": "<id>", "approve": false, "reason": "tone is too casual"}]}'
 ```
 
-```powershell
-(Invoke-WebRequest -Uri http://localhost:8088/responses -Method POST -ContentType "application/json" -Body '{"conversation": {"id": "demo-hitl-1"}, "input": [{"type": "mcp_approval_response", "approval_request_id": "<id>", "approve": false, "reason": "tone is too casual"}]}').Content
-```
-
-**Revise** — target the paired `function_call` item (its `call_id` is the same interrupt id) and send the feedback:
+*Revise* — target the paired `function_call` item (its `call_id` is the same interrupt id) and send the feedback:
 
 ```bash
 curl -X POST http://localhost:8088/responses \
@@ -107,17 +131,54 @@ curl -X POST http://localhost:8088/responses \
     -d '{"conversation": {"id": "demo-hitl-1"}, "input": [{"type": "function_call_output", "call_id": "<id>", "output": "{\"resume\": {\"feedback\": \"Shorter and more energetic, add a clear call to action.\"}}"}]}'
 ```
 
-```powershell
-(Invoke-WebRequest -Uri http://localhost:8088/responses -Method POST -ContentType "application/json" -Body '{"conversation": {"id": "demo-hitl-1"}, "input": [{"type": "function_call_output", "call_id": "<id>", "output": "{\"resume\": {\"feedback\": \"Shorter and more energetic, add a clear call to action.\"}}"}]}').Content
-```
-
 The graph generates a new draft incorporating the feedback and pauses again with a fresh `mcp_approval_request` — repeat Step 2 until you approve or reject.
 
-### Test in Agent Inspector
+### Deploy to Foundry
 
-Once the agent is running locally, open **Agent Inspector** in VS Code (Command Palette: **Foundry Toolkit: Open Agent Inspector**) to interactively send messages and view responses.
+Deploy the agent to Microsoft Foundry:
 
-Type the following message in Inspector:
+```bash
+azd deploy
+```
+
+For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
+
+### Invoke the deployed agent
+
+```bash
+azd ai agent invoke "Draft a marketing email for our new AI product launch."
+```
+
+## Option 2: VS Code (Foundry Toolkit)
+
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. For debugging Python in VS Code, install the **[Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)** extension pack.
+
+### Set up the Python virtual environment
+
+- Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** to create a virtual environment in the workspace (or **Python: Select Interpreter** to use an existing one).
+- Ensure `pip` is version 26.1 or newer (check with `pip --version`). Older versions fail to resolve this sample's dependencies. Upgrade if needed:
+
+  ```bash
+  python -m pip install --upgrade pip
+  ```
+
+- Install dependencies in the virtual environment. One transitive dependency ships as a pre-release, so pre-releases must be allowed when using `uv`:
+
+  ```bash
+  # use uv to accelerate
+  pip install uv
+  uv pip install --prerelease=allow -r requirements.txt
+
+  # or pure pip
+  pip install -r requirements.txt
+  ```
+
+### Run and debug the agent
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Send the following message in the Inspector:
 
 ```
 Draft a marketing email for our new AI product launch.
@@ -125,21 +186,16 @@ Draft a marketing email for our new AI product launch.
 
 When the agent pauses with an approval request, the Inspector renders an interactive approval card. Approve, reject, or send revision feedback directly from there.
 
-## Deploying the Agent to Foundry
+### Or run manually, then open the Inspector
 
-To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
+1. Set the required environment variables and sign in to Azure with the Azure CLI (`az login`).
+2. Start the agent: `python main.py` (listens on `http://localhost:8088`).
+3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
 
-### Deploying with the Foundry Toolkit VS Code Extension
+### Deploy to Foundry
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate what it can.
-2. If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
-3. On the **Basics** tab, configure the core deployment settings:
-   - **Deployment Method**: **Code** (upload as a ZIP) or **Container** (Docker image via ACR).
-   - For **Code**, pick a packaging option: **Remote** or **Local**.
-   - For **Container**, pick a registry option: default ACR, your own ACR, or a prebuilt ACR image.
-   - **Hosted Agent Name**: confirm the name to register with the hosting service.
-4. On the **Review + Deploy** tab, finalize the runtime and resources:
-   - Confirm the auto-detected runtime details (language, entry point, or Dockerfile).
-   - Pick a **CPU and Memory** size.
-   - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.

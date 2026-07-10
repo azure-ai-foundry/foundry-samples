@@ -65,7 +65,7 @@ shuttle audio bytes and control events.
    - Verify your version: `dotnet --version`
    - Download from [https://dotnet.microsoft.com/download](https://dotnet.microsoft.com/download)
 2. **Azure Developer CLI (`azd`)** (recommended for deploy)
-   - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) and the AI agent extension: `azd ext install azure.ai.agents`
+   - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) and the Foundry extension: `azd ext install microsoft.foundry`
    - Authenticated: `azd auth login`
 3. **Azure CLI** — installed and authenticated: `az login`.
 4. An **Azure AI Services / Voice Live** resource with access to a realtime model (for example `gpt-realtime-1.5`).

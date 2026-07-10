@@ -84,6 +84,40 @@ Invoke-RestMethod -Method POST http://localhost:8088/responses `
   -Body '{"input": "What tools do you have?"}'
 ```
 
+<details>
+<summary><h3>Using the Foundry Toolkit VS Code Extension</h3></summary>
+
+**Prerequisites**
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. For debugging Python in VS Code, install the **[Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)** extension pack.
+
+**Set up the Python virtual environment**
+
+- Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** to create a virtual environment in the workspace (or **Python: Select Interpreter** to use an existing one).
+- Install dependencies in the virtual environment:
+
+  ```bash
+  # use uv to accelerate
+  pip install uv
+  uv pip install -r requirements.txt
+
+  # or pure pip
+  pip install -r requirements.txt
+  ```
+
+**Run and debug the agent**
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+**Or run manually, then open the Inspector**
+
+1. Set the required environment variables and sign in to Azure with the Azure CLI (`az login`).
+2. Start the agent: `python main.py` (listens on `http://localhost:8088`).
+3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+</details>
+
 ## Deploy as a Hosted Agent
 
 ### Setup

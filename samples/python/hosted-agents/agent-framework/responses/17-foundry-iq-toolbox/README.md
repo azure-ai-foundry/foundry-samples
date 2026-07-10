@@ -172,14 +172,13 @@ azd ai toolbox create knowledge-base --from-file ./toolbox.yaml
 azd env set TOOLBOX_ENDPOINT "https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/knowledge-base/mcp?api-version=v1"
 ```
 
-### Option 2: VS Code (Foundry Toolkit)
+## Option 2: VS Code (Foundry Toolkit)
 
 > The VS Code flow doesn't run the `azd` hook — provision the knowledge base, connection, and toolbox first with [Provision manually](#provision-manually-without-the-hook).
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Create Hosted Agent**, then select this sample.
-2. Press **F5** to run and debug the agent locally on `http://localhost:8088`.
-3. Run **Foundry Toolkit: Open Agent Inspector** to chat with the running agent.
-4. Run **Foundry Toolkit: Deploy Hosted Agent** to build the image, register the version, and assign RBAC.
+1. Open the sample folder in VS Code (after `azd ai agent init` from Option 1).
+2. Press **F5** to run and debug the agent. The **Agent Inspector** opens automatically — chat with the agent in the Inspector.
+3. Run **Foundry Toolkit: Deploy Hosted Agent** to build the image, register the version, and assign RBAC.
 
 ## Try it
 

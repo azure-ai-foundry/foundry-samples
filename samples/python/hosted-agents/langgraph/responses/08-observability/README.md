@@ -43,30 +43,64 @@ The sample sets two tracing toggles in [azure.yaml](azure.yaml):
 
 The `APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable is injected when the agent is deployed to Foundry, so no extra setup is needed in hosted mode. To ship telemetry from a **local** run, you must set it yourself — either in `.env` (for `python main.py`) or via `azd env set` (for `azd ai agent run`).
 
-## Running the Agent Host
+## Option 1: Azure Developer CLI (`azd`)
 
-Follow the instructions in the [Running the Agent Host Locally](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md#running-the-agent-host-locally) section of the README in the parent directory to run the agent host. To ship telemetry from a local run, also set `APPLICATIONINSIGHTS_CONNECTION_STRING` — see [.env.example](src/langgraph-observability-responses/.env.example).
+### Prerequisites
 
-## Interacting with the agent
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
 
-> Depending on how you run the agent host, you can invoke the agent using `curl` (`Invoke-WebRequest` in PowerShell) or `azd`. Please refer to the [parent README](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md) for more details. Use this README for sample queries you can send to the agent.
+   ```bash
+   azd ext install microsoft.foundry
+   ```
 
-Send a single-turn request that exercises both tools and produces a rich span tree:
+3. Authenticate:
+
+   ```bash
+   azd auth login
+   ```
+
+### Initialize the agent project
+
+No cloning required. Create a new folder and initialize from the manifest:
+
+```bash
+mkdir hosted-langgraph-agent && cd hosted-langgraph-agent
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/responses/08-observability/azure.yaml
+```
+
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
+
+### Provision Azure resources (if needed)
+
+If you don't already have a Foundry project and model deployment:
+
+```bash
+azd provision
+```
+
+### Run the agent locally
+
+```bash
+azd ai agent run
+```
+
+The agent host will start on `http://localhost:8088`. To ship telemetry from a local run, also set `APPLICATIONINSIGHTS_CONNECTION_STRING` via `azd env set` — see [.env.example](src/langgraph-observability-responses/.env.example).
+
+### Invoke the local agent
+
+In a separate terminal, invoke the running agent. This single-turn request exercises both tools and produces a rich span tree:
+
+```bash
+azd ai agent invoke --local "What time is it right now, and what is 42 multiplied by 17?"
+```
+
+Or invoke directly with curl:
 
 ```bash
 curl -X POST http://localhost:8088/responses \
     -H "Content-Type: application/json" \
     -d '{"input": "What time is it right now, and what is 42 multiplied by 17?"}'
-```
-
-```powershell
-(Invoke-WebRequest -Uri http://localhost:8088/responses -Method POST -ContentType "application/json" -Body '{"input": "What time is it right now, and what is 42 multiplied by 17?"}').Content
-```
-
-Invoke with `azd`:
-
-```powershell
-azd ai agent invoke --local "What time is it right now, and what is 42 multiplied by 17?"
 ```
 
 A typical span hierarchy for this request:
@@ -77,35 +111,65 @@ A typical span hierarchy for this request:
 
 See the [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) for the span and attribute reference.
 
-### Test in Agent Inspector
+### Deploy to Foundry
 
-Once the agent is running locally, open **Agent Inspector** in VS Code (Command Palette: **Foundry Toolkit: Open Agent Inspector**) to interactively send messages and view responses.
+Once tested locally, deploy to Microsoft Foundry:
 
-Type the following message in Inspector:
-
-```
-What time is it right now, and what is 42 multiplied by 17?
+```bash
+azd deploy
 ```
 
-## Deploying the Agent to Foundry
+For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
 
-To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/langgraph/README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
+### Invoke the deployed agent
 
-### Viewing telemetry in Foundry
+```bash
+azd ai agent invoke "What time is it right now, and what is 42 multiplied by 17?"
+```
 
 Once deployed, the agent's traces, metrics, and logs flow into the Application Insights workspace associated with your Foundry project. In the Foundry portal, open the agent and switch to the **Traces** tab to see each conversation and drill into its span tree.
 
-### Deploying with the Foundry Toolkit VS Code Extension
+## Option 2: VS Code (Foundry Toolkit)
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate what it can.
-2. If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
-3. On the **Basics** tab, configure the core deployment settings:
-   - **Deployment Method**: **Code** (upload as a ZIP) or **Container** (Docker image via ACR).
-   - For **Code**, pick a packaging option: **Remote** or **Local**.
-   - For **Container**, pick a registry option: default ACR, your own ACR, or a prebuilt ACR image.
-   - **Hosted Agent Name**: confirm the name to register with the hosting service.
-4. On the **Review + Deploy** tab, finalize the runtime and resources:
-   - Confirm the auto-detected runtime details (language, entry point, or Dockerfile).
-   - Pick a **CPU and Memory** size.
-   - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. For debugging Python in VS Code, install the **[Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)** extension pack.
+
+### Set up the Python virtual environment
+
+- Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** to create a virtual environment in the workspace (or **Python: Select Interpreter** to use an existing one).
+- Ensure `pip` is version 26.1 or newer (check with `pip --version`). Older versions fail to resolve this sample's dependencies. Upgrade if needed:
+
+  ```bash
+  python -m pip install --upgrade pip
+  ```
+
+- Install dependencies in the virtual environment. One transitive dependency ships as a pre-release, so pre-releases must be allowed when using `uv`:
+
+  ```bash
+  # use uv to accelerate
+  pip install uv
+  uv pip install --prerelease=allow -r requirements.txt
+
+  # or pure pip
+  pip install -r requirements.txt
+  ```
+
+### Run and debug the agent
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+### Or run manually, then open the Inspector
+
+1. Set the required environment variables and sign in to Azure with the Azure CLI (`az login`).
+2. Start the agent: `python main.py` (listens on `http://localhost:8088`).
+3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.

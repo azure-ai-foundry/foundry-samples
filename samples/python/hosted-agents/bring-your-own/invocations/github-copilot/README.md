@@ -29,18 +29,33 @@ This agent supports two LLM backends. Configure one of the following:
 - If only `GITHUB_TOKEN` is set → uses the **GitHub Copilot model** (quickest way to get started)
 - If both are set → the **Foundry model takes precedence**
 
-## Running Locally
+## Prerequisites
+
+- **Python 3.10+**
+- A GitHub fine-grained PAT (`github_pat_` prefix)
+
+  Create one at [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new) with **Account permissions → Copilot Requests → Read-only**.
+
+  > **Note:** Classic tokens (`ghp_`) are not supported. Use a fine-grained PAT (`github_pat_`), OAuth token (`gho_`), or GitHub App user token (`ghu_`).
+
+## Option 1: Azure Developer CLI (`azd`)
 
 ### Prerequisites
 
-- Python 3.10+
-- A GitHub fine-grained PAT (`github_pat_` prefix)
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
 
-Create one at [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new) with **Account permissions → Copilot Requests → Read-only**.
+   ```bash
+   azd ext install microsoft.foundry
+   ```
 
-> **Note:** Classic tokens (`ghp_`) are not supported. Use a fine-grained PAT (`github_pat_`), OAuth token (`gho_`), or GitHub App user token (`ghu_`).
+3. Authenticate:
 
-### Using `azd`
+   ```bash
+   azd auth login
+   ```
+
+### Set up the GitHub token
 
 Create a local `.env` file from the sample template and set `GITHUB_TOKEN`:
 
@@ -55,7 +70,7 @@ The sample loads `.env` automatically when running locally. If you plan to deplo
 azd env set GITHUB_TOKEN="github_pat_..."
 ```
 
-Next, start the agent locally with the `run` command:
+### Run the agent locally
 
 ```bash
 azd ai agent run
@@ -63,33 +78,7 @@ azd ai agent run
 
 The agent starts on `http://localhost:8088/`.
 
-<details>
-<summary><h3>Using the Foundry Toolkit VS Code Extension</h3></summary>
-
-The [Foundry Toolkit VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open this sample directly from the extension without cloning the repository, it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
-
-Chat with a running agent using the **Agent Inspector**:
-
-1. Start the agent locally first using **Using `azd`** or **Manual setup** above. The agent listens on `http://localhost:8088/`.
-2. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Open Agent Inspector**.
-3. The Inspector auto-connects to the running agent. Send messages to chat with the agent and watch the streamed responses.
-
-</details>
-
-### Manual setup
-
-```bash
-pip install -r requirements.txt
-cp .env.example .env  # skip if .env already exists
-# Edit .env and set GITHUB_TOKEN=github_pat_...
-python main.py
-```
-
-The agent starts on `http://localhost:8088/`.
-
-## Invoke with azd
-
-### Local
+### Invoke the local agent
 
 **Bash:**
 ```bash
@@ -101,7 +90,7 @@ azd ai agent invoke --local '{"input": "What can you help me with?"}'
 azd ai agent invoke --local '{\"input\": \"What can you help me with?\"}'
 ```
 
-### Test with curl
+Or invoke directly with curl:
 
 ```bash
 # First message
@@ -115,7 +104,85 @@ curl -N -X POST http://localhost:8088/invocations \
   -d '{"input": "Give me a code example"}'
 ```
 
-### SSE Event Format
+### Deploy to Foundry
+
+Once tested locally, deploy to Microsoft Foundry:
+
+```bash
+# Provision Azure resources (skip if already done during local setup)
+azd provision
+
+# Build, push, and deploy the agent to Foundry
+azd deploy
+```
+
+For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
+
+### Invoke the deployed agent
+
+**Bash:**
+```bash
+azd ai agent invoke '{"input": "What can you help me with?"}'
+```
+
+**PowerShell:**
+```powershell
+azd ai agent invoke '{\"input\": \"What can you help me with?\"}'
+```
+
+To stream logs from the running agent:
+
+```bash
+azd ai agent monitor
+```
+
+## Option 2: VS Code (Foundry Toolkit)
+
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. For debugging Python in VS Code, install the **[Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)** extension pack.
+
+### Set up the Python virtual environment
+
+- Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** to create a virtual environment in the workspace (or **Python: Select Interpreter** to use an existing one).
+- Install dependencies in the virtual environment:
+
+  ```bash
+  # use uv to accelerate
+  pip install uv
+  uv pip install -r requirements.txt
+
+  # or pure pip
+  pip install -r requirements.txt
+  ```
+
+### Run and debug the agent
+
+Press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+### Or run manually, then open the Inspector
+
+1. Set the required environment variables and sign in to Azure with the Azure CLI (`az login`).
+2. Start the agent: `python main.py` (listens on `http://localhost:8088`).
+3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate what it can.
+2. If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
+3. On the **Basics** tab, configure the core deployment settings:
+   - **Deployment Method**: **Code** (upload as a ZIP) or **Container** (Docker image via ACR).
+   - For **Code**, pick a packaging option: **Remote** or **Local**.
+   - For **Container**, pick a registry option: default ACR, your own ACR, or a prebuilt ACR image.
+   - **Hosted Agent Name**: confirm the name to register with the hosting service.
+4. On the **Review + Deploy** tab, finalize the runtime and resources:
+   - Confirm the auto-detected runtime details (language, entry point, or Dockerfile).
+   - Pick a **CPU and Memory** size.
+   - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
+5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
+
+## SSE Event Format
 
 Each Copilot SDK event is streamed via `event.to_dict()`:
 
@@ -138,53 +205,6 @@ python main.py
 ```
 
 Authentication uses Managed Identity via `DefaultAzureCredential`. When deployed as a hosted agent, `FOUNDRY_PROJECT_ENDPOINT` is auto-injected by the platform — you only need to set `AZURE_AI_MODEL_DEPLOYMENT_NAME` in `azure.yaml`.
-
-## Deploying the Agent to Microsoft Foundry
-
-Once you've tested locally, deploy to Microsoft Foundry:
-
-```bash
-# Provision Azure resources (skip if already done during local setup)
-azd provision
-
-# Build, push, and deploy the agent to Foundry
-azd deploy
-```
-
-After deploying, invoke the agent running in Foundry:
-
-**Bash:**
-```bash
-azd ai agent invoke '{"input": "What can you help me with?"}'
-```
-
-**PowerShell:**
-```powershell
-azd ai agent invoke '{\"input\": \"What can you help me with?\"}'
-```
-
-To stream logs from the running agent:
-
-```bash
-azd ai agent monitor
-```
-
-For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
-
-### Deploying with the Foundry Toolkit VS Code Extension
-
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a tab-based **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate what it can.
-2. If prompted, complete **Foundry Project Setup** to pick the subscription and Foundry project (or create a new one) to deploy to.
-3. On the **Basics** tab, configure the core deployment settings:
-   - **Deployment Method**: **Code** (upload as a ZIP) or **Container** (Docker image via ACR).
-   - For **Code**, pick a packaging option: **Remote** or **Local**.
-   - For **Container**, pick a registry option: default ACR, your own ACR, or a prebuilt ACR image.
-   - **Hosted Agent Name**: confirm the name to register with the hosting service.
-4. On the **Review + Deploy** tab, finalize the runtime and resources:
-   - Confirm the auto-detected runtime details (language, entry point, or Dockerfile).
-   - Pick a **CPU and Memory** size.
-   - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
-5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
 ## Adding Skills
 

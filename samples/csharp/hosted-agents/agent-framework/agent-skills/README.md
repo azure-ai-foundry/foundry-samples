@@ -44,31 +44,13 @@ The agent is hosted using the [Agent Framework](https://github.com/microsoft/age
 
 See [Program.cs](src/agent-skills/Program.cs) for the full implementation.
 
-## Running the Agent Locally
+## Prerequisites
 
-### Prerequisites
+1. An existing Foundry project with a deployed model (or create them during setup in Option 1 — `azd provision` can create them for you).
+2. **[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)** or later.
+3. **Roles (RBAC):** your identity (or the Managed Identity running the container in production) needs **Azure AI User** on the Foundry project scope. This single role covers both authoring skills and downloading them.
 
-Before running this sample, ensure you have:
-
-1. **Azure Developer CLI (`azd`)**
-   - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.25 or later) and the unified Foundry CLI extension: `azd ext install microsoft.foundry`
-   - Authenticated: `azd auth login`
-
-2. **Azure CLI**
-   - Installed and authenticated: `az login`
-
-3. **.NET 10.0 SDK or later**
-   - Verify your version: `dotnet --version`
-   - Download from [https://dotnet.microsoft.com/download](https://dotnet.microsoft.com/download)
-
-> [!NOTE]
-> You do **not** need an existing [Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/what-is-foundry?view=foundry) project or model deployment to get started — `azd provision` creates them for you. If you already have a project, see the [note below](#using-azd) on how to target it.
-
-### Required RBAC
-
-Your identity (or the Managed Identity running the container in production) needs **Azure AI User** on the Foundry project scope. This single role covers both authoring skills and downloading them.
-
-### Environment Variables
+### Environment variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -78,71 +60,60 @@ Your identity (or the Managed Identity running the container in production) need
 | `PROVISION_SAMPLE_SKILLS` | No | Sample convenience: set to `true` on a first run to upload this sample's `SKILL.md` files to Foundry. Leave unset or false in production. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Recommended | Enables telemetry. Auto-injected in hosted containers; set manually for local dev. |
 
-**Local development (without `azd`):**
+When using `azd ai agent run`, these are handled automatically. For manual runs, set them in your shell — .NET does not read `.env` files natively.
+
+## Option 1: Azure Developer CLI (`azd`)
+
+### Prerequisites
+
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
+
+   ```bash
+   azd ext install microsoft.foundry
+   ```
+
+3. Authenticate:
+
+   ```bash
+   azd auth login
+   ```
+
+### Initialize the agent project
+
+No cloning required. Create a new folder and initialize from the manifest:
 
 ```bash
-# Set env vars directly — .NET does not natively read .env files
-export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="<your-model-deployment-name>"
-export SKILL_NAMES="support-style,escalation-policy"
-export PROVISION_SAMPLE_SKILLS=true   # First run only
-```
-
-> [!NOTE]
-> When using `azd ai agent run`, environment variables are handled automatically — no manual setup needed.
-
-### Installing Dependencies
-
-> [!NOTE]
-> If using `azd ai agent run`, dependencies are restored automatically — skip to [Running the Sample](#running-the-sample).
-
-```bash
-dotnet restore
-```
-
-### Running the Sample
-
-Run and test hosted agents locally with the Azure Developer CLI (`azd`) or the Foundry VS Code extension.
-
-<details>
-<summary><h4>Using the Foundry VS Code Extension</h4></summary>
-
-The [Foundry VS Code extension](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) has a built-in sample gallery. You can open this sample directly from the extension without cloning the repository — it scaffolds the project into a new workspace, generates `agent.yaml`, `.env`, and `.vscode/tasks.json` + `launch.json` automatically, and configures a one-click **F5** debug experience.
-
-Follow the [VS Code quickstart](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=vscode) for a full step-by-step walkthrough.
-
-</details>
-
-#### Using [`azd`](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?view=foundry&pivots=azd)
-
-No cloning required. Create a new folder, point `azd` at the manifest on GitHub, and it sets up the sample and adopts its `azure.yaml` as the project manifest and configures your environment automatically:
-
-```bash
-# Create a new folder for the agent and navigate into it
 mkdir agent-skills && cd agent-skills
-
-# Initialize from the manifest - azd reads it, downloads the sample,
-# and adopts its azure.yaml as the project manifest and configures your environment.
 azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/agent-skills/azure.yaml
+```
 
-# Provision Azure resources (Foundry project, model deployment, App Insights).
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
+
+> If you already have a Foundry project and model deployment, add `-p <project-id> -d <deployment-name>` to `azd ai agent init` to target existing resources.
+
+### Provision Azure resources (if needed)
+
+If you don't already have a Foundry project and model deployment:
+
+```bash
 azd provision
+```
 
-# Tell azd which skills to download at startup.
+Tell azd which skills to download at startup, and (first run only) upload the sample's `SKILL.md` files to Foundry:
+
+```bash
 azd env set SKILL_NAMES "support-style,escalation-policy"
-
-# First run only - upload the sample's local SKILL.md files to Foundry.
 azd env set PROVISION_SAMPLE_SKILLS true
+```
 
-# Run the agent locally (handles env vars, build, and startup).
+### Run the agent locally
+
+```bash
 azd ai agent run
 ```
 
-> [!NOTE]
-> If you've already cloned this repository, pass a local path to the manifest instead:
-> `azd ai agent init -m <path-to-repo>/samples/csharp/hosted-agents/agent-framework/agent-skills/azure.yaml`
-
-On startup you should see:
+The agent host will start on `http://localhost:8088`. On startup you should see:
 
 ```text
 Skill 'support-style' already exists in Foundry.
@@ -151,7 +122,9 @@ Downloading skill 'support-style' from Foundry...
 Downloading skill 'escalation-policy' from Foundry...
 ```
 
-The agent starts on `http://localhost:8088/`. To invoke it:
+### Invoke the local agent
+
+In a separate terminal, invoke the running agent:
 
 ```bash
 azd ai agent invoke --local "Hi, I am Alex. Can I return my tent within 30 days?"
@@ -172,44 +145,70 @@ curl -sS -X POST http://localhost:8088/responses \
 
 Because skills are loaded on demand, the canary token in a response also proves the model actually invoked `load_skill` for the matching skill — not just saw its name in the advertised list.
 
-#### Manual setup
+### Deploy to Foundry
 
-If running without `azd`, set environment variables manually (see [Environment Variables](#environment-variables)), then:
-
-```bash
-dotnet run
-```
-
-### Deploying the Agent to Microsoft Foundry
-
-Once you have tested locally, deploy to Microsoft Foundry:
+Make sure `SKILL_NAMES` is set in your azd environment so it is injected into the hosted container, then deploy to Microsoft Foundry:
 
 ```bash
-# Provision Azure resources (skip if already done during local setup).
-azd provision
-
-# Make sure SKILL_NAMES is set in your azd environment so it is injected into the hosted container.
 azd env set SKILL_NAMES "support-style,escalation-policy"
-
-# Build, push, and deploy the agent to Foundry.
 azd deploy
 ```
 
-After deploying, invoke the agent running in Foundry:
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
+
+> The `skills/` source folder is **not** consumed by the deployed agent at runtime — only the skills already present in Foundry are downloaded. The provisioning step (or your own pipeline) must have uploaded the named skills to the same Foundry project before the agent starts.
+
+### Invoke the deployed agent
 
 ```bash
 azd ai agent invoke "Hi, I am Alex. Can I return my tent within 30 days?"
 ```
 
-To stream logs from the running agent:
+Stream logs from the running agent with `azd ai agent monitor`.
 
-```bash
-azd ai agent monitor
-```
+## Option 2: VS Code (Foundry Toolkit)
 
-> The `skills/` source folder is **not** consumed by the deployed agent at runtime — only the skills already present in Foundry are downloaded. The provisioning step (or your own pipeline) must have uploaded the named skills to the same Foundry project before the agent starts.
+### Prerequisites
 
-For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. [C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension.
+3. Command Palette (`Ctrl+Shift+P`) → **C#: Check Workspace Requirements** to confirm the toolchain is ready.
+
+### Run and debug the agent
+
+Set `SKILL_NAMES` (and `PROVISION_SAMPLE_SKILLS=true` on a first run) in `.env`, then press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+### Or run manually, then open the Inspector
+
+1. Restore dependencies:
+
+   ```bash
+   dotnet restore
+   ```
+
+2. Configure the agent: copy `.env.example` to `.env` and fill in the [required variables](#environment-variables) (including `SKILL_NAMES`, plus `PROVISION_SAMPLE_SKILLS=true` on a first run). The sample loads `.env` automatically on startup.
+
+3. Sign in to Azure with the Azure CLI so `DefaultAzureCredential` can authenticate the terminal process (the **F5** path reuses the Azure sign-in from the Foundry Toolkit, so it doesn't need a separate `az login`):
+
+   ```bash
+   az login
+   ```
+
+4. Start the agent (listens on `http://localhost:8088`):
+
+   ```bash
+   dotnet run
+   ```
+
+5. Open the Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
+5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
 ## Troubleshooting
 

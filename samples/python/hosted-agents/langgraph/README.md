@@ -152,9 +152,10 @@ cd foundry-samples/samples/python/hosted-agents/langgraph
    source .venv/bin/activate
    ```
 
-2. Install dependencies:
+2. Ensure `pip` is version 26.1 or newer (check with `pip --version`); older versions fail to resolve the samples' dependencies. Upgrade if needed, then install:
 
    ```bash
+   python -m pip install --upgrade pip
    pip install -r requirements.txt
    ```
 

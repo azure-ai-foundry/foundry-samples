@@ -99,24 +99,74 @@ The Toolbox endpoint is resolved as `<FOUNDRY_PROJECT_ENDPOINT>/toolboxes/<TOOLB
 
 Set these values with `azd env set` before running `azd provision`. `azd` stores them in `.azure/<environment-name>/.env`; the sample's root `.env` file is only for local execution.
 
-## Running the Agent Host
+## Option 1: Azure Developer CLI (`azd`)
 
-### Local setup
+### Prerequisites
 
-Install dependencies and run the hosted-agent server locally:
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+2. Install the Foundry extension:
+
+   ```bash
+   azd ext install microsoft.foundry
+   ```
+
+3. Authenticate:
+
+   ```bash
+   azd auth login
+   ```
+
+### Initialize the agent project
+
+No cloning required. Create a new folder and initialize from the manifest:
 
 ```bash
-dotnet restore browser-automation.csproj
-npm install -g @playwright/cli@latest
-playwright-cli install --skills
-dotnet run --project browser-automation.csproj
+mkdir browser-automation-agent && cd browser-automation-agent
+azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/browser-automation/azure.yaml
 ```
 
-## Interacting with the agent
+Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
 
-> Depending on how you run the agent host, you can invoke the agent using `curl` (`Invoke-WebRequest` in PowerShell) or `azd`. Please refer to the [parent README](../../README.md) for more details.
+### Provision Azure resources (if needed)
 
-Send a POST request to the server with a JSON body containing an `"input"` field:
+If you don't already have a Foundry project and model deployment, provision them. This sample also needs a Foundry Toolbox wired to an Azure Playwright workspace connection — choose one setup path:
+
+**Provision the toolbox with this sample** — set the Playwright workspace values in your `azd` environment (see [Provisioning parameters](#provisioning-parameters)), then provision. `azd provision` creates the Foundry connection to your Azure Playwright workspace and the default `browser-automation-tools` toolbox:
+
+```bash
+azd env set PLAYWRIGHT_SERVICE_URL "wss://<region>.api.playwright.microsoft.com/playwrightworkspaces/<workspace-id>/browsers"
+azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.LoadTestService/playwrightWorkspaces/<workspace-name>"
+azd env set PLAYWRIGHT_SERVICE_ACCESS_TOKEN "<playwright-workspace-access-token>"
+azd provision
+```
+
+> If these values are not set, `azd ai agent init` prompts you to enter them interactively.
+
+**Use an existing toolbox** — if your Foundry project already has a compatible toolbox (it must include the `browser_automation_preview` tool and its Playwright workspace connection), skip `azd provision` and set only the runtime toolbox name:
+
+```bash
+azd env set TOOLBOX_NAME "<your-toolbox-name>"
+```
+
+You don't need to set `TOOLBOX_NAME` when using the default sample-provisioned toolbox name, `browser-automation-tools`.
+
+### Run the agent locally
+
+```bash
+azd ai agent run
+```
+
+The agent host will start on `http://localhost:8088`.
+
+### Invoke the local agent
+
+In a separate terminal, send a browser-automation request:
+
+```bash
+azd ai agent invoke --local --new-session "Open https://example.com and report the page title."
+```
+
+Or use curl directly:
 
 ```bash
 curl -X POST http://localhost:8088/responses \
@@ -124,23 +174,7 @@ curl -X POST http://localhost:8088/responses \
   -d '{"input": "Open https://example.com and report the page title."}'
 ```
 
-Or in PowerShell:
-
-```powershell
-(Invoke-WebRequest `
-  -Uri http://localhost:8088/responses `
-  -Method POST `
-  -ContentType "application/json" `
-  -Body '{"input": "Open https://example.com and report the page title."}').Content
-```
-
-With `azd`:
-
-```bash
-azd ai agent invoke --local --new-session "Open https://example.com and report the page title."
-```
-
-The server returns a response ID that you can use to continue the same conversation and reuse the browser session in later requests:
+The server returns a response ID you can use to continue the same conversation and reuse the browser session in later requests:
 
 ```bash
 curl -X POST http://localhost:8088/responses \
@@ -148,57 +182,65 @@ curl -X POST http://localhost:8088/responses \
   -d '{"input": "Now take a screenshot of the page.", "previous_response_id": "REPLACE_WITH_PREVIOUS_RESPONSE_ID"}'
 ```
 
-### Test in Agent Inspector
+### Deploy to Foundry
 
-Once the agent is running locally, open **Agent Inspector** in VS Code (Command Palette: **Foundry Toolkit: Open Agent Inspector**) to interactively send messages and view responses.
-
-Type the following message in Inspector:
-
-```text
-Open https://example.com and report the page title.
-```
-
-## Deploying the Agent to Foundry
-
-To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
-
-Choose one toolbox setup path:
-
-### Option 1: Let this sample provision the toolbox
-
-Use this path if you want `azd provision` to create the Foundry project connection to your Azure Playwright workspace and the default `browser-automation-tools` toolbox.
-
-Set the Playwright workspace values in your `azd` environment:
-
-```bash
-azd env set PLAYWRIGHT_SERVICE_URL "wss://<region>.api.playwright.microsoft.com/playwrightworkspaces/<workspace-id>/browsers"
-azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.LoadTestService/playwrightWorkspaces/<workspace-name>"
-azd env set PLAYWRIGHT_SERVICE_ACCESS_TOKEN "<playwright-workspace-access-token>"
-```
-
-If these are not set, running `azd ai agent init -m <azure.yaml>` will prompt you to enter them interactively.
-
-Run `azd provision` before `azd deploy`:
-
-```bash
-azd provision
-```
-
-### Option 2: Use an existing toolbox
-
-Use this path if your Foundry project already has a compatible toolbox. You can skip `azd provision` and set only the runtime toolbox name used by the deployed hosted agent. The toolbox must include the `browser_automation_preview` tool and its Playwright workspace connection.
-
-```bash
-azd env set TOOLBOX_NAME "<your-toolbox-name>"
-```
-
-You do not need to set `TOOLBOX_NAME` when using the default sample-provisioned toolbox name, `browser-automation-tools`.
-
-Then deploy the hosted agent:
+Once the toolbox is set up (see [Provision Azure resources](#provision-azure-resources-if-needed) above), deploy to Microsoft Foundry:
 
 ```bash
 azd deploy
 ```
+
+For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
+
+### Invoke the deployed agent
+
+```bash
+azd ai agent invoke --new-session "Open https://example.com and report the page title."
+```
+
+## Option 2: VS Code (Foundry Toolkit)
+
+### Prerequisites
+
+1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
+2. [C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension.
+3. Command Palette (`Ctrl+Shift+P`) → **C#: Check Workspace Requirements** to confirm the toolchain is ready.
+
+### Run and debug the agent
+
+The agent shells out to the Playwright CLI, so install it once before running:
+
+```bash
+npm install -g @playwright/cli@latest
+playwright-cli install --skills
+```
+
+Then press **F5** to start the agent. The agent starts and the **Agent Inspector** opens automatically. Chat with the agent in the Inspector.
+
+### Or run manually, then open the Inspector
+
+1. Set the runtime environment variables (see [Configuration](#configuration)) and sign in to Azure with the Azure CLI (`az login`).
+2. Install dependencies and start the agent:
+
+   ```bash
+   dotnet restore browser-automation.csproj
+   npm install -g @playwright/cli@latest
+   playwright-cli install --skills
+   dotnet run --project browser-automation.csproj
+   ```
+
+   The agent listens on `http://localhost:8088`.
+3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
+
+### Deploy to Foundry
+
+Complete the toolbox setup in [Provision Azure resources](#provision-azure-resources-if-needed), then:
+
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+2. If prompted, complete **Foundry Project Setup** to select subscription and project.
+3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
+4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
+5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
 ## Customize the sample
 
