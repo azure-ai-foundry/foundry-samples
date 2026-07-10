@@ -1,6 +1,7 @@
 param aiFoundryName string = 'foundry-name'
 param aiProjectName string = '${aiFoundryName}-proj'
 param location string = 'eastus2'
+param appInsightsName string = 'appi-${aiFoundryName}'
 
 /*
   An AI Foundry resources is a variant of a CognitiveServices/account resource type
@@ -78,3 +79,53 @@ resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-
 //     }
 //   }
 // }
+
+/*
+  A Log Analytics workspace backing Application Insights (workspace-based Application Insights is recommended).
+*/
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: 'law-${aiFoundryName}'
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+  }
+}
+
+/*
+  Application Insights enables Tracing in AI Foundry so you can monitor and debug agent runs,
+  evaluations, and other AI workloads end-to-end.
+*/
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: appInsightsName
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logAnalyticsWorkspace.id
+  }
+}
+
+/*
+  Connect Application Insights to the AI Foundry account so all projects can use it for tracing.
+  The connection string is shared with AI Foundry so it can route telemetry to this resource.
+*/
+resource appInsightsConnection 'Microsoft.CognitiveServices/accounts/connections@2025-06-01' = {
+  name: '${aiFoundryName}-appinsights'
+  parent: aiFoundry
+  properties: {
+    category: 'AppInsights'
+    target: appInsights.id
+    authType: 'ApiKey'
+    isSharedToAll: true
+    credentials: {
+      key: appInsights.properties.ConnectionString
+    }
+    metadata: {
+      ApiType: 'Azure'
+      ResourceId: appInsights.id
+    }
+  }
+}

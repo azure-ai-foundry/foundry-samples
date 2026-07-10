@@ -81,6 +81,8 @@ var projectName = toLower('${firstProjectName}${uniqueSuffix}')
 var cosmosDBName = toLower('${uniqueSuffix}cosmosdb')
 var aiSearchName = toLower('${uniqueSuffix}search')
 var azureStorageName = toLower('${uniqueSuffix}storage')
+var appInsightsName = toLower('${uniqueSuffix}appi')
+var logAnalyticsWorkspaceName = toLower('${uniqueSuffix}law')
 
 // Check if existing resources have been passed in
 var storagePassedIn = azureStorageAccountResourceId != ''
@@ -271,4 +273,18 @@ module cosmosContainerRoleAssignments 'modules-standard/cosmos-container-role-as
 dependsOn: [
   addProjectCapabilityHost, storageContainersRoleAssignment
   ]
+}
+
+/*
+  Creates Application Insights and connects it to the AI Foundry account so that Tracing
+  is available in all projects without any additional configuration.
+*/
+module applicationInsights 'modules-standard/application-insights.bicep' = {
+  name: 'app-insights-${uniqueSuffix}-deployment'
+  params: {
+    location: location
+    appInsightsName: appInsightsName
+    logAnalyticsWorkspaceName: logAnalyticsWorkspaceName
+    accountName: aiAccount.outputs.accountName
+  }
 }

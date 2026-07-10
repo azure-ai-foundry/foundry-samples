@@ -9,7 +9,7 @@ param aiFoundryName string = '<your-foundry-name>'
 param connectedResourceName string = 'appi${aiFoundryName}'
 param location string = 'westus'
 
-// Whether to create a new Azure AI Search resource
+// Whether to create a new Application Insights resource
 @allowed([
   'new'
   'existing'
@@ -22,18 +22,31 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' exi
   scope: resourceGroup()
 }
 
-// Conditionally refers your existing Azure AI Search resource
+// Log Analytics workspace backing the new Application Insights instance (workspace-based)
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = if (newOrExisting == 'new') {
+  name: 'law-${connectedResourceName}'
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+  }
+}
+
+// Conditionally refers your existing Application Insights resource
 resource existingAppInsights 'Microsoft.Insights/components@2020-02-02' existing = if (newOrExisting == 'existing') {
   name: connectedResourceName
 }
 
-// Conditionally creates a new Azure AI Search resource
+// Conditionally creates a new Application Insights resource (workspace-based)
 resource newAppInsights 'Microsoft.Insights/components@2020-02-02' = if (newOrExisting == 'new') {
   name: connectedResourceName
   location: location
   kind: 'web'
   properties: {
     Application_Type: 'web'
+    WorkspaceResourceId: logAnalyticsWorkspace.id
   }
 }
 
