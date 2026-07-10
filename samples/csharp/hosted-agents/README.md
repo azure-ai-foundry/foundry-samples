@@ -252,7 +252,7 @@ Or, if you've already cloned this repository:
 ## Repo structure
 
 ```
-samples/dotnet/hosted-agents/
+samples/csharp/hosted-agents/
 ├── agent-framework/
 │   ├── hello-world/                   ← Start here (Agent Framework)
 │   ├── simple-agent/
