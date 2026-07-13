@@ -39,8 +39,12 @@
 using Azure.AI.AgentServer.Core;
 using Azure.AI.Projects;
 using Azure.Identity;
+using DotNetEnv;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Foundry.Hosting;
+
+// Load environment variables from a .env file if present (for local development).
+Env.NoClobber().TraversePath().Load();
 
 if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
 {

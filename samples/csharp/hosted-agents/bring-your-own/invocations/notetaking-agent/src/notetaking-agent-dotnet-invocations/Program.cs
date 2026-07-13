@@ -5,9 +5,13 @@ using Azure.AI.AgentServer.Invocations;
 using Azure.AI.Extensions.OpenAI;
 using Azure.AI.Projects;
 using Azure.Identity;
+using DotNetEnv;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using OpenAI.Responses;
+
+// Load environment variables from a .env file if present (for local development).
+Env.NoClobber().TraversePath().Load();
 
 if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
     Console.Error.WriteLine(

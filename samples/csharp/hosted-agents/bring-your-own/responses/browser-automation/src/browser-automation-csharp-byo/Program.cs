@@ -20,6 +20,7 @@ using Azure.AI.AgentServer.Responses.Models;
 using Azure.AI.Extensions.OpenAI;
 using Azure.AI.Projects;
 using Azure.Identity;
+using DotNetEnv;
 using Microsoft.Extensions.DependencyInjection;
 using OpenAI.Responses;
 
@@ -29,6 +30,9 @@ public class Program
 {
     public static void Main(string[] args)
     {
+        // Load environment variables from a .env file if present (for local development).
+        Env.NoClobber().TraversePath().Load();
+
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
             Console.Error.WriteLine(
                 "[WARNING] APPLICATIONINSIGHTS_CONNECTION_STRING not set — traces will not be sent " +

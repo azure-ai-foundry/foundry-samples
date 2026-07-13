@@ -32,8 +32,12 @@ using Azure.AI.AgentServer.Responses.Models;
 using Azure.AI.Extensions.OpenAI;
 using Azure.AI.Projects;
 using Azure.Identity;
+using DotNetEnv;
 using Microsoft.Extensions.Logging;
 using OpenAI.Responses;
+
+// Load environment variables from a .env file if present (for local development).
+Env.NoClobber().TraversePath().Load();
 
 // One-liner startup — wires up Kestrel on port 8088, OpenTelemetry, health probes,
 // and the Responses API endpoints. Telemetry is configured automatically:

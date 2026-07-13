@@ -165,18 +165,13 @@ what is TARGET? it is the target of an ApiKey connection.
 
 ### Or run manually, then open the Inspector
 
-1. Sign in to Azure with the Azure CLI (`az login`), build, and set test env values:
+1. Sign in to Azure with the Azure CLI (`az login`) and build:
 
    ```bash
    dotnet build
-   cp .env.example .env  # then edit values — fill in any test values you like (skip if .env already exists)
-   export FOUNDRY_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
-   export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
-   export SECRET_API_KEY="ab12-fake-test-key"
-   export TARGET="https://api.example.com"
-   export SECRET_KEY="p@ssw0rd-test-value"
-   export NON_SECRET_KEY="westus2"
    ```
+
+   Copy `.env.example` to `.env` and fill in any test values you like (the agent loads `.env` automatically on startup).
 
 2. Start the agent: `dotnet run` (listens on `http://localhost:8088`).
 3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.

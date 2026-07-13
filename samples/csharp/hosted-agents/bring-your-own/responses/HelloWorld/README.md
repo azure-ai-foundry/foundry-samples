@@ -147,12 +147,7 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
    dotnet restore
    ```
 
-2. Set the required environment variables (see [Environment variables](#environment-variables)):
-
-   ```bash
-   export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-   export AZURE_AI_MODEL_DEPLOYMENT_NAME="<your-model-deployment-name>"
-   ```
+2. Configure the agent: copy `.env.example` to `.env` and fill in the values (see [Environment variables](#environment-variables)). The agent loads `.env` automatically on startup.
 
 3. Sign in to Azure with the Azure CLI:
 

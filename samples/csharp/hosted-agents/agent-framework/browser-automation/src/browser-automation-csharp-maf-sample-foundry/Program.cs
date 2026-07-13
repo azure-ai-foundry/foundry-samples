@@ -28,7 +28,7 @@ using Microsoft.Agents.AI.Foundry.Hosting;
 using Microsoft.Extensions.AI;
 using BrowserAutomation;
 
-Env.TraversePath().Load();
+Env.NoClobber().TraversePath().Load();
 
 // ── Configuration ────────────────────────────────────────────────────────────
 var projectEndpoint = new Uri(Environment.GetEnvironmentVariable("FOUNDRY_PROJECT_ENDPOINT")
