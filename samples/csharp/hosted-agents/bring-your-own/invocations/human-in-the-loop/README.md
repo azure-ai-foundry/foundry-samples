@@ -171,12 +171,7 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
    dotnet restore
    ```
 
-2. Set the required environment variables:
-
-   ```bash
-   export FOUNDRY_PROJECT_ENDPOINT="https://your-resource.openai.azure.com/api/projects/proj"
-   export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4-mini"
-   ```
+2. Configure the agent: copy `.env.example` to `.env` and fill in the values. The agent loads `.env` automatically on startup.
 
 3. Sign in to Azure with the Azure CLI:
 

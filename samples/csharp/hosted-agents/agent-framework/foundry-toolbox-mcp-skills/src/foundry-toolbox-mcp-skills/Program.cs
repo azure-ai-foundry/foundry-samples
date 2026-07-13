@@ -35,7 +35,7 @@ using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
 
 // Load .env file if present (for local development).
-Env.TraversePath().Load();
+Env.NoClobber().TraversePath().Load();
 
 string projectEndpoint = Environment.GetEnvironmentVariable("FOUNDRY_PROJECT_ENDPOINT")
     ?? throw new InvalidOperationException("FOUNDRY_PROJECT_ENDPOINT environment variable is not set.");

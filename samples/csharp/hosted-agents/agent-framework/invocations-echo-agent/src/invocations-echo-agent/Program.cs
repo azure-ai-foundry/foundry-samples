@@ -2,8 +2,12 @@
 
 using Azure.AI.AgentServer.Core;
 using Azure.AI.AgentServer.Invocations;
+using DotNetEnv;
 using InvocationsEchoAgent;
 using Microsoft.Agents.AI;
+
+// Load environment variables from a .env file if present (for local development).
+Env.NoClobber().TraversePath().Load();
 
 var builder = AgentHost.CreateBuilder(args);
 

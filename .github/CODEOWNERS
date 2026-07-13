@@ -65,7 +65,6 @@
 /samples/typescript/quickstart/chat-with-agent/src/quickstart-chat-with-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/create-agent/src/quickstart-create-agent.ts @microsoft-foundry/AI-Platform-Docs
 /samples/typescript/quickstart/responses/src/quickstart-responses.ts @microsoft-foundry/AI-Platform-Docs
-/samples/typescript/quickstart/agent-service/src/quickstart.ts @microsoft-foundry/AI-Platform-Docs
 
 #### Additional ownership entries (added via issue triage) ##############################################
 # Routing for sample paths that were uncovered during issue triage.

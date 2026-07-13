@@ -60,9 +60,13 @@ using Azure.AI.AgentServer.Invocations;
 using Azure.AI.VoiceLive;
 using Azure.Core;
 using Azure.Identity;
+using DotNetEnv;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
+// Load environment variables from a .env file if present (for local development).
+Env.NoClobber().TraversePath().Load();
 
 InvocationsServer.Run<VoiceLiveHandler>(configure: builder =>
 {
