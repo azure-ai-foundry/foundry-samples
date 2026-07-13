@@ -75,7 +75,7 @@ def resolve() -> tuple[str, str, dict[str, str]]:
     """Return ``(upstream_url, session_id, headers)``.
 
     Local mode: ``(LOCAL_URL value, "", {})`` — no auth.
-    Foundry mode: ``(public_url, generated_sid, {Authorization, Foundry-Features})``.
+    Foundry mode: ``(public_url, generated_sid, {Authorization})``.
     """
     local = os.environ.get(LOCAL_ENV, "").strip()
     if local:
@@ -95,5 +95,4 @@ def resolve() -> tuple[str, str, dict[str, str]]:
     logger.info("foundry mode session_id=%s", sid)
     return url, sid, {
         "Authorization": f"Bearer {token}",
-        "Foundry-Features": "HostedAgents=V1Preview",
     }

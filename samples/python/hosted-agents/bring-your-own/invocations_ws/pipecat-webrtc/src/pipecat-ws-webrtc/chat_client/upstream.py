@@ -91,5 +91,4 @@ def resolve() -> tuple[str, str, dict[str, str]]:
     logger.info("foundry mode session_id=%s", sid)
     return url, sid, {
         "Authorization": f"Bearer {token}",
-        "Foundry-Features": "HostedAgents=V1Preview",
     }

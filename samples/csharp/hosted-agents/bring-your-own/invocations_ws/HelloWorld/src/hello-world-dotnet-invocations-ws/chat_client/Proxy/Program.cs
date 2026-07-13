@@ -9,7 +9,7 @@
  *   • serves the static page (chat_client/index.html) on /  and /index.html;
  *   • upgrades inbound /invocations_ws to a WebSocket;
  *   • opens an outbound WebSocket to the Foundry hosted agent endpoint
- *     with Authorization: Bearer <Entra token> + Foundry-Features headers;
+ *     with Authorization: Bearer <Entra token> header;
  *   • forwards binary and text frames in both directions verbatim.
  *
  * Run:
@@ -108,7 +108,6 @@ app.Map("/invocations_ws", async (HttpContext ctx, ILoggerFactory loggerFactory)
 
     using var upstream = new ClientWebSocket();
     upstream.Options.SetRequestHeader("Authorization", $"Bearer {token}");
-    upstream.Options.SetRequestHeader("Foundry-Features", "HostedAgents=V1Preview");
     try
     {
         await upstream.ConnectAsync(new Uri(foundryWsUrl), ctx.RequestAborted);

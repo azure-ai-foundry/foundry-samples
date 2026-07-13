@@ -181,7 +181,6 @@ def main() -> int:
         token = _entra_token()
         headers = {
             "Authorization": f"Bearer {token}",
-            "Foundry-Features": "HostedAgents=V1Preview",
         }
     else:
         url = args.url or "ws://localhost:8088/invocations_ws"
