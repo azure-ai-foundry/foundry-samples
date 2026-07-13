@@ -76,7 +76,6 @@ if (!string.IsNullOrEmpty(foundryEndpoint))
     targetUrl = url ?? BuildFoundryUrl(foundryEndpoint.TrimEnd('/'), agent, sessionId, apiVersion);
     var token = await GetEntraTokenAsync();
     headers["Authorization"] = $"Bearer {token}";
-    headers["Foundry-Features"] = "HostedAgents=V1Preview";
 }
 else
 {

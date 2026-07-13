@@ -18,7 +18,7 @@ The proxy:
   `PIPECAT_WEBRTC_AGENT_NAME` (Foundry-hosted mode).
 - In Foundry mode, fetches an Entra Bearer token via
   `az account get-access-token --resource https://ai.azure.com` and
-  attaches it + the `Foundry-Features: HostedAgents=V1Preview` header.
+  attaches it as the `Authorization` header.
 - Forwards signaling JSON verbatim in both directions.
 
 ## Install

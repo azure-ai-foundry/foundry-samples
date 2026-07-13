@@ -138,7 +138,6 @@ async def _warmup_session(args, session_id: str) -> None:
         return
     headers = {
         "Authorization": f"Bearer {token}",
-        "Foundry-Features": "HostedAgents=V1Preview",
     }
     print(f"[proxy] warming up sandbox session={session_id}")
     try:
@@ -165,7 +164,6 @@ def _make_handler(args, session_id: str):
             return
         headers = {
             "Authorization": f"Bearer {token}",
-            "Foundry-Features": "HostedAgents=V1Preview",
         }
         print(f"[proxy] {peer} -> {url}")
         try:

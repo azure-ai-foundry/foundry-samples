@@ -19,7 +19,7 @@ A real-time voice agent hosted as a **Bring Your Own** WebSocket container that 
 
 Why a single `/invocations_ws` endpoint? This sample lives under the `bring-your-own/invocations_ws/` tree, where the Foundry contract is "one duplex WebSocket called `invocations_ws`". We keep that surface here but use the WebSocket purely for **WebRTC signaling** (offer / answer / ICE candidates / ICE config). Audio still flows over the WebRTC peer connection and never touches the signaling WebSocket.
 
-The browser client lives in [`chat_client/`](chat_client/) — a small FastAPI portal that terminates the browser's WebSocket, attaches the Entra token + `Foundry-Features` header in hosted mode, and forwards signaling JSON to the upstream `/invocations_ws`. The same proxy works against either a local server or the Foundry-hosted agent.
+The browser client lives in [`chat_client/`](chat_client/) — a small FastAPI portal that terminates the browser's WebSocket, attaches the Entra token as the `Authorization` header in hosted mode, and forwards signaling JSON to the upstream `/invocations_ws`. The same proxy works against either a local server or the Foundry-hosted agent.
 
 ## ⚠️ Security Warning
 
