@@ -209,10 +209,22 @@ module vnet 'modules/vnet-with-backend-subnet.bicep' = {
 
 // Add the apim-outbound subnet alongside the others. Separate resource to
 // avoid racing the vnet module on subnet collection writes.
+
+// APIM StandardV2 VNet integration REQUIRES the delegated subnet to have an
+// NSG associated. Minimal NSG (default rules) is sufficient for the SV2
+// outbound-integration scenario; the SV2 platform brokers APIM's traffic.
+resource apimNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: 'nsg-${apimOutboundSubnetName}-${uniqueSuffix}'
+  location: location
+}
+
 resource apimOutboundSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
   name: '${vnetName}/${apimOutboundSubnetName}'
   properties: {
     addressPrefix: apimOutboundSubnetPrefix
+    networkSecurityGroup: {
+      id: apimNsg.id
+    }
     // defaultOutboundAccess: false closes the implicit egress path Azure
     // assigns to subnets that lack explicit outbound (NAT GW / LB).
     // APIM's outbound traffic is brokered by the SV2 platform, so the
