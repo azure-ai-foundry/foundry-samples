@@ -23,7 +23,7 @@ browser-automation/
 ├── README.md
 ├── azure.yaml               # Unified manifest — project, model, and agent (name, protocols, resources, env vars)
 └── src/
-    └── browser-automation-agent-sample-foundry/
+    └── browser-automation-python-byo-sample-foundry/
         ├── main.py            # Responses handler, session management, agentic tool loop
         ├── requirements.txt   # Python dependencies
         ├── Dockerfile         # Container build
@@ -66,7 +66,8 @@ User → Responses Protocol → Handler (main.py)
 ## Prerequisites
 
 - An Azure AI Foundry project with a deployed chat model (e.g., `gpt-4.1`).
-- A Foundry Toolbox with the `browser_automation_preview ` tool configured (backed by an Azure Playwright workspace).
+- An Azure Playwright workspace. If you do not have a workspace, follow [Create a workspace](https://learn.microsoft.com/azure/app-testing/playwright-workspaces/quickstart-run-end-to-end-tests?tabs=playwrightcli&pivots=playwright-test-runner#create-a-workspace).
+- The Foundry project's managed identity must have the **Playwright Workspace Contributor** role on the Azure Playwright workspace (see [RBAC setup](#rbac-setup) below).
 - Azure CLI installed and authenticated (`az login`).
 - Python 3.12+ for local development.
 
@@ -151,7 +152,6 @@ azd ai agent init -m ./browser-automation/azure.yaml
 # Set Playwright workspace connection values
 azd env set PLAYWRIGHT_SERVICE_URL "wss://<region>.api.playwright.microsoft.com/playwrightworkspaces/<workspace-id>/browsers"
 azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.LoadTestService/playwrightWorkspaces/<workspace-name>"
-azd env set PLAYWRIGHT_SERVICE_ACCESS_TOKEN "<playwright-workspace-access-token>"
 
 # Deploy
 azd deploy
@@ -167,7 +167,28 @@ azd deploy
 >
 > The `cd ..` step above (or using a fresh, empty directory with the remote manifest URL) avoids this.
 
-`PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is used as a secret parameter for the Playwright workspace project connection.
+**RBAC setup:** Before deploying, assign the project's managed identity the required roles on the Playwright workspace (see [RBAC setup](#rbac-setup) below).
+
+## RBAC Setup
+
+The Playwright workspace connection uses **Project Managed Identity** authentication. The Foundry project's managed identity must have the following role on the Azure Playwright workspace:
+
+| Role | Purpose |
+| --- | --- |
+| **Playwright Workspace Contributor** | Grants access to create and manage browser sessions |
+
+Assign the role using the Azure CLI:
+
+```bash
+# Get your project's managed identity principal ID from the Foundry portal or Azure CLI
+PRINCIPAL_ID="<project-managed-identity-object-id>"
+PWW_RESOURCE_ID="/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.LoadTestService/playwrightWorkspaces/<workspace-name>"
+
+az role assignment create --assignee "$PRINCIPAL_ID" --role "Playwright Workspace Contributor" --scope "$PWW_RESOURCE_ID"
+```
+
+> [!NOTE]
+> Role assignments may take a few minutes to propagate. If you see 401 errors immediately after assigning roles, wait 5–10 minutes and retry.
 
 ## Tools Available to the Model
 

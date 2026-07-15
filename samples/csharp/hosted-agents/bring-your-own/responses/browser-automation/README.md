@@ -36,7 +36,7 @@ The agent is hosted using the [Agent Framework](https://github.com/microsoft/age
 
 The agent reads a single base prompt from `prompts/base.md`. That prompt contains the browser lifecycle, safety, web extraction, and form-filling guidance used at runtime.
 
-See [Program.cs](src/browser-automation-csharp-maf-sample-foundry/Program.cs) for the full implementation.
+See [Program.cs](src/browser-automation-csharp-byo-sample-foundry/Program.cs) for the full implementation.
 
 ## Repository layout
 

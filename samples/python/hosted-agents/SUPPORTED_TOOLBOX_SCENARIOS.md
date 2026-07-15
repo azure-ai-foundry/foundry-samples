@@ -686,10 +686,8 @@ resources:
   - kind: connection
     name: browserautomation
     category: PlaywrightWorkspace
-    authType: ApiKey
+    authType: ProjectManagedIdentity
     target: "{{ playwright_service_url }}"
-    credentials:
-      key: "{{ playwright_service_access_token }}"
     metadata:
       resourceId: "{{ playwright_service_resource_id }}"
   - kind: toolbox

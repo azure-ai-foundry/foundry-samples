@@ -51,14 +51,10 @@ if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FOUNDRY_AGENT_TOOLS
     Environment.SetEnvironmentVariable("FOUNDRY_AGENT_TOOLSET_ENDPOINT", toolsetEndpoint);
 }
 
-// ── Skills provider ──────────────────────────────────────────────────────────
+// ── Skills directory ─────────────────────────────────────────────────────────
 var skillsDir = Path.Combine(AppContext.BaseDirectory, "skills");
 if (!Directory.Exists(skillsDir))
     skillsDir = Path.Combine(Directory.GetCurrentDirectory(), "skills");
-
-#pragma warning disable MAAI001 // AgentSkillsProvider is experimental
-var skillsProvider = new AgentSkillsProvider(skillsDir);
-#pragma warning restore MAAI001
 
 // ── System prompt (loaded from prompts/base.md) ──────────────────────────────
 var promptsDir = Path.Combine(AppContext.BaseDirectory, "prompts");
@@ -73,6 +69,13 @@ List<AITool> localTools =
     Tools.MakeCloseBrowserSession(playwrightCliTimeout),
     Tools.MakeGetLiveViewUrl(),
 ];
+
+// ── Skills provider (progressive disclosure, no approval gate) ───────────────
+var skillsProvider = new AgentSkillsProvider(skillsDir, options: new AgentSkillsProviderOptions
+{
+    DisableLoadSkillApproval = true,
+    DisableRunSkillScriptApproval = true,
+});
 
 // ── Create agent ─────────────────────────────────────────────────────────────
 // Toolbox MCP tools (create_session etc.) are injected automatically by
@@ -105,12 +108,12 @@ var agent = baseAgent
 var builder = AgentHost.CreateBuilder(args);
 builder.Services.AddFoundryResponses(agent);
 
-// Register a credential that forces https://ai.azure.com/.default scope for toolbox auth.
+// Pass a credential that forces https://ai.azure.com/.default scope for toolbox auth.
 // The framework's FoundryToolboxBearerTokenHandler uses cognitiveservices.azure.com which
 // some regions reject. This wrapper overrides the scope while using DefaultAzureCredential.
-builder.Services.AddSingleton<TokenCredential>(new ToolboxScopedCredential(new DefaultAzureCredential()));
+var toolboxCredential = new ToolboxScopedCredential(new DefaultAzureCredential());
 
-builder.Services.AddFoundryToolboxes(opt => opt.ApiVersion = "v1", toolboxName);
+builder.Services.AddFoundryToolboxes(toolboxCredential, opt => opt.ApiVersion = "v1", toolboxName);
 builder.RegisterProtocol("responses", endpoints => endpoints.MapFoundryResponses());
 
 var app = builder.Build();

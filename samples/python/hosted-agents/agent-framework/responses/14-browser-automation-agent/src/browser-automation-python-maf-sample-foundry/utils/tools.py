@@ -108,6 +108,7 @@ def make_run_playwright_cli(settings: AgentSettings):
         description=(
             "Run playwright-cli with a named session and return stdout, stderr, and exit code."
         ),
+        approval_mode="never_require",
     )
     async def run_playwright_cli(
         sessionId: Annotated[
@@ -265,6 +266,7 @@ def make_toolbox_mcp_tool(
         load_prompts=False,
         parse_tool_results=parse_toolbox_result,
         description="Creates Microsoft Playwright Workspaces remote browser sessions.",
+        approval_mode="never_require",
     )
 
 
@@ -274,6 +276,7 @@ def make_close_browser_session(settings: AgentSettings):
         description=(
             "Close a browser automation session. Detaches playwright-cli and closes the remote browser."
         ),
+        approval_mode="never_require",
     )
     async def close_browser_session(
         sessionId: Annotated[
@@ -330,6 +333,7 @@ def make_get_live_view_url():
             "The URL is delivered directly to the user via the tool output. "
             "Do NOT repeat or retype the URL in your text response."
         ),
+        approval_mode="never_require",
     )
     async def get_live_view_url() -> str:
         if _live_view_url:
@@ -338,3 +342,5 @@ def make_get_live_view_url():
         return "No live view URL available for this session."
 
     return get_live_view_url
+
+

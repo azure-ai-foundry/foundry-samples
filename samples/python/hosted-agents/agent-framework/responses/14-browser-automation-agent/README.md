@@ -32,7 +32,7 @@ The agent is hosted using the [Agent Framework](https://github.com/microsoft/age
 
 The agent reads a single base prompt from `prompts/base.md`. That prompt contains the browser lifecycle, safety, web extraction, and form-filling guidance used at runtime.
 
-See [main.py](src/browser_automation_agent_sample_foundry/main.py) for the full implementation and [docs/sample-structure.md](docs/sample-structure.md) for the design rationale.
+See [main.py](src/browser-automation-python-maf-sample-foundry/main.py) for the full implementation and [docs/sample-structure.md](docs/sample-structure.md) for the design rationale.
 
 ## Repository layout
 
@@ -48,7 +48,8 @@ See [main.py](src/browser_automation_agent_sample_foundry/main.py) for the full 
 ## Prerequisites
 
 - An Azure AI Foundry project with a deployed chat model (e.g., `gpt-4.1`).
-- An Azure Playwright workspace and access token. If you do not have a workspace, follow [Create a workspace](https://learn.microsoft.com/azure/app-testing/playwright-workspaces/quickstart-run-end-to-end-tests?tabs=playwrightcli&pivots=playwright-test-runner#create-a-workspace).
+- An Azure Playwright workspace. If you do not have a workspace, follow [Create a workspace](https://learn.microsoft.com/azure/app-testing/playwright-workspaces/quickstart-run-end-to-end-tests?tabs=playwrightcli&pivots=playwright-test-runner#create-a-workspace).
+- The Foundry project's managed identity must have the **Playwright Workspace Contributor** role on the Azure Playwright workspace (see [RBAC setup](#rbac-setup) below).
 - Azure CLI installed and authenticated (`az login`).
 - Docker, if you want to build the container locally.
 - Python 3.11 or later and `uv` (or `pip`) for local development.
@@ -90,7 +91,7 @@ The Toolbox endpoint is resolved as `<FOUNDRY_PROJECT_ENDPOINT>/toolboxes/<TOOLB
 
 ### Provisioning parameters
 
-`PLAYWRIGHT_SERVICE_URL`, `PLAYWRIGHT_SERVICE_RESOURCE_ID`, and `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` are not read by the Python agent at runtime. They are `azd` provisioning inputs used by [`azure.yaml`](azure.yaml) to create a `PlaywrightWorkspace` project connection with API key authentication and the default `browser-automation-tools` toolbox wired to that connection. `PLAYWRIGHT_SERVICE_ACCESS_TOKEN` is marked as a secret parameter in the manifest.
+`PLAYWRIGHT_SERVICE_URL` and `PLAYWRIGHT_SERVICE_RESOURCE_ID` are not read by the Python agent at runtime. They are `azd` provisioning inputs used by [`azure.yaml`](azure.yaml) to create a `PlaywrightWorkspace` project connection with **ProjectManagedIdentity** authentication and the default `browser-automation-tools` toolbox wired to that connection.
 
 Set these values with `azd env set` before running `azd provision`. `azd` stores them in `.azure/<environment-name>/.env`; the sample's root `.env` file is only for local Python execution.
 
@@ -189,7 +190,7 @@ Open https://example.com and report the page title.
 
 To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
 
-When running `azd ai agent init -m ./14-browser-automation-agent/azure.yaml` from the parent directory (one level above this sample folder), you can customize the hosted agent name with the `AGENT_NAME` parameter. Leave it blank to use the default name, `browser-automation-agent-sample-foundry`.
+When running `azd ai agent init -m ./14-browser-automation-agent/azure.yaml` from the parent directory (one level above this sample folder), you can customize the hosted agent name with the `AGENT_NAME` parameter. Leave it blank to use the default name, `browser-automation-python-maf-sample-foundry`.
 
 > [!IMPORTANT]
 > Run `azd ai agent init` from a directory **outside** this sample folder — either a new empty directory, or one level up from this sample (i.e. `samples/python/hosted-agents/agent-framework/responses/`). Do **not** run it from inside `14-browser-automation-agent/` itself. Because the sample folder already contains `azure.yaml`, initializing in place fails with:
@@ -214,7 +215,6 @@ Set the Playwright workspace values in your `azd` environment:
 ```bash
 azd env set PLAYWRIGHT_SERVICE_URL "wss://<region>.api.playwright.microsoft.com/playwrightworkspaces/<workspace-id>/browsers"
 azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.LoadTestService/playwrightWorkspaces/<workspace-name>"
-azd env set PLAYWRIGHT_SERVICE_ACCESS_TOKEN "<playwright-workspace-access-token>"
 ```
 
 If these are not set, running `azd ai agent init -m <azure.yaml>` will prompt you to enter them interactively.
@@ -243,7 +243,7 @@ You do not need to set `TOOLBOX_NAME` when using the default sample-provisioned 
 
 The deployed hosted agent identity needs Foundry access at runtime to call the model and authenticate against the Toolbox MCP endpoint. The deployment tooling handles standard hosted-agent RBAC assignments when your account has sufficient permissions.
 
-For option 1, the Playwright workspace connection uses the access token you provide in `PLAYWRIGHT_SERVICE_ACCESS_TOKEN`; no separate Playwright workspace RBAC assignment is required for that connection. For option 2, make sure the existing toolbox's Playwright workspace connection already has valid authentication configured.
+For option 1, the Playwright workspace connection uses **ProjectManagedIdentity** authentication — the project's managed identity must have the **Playwright Workspace Contributor** role on the workspace (see [RBAC setup](#rbac-setup)). For option 2, make sure the existing toolbox's Playwright workspace connection already has valid authentication configured.
 
 Then deploy the hosted agent:
 
@@ -251,11 +251,29 @@ Then deploy the hosted agent:
 azd deploy
 ```
 
+## RBAC setup
+
+The Foundry project's managed identity must have the following role on the Azure Playwright workspace:
+
+| Role | Purpose |
+| --- | --- |
+| **Playwright Workspace Contributor** | Grants access to create and manage browser sessions |
+
+Assign the role using the Azure CLI:
+
+```bash
+# Get your project's managed identity principal ID from the Foundry portal or Azure CLI
+PRINCIPAL_ID="<project-managed-identity-object-id>"
+PWW_RESOURCE_ID="/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.LoadTestService/playwrightWorkspaces/<workspace-name>"
+
+az role assignment create --assignee "$PRINCIPAL_ID" --role "Playwright Workspace Contributor" --scope "$PWW_RESOURCE_ID"
+```
+
 ## Customize the sample
 
 - Change prompt behavior in `prompts/base.md`.
 - Add deeper procedural knowledge as skills under `skills/`.
-- Add new tools in `src/browser_automation_agent_sample_foundry/tools.py`.
+- Add new tools in `src/browser-automation-python-maf-sample-foundry/tools.py`.
 
 See [docs/sample-structure.md](docs/sample-structure.md) for the design rationale.
 

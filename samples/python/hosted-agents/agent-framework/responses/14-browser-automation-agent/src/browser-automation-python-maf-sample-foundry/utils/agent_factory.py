@@ -144,16 +144,22 @@ def build_agent(settings: AgentSettings) -> tuple[Agent, MCPStreamableHTTPTool]:
         credential=credential,
     )
 
-    skills_provider = SkillsProvider.from_paths(skill_paths())
     toolbox_mcp_tool = make_toolbox_mcp_tool(settings, default_credential)
     run_playwright_cli = make_run_playwright_cli(settings)
     close_browser_session = make_close_browser_session(settings)
     get_live_view_url = make_get_live_view_url()
+
+    skills_provider = SkillsProvider.from_paths(
+        skill_paths=skill_paths(),
+        disable_load_skill_approval=True,
+        disable_run_skill_script_approval=True,
+    )
+
     instructions = (prompts_root() / "base.md").read_text(encoding="utf-8").strip()
 
     agent = Agent(
         client=client,
-        name="browser-automation-agent-sample-foundry",
+        name="browser-automation-python-maf-sample-foundry",
         instructions=instructions,
         tools=[
             run_playwright_cli,
