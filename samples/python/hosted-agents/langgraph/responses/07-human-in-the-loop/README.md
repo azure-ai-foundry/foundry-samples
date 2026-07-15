@@ -199,3 +199,36 @@ When the agent pauses with an approval request, the Inspector renders an interac
 3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
 4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
+
+## Troubleshooting
+
+### Azure OpenAI Permission Denied (401)
+
+If you see an error like:
+
+```
+Error calling Azure OpenAI: Error code: 401 - {'error': {'code': 'PermissionDenied', 'message': 'The principal <principal-id> lacks the required data action Microsoft.CognitiveServices/accounts/OpenAI/deployments/chat/completions/action to perform POST /openai/deployments/{deployment-id}/chat/completions operation.'}}
+```
+
+This sample uses its own LangChain (`ChatOpenAI`) client to call the project's Chat Completions endpoint directly, so the agent's managed identity needs the **Foundry User** role on the project — an ["Agent access beyond defaults"](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agent-permissions#agent-access-beyond-defaults) case:
+
+- **Foundry User**
+
+Use the Azure CLI to assign it:
+
+```bash
+# Set your variables
+SUBSCRIPTION_ID="<your-subscription-id>"
+RESOURCE_GROUP="<your-resource-group>"
+ACCOUNT_NAME="<your-ai-foundry-account-name>"
+PROJECT_NAME="<your-ai-foundry-project-name>"
+PRINCIPAL_ID="<principal-id-from-error-message>"
+
+# Assign "Foundry User" role
+az role assignment create \
+  --assignee "$PRINCIPAL_ID" \
+  --role "Foundry User" \
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.CognitiveServices/accounts/$ACCOUNT_NAME/projects/$PROJECT_NAME"
+```
+
+> **Note:** It may take a few minutes for role assignments to propagate. Retry the request after waiting.
