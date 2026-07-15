@@ -13,9 +13,16 @@ load_dotenv()
 
 
 def main():
+    model_name = os.getenv("AZURE_AI_MODEL_DEPLOYMENT_NAME") or os.getenv("FOUNDRY_MODEL_NAME")
+    if not model_name:
+        raise RuntimeError(
+            "Model deployment name is not configured. Set "
+            "AZURE_AI_MODEL_DEPLOYMENT_NAME or FOUNDRY_MODEL_NAME."
+        )
+
     client = FoundryChatClient(
         project_endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"],
-        model=os.environ["FOUNDRY_MODEL_NAME"],
+        model=model_name,
         credential=DefaultAzureCredential(),
     )
 
