@@ -21,7 +21,7 @@ This agent supports two LLM backends. Configure one of the following:
 |----------|----------|-------------|
 | `GITHUB_TOKEN` | For Copilot model | GitHub fine-grained PAT with **Copilot Requests → Read-only** permission |
 | `FOUNDRY_PROJECT_ENDPOINT` | For Foundry model | Azure AI Foundry project endpoint URL. Auto-injected when hosted — only needed locally |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | For Foundry model | Model deployment name (e.g. `gpt-4o`) |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | For Foundry model | Model deployment name (e.g. `gpt-5.4-mini`) |
 | `FOUNDRY_AGENT_SESSION_ID` | No | Session ID for persistence/resume. If unset, a UUID is generated |
 
 **How the agent selects its LLM backend:**
@@ -29,10 +29,13 @@ This agent supports two LLM backends. Configure one of the following:
 - If only `GITHUB_TOKEN` is set → uses the **GitHub Copilot model** (quickest way to get started)
 - If both are set → the **Foundry model takes precedence**
 
+> When deployed with `azd`, `azure.yaml` declares `AZURE_AI_MODEL_DEPLOYMENT_NAME` by default (the BYOK Foundry model). To use the GitHub Copilot model instead, comment out `AZURE_AI_MODEL_DEPLOYMENT_NAME` and uncomment `GITHUB_TOKEN` in `azure.yaml`.
+
 ## Prerequisites
 
 - **Python 3.10+**
-- A GitHub fine-grained PAT (`github_pat_` prefix)
+- An Azure AI Foundry project with a deployed model — for the default BYOK path (`FOUNDRY_PROJECT_ENDPOINT` is auto-injected when hosted; set it locally)
+- *(GitHub Copilot model only)* A GitHub fine-grained PAT (`github_pat_` prefix)
 
   Create one at [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new) with **Account permissions → Copilot Requests → Read-only**.
 
@@ -55,20 +58,23 @@ This agent supports two LLM backends. Configure one of the following:
    azd auth login
    ```
 
-### Set up the GitHub token
+### Configure the model backend
 
-Create a local `.env` file from the sample template and set `GITHUB_TOKEN`:
+By default this sample uses a **BYOK Foundry model**. Copy the env template and set your project endpoint:
 
 ```bash
 cp .env.example .env  # skip if .env already exists
-# Edit .env and set GITHUB_TOKEN=github_pat_...
+# Edit .env: set FOUNDRY_PROJECT_ENDPOINT to your project
+# (AZURE_AI_MODEL_DEPLOYMENT_NAME defaults to gpt-5.4-mini)
 ```
 
-The sample loads `.env` automatically when running locally. If you plan to deploy with `azd`, also add the token to your azd environment so it can be injected into the hosted agent:
+The sample loads `.env` automatically when running locally. Sign in so it can authenticate to the Foundry model via Managed Identity:
 
 ```bash
-azd env set GITHUB_TOKEN="github_pat_..."
+az login
 ```
+
+> **Prefer the GitHub Copilot model?** In `.env` comment out the Foundry vars and uncomment `GITHUB_TOKEN` (a fine-grained PAT with "Copilot Requests → Read-only"). To deploy that way, flip the same vars in `azure.yaml`.
 
 ### Run the agent locally
 
@@ -200,11 +206,11 @@ To use your own Azure AI Foundry model instead of the Copilot model, set the Fou
 
 ```bash
 FOUNDRY_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project> \
-AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4o \
+AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-5.4-mini \
 python main.py
 ```
 
-Authentication uses Managed Identity via `DefaultAzureCredential`. When deployed as a hosted agent, `FOUNDRY_PROJECT_ENDPOINT` is auto-injected by the platform — you only need to set `AZURE_AI_MODEL_DEPLOYMENT_NAME` in `azure.yaml`.
+Authentication uses Managed Identity via `DefaultAzureCredential`. When deployed as a hosted agent, `FOUNDRY_PROJECT_ENDPOINT` is auto-injected by the platform, so in `azure.yaml` you only need `AZURE_AI_MODEL_DEPLOYMENT_NAME` (declared by default).
 
 ## Adding Skills
 
