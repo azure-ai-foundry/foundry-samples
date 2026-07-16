@@ -146,6 +146,19 @@ def get_target_openai_endpoint(production_resource: Optional[str] = None, produc
     return None
 
 
+def _is_foundry_host(url: Optional[str]) -> bool:
+    """
+    Return True if *url*'s hostname is a Foundry project endpoint
+    (``*.services.ai.azure.com``). Files/vector stores uploaded anywhere
+    else (legacy ``*.openai.azure.com`` / ``*.cognitiveservices.azure.com``)
+    are invisible to the Foundry agent runtime.
+    """
+    if not url:
+        return False
+    host = (urlparse(url).hostname or "").lower()
+    return host == "services.ai.azure.com" or host.endswith(".services.ai.azure.com")
+
+
 def get_target_foundry_endpoint(production_resource: Optional[str] = None, production_endpoint: Optional[str] = None) -> Optional[str]:
     """
     Return the Foundry endpoint for file uploads and vector-store creation.
@@ -3689,6 +3702,30 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
         production_endpoint=production_endpoint,
     )
 
+    # Although a target endpoint using the legacy OpenAI-compatible host
+    # (*.openai.azure.com) or the raw Cognitive Services host
+    # (*.cognitiveservices.azure.com) WILL BE ACCEPTED for migration — those
+    # hosts return HTTP 200 for the file/vector-store upload calls, so nothing
+    # in the migration "fails" — it will NOT actually migrate files/vector
+    # stores: the uploads land in a namespace the Foundry agent runtime can't
+    # see, so file_search/code_interpreter stay broken on the migrated agent.
+    # This wrong-but-accepted endpoint case is called out as a warning during
+    # migration (printed up front and repeated in the final summary) rather
+    # than treated as fatal, since callers who passed --no-migrate-files don't
+    # care about this at all.
+    file_migration_endpoint_warning: Optional[str] = None
+    if migrate_files and target_v2_endpoint and not _is_foundry_host(target_v2_endpoint):
+        file_migration_endpoint_warning = (
+            f"--production-endpoint ({target_v2_endpoint}) is a legacy OpenAI-compatible "
+            "(*.openai.azure.com) or Cognitive Services (*.cognitiveservices.azure.com) host, "
+            "not a Foundry (*.services.ai.azure.com) host. This endpoint WILL BE ACCEPTED for "
+            "migration — the upload calls succeed — but it will NOT migrate files/vector stores; "
+            "they end up invisible to the Foundry agent runtime. Re-run with a Foundry-format "
+            "--production-endpoint (or --production-resource) to migrate files successfully, "
+            "or pass --no-migrate-files if you don't need files migrated."
+        )
+        print(f"\n⚠️  {file_migration_endpoint_warning}\n")
+
     # In-place upgrade (source == target): when no explicit target was supplied
     # but the source project is itself a Foundry endpoint, reuse it as the target
     # so the duplicate-migration guard still runs. Without this, re-running the
@@ -4002,6 +4039,9 @@ def process_v1_assistants_to_v2_agents(args=None, assistant_id: Optional[str] = 
     
     # Always using v2 API
     print(f"   Target: v2 API ({BASE_V2})")
+
+    if file_migration_endpoint_warning:
+        print(f"\n⚠️  File/vector-store migration warning: {file_migration_endpoint_warning}")
 
 
 def _classify_v1_item(item: Dict[str, Any]) -> str:
