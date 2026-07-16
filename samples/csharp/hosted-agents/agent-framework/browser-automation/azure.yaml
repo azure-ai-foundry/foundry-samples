@@ -3,7 +3,7 @@
 requiredVersions:
   extensions:
     azure.ai.agents: '>=1.0.0-beta.4'
-name: browser-automation-csharp-maf-sample-foundry
+name: bat-csharp-maf
 services:
   ai-project:
     host: azure.ai.project
@@ -35,7 +35,7 @@ services:
         browser_automation_preview:
           connection:
             project_connection_id: '${AZURE_AI_PROJECT_ID}/connections/browserautomation'
-  browser-automation-csharp-maf-sample-foundry:
+  bat-csharp-maf:
     host: azure.ai.agent
     metadata:
       tags:
@@ -44,7 +44,7 @@ services:
         - Azure AI AgentServer
         - Responses Protocol
         - Browser Automation
-    project: src/browser-automation-csharp-maf-sample-foundry
+    project: src/bat-csharp-maf
     language: csharp
     docker:
       path: Dockerfile
@@ -53,7 +53,7 @@ services:
       - browserautomation
       - browser-automation-tools
     kind: hosted
-    name: browser-automation-csharp-maf-sample-foundry
+    name: bat-csharp-maf
     displayName: Browser Automation Agent (C#, MAF)
     description: A Foundry-hosted browser automation agent (C#, MAF) for general browsing, web scraping, and form filling.
     protocols:

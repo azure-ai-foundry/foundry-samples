@@ -3,7 +3,7 @@
 requiredVersions:
   extensions:
     azure.ai.agents: '>=1.0.0-beta.4'
-name: browser-automation-csharp-byo-sample-foundry
+name: bat-csharp-byo
 services:
   ai-project:
     host: azure.ai.project
@@ -35,7 +35,7 @@ services:
         browser_automation_preview:
           connection:
             project_connection_id: '${AZURE_AI_PROJECT_ID}/connections/browserautomation'
-  browser-automation-csharp-byo-sample-foundry:
+  bat-csharp-byo:
     host: azure.ai.agent
     metadata:
       tags:
@@ -44,7 +44,7 @@ services:
         - Bring Your Own
         - Browser Automation
         - .NET
-    project: src/browser-automation-csharp-byo-sample-foundry
+    project: src/bat-csharp-byo
     language: csharp
     docker:
       path: Dockerfile
@@ -53,7 +53,7 @@ services:
       - browserautomation
       - browser-automation-tools
     kind: hosted
-    name: browser-automation-csharp-byo-sample-foundry
+    name: bat-csharp-byo
     displayName: Browser Automation Agent (C#, BYO Responses)
     description: A Foundry-hosted browser automation agent (C#, BYO Responses) for general browsing, web scraping, and form filling.
     protocols:
