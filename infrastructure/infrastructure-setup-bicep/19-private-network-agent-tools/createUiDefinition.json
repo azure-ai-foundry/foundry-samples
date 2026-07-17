@@ -74,7 +74,7 @@
             "constraints": {
               "required": true,
               "allowedValues": [
-                { "label": "gpt-5.1", "value": "gpt-5.1" },
+                { "label": "gpt-5.1", "value": "gpt-5.1" }
               ]
             }
           },
