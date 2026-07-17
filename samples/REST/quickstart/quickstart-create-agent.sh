@@ -5,7 +5,7 @@ curl -X POST https://YOUR-FOUNDRY-RESOURCE-NAME.services.ai.azure.com/api/projec
     "name": "MyAgent",
     "definition": {
       "kind": "prompt",
-      "model": "gpt-4.1-mini",
+      "model": "gpt-5-mini",
       "instructions": "You are a helpful assistant that answers general questions"
     }
   }'
