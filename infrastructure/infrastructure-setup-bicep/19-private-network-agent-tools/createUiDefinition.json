@@ -70,13 +70,12 @@
             "name": "modelName",
             "type": "Microsoft.Common.DropDown",
             "label": "Model",
-            "defaultValue": "gpt-4o-mini",
+            "defaultValue": "gpt-4.1-mini",
             "constraints": {
               "required": true,
               "allowedValues": [
-                { "label": "gpt-4o-mini", "value": "gpt-4o-mini" },
-                { "label": "gpt-4o",      "value": "gpt-4o" },
-                { "label": "gpt-4",       "value": "gpt-4" }
+                { "label": "gpt-4.1-mini", "value": "gpt-4.1-mini" },
+                { "label": "gpt-4.1",       "value": "gpt-4.1" }
               ]
             }
           },
@@ -84,7 +83,7 @@
             "name": "modelVersion",
             "type": "Microsoft.Common.TextBox",
             "label": "Model version",
-            "defaultValue": "2024-07-18",
+            "defaultValue": "2025-04-14",
             "toolTip": "API version of the selected model."
           },
           {
@@ -179,9 +178,6 @@
               "subnets": "Subnets"
             },
             "visible": "[equals(steps('network').vnetMode, 'existing')]",
-            "scope": {
-              "subscriptionId": "[subscription().subscriptionId]"
-            },
             "subnets": {
               "agentSubnet": {
                 "label": "Agent subnet",
