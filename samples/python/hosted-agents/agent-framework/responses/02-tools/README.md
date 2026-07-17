@@ -2,6 +2,8 @@
 
 An [Agent Framework](https://github.com/microsoft/agent-framework) agent with **locally-defined Python tools** hosted on Microsoft Foundry using the **Responses protocol**. This sample shows how to define custom tools with the `@tool` decorator and register them with the agent so the model can call them during a conversation. A `get_weather` function is included as an example tool.
 
+> **When to use local tools vs. a toolbox:** Local `@tool` functions are the right choice for self-contained logic you own and run in-process. For tools you want to share across agents — web search, code interpreter, MCP servers, OpenAPI, and more — package them behind a [Foundry Toolbox](../04-foundry-toolbox/) instead, which adds a single managed MCP endpoint with centralized authentication and versioning. See the [Foundry Toolbox sample](../04-foundry-toolbox/) and the [toolbox documentation](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/toolbox).
+
 ## How it works
 
 The agent uses `FoundryChatClient` from the Agent Framework and is served via `ResponsesHostServer`. Custom tools are defined with the `@tool` decorator — the model sees each function's signature and docstring and decides when to call them. See [main.py](src/agent-framework-agent-with-local-tools-responses/main.py) for the implementation.
@@ -117,5 +119,4 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 - [Tool catalog](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/tool-catalog) — browse available tools to extend your agent (Bing Search, Azure AI Search, file search, code interpreter, and more)
 - [Manage hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/manage-hosted-agent) — monitor and manage deployed agents
 - [Basic agent](../01-basic/) — minimal agent with no tools
-- [Connect to MCP servers](../03-mcp/) — sample using remote MCP tool providers
 - [Use Foundry Toolbox](../04-foundry-toolbox/) — sample with Azure Foundry Toolbox integration

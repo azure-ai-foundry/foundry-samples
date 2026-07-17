@@ -71,8 +71,8 @@ class ToolboxAuth(httpx.Auth):
 
 
 def main():
-    # NOTE: This sample mirrors the sync `main()` + `server.run()` pattern of
-    # the sister 03-mcp sample (which passes on the foundry-ext deploy path).
+    # NOTE: This sample mirrors the sync `main()` + `server.run()` pattern used
+    # by the other responses samples (which passes on the foundry-ext deploy path).
     # The previous async/`async with Agent(...)` pattern eagerly entered the
     # MCPStreamableHTTPTool context at startup, which performs a network
     # initialize + tools/list against the toolbox MCP endpoint before the

@@ -108,20 +108,21 @@ The platform manages conversation history, streaming lifecycle, and background e
 
 #### Learning path
 
+> **Recommended: reach for a [Foundry Toolbox](./agent-framework/responses/04-foundry-toolbox/) when you add tools.** A toolbox packages web search, code interpreter, MCP servers, OpenAPI tools, and more behind a single managed MCP endpoint, with centralized auth and versioning — so you define tools once and share them across agents instead of wiring each tool into every agent. The local-tools sample below is still fully supported; use it for self-contained logic you own.
+
 **New to hosted agents?** Start here and work through in order:
 
 1. **[Basic agent & Multi-Turn Sessions](./agent-framework/responses/01-basic/)** — Deploy your first agent, have a conversation with it.
 2. **[Tools](./agent-framework/responses/02-tools/)** — Add local tools to your agent.
-3. **[MCP Tools](./agent-framework/responses/03-mcp/)** — Connect your agent to a remote MCP server to access tools, retrieval, and more.
-4. **[Foundry Toolbox](./agent-framework/responses/04-foundry-toolbox/)** — Wire your agent to a Foundry Toolbox for managed tool access.
-5. **[Workflows](./agent-framework/responses/05-workflows/)** — Compose multiple agents into sequential pipelines.
-6. **[Files](./agent-framework/responses/06-files/)** — Agent capable of manipulating files uploaded to the session.
-7. **[Skills](./agent-framework/responses/07-skills/)** — Add native file-based skills to your agent and generate a colorful PDF travel guide.
-8. **[Observability](./agent-framework/responses/08-observability/)** — Add logging, metrics, and distributed tracing to your agent and visualize them in Foundry.
-9. **[Declarative Workflows](./agent-framework/responses/09-declarative-customer-support/)** — A multi-turn customer-support triage workflow defined entirely in YAML and hosted as an agent, demonstrating declarative workflow authoring with `InvokeAzureAgent` calls to specialist Foundry-hosted agents and conversation-aware routing.
-10. **[Downstream Azure services](./agent-framework/responses/09-downstream-azure/)** — Call Azure Blob Storage and Service Bus from the agent using its per-agent Microsoft Entra identity (no connection strings).
-11. **[A2A Delegation](./agent-framework/a2a/01-delegation/)** — Two-agent walkthrough: a hosted Responses **caller** delegates to a hosted Responses **executor** that is exposed as an A2A endpoint via Foundry's incoming A2A feature, wired together through a Foundry Toolbox `a2a_preview` tool over a `RemoteA2A` connection.
-12. **[Content safety guardrail](./agent-framework/responses/16-content-safety-guardrail/)** — Attach a Responsible AI content safety guardrail to a hosted agent so the platform screens prompts and responses against your safety policy.
+3. **[Foundry Toolbox](./agent-framework/responses/04-foundry-toolbox/)** — Wire your agent to a Foundry Toolbox for managed tool access.
+4. **[Workflows](./agent-framework/responses/05-workflows/)** — Compose multiple agents into sequential pipelines.
+5. **[Files](./agent-framework/responses/06-files/)** — Agent capable of manipulating files uploaded to the session.
+6. **[Skills](./agent-framework/responses/07-skills/)** — Add native file-based skills to your agent and generate a colorful PDF travel guide.
+7. **[Observability](./agent-framework/responses/08-observability/)** — Add logging, metrics, and distributed tracing to your agent and visualize them in Foundry.
+8. **[Declarative Workflows](./agent-framework/responses/09-declarative-customer-support/)** — A multi-turn customer-support triage workflow defined entirely in YAML and hosted as an agent, demonstrating declarative workflow authoring with `InvokeAzureAgent` calls to specialist Foundry-hosted agents and conversation-aware routing.
+9. **[Downstream Azure services](./agent-framework/responses/09-downstream-azure/)** — Call Azure Blob Storage and Service Bus from the agent using its per-agent Microsoft Entra identity (no connection strings).
+10. **[A2A Delegation](./agent-framework/a2a/01-delegation/)** — Two-agent walkthrough: a hosted Responses **caller** delegates to a hosted Responses **executor** that is exposed as an A2A endpoint via Foundry's incoming A2A feature, wired together through a Foundry Toolbox `a2a_preview` tool over a `RemoteA2A` connection.
+11. **[Content safety guardrail](./agent-framework/responses/16-content-safety-guardrail/)** — Attach a Responsible AI content safety guardrail to a hosted agent so the platform screens prompts and responses against your safety policy.
 
 ### Invocations protocol
 
@@ -147,7 +148,6 @@ See [`langgraph/README.md`](langgraph/) for the full list and the local-run guid
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | **[Chat](langgraph/responses/01-langgraph-chat/)**                      | Minimal LangGraph agent with two local tools (`get_current_time`, `calculator`); multi-turn via `previous_response_id`.                |
 | **[LangGraph Toolbox](langgraph/responses/02-langgraph-toolbox/)**      | LangGraph agent wired to a Foundry Toolbox (`web_search` + connection-backed GitHub Copilot MCP) via `AzureAIProjectToolbox`.          |
-| **[MCP](langgraph/responses/04-mcp/)**                                  | LangGraph agent that loads tools from a remote MCP server (default: GitHub Copilot MCP) via `langchain_mcp_adapters`.                  |
 | **[Workflows](langgraph/responses/05-workflows/)**                      | Custom `StateGraph` chaining three specialized LLM nodes — slogan writer, legal reviewer, formatter — each seeing only the prior agent's output. |
 | **[Files](langgraph/responses/06-files/)**                              | LangGraph agent with local filesystem tools and a Foundry-Toolbox `code_interpreter` for session-uploaded files.                       |
 | **[Human-in-the-Loop](langgraph/responses/07-human-in-the-loop/)**      | `StateGraph` that drafts a proposal and pauses for approval via `langgraph.types.interrupt`, serialized as `mcp_approval_request` + `function_call`. |

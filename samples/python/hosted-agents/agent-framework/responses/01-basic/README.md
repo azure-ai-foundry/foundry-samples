@@ -117,5 +117,4 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 - [Tool catalog](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/tool-catalog) — browse available tools to extend your agent (Bing Search, Azure AI Search, file search, code interpreter, and more)
 - [Manage hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/manage-hosted-agent) — monitor and manage deployed agents
 - [Add tools to your agent](../02-tools/) — sample with local tool functions
-- [Connect to MCP servers](../03-mcp/) — sample using remote MCP tool providers
 - [Use Foundry Toolbox](../04-foundry-toolbox/) — sample with Azure Foundry Toolbox integration
