@@ -70,12 +70,11 @@
             "name": "modelName",
             "type": "Microsoft.Common.DropDown",
             "label": "Model",
-            "defaultValue": "gpt-4.1-mini",
+            "defaultValue": "gpt-5.1",
             "constraints": {
               "required": true,
               "allowedValues": [
-                { "label": "gpt-4.1-mini", "value": "gpt-4.1-mini" },
-                { "label": "gpt-4.1",       "value": "gpt-4.1" }
+                { "label": "gpt-5.1", "value": "gpt-5.1" },
               ]
             }
           },
@@ -83,7 +82,7 @@
             "name": "modelVersion",
             "type": "Microsoft.Common.TextBox",
             "label": "Model version",
-            "defaultValue": "2025-04-14",
+            "defaultValue": "2025-11-13",
             "toolTip": "API version of the selected model."
           },
           {
