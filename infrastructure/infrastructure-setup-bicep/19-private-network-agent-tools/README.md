@@ -646,6 +646,10 @@ az containerapp create \
 
 Then configure private DNS zone for Container Apps (see TESTING-GUIDE.md Step 6.3).
 
+  - **Azure Monitor (Application Insights)**
+    - Log Analytics Reader (`73c42c96-874c-492b-b04d-ab87d138a893`) — read the agent trace/telemetry data
+    - Privileged Monitoring Data Reader (`dbc9c667-e97f-4491-aee6-90b9cf960190`) — required to read GenAI prompt/response content
+
 ---
 
 ## Module Structure
@@ -658,6 +662,7 @@ modules-network-secured/
 ├── ai-project-identity-unique.bicep                # Modified project module with unique connection names
 ├── ai-search-role-assignments.bicep                # AI Search RBAC configuration
 ├── application-insights.bicep                      # Workspace-based Application Insights for agent tracing
+├── application-insights-role-assignment.bicep     # Application Insights RBAC (project MI trace/GenAI read access)
 ├── azure-storage-account-role-assignment.bicep     # Storage Account RBAC configuration
 ├── blob-storage-container-role-assignments.bicep   # Blob Storage Container RBAC configuration
 ├── blob-storage-container-role-assignments-unique.bicep # Modified storage role assignment module

@@ -132,3 +132,26 @@ resource "azapi_resource" "conn_app_insights" {
     }
   }
 }
+
+# Grant the project managed identity read access on Application Insights so evaluation
+# can read the agent traces exported by hosted agents — including GenAI prompt/response
+# content, which requires the Privileged Monitoring Data Reader role.
+resource "azurerm_role_assignment" "log_analytics_reader_ai_foundry_project" {
+  depends_on = [
+    resource.time_sleep.wait_project_identities
+  ]
+  name                 = uuidv5("dns", "${azapi_resource.ai_foundry_project.name}${azapi_resource.ai_foundry_project.output.identity.principalId}${azurerm_resource_group.rg.name}loganalyticsreader")
+  scope                = azurerm_application_insights.app_insights.id
+  role_definition_name = "Log Analytics Reader"
+  principal_id         = azapi_resource.ai_foundry_project.output.identity.principalId
+}
+
+resource "azurerm_role_assignment" "privileged_monitoring_data_reader_ai_foundry_project" {
+  depends_on = [
+    resource.time_sleep.wait_project_identities
+  ]
+  name                 = uuidv5("dns", "${azapi_resource.ai_foundry_project.name}${azapi_resource.ai_foundry_project.output.identity.principalId}${azurerm_resource_group.rg.name}privmonitoringdatareader")
+  scope                = azurerm_application_insights.app_insights.id
+  role_definition_name = "Privileged Monitoring Data Reader"
+  principal_id         = azapi_resource.ai_foundry_project.output.identity.principalId
+}

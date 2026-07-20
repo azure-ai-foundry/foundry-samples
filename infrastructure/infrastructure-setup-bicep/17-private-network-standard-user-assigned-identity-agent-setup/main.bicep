@@ -497,3 +497,12 @@ dependsOn: [
   storageContainersRoleAssignment
   ]
 }
+
+// Grant the agent's user-assigned identity read access on the tracing Application Insights (for evaluation)
+module applicationInsightsRoleAssignment 'modules-network-secured/application-insights-role-assignment.bicep' = {
+  name: 'app-insights-ra-${uniqueSuffix}-deployment'
+  params: {
+    appInsightsName: applicationInsights.outputs.appInsightsName
+    projectPrincipalId: identity.outputs.uaiPrincipalId
+  }
+}
