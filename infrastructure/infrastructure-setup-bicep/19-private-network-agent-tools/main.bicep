@@ -489,3 +489,12 @@ module cosmosContainerRoleAssignments 'modules-network-secured/cosmos-container-
     storageContainersRoleAssignment
   ]
 }
+
+// Grant the project managed identity read access on the tracing Application Insights (for evaluation)
+module applicationInsightsRoleAssignment 'modules-network-secured/application-insights-role-assignment.bicep' = {
+  name: 'app-insights-ra-${uniqueSuffix}-deployment'
+  params: {
+    appInsightsName: applicationInsights.outputs.appInsightsName
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
+  }
+}

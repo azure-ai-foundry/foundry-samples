@@ -80,3 +80,6 @@ output appInsightsAppId string = appInsights.properties.AppId
 
 @description('Resource ID of the Log Analytics workspace backing Application Insights.')
 output logAnalyticsId string = logAnalytics.id
+
+@description('Name of the Application Insights component.')
+output appInsightsName string = appInsights.name
