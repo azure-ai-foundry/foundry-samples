@@ -8,7 +8,7 @@ An [Agent Framework](https://github.com/microsoft/agent-framework) agent that an
 flowchart LR
     U[User] --> A["Hosted agent<br/>(Agent Framework)"]
     A -->|MCP over toolbox| T["Foundry Toolbox<br/>knowledge-base-mcp connection"]
-    T -->|Agent identity<br/>(Entra ID)| KB["Knowledge base MCP<br/>knowledge_base_retrieve"]
+    T -->|"Agent identity<br/>(Entra ID)"| KB["Knowledge base MCP<br/>knowledge_base_retrieve"]
     KB --> KS[Knowledge source] --> IDX[(Azure AI Search index)]
     KB -.answer synthesis.-> M[[Azure OpenAI model]]
 ```
