@@ -1,0 +1,4 @@
+agent-framework-core
+agent-framework-foundry
+agent-framework-foundry-hosting
+mcp
