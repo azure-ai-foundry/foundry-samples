@@ -191,6 +191,7 @@ Already built an agent with CrewAI or your own code? The protocol SDKs (`azure-a
 | Sample                                                                 | What it shows                                                                                               |
 | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | **[Hello World](bring-your-own/invocations/hello-world/)**             | Minimal agent — arbitrary JSON in, streaming SSE out. The simplest possible BYO invocations starting point. |
+| **[State Store Chat](bring-your-own/invocations/state-store-chat/)**   | Multi-turn chat that persists conversation history in Foundry durable storage (`FoundryStateStore`) so it survives container restarts, with `if_match` optimistic concurrency. |
 | **[LangGraph Chat](bring-your-own/invocations/langgraph-chat/)**       | LangGraph conversational agent over the Invocations protocol with client-managed sessions.                  |
 | **[Notetaking Agent](bring-your-own/invocations/notetaking-agent/)**   | Note-taking agent with the Invocations protocol.                                                            |
 | **[Toolbox](bring-your-own/invocations/toolbox/)**                     | BYO invocations agent wired to a Foundry Toolbox MCP endpoint.                                              |
