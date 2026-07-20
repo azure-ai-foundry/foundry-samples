@@ -92,7 +92,7 @@ This sample is designed for **Bring Your Own** (BYO) infrastructure scenarios wh
    ```bash
    TOKEN=$(az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv)
    curl -X POST \
-     "https://<account>.services.ai.azure.com/api/projects/<project>/agents/diagnostic-agent-python-invocations/versions/1/invocations" \
+     "https://<account>.services.ai.azure.com/api/projects/<project>/agents/diagnostic-agent-python-invocations/endpoint/protocols/invocations?api-version=v1" \
      -H "Authorization: Bearer $TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"hosts": ["microsoft.com"]}'
