@@ -4,14 +4,21 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.35.1.17967",
-      "templateHash": "5332991959209962766"
+      "version": "0.44.1.10279",
+      "templateHash": "10846213492702673542"
     }
   },
   "parameters": {
     "aiFoundryName": {
       "type": "string",
-      "defaultValue": "<your-foundry-name>"
+      "defaultValue": "<your-account-name>"
+    },
+    "aiProjectName": {
+      "type": "string",
+      "defaultValue": "<your-project-name>",
+      "metadata": {
+        "description": "Name of the project (sub-resource of the AI Foundry account) to create the connection on."
+      }
     },
     "connectedResourceName": {
       "type": "string",
@@ -21,12 +28,23 @@
       "type": "string",
       "defaultValue": "westus"
     },
+    "isSharedToAll": {
+      "type": "bool",
+      "defaultValue": true
+    },
     "newOrExisting": {
       "type": "string",
       "defaultValue": "new",
       "allowedValues": [
         "new",
         "existing"
+      ]
+    },
+    "roleDefinitionGuids": {
+      "type": "array",
+      "defaultValue": [
+        "73c42c96-874c-492b-b04d-ab87d138a893",
+        "dbc9c667-e97f-4491-aee6-90b9cf960190"
       ]
     }
   },
@@ -48,16 +66,55 @@
       "name": "[format('{0}/{1}', parameters('aiFoundryName'), format('{0}-appinsights', parameters('aiFoundryName')))]",
       "properties": {
         "category": "AppInsights",
-        "target": "[if(equals(parameters('newOrExisting'), 'new'), resourceId('Microsoft.Insights/components', parameters('connectedResourceName')), resourceId('Microsoft.Insights/components', parameters('connectedResourceName')))]",
+        "target": "[resourceId('Microsoft.Insights/components', parameters('connectedResourceName'))]",
         "authType": "ApiKey",
-        "isSharedToAll": true,
+        "isSharedToAll": "[parameters('isSharedToAll')]",
         "credentials": {
-          "key": "[if(equals(parameters('newOrExisting'), 'new'), reference(resourceId('Microsoft.Insights/components', parameters('connectedResourceName')), '2020-02-02').ConnectionString, reference(resourceId('Microsoft.Insights/components', parameters('connectedResourceName')), '2020-02-02').ConnectionString)]"
+          "key": "[reference(resourceId('Microsoft.Insights/components', parameters('connectedResourceName')), '2020-02-02').ConnectionString]"
         },
         "metadata": {
           "ApiType": "Azure",
-          "ResourceId": "[if(equals(parameters('newOrExisting'), 'new'), resourceId('Microsoft.Insights/components', parameters('connectedResourceName')), resourceId('Microsoft.Insights/components', parameters('connectedResourceName')))]"
+          "ResourceId": "[resourceId('Microsoft.Insights/components', parameters('connectedResourceName'))]"
         }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', parameters('connectedResourceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}/{2}', parameters('aiFoundryName'), parameters('aiProjectName'), parameters('connectedResourceName'))]",
+      "properties": {
+        "category": "AppInsights",
+        "target": "[resourceId('Microsoft.Insights/components', parameters('connectedResourceName'))]",
+        "authType": "ApiKey",
+        "isSharedToAll": "[parameters('isSharedToAll')]",
+        "credentials": {
+          "key": "[reference(resourceId('Microsoft.Insights/components', parameters('connectedResourceName')), '2020-02-02').ConnectionString]"
+        },
+        "metadata": {
+          "ApiType": "Azure",
+          "ResourceId": "[resourceId('Microsoft.Insights/components', parameters('connectedResourceName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', parameters('connectedResourceName'))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "appInsightsReaderRoleAssignments",
+        "count": "[length(parameters('roleDefinitionGuids'))]"
+      },
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Insights/components', parameters('connectedResourceName'))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryName'), parameters('aiProjectName')), parameters('roleDefinitionGuids')[copyIndex()], resourceId('Microsoft.Insights/components', parameters('connectedResourceName')))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryName'), parameters('aiProjectName')), '2025-04-01-preview', 'full').identity.principalId]",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionGuids')[copyIndex()])]",
+        "principalType": "ServicePrincipal"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Insights/components', parameters('connectedResourceName'))]"
