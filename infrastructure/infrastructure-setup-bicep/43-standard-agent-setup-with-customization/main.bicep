@@ -58,6 +58,9 @@ param existingAoaiResourceId string = ''
 param projectCapHost string = 'caphostproj'
 param accountCapHost string = 'caphostacc'
 
+@description('Deploy a Log Analytics workspace + Application Insights, connect them to the Foundry account, and grant the project managed identity read access so evaluation can read agent traces (incl. GenAI content). Adds resources/cost. Default true.')
+param deployApplicationInsights bool = true
+
 // Create a short, unique suffix, that will be unique to each resource group
 param deploymentTimestamp string = utcNow('yyyyMMddHHmmss')
 var uniqueSuffix = substring(uniqueString('${resourceGroup().id}-${deploymentTimestamp}'), 0, 4)
@@ -68,6 +71,8 @@ var projectName = toLower('${foundryProjectName}${uniqueSuffix}')
 var cosmosDBName = toLower('${uniqueSuffix}cosmosdb')
 var aiSearchName = toLower('${uniqueSuffix}search')
 var azureStorageName = toLower('${uniqueSuffix}storage')
+var appInsightsName = toLower('${uniqueSuffix}appinsights')
+var logAnalyticsName = toLower('${uniqueSuffix}loganalytics')
 
 // Check if existing resources have been passed in
 var storagePassedIn = azureStorageAccountResourceId != ''
@@ -185,9 +190,30 @@ module formatProjectWorkspaceId 'modules-standard/format-project-workspace-id.bi
   }
 }
 
-/*
-  Assigns the project SMI the storage blob data contributor role on the storage account
-*/
+// Deploy App Insights + Foundry connection (gated by deployApplicationInsights)
+module applicationInsights 'modules-standard/application-insights.bicep' = if (deployApplicationInsights) {
+  name: 'app-insights-${uniqueSuffix}-deployment'
+  params: {
+    location: location
+    aiAccountName: aiAccount.outputs.accountName
+    logAnalyticsName: logAnalyticsName
+    appInsightsName: appInsightsName
+  }
+}
+
+// Grant the project managed identity read access on App Insights (gated by deployApplicationInsights)
+module applicationInsightsRoleAssignment 'modules-standard/application-insights-role-assignment.bicep' = if (deployApplicationInsights) {
+  name: 'app-insights-ra-${uniqueSuffix}-deployment'
+  params: {
+    appInsightsName: appInsightsName
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
+  }
+  dependsOn: [
+    applicationInsights
+  ]
+}
+
+// Grant the project managed identity read access on App Insights (gated by deployApplicationInsights)
 module storageAccountRoleAssignment 'modules-standard/azure-storage-account-role-assignment.bicep' = {
   name: 'storage-${azureStorageName}-${uniqueSuffix}-deployment'
   scope: resourceGroup(azureStorageSubscriptionId, azureStorageResourceGroupName)

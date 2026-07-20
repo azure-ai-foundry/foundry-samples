@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.39.26.7824",
-      "templateHash": "12453864151003563685"
+      "version": "0.44.1.10279",
+      "templateHash": "11935496515310596833"
     }
   },
   "parameters": {
@@ -107,6 +107,13 @@
       "type": "string",
       "defaultValue": "caphostacc"
     },
+    "deployApplicationInsights": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy a Log Analytics workspace + Application Insights, connect them to the Foundry account, and grant the project managed identity read access so evaluation can read agent traces (incl. GenAI content). Adds resources/cost. Default true."
+      }
+    },
     "deploymentTimestamp": {
       "type": "string",
       "defaultValue": "[utcNow('yyyyMMddHHmmss')]"
@@ -119,6 +126,8 @@
     "cosmosDBName": "[toLower(format('{0}cosmosdb', variables('uniqueSuffix')))]",
     "aiSearchName": "[toLower(format('{0}search', variables('uniqueSuffix')))]",
     "azureStorageName": "[toLower(format('{0}storage', variables('uniqueSuffix')))]",
+    "appInsightsName": "[toLower(format('{0}appinsights', variables('uniqueSuffix')))]",
+    "logAnalyticsName": "[toLower(format('{0}loganalytics', variables('uniqueSuffix')))]",
     "storagePassedIn": "[not(equals(parameters('azureStorageAccountResourceId'), ''))]",
     "searchPassedIn": "[not(equals(parameters('aiSearchResourceId'), ''))]",
     "cosmosPassedIn": "[not(equals(parameters('azureCosmosDBAccountResourceId'), ''))]",
@@ -167,8 +176,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "18106522243622185101"
+              "version": "0.44.1.10279",
+              "templateHash": "14987519593088155788"
             }
           },
           "parameters": {
@@ -317,8 +326,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "6621069906435874124"
+              "version": "0.44.1.10279",
+              "templateHash": "12565875579636383865"
             }
           },
           "parameters": {
@@ -550,8 +559,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "9372436613092246432"
+              "version": "0.44.1.10279",
+              "templateHash": "11528892424256412748"
             }
           },
           "parameters": {
@@ -684,8 +693,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "17727575287719616015"
+              "version": "0.44.1.10279",
+              "templateHash": "11757152959294680201"
             }
           },
           "parameters": {
@@ -893,8 +902,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "6910483561575524105"
+              "version": "0.44.1.10279",
+              "templateHash": "3421890076151369374"
             }
           },
           "parameters": {
@@ -924,6 +933,229 @@
       ]
     },
     {
+      "condition": "[parameters('deployApplicationInsights')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('app-insights-{0}-deployment', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "aiAccountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountName.value]"
+          },
+          "logAnalyticsName": {
+            "value": "[variables('logAnalyticsName')]"
+          },
+          "appInsightsName": {
+            "value": "[variables('appInsightsName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "3441142233675378556"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the tracing resources."
+              }
+            },
+            "aiAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Foundry (AI Services) account to connect Application Insights to."
+              }
+            },
+            "logAnalyticsName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Log Analytics workspace to create."
+              }
+            },
+            "appInsightsName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Application Insights component to create."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[parameters('logAnalyticsName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": 30
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[parameters('appInsightsName')]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]",
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/connections",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('aiAccountName'), format('{0}-appinsights', parameters('aiAccountName')))]",
+              "properties": {
+                "category": "AppInsights",
+                "target": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
+                "authType": "ApiKey",
+                "isSharedToAll": true,
+                "credentials": {
+                  "key": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').ConnectionString]"
+                },
+                "metadata": {
+                  "ApiType": "Azure",
+                  "ResourceId": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "appInsightsName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Application Insights component."
+              },
+              "value": "[parameters('appInsightsName')]"
+            },
+            "appInsightsId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Application Insights component."
+              },
+              "value": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
+            },
+            "appInsightsAppId": {
+              "type": "string",
+              "metadata": {
+                "description": "Application ID of the Application Insights component (for trace queries)."
+              },
+              "value": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').AppId]"
+            },
+            "logAnalyticsId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Log Analytics workspace backing Application Insights."
+              },
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployApplicationInsights')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('app-insights-ra-{0}-deployment', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "appInsightsName": {
+            "value": "[variables('appInsightsName')]"
+          },
+          "projectPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('projectName'), variables('uniqueSuffix'))), '2025-04-01').outputs.projectPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "11992714550927002792"
+            }
+          },
+          "parameters": {
+            "appInsightsName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Application Insights component to grant access on."
+              }
+            },
+            "projectPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal (object) ID of the project managed identity."
+              }
+            },
+            "roleDefinitionGuids": {
+              "type": "array",
+              "defaultValue": [
+                "73c42c96-874c-492b-b04d-ab87d138a893",
+                "dbc9c667-e97f-4491-aee6-90b9cf960190"
+              ],
+              "metadata": {
+                "description": "Built-in role definition GUIDs to assign. Defaults to Log Analytics Reader + Privileged Monitoring Data Reader (the latter is required to query GenAI content)."
+              }
+            }
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "appInsightsRoleAssignments",
+                "count": "[length(parameters('roleDefinitionGuids'))]"
+              },
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
+              "name": "[guid(parameters('projectPrincipalId'), parameters('roleDefinitionGuids')[copyIndex()], resourceId('Microsoft.Insights/components', parameters('appInsightsName')))]",
+              "properties": {
+                "principalId": "[parameters('projectPrincipalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionGuids')[copyIndex()])]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('ai-{0}-{1}-deployment', variables('projectName'), variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('app-insights-{0}-deployment', variables('uniqueSuffix')))]"
+      ]
+    },
+    {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "[format('storage-{0}-{1}-deployment', variables('azureStorageName'), variables('uniqueSuffix'))]",
@@ -948,8 +1180,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "14683840003859985069"
+              "version": "0.44.1.10279",
+              "templateHash": "5322883668661759738"
             }
           },
           "parameters": {
@@ -964,7 +1196,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.Storage/storageAccounts/{0}', parameters('azureStorageName'))]",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('azureStorageName'))]",
               "name": "[guid(parameters('projectPrincipalId'), resourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'), resourceId('Microsoft.Storage/storageAccounts', parameters('azureStorageName')))]",
               "properties": {
                 "principalId": "[parameters('projectPrincipalId')]",
@@ -1005,8 +1237,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "2161753938341361575"
+              "version": "0.44.1.10279",
+              "templateHash": "1319098613063424337"
             }
           },
           "parameters": {
@@ -1027,7 +1259,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.DocumentDB/databaseAccounts/{0}', parameters('cosmosDBName'))]",
+              "scope": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDBName'))]",
               "name": "[guid(parameters('projectPrincipalId'), resourceId('Microsoft.Authorization/roleDefinitions', '230815da-be43-4aae-9cb4-875f7bd000aa'), resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDBName')))]",
               "properties": {
                 "principalId": "[parameters('projectPrincipalId')]",
@@ -1069,8 +1301,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "7968115481508840"
+              "version": "0.44.1.10279",
+              "templateHash": "6103261316579938375"
             }
           },
           "parameters": {
@@ -1091,7 +1323,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.Search/searchServices/{0}', parameters('aiSearchName'))]",
+              "scope": "[resourceId('Microsoft.Search/searchServices', parameters('aiSearchName'))]",
               "name": "[guid(parameters('projectPrincipalId'), resourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7'), resourceId('Microsoft.Search/searchServices', parameters('aiSearchName')))]",
               "properties": {
                 "principalId": "[parameters('projectPrincipalId')]",
@@ -1102,7 +1334,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.Search/searchServices/{0}', parameters('aiSearchName'))]",
+              "scope": "[resourceId('Microsoft.Search/searchServices', parameters('aiSearchName'))]",
               "name": "[guid(parameters('projectPrincipalId'), resourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0'), resourceId('Microsoft.Search/searchServices', parameters('aiSearchName')))]",
               "properties": {
                 "principalId": "[parameters('projectPrincipalId')]",
@@ -1164,8 +1396,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "8489333536894699406"
+              "version": "0.44.1.10279",
+              "templateHash": "15026940424064612977"
             }
           },
           "parameters": {
@@ -1290,8 +1522,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "16535347639253167655"
+              "version": "0.44.1.10279",
+              "templateHash": "1735356790233715529"
             }
           },
           "parameters": {
@@ -1321,7 +1553,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.Storage/storageAccounts/{0}', parameters('storageName'))]",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageName'))]",
               "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageName')), parameters('aiProjectPrincipalId'), resourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'), parameters('workspaceId'))]",
               "properties": {
                 "principalId": "[parameters('aiProjectPrincipalId')]",
@@ -1369,8 +1601,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "17187611271934567223"
+              "version": "0.44.1.10279",
+              "templateHash": "10552108385245653621"
             }
           },
           "parameters": {

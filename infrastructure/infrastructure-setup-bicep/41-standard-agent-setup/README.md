@@ -25,6 +25,21 @@ For more details on the standard agent setup, see the [standard agent setup conc
     az deployment group create --resource-group <new-rg-name> --template-file main.bicep
 ```
 
+## Agent tracing & evaluation (Application Insights)
+
+By default (`deployApplicationInsights = true`) this template also:
+
+- Deploys a **Log Analytics workspace** and a **workspace-based Application Insights** component and connects Application Insights to the Foundry account, so hosted agents export OpenTelemetry traces.
+- Grants the **project managed identity** read access on the Application Insights component so evaluation can read the agent traces — including GenAI prompt/response content:
+    - **Log Analytics Reader** — read the trace/telemetry data.
+    - **Privileged Monitoring Data Reader** — required to query the GenAI prompt/response content.
+
+To keep the setup minimal (no Log Analytics / Application Insights resources and no telemetry RBAC), deploy with `deployApplicationInsights=false`:
+
+```bash
+    az deployment group create --resource-group <new-rg-name> --template-file main.bicep --parameters deployApplicationInsights=false
+```
+
 ## Use exitsing resources
 
 **Azure Cosmos DB for NoSQL**

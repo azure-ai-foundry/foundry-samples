@@ -66,6 +66,17 @@ Pass parameters inline **or** refer to a parameter file:
 
 See more details below on how to get existing resource ids.
 
+## Agent tracing & evaluation (Application Insights)
+
+By default (`deployApplicationInsights = true`) this template also:
+
+- Deploys a **Log Analytics workspace** and a **workspace-based Application Insights** component and connects Application Insights to the Foundry account, so hosted agents export OpenTelemetry traces.
+- Grants the **project managed identity** read access on the Application Insights component so evaluation can read the agent traces — including GenAI prompt/response content:
+    - **Log Analytics Reader** — read the trace/telemetry data.
+    - **Privileged Monitoring Data Reader** — required to query the GenAI prompt/response content.
+
+To keep the setup minimal (no Log Analytics / Application Insights resources and no telemetry RBAC), deploy with `deployApplicationInsights=false`.
+
 ## Use an existing Azure OpenAI, Azure Storage account, Azure Cosmos DB for NoSQL account, and/or Azure AI Search resource 
 
 ### Use an existing Azure OpenAI resource
