@@ -232,7 +232,16 @@ class _McpToolboxClient:
                 },
             )
             resp.raise_for_status()
-            result = resp.json().get("result", {})
+            payload = resp.json()
+            error = payload.get("error")
+            if error:
+                code = error.get("code", "unknown") if isinstance(error, dict) else "unknown"
+                raise RuntimeError(f"Toolbox returned JSON-RPC error code {code}")
+            result = payload.get("result")
+            if not isinstance(result, dict):
+                raise RuntimeError("Toolbox returned no tool result")
+            if result.get("isError"):
+                raise RuntimeError("Toolbox tool execution returned an error result")
             content = result.get("content", [])
             texts = []
             for c in content:
@@ -260,9 +269,9 @@ def _ensure_tools(call_id: str | None = None):
     if _tools_initialized:
         return
     if not TOOLBOX_ENDPOINT:
-        logger.warning("TOOLBOX_ENDPOINT not set — skipping toolbox tool discovery")
-        _tools_initialized = True
-        return
+        raise RuntimeError(
+            "TOOLBOX_ENDPOINT is not configured; cannot produce a grounded answer"
+        )
     logger.info("Connecting to toolbox: %s", TOOLBOX_ENDPOINT)
     # Retry transient cold-start errors: the toolbox MCP proxy can briefly
     # return empty tool lists or transient errors while the upstream toolbox
@@ -286,10 +295,12 @@ def _ensure_tools(call_id: str | None = None):
                 "Toolbox connect attempt %d failed: %s; retrying", attempt, exc,
             )
         time.sleep(min(2 ** attempt, 15))
-    if not mcp_tools and last_exc is not None:
-        # All attempts failed — propagate so the request returns a 5xx
-        # rather than silently caching an empty tool set.
-        raise last_exc
+    if not mcp_tools:
+        # All attempts failed or returned an empty tool set. Fail closed rather
+        # than allowing the model to answer without toolbox grounding.
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("Toolbox returned no tools; cannot produce a grounded answer")
     logger.info("Toolbox '%s' connected: %d tool(s) discovered",
                 server_name, len(mcp_tools))
     for t in mcp_tools:
@@ -310,14 +321,20 @@ def _ensure_tools(call_id: str | None = None):
 _MAX_TOOL_ROUNDS = 10
 
 
-def _call_model(input_items: list[dict], call_id: str | None = None) -> object:
-    """Call the model with tool definitions and return the response."""
+def _call_model(
+    input_items: list[dict],
+    call_id: str | None = None,
+    *,
+    tool_choice: str = "auto",
+) -> object:
+    """Call the model with toolbox definitions and the requested tool policy."""
     _ensure_tools(call_id)
     return _responses_client.create(
         model=_model,
         instructions=_SYSTEM_PROMPT,
         input=input_items,
-        tools=_tool_definitions if _tool_definitions else None,
+        tools=_tool_definitions,
+        tool_choice=tool_choice,
         store=False,
     )
 
@@ -329,8 +346,12 @@ def _run_agent_loop(input_items: list[dict], call_id: str | None = None) -> str:
     back, and repeats until the model produces a text response or we hit
     the max rounds limit.
     """
-    for _ in range(_MAX_TOOL_ROUNDS):
-        response = _call_model(input_items, call_id)
+    for round_index in range(_MAX_TOOL_ROUNDS):
+        # This sample demonstrates toolbox-grounded answers, so require at least
+        # one tool call for every inbound request. Follow-up rounds use `auto`
+        # so the model can either call another tool or produce the final answer.
+        tool_choice = "required" if round_index == 0 else "auto"
+        response = _call_model(input_items, call_id, tool_choice=tool_choice)
 
         # Check if the model wants to call tools
         tool_calls = [
