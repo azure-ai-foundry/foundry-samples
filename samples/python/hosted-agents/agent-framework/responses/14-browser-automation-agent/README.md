@@ -251,6 +251,9 @@ Then deploy the hosted agent:
 azd deploy
 ```
 
+> [!NOTE]
+> This sample is supported in container deployments only. The container image installs Playwright CLI, which this browser automation sample needs at runtime.
+
 ## RBAC setup
 
 The Foundry project's managed identity must have the following role on the Azure Playwright workspace:

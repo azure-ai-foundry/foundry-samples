@@ -190,6 +190,9 @@ Once the toolbox is set up (see [Provision Azure resources](#provision-azure-res
 azd deploy
 ```
 
+> [!NOTE]
+> This sample is supported in container deployments only. The container image installs Playwright CLI, which this browser automation sample needs at runtime.
+
 For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
 
 ### Invoke the deployed agent
