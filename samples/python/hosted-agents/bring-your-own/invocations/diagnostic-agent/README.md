@@ -164,21 +164,32 @@ All fields are optional:
     "https://management.azure.com/metadata/endpoints?api-version=2020-09-01",
     "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration"
   ],
+  "resolvers":      ["168.63.129.16"],
+  "record_types":   ["A", "AAAA"],
+  "raw_dns":        true,
+  "direct_targets": ["10.0.1.9:443"],
   "include_env_dump":       true,
   "include_container_info": true,
   "tcp_timeout_sec":  5,
-  "http_timeout_sec": 10
+  "http_timeout_sec": 10,
+  "dns_timeout_sec":  5
 }
 ```
 
 | Field | Default | Notes |
 |---|---|---|
-| `hosts` | `[]` | List of FQDNs. For each, runs DNS → TCP/443 → TLS/443 → HTTPS GET. For `*.azurecr.io` and `*.data.azurecr.io` hosts, the GET path is `/v2/` (returns 401 with `Www-Authenticate` when reachable). For all other hosts, GET path is `/`. |
+| `hosts` | `[]` | List of FQDNs. For each, runs raw DNS (dig) + DNS → TCP/443 → TLS/443 → HTTPS GET. For `*.azurecr.io` and `*.data.azurecr.io` hosts, the GET path is `/v2/` (returns 401 with `Www-Authenticate` when reachable). For all other hosts, GET path is `/`. |
 | `public_hosts` | small built-in list | Full URLs. HTTPS-GET only — no DNS/TCP/TLS breakdown. Pass `[]` to skip. |
+| `resolvers` | *(system)* | **Extra** DNS servers to query alongside the ones in `/etc/resolv.conf`. Add `168.63.129.16` (or the platform default) to expose a private-zone linkage gap as a per-resolver disagreement. |
+| `record_types` | `["A","AAAA"]` | Record types queried per resolver by the raw DNS client. |
+| `raw_dns` | `true` | Automate `dig <type> @<resolver>` for every (resolver × record type): reports the real rcode (SERVFAIL/REFUSED/NXDOMAIN/NODATA/timeout), the CNAME chain, latency, and cross-resolver disagreement. Runs **even when `getaddrinfo` fails** (the EAI_AGAIN case). |
+| `dns_attempts` | `1` | Repeat each raw DNS query N times to expose **intermittency**. Reports per-resolver `timeout_rate`, `successes/attempts`, and min/max/avg latency; classifies `DNS_INTERMITTENT` / `DNS_OK_PRIVATE_INTERMITTENT` when some attempts answer and others time out. On any UDP timeout it also probes **TCP/53** and flags `DNS_UDP_DROP_TCP_OK` (EDNS/MTU fragmentation). |
+| `direct_targets` | `[]` | `ip:port` (or `host:port`) reachability tests that **skip DNS** — isolate a network-path break from a DNS break. |
 | `include_env_dump` | `true` | Returns env vars matching an allowlist prefix (`FOUNDRY_`, `AZURE_`, `KUBERNETES_`, etc.); credential-shaped values are length-only. |
-| `include_container_info` | `true` | Hostname, container IP, default gateway from `/proc/net/route`, resolvers from `/etc/resolv.conf`. |
+| `include_container_info` | `true` | Hostname, container IP, default gateway from `/proc/net/route`, resolvers + full `resolv.conf` detail (`search`, `ndots`, `timeout`, `attempts`). |
 | `tcp_timeout_sec` | `5` | Per-attempt TCP/TLS timeout. |
 | `http_timeout_sec` | `10` | HTTP timeout. |
+| `dns_timeout_sec` | `5` | Per-query raw DNS timeout. |
 
 You may also send a **plain-text body** containing a single hostname; the agent treats it as `{"hosts": ["<text>"]}`. Useful from the Foundry portal chat UI.
 
@@ -208,6 +219,19 @@ If the body is empty, the agent runs only the defaults: container info + env dum
       {
         "host": "<acr>.azurecr.io",
         "dns":      {"status": "ok", "ips": ["10.0.1.4"], "any_private": true, "all_private": true},
+        "dns_raw": {
+          "per_resolver": [
+            {"resolver": "10.0.0.10", "classification": "DNS_OK_PRIVATE",
+             "cname_chain": ["<acr>.privatelink.azurecr.io"],
+             "records": {"A": {"rcode": "NOERROR", "answers": ["10.0.1.4"], "ms": 6.2}},
+             "dig": ";; ->>HEADER<<- status: NOERROR, 2 answer(s), 6.2ms udp\n..."},
+            {"resolver": "168.63.129.16", "classification": "DNS_OK_PUBLIC_FOR_PRIVATE",
+             "records": {"A": {"rcode": "NOERROR", "answers": ["20.53.44.203"]}}, "hint": "..."}
+          ],
+          "resolver_disagreement": {"classification": "RESOLVER_DISAGREE",
+            "private_from": ["10.0.0.10"], "not_private_from": ["168.63.129.16"], "hint": "..."}
+        },
+        "dns_vs_raw": {"classification": "GAI_RAW_CONSISTENT", "getaddrinfo_ips": ["10.0.1.4"], "raw_ips": ["10.0.1.4"]},
         "tcp_443":  {"status": "ok", "ip": "10.0.1.4", "port": 443, "ms": 1.8},
         "tls_443":  {"status": "ok", "version": "TLSv1.3", "cipher": "TLS_AES_256_GCM_SHA384", "cert_subject": "CN=*.azurecr.io", "cert_sans": ["*.azurecr.io", "*.<region>.data.azurecr.io"]},
         "http_get": {"status": "ok", "code": 401, "headers": {"www-authenticate": "Bearer realm=...", "docker-distribution-api-version": "registry/2.0"}}
@@ -224,9 +248,20 @@ If the body is empty, the agent runs only the defaults: container info + env dum
 
 | Symptom in response | Likely cause |
 |---|---|
-| `hosts[].dns.status = FAIL gaierror` | Resolver doesn't have the zone. For `privatelink.*`, the private DNS zone isn't linked to this VNet. |
+| `hosts[].dns.status = FAIL gaierror` | Resolver doesn't have the zone. For `privatelink.*`, the private DNS zone isn't linked to this VNet. **See `hosts[].dns_raw` for the real rcode.** |
 | `hosts[].dns.ips` all RFC1918 → ✅ | Private Endpoint resolution is working. |
 | `hosts[].dns.ips` contain a public IP for a `privatelink.*` host | Zone link missing or pointed at the wrong VNet. `hint` field flags this. |
+| `dns_raw.per_resolver[].classification = DNS_OK_PUBLIC_FOR_PRIVATE` | Name CNAMEs to `privatelink.*` but resolved to a **public** IP. For a **configured** resolver this means it doesn't serve the private zone; for an **extra** comparison resolver (e.g. `168.63.129.16` from a spoke VNet) this is **expected** in a centralized/hub-DNS design. |
+| `dns_raw.per_resolver[].classification = DNS_INTERMITTENT` / `DNS_OK_PRIVATE_INTERMITTENT` | Some attempts answered, others timed out (`timeout_rate`). The record exists but delivery through this resolver/path is unreliable (packet loss, forwarder capacity, flaky hub/ExpressRoute hop). Fix DNS-path reliability; add a second resolver or a local Private Resolver. |
+| `dns_raw.per_resolver[].classification = DNS_UDP_DROP_TCP_OK` | UDP/53 times out but TCP/53 answers — EDNS/MTU fragmentation dropped on the path. Allow UDP fragments/EDNS(0) or use a local Private Resolver. |
+| `dns_raw.verdict` | The classification of the **configured** resolver(s) only — use this as the authoritative verdict; extra comparison resolvers are informational. |
+| `dns_raw.resolver_disagreement = RESOLVER_DISAGREE` | Some resolvers return the private IP, some don't — the private zone is only linked to part of the DNS path. Classic "works from the VM subnet, not the agent subnet." |
+| `dns_raw.per_resolver[].classification = DNS_SERVFAIL` | Resolver/forwarder is authoritative-but-broken for the zone (or its conditional forwarder failed). Fast failure. |
+| `dns_raw.per_resolver[].classification = DNS_REFUSED` | Source-based ACL/view excludes this subnet — authorize the agent-subnet source on the DNS server. |
+| `dns_raw.per_resolver[].classification = DNS_TIMEOUT` | Resolver/forwarder unreachable or dropping packets from this subnet (NSG/UDR/peering). Slow failure ⇒ path problem, not a missing record. |
+| `dns_raw.per_resolver[].classification = DNS_NODATA` | Name exists (NOERROR) but no A/AAAA record in the zone this resolver serves. |
+| `dns_vs_raw.classification = GAI_FAIL_RAW_OK` | `getaddrinfo` fails but the record resolves at the wire level — a dual-stack/AAAA, `ndots`/search-domain, or `nsswitch` quirk, not a DNS outage. |
+| `direct_targets[].tcp.status = ok` while the same host fails DNS | The private IP is reachable — the break is **DNS**, not the network path. |
 | `tcp_443.status = FAIL timeout` | NSG egress rule, UDR routing to an NVA that black-holes the flow, or firewall drop. |
 | `tcp_443.status = FAIL refused` | PE is in Disconnected state, or an upstream device is sending RST. |
 | `tls_443.status = FAIL SSLCertVerificationError` | A firewall is doing TLS interception. Bypass `*.azurecr.io` / `*.azure.com`. |

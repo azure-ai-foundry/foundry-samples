@@ -29,11 +29,24 @@ POST body contract (all fields optional)::
       "public_hosts": ["https://www.microsoft.com/",
                        "https://management.azure.com/",
                        "https://login.microsoftonline.com/"],
-            "include_env_dump":       true,
-            "include_container_info": true,
+      "resolvers":      ["168.63.129.16"],   // extra DNS servers to compare
+      "record_types":   ["A", "AAAA"],
+      "raw_dns":        true,                 // automate dig per resolver x type
+      "dns_attempts":   5,                    // repeat each query to expose intermittency
+      "direct_targets": ["10.0.1.9:443"],    // reachability WITHOUT DNS
+      "include_env_dump":       true,
+      "include_container_info": true,
       "tcp_timeout_sec":  5,
-      "http_timeout_sec": 10
+      "http_timeout_sec": 10,
+      "dns_timeout_sec":  5
     }
+
+When ``raw_dns`` is on (default), each probed host is also queried with a
+hand-rolled DNS client against **every** resolver in ``/etc/resolv.conf`` (plus
+any in ``resolvers``), for **each** record type — automating the
+``dig A/AAAA/CNAME @<resolver>`` steps and surfacing the real rcode
+(SERVFAIL/REFUSED/NXDOMAIN/NODATA/timeout), the CNAME chain, and any
+disagreement between resolvers. See :mod:`net_probe`.
 
 If the body is empty, a default profile runs: container info + env dump
 + a small fixed list of public Azure endpoints. No private hosts
@@ -67,6 +80,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from azure.ai.agentserver.invocations import InvocationAgentServerHost
+
+try:
+    import net_probe  # stdlib-only raw DNS / resolver diagnostics (same package)
+except Exception:  # noqa: BLE001 — never let a probe-module import kill the agent
+    net_probe = None  # type: ignore[assignment]
 
 # Emit all logs to stdout so they show up in the hosted-agent log stream.
 # basicConfig is a no-op if the root logger already has handlers (e.g. when
@@ -173,13 +191,22 @@ def probe_container_info() -> dict[str, Any]:
             ip = socket.gethostbyname(hostname)
         except OSError as e:
             ip = f"<error: {e}>"
-        return {
+        info: dict[str, Any] = {
             "status": "ok",
             "hostname": hostname,
             "ip": ip,
             "default_route": _default_route(),
             "resolvers": _resolvers(),
         }
+        # Full resolv.conf detail (search domains, ndots, timeout, attempts,
+        # single-request) — these options are a frequent reason a name resolves
+        # from a VM but not from the sandbox.
+        if net_probe is not None:
+            try:
+                info["resolv_conf"] = net_probe.parse_resolv_conf()
+            except Exception as e:  # noqa: BLE001
+                info["resolv_conf"] = {"status": "FAIL", "err": type(e).__name__, "msg": str(e)[:200]}
+        return info
     except Exception as e:  # noqa: BLE001 — diagnostic; never let a probe kill the response
         return {
             "status": "FAIL",
@@ -231,6 +258,13 @@ def probe_dns(host: str) -> dict[str, Any]:
             "err": "gaierror",
             "msg": str(e),
             "hint": "DNS lookup failed. Resolver may not have the zone, or DNS traffic is blocked.",
+        }
+    except Exception as e:  # noqa: BLE001 — never let an unexpected error abort sibling checks
+        return {
+            "status": "FAIL",
+            "err": type(e).__name__,
+            "msg": str(e)[:300],
+            "hint": "Unexpected error during getaddrinfo.",
         }
 
 
@@ -377,14 +411,88 @@ def probe_http_get(
         }
 
 
-def probe_host(host: str, tcp_timeout_sec: int, http_timeout_sec: int) -> dict[str, Any]:
-    """Composite probe: DNS -> TCP/443 -> TLS/443 -> HTTPS GET /v2/ (or /)."""
+def probe_direct(target: str, tcp_timeout_sec: int) -> dict[str, Any]:
+    """Reachability test for a raw ``ip:port`` (or ``host:port``) WITHOUT DNS.
+
+    Isolates a pure network-path problem (NSG/UDR/PE-disconnected) from a DNS
+    problem: if a name fails to resolve but its known private IP is reachable
+    here, the break is DNS, not the network."""
+    result: dict[str, Any] = {"target": target}
+    host = target
+    port = 443
+    try:
+        # rpartition keeps IPv6 literals intact when wrapped in [..]:port
+        hostpart, sep, portpart = target.rpartition(":")
+        if sep and portpart.isdigit():
+            host, port = hostpart, int(portpart)
+        host = host.strip("[]")
+    except (ValueError, TypeError):
+        return {
+            "target": target,
+            "status": "FAIL",
+            "err": "bad_target",
+            "hint": "Use 'ip:port' or 'host:port'.",
+        }
+    result["tcp"] = probe_tcp(host, port, tcp_timeout_sec)
+    return result
+
+
+def probe_host(
+    host: str,
+    tcp_timeout_sec: int,
+    http_timeout_sec: int,
+    resolvers: list[str] | None = None,
+    record_types: list[str] | None = None,
+    raw_dns: bool = True,
+    dns_timeout_sec: int = 5,
+    dns_attempts: int = 1,
+    configured_resolvers: list[str] | None = None,
+) -> dict[str, Any]:
+    """Composite probe: raw DNS (dig) + getaddrinfo -> TCP/443 -> TLS/443 -> HTTPS GET.
+
+    Unlike a plain ``getaddrinfo`` probe, the raw DNS step runs **even when
+    getaddrinfo fails** (the EAI_AGAIN case), so a resolution failure still
+    yields the underlying rcode, CNAME chain and per-resolver comparison."""
     result: dict[str, Any] = {"host": host}
+
+    # 1) OS resolver (getaddrinfo) — what the app / SDK actually sees.
     dns = probe_dns(host)
     result["dns"] = dns
-    if dns["status"] != "ok" or not dns.get("ips"):
+    gai_ips = dns.get("ips") if dns.get("status") == "ok" else None
+    gai_err = None if dns.get("status") == "ok" else (dns.get("err") or "FAIL")
+
+    # 2) Raw per-resolver DNS (automated dig) — the truth getaddrinfo hides.
+    ips_for_connect: list[str] = list(gai_ips or [])
+    if raw_dns and net_probe is not None:
+        try:
+            rs = resolvers if resolvers else net_probe.parse_resolv_conf().get("nameservers", [])
+            if rs:
+                dig = net_probe.dig_host(
+                    host,
+                    rs,
+                    record_types=record_types,
+                    timeout=dns_timeout_sec,
+                    attempts=dns_attempts,
+                    configured_resolvers=configured_resolvers or rs,
+                )
+                result["dns_raw"] = dig
+                result["dns_vs_raw"] = net_probe.getaddrinfo_vs_raw(host, gai_ips, gai_err, dig)
+                if not ips_for_connect:
+                    # getaddrinfo gave nothing — fall back to whatever resolved at the wire.
+                    ips_for_connect = result["dns_vs_raw"].get("raw_ips", [])
+            else:
+                result["dns_raw"] = {"status": "skipped", "msg": "no resolvers in /etc/resolv.conf"}
+        except Exception as e:  # noqa: BLE001 — raw DNS must not abort this host's TCP/TLS/HTTP checks
+            result["dns_raw"] = {
+                "status": "FAIL",
+                "err": type(e).__name__,
+                "msg": str(e)[:300],
+                "hint": "Raw DNS probe crashed; the remaining checks for this host still ran.",
+            }
+
+    if not ips_for_connect:
         return result
-    ip = dns["ips"][0]
+    ip = ips_for_connect[0]
     result["tcp_443"] = probe_tcp(ip, 443, tcp_timeout_sec)
     if result["tcp_443"]["status"] != "ok":
         return result
@@ -456,11 +564,25 @@ async def handle_invoke(request: Request) -> JSONResponse:
 
         tcp_timeout_sec = int(spec.get("tcp_timeout_sec") or 5)
         http_timeout_sec = int(spec.get("http_timeout_sec") or 10)
+        dns_timeout_sec = int(spec.get("dns_timeout_sec") or 5)
 
         hosts = spec.get("hosts") or []
         public_hosts = spec.get("public_hosts")
         if public_hosts is None:
             public_hosts = _DEFAULT_PUBLIC_HOSTS
+
+        # Raw-DNS options. Compare the system resolvers with any caller-supplied
+        # extras (e.g. 168.63.129.16) so a private-zone linkage gap shows up as
+        # a per-resolver disagreement.
+        raw_dns = spec.get("raw_dns", True)
+        record_types = spec.get("record_types") or ["A", "AAAA"]
+        resolvers_extra = spec.get("resolvers") or []
+        direct_targets = spec.get("direct_targets") or []
+        dns_attempts = int(spec.get("dns_attempts") or 1)
+        sys_resolvers = (
+            net_probe.parse_resolv_conf().get("nameservers", []) if net_probe is not None else []
+        )
+        all_resolvers = list(dict.fromkeys(list(sys_resolvers) + list(resolvers_extra)))
 
         include_env = spec.get("include_env_dump", True)
         include_container = spec.get("include_container_info", True)
@@ -495,7 +617,17 @@ async def handle_invoke(request: Request) -> JSONResponse:
                 for h in hosts:
                     try:
                         results.append(
-                            probe_host(h, tcp_timeout_sec, http_timeout_sec)
+                            probe_host(
+                                h,
+                                tcp_timeout_sec,
+                                http_timeout_sec,
+                                resolvers=all_resolvers,
+                                record_types=record_types,
+                                raw_dns=raw_dns,
+                                dns_timeout_sec=dns_timeout_sec,
+                                dns_attempts=dns_attempts,
+                                configured_resolvers=sys_resolvers,
+                            )
                         )
                     except Exception as e:  # noqa: BLE001
                         results.append(
@@ -511,14 +643,34 @@ async def handle_invoke(request: Request) -> JSONResponse:
             _run_section("hosts", _hosts_section)
             for r in checks["hosts"] if isinstance(checks.get("hosts"), list) else []:
                 logger.info(
-                    "probe host %s dns=%s tcp=%s tls=%s http=%s",
+                    "probe host %s dns=%s raw=%s tcp=%s tls=%s http=%s",
                     r.get("host"),
                     (r.get("dns") or {}).get("status"),
+                    (r.get("dns_raw") or {}).get("classifications"),
                     (r.get("tcp_443") or {}).get("status"),
                     (r.get("tls_443") or {}).get("status"),
                     (r.get("http_get") or {}).get("code")
                     or (r.get("http_get") or {}).get("status"),
                 )
+
+        if direct_targets:
+            def _direct_section() -> list[dict[str, Any]]:
+                results: list[dict[str, Any]] = []
+                for t in direct_targets:
+                    try:
+                        results.append(probe_direct(t, tcp_timeout_sec))
+                    except Exception as e:  # noqa: BLE001
+                        results.append(
+                            {
+                                "target": t,
+                                "status": "FAIL",
+                                "err": type(e).__name__,
+                                "msg": str(e)[:300],
+                            }
+                        )
+                return results
+
+            _run_section("direct_targets", _direct_section)
         if public_hosts:
             def _public_section() -> list[dict[str, Any]]:
                 results: list[dict[str, Any]] = []
