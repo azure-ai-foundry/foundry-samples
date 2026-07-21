@@ -27,7 +27,7 @@ At startup, the agent connects to the toolbox MCP endpoint, runs `initialize` + 
 
 ### Model Integration
 
-The agent uses the Foundry SDK Responses API with tool definitions. The agentic loop handles multi-step tool calling — the model can call tools multiple times before producing a final text answer.
+The agent uses the Foundry SDK Responses API with tool definitions. Because this sample demonstrates toolbox-grounded answers, the first model round uses `tool_choice: "required"`, guaranteeing at least one toolbox call for every request. Follow-up rounds use `tool_choice: "auto"`, so the model can call additional tools or produce the final text answer.
 
 ### Agent Hosting
 
