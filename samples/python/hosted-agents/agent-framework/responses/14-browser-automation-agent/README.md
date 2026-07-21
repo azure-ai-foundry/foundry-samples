@@ -280,6 +280,16 @@ az role assignment create --assignee "$PRINCIPAL_ID" --role "Playwright Workspac
 
 See [docs/sample-structure.md](docs/sample-structure.md) for the design rationale.
 
+## Evaluation
+
+This sample includes a co-located eval suite under `eval/`. To run:
+
+```bash
+azd ai agent eval run --config eval.yaml --no-prompt
+```
+
+The dataset (`eval/browser_automation_queries.jsonl`) contains 5 queries covering form filling, web scraping, and navigation against public URLs. Evaluators: `task_completion`, `task_adherence`, `relevance`.
+
 ## Guidance
 
 This sample is intended as a starting point, not a production-ready browser automation platform. Before using it in production, review authentication, network access, data handling, secret management, logging, browser permissions, and approval flows for state-changing actions.
