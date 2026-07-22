@@ -157,6 +157,9 @@ azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/<subscription-id>/res
 azd deploy
 ```
 
+> [!NOTE]
+> This sample is supported in container deployments only. The container image installs Playwright CLI, which this browser automation sample needs at runtime.
+
 > [!IMPORTANT]
 > Run `azd ai agent init` from a directory **outside** the sample folder — either a new empty directory, or one level up from this sample as shown above. Do **not** run it from inside the sample directory itself. Because the sample folder already contains `azure.yaml`, initializing in place fails with:
 >
