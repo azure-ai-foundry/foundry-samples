@@ -33,6 +33,8 @@ POST body contract (all fields optional)::
       "record_types":   ["A", "AAAA"],
       "raw_dns":        true,                 // automate dig per resolver x type
       "dns_attempts":   5,                    // repeat each query to expose intermittency
+      "gai_attempts":   20,                   // repeat getaddrinfo to measure OS-resolver failure rate
+      "parallel_probe": true,                 // glibc-style parallel A+AAAA on one socket
       "direct_targets": ["10.0.1.9:443"],    // reachability WITHOUT DNS
       "include_env_dump":       true,
       "include_container_info": true,
@@ -447,6 +449,8 @@ def probe_host(
     dns_timeout_sec: int = 5,
     dns_attempts: int = 1,
     configured_resolvers: list[str] | None = None,
+    gai_attempts: int = 1,
+    parallel_probe: bool = False,
 ) -> dict[str, Any]:
     """Composite probe: raw DNS (dig) + getaddrinfo -> TCP/443 -> TLS/443 -> HTTPS GET.
 
@@ -489,6 +493,38 @@ def probe_host(
                 "msg": str(e)[:300],
                 "hint": "Raw DNS probe crashed; the remaining checks for this host still ran.",
             }
+
+    # 2b) Repeated getaddrinfo — measure the OS-resolver FAILURE RATE directly
+    # (the intermittent EAI_AGAIN the customer/app actually experiences).
+    if gai_attempts and gai_attempts > 1:
+        try:
+            g = {"attempts": gai_attempts, "successes": 0, "failures": 0, "errs": {}, "ips": None}
+            for _ in range(gai_attempts):
+                dd = probe_dns(host)
+                if dd.get("status") == "ok":
+                    g["successes"] += 1
+                    if g["ips"] is None:
+                        g["ips"] = dd.get("ips")
+                else:
+                    g["failures"] += 1
+                    e = dd.get("err", "?")
+                    g["errs"][e] = g["errs"].get(e, 0) + 1
+            g["failure_rate"] = round(g["failures"] / gai_attempts, 2)
+            result["dns_getaddrinfo_repeat"] = g
+        except Exception as e:  # noqa: BLE001 — isolate: a repeat-probe crash must not abort the host
+            result["dns_getaddrinfo_repeat"] = {"status": "FAIL", "err": type(e).__name__, "msg": str(e)[:200]}
+
+    # 2c) glibc-style parallel A+AAAA on ONE socket — the concurrent-query pattern
+    # that dig/sequential never use; reproduces the EAI_AGAIN trigger if present.
+    if parallel_probe and net_probe is not None:
+        try:
+            rs2 = configured_resolvers or resolvers or net_probe.parse_resolv_conf().get("nameservers", [])
+            result["dns_parallel"] = [
+                net_probe.parallel_dual_stats(r, host, timeout=dns_timeout_sec, attempts=max(dns_attempts, 10))
+                for r in rs2
+            ]
+        except Exception as e:  # noqa: BLE001 — isolate: parallel probe crash must not abort the host
+            result["dns_parallel"] = {"status": "FAIL", "err": type(e).__name__, "msg": str(e)[:200]}
 
     if not ips_for_connect:
         return result
@@ -579,6 +615,8 @@ async def handle_invoke(request: Request) -> JSONResponse:
         resolvers_extra = spec.get("resolvers") or []
         direct_targets = spec.get("direct_targets") or []
         dns_attempts = int(spec.get("dns_attempts") or 1)
+        gai_attempts = int(spec.get("gai_attempts") or 1)
+        parallel_probe = bool(spec.get("parallel_probe", False))
         sys_resolvers = (
             net_probe.parse_resolv_conf().get("nameservers", []) if net_probe is not None else []
         )
@@ -627,6 +665,8 @@ async def handle_invoke(request: Request) -> JSONResponse:
                                 dns_timeout_sec=dns_timeout_sec,
                                 dns_attempts=dns_attempts,
                                 configured_resolvers=sys_resolvers,
+                                gai_attempts=gai_attempts,
+                                parallel_probe=parallel_probe,
                             )
                         )
                     except Exception as e:  # noqa: BLE001

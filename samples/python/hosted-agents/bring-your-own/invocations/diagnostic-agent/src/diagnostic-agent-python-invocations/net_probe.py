@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import ipaddress
 import random
+import select
 import socket
 import struct
 import time
@@ -256,6 +257,97 @@ def query(resolver: str, qname: str, qtype_name: str, timeout: float = 5.0) -> d
         return {"err": "timeout", "transport": "udp", "ms": round((time.perf_counter() - t0) * 1000, 1)}
     except OSError as e:
         return {"err": type(e).__name__, "msg": str(e)[:200], "transport": "udp"}
+
+
+def query_parallel_dual(resolver: str, qname: str, timeout: float = 5.0) -> dict[str, Any]:
+    """Mimic glibc's DEFAULT getaddrinfo behavior: send the A and AAAA queries
+    back-to-back on the **same UDP socket / source port**, then wait for both
+    replies. This is the one thing a sequential ``dig`` or our per-record probe
+    never does - and it is exactly what triggers ``EAI_AGAIN`` when a DNS server
+    / stateful middlebox / load balancer mishandles two concurrent queries on one
+    5-tuple (no firewall ACL drop involved - a reply is simply lost or mismatched)."""
+    tid_a, msg_a = _build_query(qname, QTYPES["A"], edns=True)
+    tid_aaaa, msg_aaaa = _build_query(qname, QTYPES["AAAA"], edns=True)
+    af = socket.AF_INET6 if ":" in resolver else socket.AF_INET
+    t0 = time.perf_counter()
+    want = {tid_a: "A", tid_aaaa: "AAAA"}
+    try:
+        with socket.socket(af, socket.SOCK_DGRAM) as s:
+            s.setblocking(False)
+            s.sendto(msg_a, (resolver, 53))
+            s.sendto(msg_aaaa, (resolver, 53))
+            deadline = time.perf_counter() + timeout
+            while want and time.perf_counter() < deadline:
+                r, _, _ = select.select([s], [], [], max(0.0, deadline - time.perf_counter()))
+                if not r:
+                    break
+                try:
+                    data, _ = s.recvfrom(4096)
+                except BlockingIOError:
+                    continue
+                if len(data) >= 2:
+                    want.pop(struct.unpack(">H", data[:2])[0], None)
+        return {
+            "a_ok": tid_a not in want,
+            "aaaa_ok": tid_aaaa not in want,
+            "both_ok": not want,
+            "lost": sorted(want.values()),
+            "ms": round((time.perf_counter() - t0) * 1000, 1),
+        }
+    except OSError as e:
+        return {"err": type(e).__name__, "msg": str(e)[:200]}
+
+
+def parallel_dual_stats(resolver: str, qname: str, timeout: float = 5.0, attempts: int = 10) -> dict[str, Any]:
+    """Run the glibc-style parallel A+AAAA probe ``attempts`` times and report the
+    both-replies-received rate. A rate below 1.0 - while the sequential per-record
+    probe is clean - is the signature of a concurrent-query problem (the cause of
+    getaddrinfo EAI_AGAIN that ``dig`` cannot reproduce)."""
+    attempts = max(1, int(attempts))
+    both = a_lost = aaaa_lost = errs = 0
+    lat: list[float] = []
+    for _ in range(attempts):
+        r = query_parallel_dual(resolver, qname, timeout)
+        if r.get("err"):
+            errs += 1
+            continue
+        if r.get("both_ok"):
+            both += 1
+        if not r.get("a_ok"):
+            a_lost += 1
+        if not r.get("aaaa_ok"):
+            aaaa_lost += 1
+        if r.get("ms") is not None:
+            lat.append(r["ms"])
+    out: dict[str, Any] = {
+        "resolver": resolver,
+        "attempts": attempts,
+        "both_ok": both,
+        "a_lost": a_lost,
+        "aaaa_lost": aaaa_lost,
+        "errors": errs,
+        "both_ok_rate": round(both / attempts, 2),
+    }
+    if lat:
+        out["avg_ms"] = round(sum(lat) / len(lat), 1)
+        out["max_ms"] = max(lat)
+    if both < attempts:
+        out["classification"] = "PARALLEL_DUAL_LOSS"
+        out["hint"] = (
+            f"glibc-style parallel A+AAAA on ONE socket dropped replies ({both}/{attempts} both-ok, "
+            f"A_lost={a_lost}, AAAA_lost={aaaa_lost}) while sequential per-record queries succeed. This is "
+            "the concurrent-query failure that yields getaddrinfo EAI_AGAIN but NOT dig failures, and it is "
+            "not a firewall ACL drop. Fix: make 'options single-request-reopen' take effect on the client "
+            "AND/OR fix concurrent-query handling on the DNS server / forwarder / stateful middlebox."
+        )
+    else:
+        out["classification"] = "PARALLEL_DUAL_OK"
+        out["hint"] = (
+            "Parallel A+AAAA on one socket succeeded every attempt - the getaddrinfo failure is NOT a "
+            "same-socket concurrent-query collision; look at glibc attempts/timeout, nsswitch, or an "
+            "intermittent loss on this specific name's recursion."
+        )
+    return out
 
 
 # ── higher-level helpers ─────────────────────────────────────────────────────

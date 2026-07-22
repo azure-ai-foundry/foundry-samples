@@ -45,7 +45,7 @@ This sample is designed for **Bring Your Own** (BYO) infrastructure scenarios wh
    ```bash
    cp .env.example .env
    ```
-   
+
    Edit `.env` with your project information:
    ```env
    AZURE_AI_PROJECT_ID=/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<account>/projects/<project>
@@ -57,7 +57,7 @@ This sample is designed for **Bring Your Own** (BYO) infrastructure scenarios wh
    ```
 
 2. **Deploy the agent** — Use `azd deploy` (not `azd up`, since no infrastructure needs provisioning):
-   
+
    **Option A: Container Mode (Recommended)** — Docker image pushed to container registry:
    ```bash
    # Default configuration — uses azure.yaml as-is
@@ -79,7 +79,7 @@ This sample is designed for **Bring Your Own** (BYO) infrastructure scenarios wh
    # And remove the docker section entirely (lines 12-13):
    #   docker:
    #       remoteBuild: false
-   
+
    # Step 2: Deploy
    azd deploy --no-prompt
    ```
@@ -184,6 +184,8 @@ All fields are optional:
 | `record_types` | `["A","AAAA"]` | Record types queried per resolver by the raw DNS client. |
 | `raw_dns` | `true` | Automate `dig <type> @<resolver>` for every (resolver × record type): reports the real rcode (SERVFAIL/REFUSED/NXDOMAIN/NODATA/timeout), the CNAME chain, latency, and cross-resolver disagreement. Runs **even when `getaddrinfo` fails** (the EAI_AGAIN case). |
 | `dns_attempts` | `1` | Repeat each raw DNS query N times to expose **intermittency**. Reports per-resolver `timeout_rate`, `successes/attempts`, and min/max/avg latency; classifies `DNS_INTERMITTENT` / `DNS_OK_PRIVATE_INTERMITTENT` when some attempts answer and others time out. On any UDP timeout it also probes **TCP/53** and flags `DNS_UDP_DROP_TCP_OK` (EDNS/MTU fragmentation). |
+| `gai_attempts` | `1` | Repeat the OS `getaddrinfo` call N times and report the **failure rate** (`successes/failures`, per-error counts) — measures the intermittent `EAI_AGAIN` the app actually experiences, separate from the raw wire-level result. |
+| `parallel_probe` | `false` | Mimic glibc's default `getaddrinfo`: send **A and AAAA back-to-back on one UDP socket** and measure how often a reply is lost (`both_ok_rate`). A loss here while raw sequential queries are clean is the signature of a **concurrent-query** problem (`PARALLEL_DUAL_LOSS`) — the cause of `getaddrinfo` failures that `dig` cannot reproduce and that firewalls show no drops for. |
 | `direct_targets` | `[]` | `ip:port` (or `host:port`) reachability tests that **skip DNS** — isolate a network-path break from a DNS break. |
 | `include_env_dump` | `true` | Returns env vars matching an allowlist prefix (`FOUNDRY_`, `AZURE_`, `KUBERNETES_`, etc.); credential-shaped values are length-only. |
 | `include_container_info` | `true` | Hostname, container IP, default gateway from `/proc/net/route`, resolvers + full `resolv.conf` detail (`search`, `ndots`, `timeout`, `attempts`). |
