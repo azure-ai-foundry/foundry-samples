@@ -185,15 +185,15 @@ azd ai agent invoke "Find the quarterly report under the home directory and tell
 
 Similar to using the `azd` CLI, you must invoke the agent first to create a session:
 
-![alt text](./resources/start-a-session.png)
+![alt text](src/agent-framework-agent-files-responses/resources/start-a-session.png)
 
 Once the session is created, you can grab the session ID and use `azd ai agent files upload --session-id <session-id>` to upload files to that specific hosted agent session.
 
-![alt text](./resources/session-started.png)
+![alt text](src/agent-framework-agent-files-responses/resources/session-started.png)
 
 Or you can upload files directly through the Foundry portal by navigating to Files tab in the agent playground:
 
-![alt text](./resources/file-upload-portal.png)
+![alt text](src/agent-framework-agent-files-responses/resources/file-upload-portal.png)
 
 ## Next steps
 
