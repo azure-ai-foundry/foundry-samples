@@ -48,20 +48,20 @@ See [main.py](src/browser-automation-python-maf-sample-foundry/main.py) for the 
 ## Prerequisites
 
 - An Azure AI Foundry project with a deployed chat model (e.g., `gpt-4.1`).
-- An Azure Playwright workspace. If you do not have a workspace, follow [Create a workspace](https://learn.microsoft.com/azure/app-testing/playwright-workspaces/quickstart-run-end-to-end-tests?tabs=playwrightcli&pivots=playwright-test-runner#create-a-workspace).
-- The Foundry project's managed identity must have the **Playwright Workspace Contributor** role on the Azure Playwright workspace (see [RBAC setup](#rbac-setup) below).
 - Azure CLI installed and authenticated (`az login`).
 - Docker, if you want to build the container locally.
 - Python 3.11 or later and `uv` (or `pip`) for local development.
 
 For hosted-agent setup, see [Deploy hosted agents with azd](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd).
 
+> **Note:** You do not need a pre-existing Azure Playwright workspace or manual RBAC assignment. The deployment hooks create the workspace and assign roles automatically during `azd provision` and `azd deploy`. See [Deployment hooks](#deployment-hooks) below.
+
 ## Configuration
 
 This sample uses two kinds of configuration:
 
 - **Runtime environment variables** are read by the Python agent process. Use these for local runs, or set them in the hosted agent environment when deploying.
-- **`azd` provisioning parameters** are read by `azd provision` from the azd environment. Use these only when you want this sample to create the Playwright connection and toolbox for you.
+- **Deployment hooks** handle provisioning automatically — the `postprovision` hook creates the Playwright workspace connection and toolbox, and the `postdeploy` hook assigns RBAC roles.
 
 ### Runtime environment variables
 
@@ -83,17 +83,11 @@ $env:AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1"
 | --- | --- | --- |
 | `FOUNDRY_PROJECT_ENDPOINT` | Required locally; provided by hosted agent runtime when deployed | Foundry project endpoint used for model and Toolbox MCP calls. |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | Required | Model deployment name. For hosted deployment, this is set from the model deployment selected during `azd ai agent init`; for local runs, set it in your shell or `.env` file. |
-| `TOOLBOX_NAME` | `browser-automation-tools` | Foundry Toolbox name declared in `azure.yaml`. The default `browser-automation-tools` is hardcoded in the manifest; override only if using a different pre-existing toolbox. |
+| `TOOLBOX_NAME` | `browser-automation-tools` | Foundry Toolbox name provisioned by the `postprovision` hook. This is fixed and should not be changed. |
 | `BROWSER_AGENT_PLAYWRIGHT_CLI_TIMEOUT_SECONDS` | `180` | Optional timeout for each Playwright CLI command. |
 | `BROWSER_AGENT_MCP_TIMEOUT_SECONDS` | `120` | Optional timeout for Toolbox MCP calls. |
 
-The Toolbox endpoint is resolved as `<FOUNDRY_PROJECT_ENDPOINT>/toolboxes/<TOOLBOX_NAME>/mcp?api-version=v1` and authenticated with the hosted agent identity.
-
-### Provisioning parameters
-
-`PLAYWRIGHT_SERVICE_URL` and `PLAYWRIGHT_SERVICE_RESOURCE_ID` are not read by the Python agent at runtime. They are `azd` provisioning inputs used by [`azure.yaml`](azure.yaml) to create a `PlaywrightWorkspace` project connection with **ProjectManagedIdentity** authentication and the default `browser-automation-tools` toolbox wired to that connection.
-
-Set these values with `azd env set` before running `azd provision`. `azd` stores them in `.azure/<environment-name>/.env`; the sample's root `.env` file is only for local Python execution.
+The Toolbox endpoint is resolved as `<FOUNDRY_PROJECT_ENDPOINT>/toolboxes/browser-automation-tools/mcp?api-version=v1` and authenticated with the hosted agent identity.
 
 ## Running the Agent Host
 
@@ -204,73 +198,70 @@ When running `azd ai agent init -m ./14-browser-automation-agent/azure.yaml` fro
 
 The same init flow also asks for the model deployment because [`azure.yaml`](azure.yaml) declares a `model` resource named `AZURE_AI_MODEL_DEPLOYMENT_NAME`. The selected deployment is used for the generated Azure deployment configuration and for the hosted agent's `AZURE_AI_MODEL_DEPLOYMENT_NAME` runtime environment variable. It does not update the sample's local `.env` file; set that file separately only when running the agent locally.
 
-Choose one toolbox setup path:
+### Deployment hooks
 
-### Option 1: Let this sample provision the toolbox
+This sample uses `azd` hooks to automate Playwright workspace setup:
 
-Use this path if you want `azd provision` to create the Foundry project connection to your Azure Playwright workspace and the default `browser-automation-tools` toolbox.
+#### `postprovision` — Connection & Toolbox setup
 
-Set the Playwright workspace values in your `azd` environment:
+After `azd provision` completes, the `postprovision` hook runs interactively and:
 
-```bash
-azd env set PLAYWRIGHT_SERVICE_URL "wss://<region>.api.playwright.microsoft.com/playwrightworkspaces/<workspace-id>/browsers"
-azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.LoadTestService/playwrightWorkspaces/<workspace-name>"
-```
+1. **Prompts for a Playwright workspace** — provide an existing ARM resource ID, or leave empty to create a new one.
+2. **Selects a region** (for new workspaces) — dynamically fetches available regions from the Azure RP.
+3. **Selects an authentication type:**
+   - **Project Managed Identity** (recommended) — the Foundry project's MSI authenticates to the workspace.
+   - **Agent Identity** — the hosted agent's identity authenticates.
+   - **API Key** (existing workspaces only, interactive mode only) — uses an access token you provide. Not supported in CI/non-interactive flows because the token must be entered interactively.
+4. **Deploys a Bicep template** that creates the workspace (if new) and the Playwright project connection.
+5. **Creates the `browser-automation-tools` toolbox** via the Foundry data-plane API and sets it as the default version.
 
-If these are not set, running `azd ai agent init -m <azure.yaml>` will prompt you to enter them interactively.
+#### `postdeploy` — RBAC role assignment
 
-Run `azd provision` before `azd deploy`:
+After `azd deploy` completes, the `postdeploy` hook:
 
-```bash
-azd provision
-```
+1. Determines the correct principal ID based on the configured auth type:
+   - **Project Managed Identity** → project's system-assigned identity
+   - **Agent Identity** → the deployed agent's instance identity
+2. Assigns the **Playwright Workspace Contributor** role on the Playwright workspace.
+3. Retries up to 3 times with a graceful warning if the assignment fails (e.g., due to Entra propagation delays).
 
-### Option 2: Use an existing toolbox
+> **Note:** API Key authentication does not require a role assignment.
 
-Use this path if your Foundry project already has a compatible toolbox. You can skip `azd provision` and set only the runtime toolbox name used by the deployed hosted agent. The toolbox must include the `browser_automation_preview` tool and its Playwright workspace connection.
+#### Non-interactive / CI usage
 
-```bash
-azd env set TOOLBOX_NAME "<your-toolbox-name>"
-```
-
-Or in PowerShell:
-
-```powershell
-azd env set TOOLBOX_NAME "<your-toolbox-name>"
-```
-
-You do not need to set `TOOLBOX_NAME` when using the default sample-provisioned toolbox name, `browser-automation-tools`.
-
-The deployed hosted agent identity needs Foundry access at runtime to call the model and authenticate against the Toolbox MCP endpoint. The deployment tooling handles standard hosted-agent RBAC assignments when your account has sufficient permissions.
-
-For option 1, the Playwright workspace connection uses **ProjectManagedIdentity** authentication — the project's managed identity must have the **Playwright Workspace Contributor** role on the workspace (see [RBAC setup](#rbac-setup)). For option 2, make sure the existing toolbox's Playwright workspace connection already has valid authentication configured.
-
-Then deploy the hosted agent:
+For CI pipelines or `azd provision --no-prompt`, pre-set the required values so the hooks skip interactive prompts:
 
 ```bash
-azd deploy
+# Use an existing Playwright workspace
+azd env set PLAYWRIGHT_SERVICE_RESOURCE_ID "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.LoadTestService/playwrightWorkspaces/{name}"
+azd env set PLAYWRIGHT_AUTH_TYPE "ProjectManagedIdentity"   # or AgenticIdentityToken
+
+# Or create a new workspace (omit PLAYWRIGHT_SERVICE_RESOURCE_ID)
+azd env set PLAYWRIGHT_REGION "eastus"
+azd env set PLAYWRIGHT_AUTH_TYPE "ProjectManagedIdentity"
 ```
 
-> [!NOTE]
-> This sample is supported in container deployments only. The container image installs Playwright CLI, which this browser automation sample needs at runtime.
+> **⚠️ Warning:** If neither `PLAYWRIGHT_SERVICE_RESOURCE_ID` nor `PLAYWRIGHT_REGION` is set:
+> - **PowerShell (Windows):** prompts time out after 60 seconds and default to creating a new workspace in **eastus**.
+> - **sh (Linux/macOS):** prompts will **wait indefinitely** for input, blocking the pipeline.
+>
+> Always pre-set at least one of these variables in CI to avoid surprises or hanging builds.
 
-## RBAC setup
+| Variable | Required | Description |
+| --- | --- | --- |
+| `PLAYWRIGHT_SERVICE_RESOURCE_ID` | No | ARM resource ID of an existing workspace. Omit to create a new one. |
+| `PLAYWRIGHT_REGION` | When creating new | Region for the new workspace (e.g., `eastus`). Defaults to `eastus` if not set. |
+| `PLAYWRIGHT_AUTH_TYPE` | No | `ProjectManagedIdentity` (default) or `AgenticIdentityToken`. `ApiKey` is interactive-only. |
 
-The Foundry project's managed identity must have the following role on the Azure Playwright workspace:
+### Option 1: Let hooks provision everything (recommended)
 
-| Role | Purpose |
-| --- | --- |
-| **Playwright Workspace Contributor** | Grants access to create and manage browser sessions |
-
-Assign the role using the Azure CLI:
+Use this path for a fully automated setup. Just run:
 
 ```bash
-# Get your project's managed identity principal ID from the Foundry portal or Azure CLI
-PRINCIPAL_ID="<project-managed-identity-object-id>"
-PWW_RESOURCE_ID="/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.LoadTestService/playwrightWorkspaces/<workspace-name>"
-
-az role assignment create --assignee "$PRINCIPAL_ID" --role "Playwright Workspace Contributor" --scope "$PWW_RESOURCE_ID"
+azd provision   # Hook prompts for Playwright details, creates connection + toolbox
+azd deploy      # Hook assigns RBAC to the identity
 ```
+
 
 ## Customize the sample
 

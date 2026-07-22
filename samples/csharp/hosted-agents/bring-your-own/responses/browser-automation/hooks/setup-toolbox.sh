@@ -1,0 +1,58 @@
+#!/bin/sh
+set -e
+
+# ── Setup Browser Automation Toolbox ──────────────────────────────────────────
+# This script creates a new version of the browser-automation-tools toolbox.
+# Called by postprovision.sh after connection setup.
+# Always creates a new version to pick up any connection changes, then publishes it.
+
+echo ""
+echo "Creating browser-automation-tools toolbox..."
+
+PROJECT_ENDPOINT=$(azd env get-value AZURE_AI_PROJECT_ENDPOINT 2>/dev/null || azd env get-value FOUNDRY_PROJECT_ENDPOINT 2>/dev/null || echo "")
+if [ -z "$PROJECT_ENDPOINT" ]; then
+    echo "Error: Could not determine project endpoint." >&2
+    exit 1
+fi
+
+PROJECT_ID=$(azd env get-value AZURE_AI_PROJECT_ID 2>/dev/null || echo "")
+if [ -z "$PROJECT_ID" ]; then
+    echo "Error: Could not determine project ID. Set AZURE_AI_PROJECT_ID." >&2
+    exit 1
+fi
+CONNECTION_ID="${PROJECT_ID}/connections/browserautomation"
+
+TOOLBOX_NAME="browser-automation-tools"
+TOKEN=$(az account get-access-token --resource "https://ai.azure.com" --query accessToken -o tsv)
+
+# Build toolbox body
+TOOLBOX_BODY=$(printf '{
+  "tools": [{
+    "type": "browser_automation_preview",
+    "browser_automation_preview": {
+      "connection": { "project_connection_id": "%s" }
+    }
+  }]
+}' "$CONNECTION_ID")
+
+# POST creates a new version (works for both new and existing toolboxes)
+RESPONSE=$(curl -fsS -X POST \
+    "${PROJECT_ENDPOINT}/toolboxes/${TOOLBOX_NAME}/versions?api-version=v1" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$TOOLBOX_BODY")
+
+VERSION_ID=$(printf '%s' "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('version',''))" 2>/dev/null || echo "")
+if [ -z "$VERSION_ID" ]; then
+    echo "Error: Toolbox creation did not return a version ID." >&2
+    exit 1
+fi
+
+echo "  Created version: $VERSION_ID"
+
+# Publish the new version as default
+azd ai toolbox publish "$TOOLBOX_NAME" "$VERSION_ID"
+
+azd env set TOOLBOX_NAME "$TOOLBOX_NAME"
+
+echo "✅ Toolbox '$TOOLBOX_NAME' v${VERSION_ID} created and published."

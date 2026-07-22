@@ -50,9 +50,7 @@ public class Program
             .GetProjectResponsesClientForModel(deployment);
 
         // Toolbox MCP endpoint
-        var toolboxName = Environment.GetEnvironmentVariable("TOOLBOX_NAME");
-        if (string.IsNullOrWhiteSpace(toolboxName))
-            toolboxName = Constants.DefaultToolboxName;
+        var toolboxName = Constants.DefaultToolboxName;
         var toolboxEndpoint = $"{foundryEndpoint.TrimEnd('/')}/toolboxes/{toolboxName}/mcp?api-version=v1";
 
         ResponsesServer.Run<BrowserAutomationHandler>(configure: builder =>

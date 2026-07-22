@@ -651,50 +651,68 @@ resources:
 
 ## 15. Browser Automation
 
-Prompted parameters: `playwright_service_url`, `playwright_service_resource_id`, `playwright_service_access_token`. Requires an Azure Playwright workspace. The access token is used as a secret for the Playwright workspace connection.
+Requires an Azure Playwright workspace. The browser automation samples use `azd` deployment hooks to interactively create the Playwright workspace connection and toolbox — no manual parameters needed.
 
-**`agent.manifest.yaml`**
+The `postprovision` hook prompts for:
+- An existing Playwright workspace ARM resource ID (or leave empty to create a new one)
+- A region (for new workspaces, dynamically fetched from the Azure RP)
+- An authentication type: **Project Managed Identity** (recommended), **Agent Identity**, or **API Key** (existing workspaces only)
+
+The hook then deploys a Bicep template (connection + optional workspace) and creates the toolbox via the Foundry data-plane API.
+
+The `postdeploy` hook assigns the **Playwright Workspace Contributor** RBAC role to the selected identity.
+
+**`azure.yaml`** (hooks section — shown alongside the service definition)
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
-name: toolbox-hosted-browser-automation
-displayName: "Browser Automation Toolbox Agent"
-description: >
-  Hosted agent with a Browser Automation toolbox backed by an Azure Playwright
-  workspace connection. Uses API key authentication to connect to the
-  Playwright workspace.
-template:
-  kind: hosted
-  protocols:
-    - protocol: responses
-      version: 1.0.0
-parameters:
-  properties:
-    - name: playwright_service_url
-      secret: false
-      description: Browser WebSocket endpoint for the Azure Playwright workspace
-    - name: playwright_service_resource_id
-      secret: false
-      description: Azure resource ID of the Playwright workspace
-    - name: playwright_service_access_token
-      secret: true
-      description: Access token for the Azure Playwright workspace
-resources:
-  - kind: model
-    id: gpt-4.1
-    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
-  - kind: connection
-    name: browserautomation
-    category: PlaywrightWorkspace
-    authType: ProjectManagedIdentity
-    target: "{{ playwright_service_url }}"
-    metadata:
-      resourceId: "{{ playwright_service_resource_id }}"
-  - kind: toolbox
-    name: agent-tools
-    tools:
-      - type: browser_automation_preview
-        browser_automation_preview:
-          connection:
-            project_connection_id: browserautomation
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: bat-python-maf
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-4.1
+        model:
+          format: OpenAI
+          name: gpt-4.1
+          version: '2025-04-14'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  bat-python-maf:
+    host: azure.ai.agent
+    uses:
+      - ai-project
+    project: src/bat-python-maf
+    language: python
+    kind: hosted
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4.1}
+      - name: TOOLBOX_NAME
+        value: browser-automation-tools
+hooks:
+  postprovision:
+    windows:
+      shell: pwsh
+      run: hooks/postprovision.ps1
+      interactive: true
+    posix:
+      shell: sh
+      run: hooks/postprovision.sh
+      interactive: true
+  postdeploy:
+    windows:
+      shell: pwsh
+      run: hooks/postdeploy.ps1
+    posix:
+      shell: sh
+      run: hooks/postdeploy.sh
+infra:
+  provider: microsoft.foundry
 ```
+
+> **Note:** Unlike other scenarios, browser automation does not declare connection or toolbox resources in the manifest. The `postprovision` hook creates them interactively (supporting multiple auth types and optional workspace creation), and the `postdeploy` hook handles RBAC. See the [browser automation sample README](agent-framework/responses/14-browser-automation-agent/README.md#deployment-hooks) for details.
