@@ -15,7 +15,6 @@
  *   AZURE_AI_MODEL_DEPLOYMENT_NAME    — Model deployment name
  *
  * Optional:
- *   TOOLBOX_NAME                      — Override default toolbox name
  *   BROWSER_AGENT_PLAYWRIGHT_CLI_TIMEOUT_SECONDS — CLI timeout (default: 180)
  */
 
@@ -39,9 +38,7 @@ var deployment = Environment.GetEnvironmentVariable("AZURE_AI_MODEL_DEPLOYMENT_N
     ?? Environment.GetEnvironmentVariable("BROWSER_AGENT_MODEL")
     ?? throw new InvalidOperationException("AZURE_AI_MODEL_DEPLOYMENT_NAME environment variable is not set.");
 
-var toolboxName = Environment.GetEnvironmentVariable("TOOLBOX_NAME");
-if (string.IsNullOrWhiteSpace(toolboxName))
-    toolboxName = "browser-automation-tools";
+var toolboxName = "browser-automation-tools";
 var playwrightCliTimeout = int.TryParse(Environment.GetEnvironmentVariable("BROWSER_AGENT_PLAYWRIGHT_CLI_TIMEOUT_SECONDS"), out var t) ? t : 180;
 
 // Ensure FOUNDRY_AGENT_TOOLSET_ENDPOINT is set — platform doesn't always inject it
