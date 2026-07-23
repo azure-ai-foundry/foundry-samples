@@ -178,7 +178,7 @@ Write-Host ""
 Write-Host "Deploying Playwright connection..."
 
 $scriptDir = Split-Path -Parent $PSCommandPath
-$bicepFile = Join-Path $scriptDir "..\infra\playwright-connection.bicep"
+$bicepFile = Join-Path $scriptDir "..\infra-modules\playwright-connection.bicep"
 
 # Build parameters as a JSON file to avoid exposing secrets in process arguments
 $paramsObj = @{
