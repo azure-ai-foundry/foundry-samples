@@ -131,7 +131,7 @@ The guardrail is **not** application code; it's a definition-level setting. `azd
 
 ## Testing egress policies
 
-Once the agent is deployed, you can create RAI egress policies on your Azure AI Services account to control its outbound network access. Below are test scenarios that validate each policy capability.
+Once the agent is deployed, you can create RAI egress policies on your Azure AI Services account to control its outbound network access. Below are test scenarios that validate each policy capability. The invocation prompts are taken from the runnable tests in the [scenarios](scenarios/) folder.
 
 ### Prerequisites for policy testing
 
@@ -174,11 +174,13 @@ where `policy.json` contains:
 }
 ```
 
-**Verify:**
-```
-test egress to https://httpbin.org/get        → ✅ 200 OK
-test egress to https://example.com            → ❌ 403 Forbidden
-test egress to https://www.google.com         → ❌ 403 Forbidden
+**Verify with `azd`:**
+```bash
+azd ai agent invoke "test egress to https://httpbin.org/get"
+# Expected: 200 OK
+
+azd ai agent invoke "test egress to https://example.com"
+# Expected: 403 Forbidden
 ```
 
 > **E2E verified:** httpbin.org returns 200 with `X-Adc-Proxy: 1` header confirming traffic went through the egress proxy. Denied hosts return 403.
@@ -203,10 +205,10 @@ Insert a custom header on requests to `httpbin.org`:
 }
 ```
 
-**Verify:**
-```
-test headers to https://httpbin.org/headers
-→ Response should show "X-Custom-Tag": "my-value" in echoed headers
+**Verify with `azd`:**
+```bash
+azd ai agent invoke -o "raw" "test headers to https://httpbin.org/headers"
+# Expected: "X-Custom-Tag": "my-value" in the echoed headers
 ```
 
 ### Test 3: Transform — Set (overwrite) header
@@ -227,10 +229,10 @@ Overwrite the `User-Agent` header:
 }
 ```
 
-**Verify:**
-```
-test headers to https://httpbin.org/headers
-→ User-Agent should be "policy-override-agent" (not "egress-test-agent/2.0")
+**Verify with `azd`:**
+```bash
+azd ai agent invoke -o "raw" "test headers to https://httpbin.org/headers"
+# Expected: User-Agent is "policy-override-agent" (not "egress-test-agent/2.0")
 ```
 
 > **Note**: `Set` always overwrites the header value. `Insert` only adds the header if it doesn't already exist. Since this agent sets `User-Agent` on every request, `Insert` would be a no-op while `Set` overwrites it.
@@ -253,10 +255,10 @@ Remove the `X-Test-Marker` header:
 }
 ```
 
-**Verify:**
-```
-test headers to https://httpbin.org/headers
-→ X-Test-Marker should NOT appear in echoed headers
+**Verify with `azd`:**
+```bash
+azd ai agent invoke -o "raw" "test headers to https://httpbin.org/headers"
+# Expected: X-Test-Marker does not appear in the echoed headers
 ```
 
 ### Test 5: Rewrite — Host rewrite
@@ -275,10 +277,10 @@ Rewrite requests to `www.google.com` to go to `www.bing.com` instead:
 }
 ```
 
-**Verify:**
-```
-test egress to https://www.google.com
-→ Should receive Bing content (not Google)
+**Verify with `azd`:**
+```bash
+azd ai agent invoke "test egress to https://www.google.com"
+# Expected: Bing content (not Google)
 ```
 
 > **E2E verified:** Response body contains `bing.com` content (Microsoft Bing search page) instead of Google.
@@ -299,19 +301,19 @@ Rewrite the path of requests:
 }
 ```
 
-**Verify:**
-```
-test egress to https://httpbin.org/get
-→ Should return the /ip response (origin IP) instead of the /get response
+**Verify with `azd`:**
+```bash
+azd ai agent invoke "test egress to https://httpbin.org/get"
+# Expected: the /ip response (origin IP) instead of the /get response
 ```
 
 ### Test 7: Connectivity baseline (no policy)
 
 Without any egress policy attached, verify baseline connectivity:
 
-```
-test connectivity
-→ All three targets (httpbin.org, example.com, google.com) should return ✅
+```bash
+azd ai agent invoke "test connectivity"
+# Expected: all three targets (httpbin.org, example.com, google.com) return 200
 ```
 
 > **E2E verified:** All three hosts return 200 when no egress policy is attached.
@@ -350,10 +352,13 @@ Rule order matters — the egress proxy uses first-match semantics. Create a pol
 }
 ```
 
-**Verify:**
-```
-test egress to https://httpbin.org/get     → ✅ 200 (matches allow-httpbin-all)
-test egress to https://httpbin.org/ip      → ❌ 403 (matches deny-httpbin-ip first)
+**Verify with `azd`:**
+```bash
+azd ai agent invoke "test egress to https://httpbin.org/get"
+# Expected: 200 (matches allow-httpbin-all)
+
+azd ai agent invoke "test egress to https://httpbin.org/ip"
+# Expected: 403 (matches deny-httpbin-ip first)
 ```
 
 ### Test 9: Multiple transforms in one rule
@@ -376,12 +381,11 @@ Apply Insert, Set, and Remove in a single Transform rule:
 }
 ```
 
-**Verify:**
-```
-test headers to https://httpbin.org/headers
-→ X-Custom-Inserted: hello (inserted)
-→ User-Agent: policy-agent/1.0 (overwritten from egress-test-agent/2.0)
-→ X-Test-Marker should NOT appear (removed)
+**Verify with `azd`:**
+```bash
+azd ai agent invoke -o "raw" "test headers to https://httpbin.org/headers"
+# Expected: X-Custom-Inserted is "hello", User-Agent is "policy-agent/1.0",
+# and X-Test-Marker does not appear
 ```
 
 ### Test 10: Combined Rewrite + Transform (first-match)
@@ -422,11 +426,16 @@ When a Rewrite rule and Transform rule both could match, only the first one appl
 }
 ```
 
-**Verify:**
-```
-test egress to https://www.google.com          → ✅ Bing content (rewrite applied)
-test headers to https://httpbin.org/headers    → ✅ X-Policy-Tag: tagged (transform applied)
-test egress to https://example.com             → ❌ 403 (no matching rule, default Deny)
+**Verify with `azd`:**
+```bash
+azd ai agent invoke "test egress to https://www.google.com"
+# Expected: Bing content (rewrite applied)
+
+azd ai agent invoke -o "raw" "test headers to https://httpbin.org/headers"
+# Expected: X-Policy-Tag is "tagged" (transform applied)
+
+azd ai agent invoke "test egress to https://example.com"
+# Expected: 403 (no matching rule, default Deny)
 ```
 
 ### Test 11: Deny-all (no rules)
@@ -446,10 +455,10 @@ A policy with `defaultAction=Deny` and no rules blocks everything:
 }
 ```
 
-**Verify:**
-```
-test connectivity
-→ All three targets should return ❌ 403
+**Verify with `azd`:**
+```bash
+azd ai agent invoke "test connectivity"
+# Expected: all three targets return 403
 ```
 
 > **Note:** This scenario requires full traffic inspection, which the Foundry platform enables automatically when `mode=Enforced` and `defaultAction=Deny`.
@@ -478,10 +487,13 @@ Test that `*.org` matches subdomains:
 }
 ```
 
-**Verify:**
-```
-test egress to https://httpbin.org/get         → ✅ 200 (matches *.org)
-test egress to https://example.com             → ❌ 403 (.com not matched)
+**Verify with `azd`:**
+```bash
+azd ai agent invoke "test egress to https://httpbin.org/get"
+# Expected: 200 (matches *.org)
+
+azd ai agent invoke "test egress to https://example.com"
+# Expected: 403 (.com is not matched)
 ```
 
 ## Audit mode testing
@@ -516,29 +528,39 @@ In **Audit mode**, the egress proxy evaluates rules and logs decisions without e
 }
 ```
 
-**Verify (audit passthrough — deny rules not enforced):**
-```
-test egress to https://httpbin.org/get  → ✅ 200 (allowed by rule)
-test egress to https://example.com      → ✅ 200 (deny NOT enforced in audit)
-test egress to https://www.google.com   → ✅ 200 (default deny NOT enforced in audit)
+**Verify with `azd` (audit passthrough — deny rules not enforced):**
+```bash
+azd ai agent invoke "test egress to https://httpbin.org/get"
+# Expected: 200 (allowed by rule)
+
+azd ai agent invoke "test egress to https://example.com"
+# Expected: 200 (deny is not enforced in audit)
+
+azd ai agent invoke "test egress to https://www.google.com"
+# Expected: 200 (default deny is not enforced in audit)
 ```
 
 ### Test 14: Audit allow-all
 
 With an allow-all rule under audit mode, all hosts should be reachable:
 
-```
-test connectivity
-→ All targets should return ✅ (allow rules work normally in audit)
+```bash
+azd ai agent invoke "test connectivity"
+# Expected: all targets return 200 (allow rules work normally in audit)
 ```
 
 ### Test 15: Audit vs Enforced comparison
 
 Deploy the same deny policy under both modes and verify the difference:
 
-```
-# Audit mode:  test egress to https://example.com → ✅ 200 (passthrough)
-# Enforced mode: test egress to https://example.com → ❌ 403 (blocked)
+```bash
+# Invoke after deploying the policy in Audit mode.
+azd ai agent invoke "test egress to https://example.com"
+# Expected: 200 (passthrough)
+
+# Invoke again after deploying the same policy in Enforced mode.
+azd ai agent invoke "test egress to https://example.com"
+# Expected: 403 (blocked)
 ```
 
 ### How to observe audit decisions
@@ -613,18 +635,18 @@ Create a policy that injects an MI token scoped to `https://storage.azure.com/.d
 }
 ```
 
-**Verify:**
-```
-test egress to https://myteststorage.blob.core.windows.net/egress-test?restype=container&comp=list
-→ ✅ 200 with XML blob listing (proxy injected MI token)
+**Verify with `azd`:**
+```bash
+azd ai agent invoke "test egress to https://myteststorage.blob.core.windows.net/egress-test?restype=container&comp=list"
+# Expected: 200 with an XML blob listing (proxy injected the MI token)
 ```
 
 ### Test 17: MI token scoping
 
 The MI token is only injected for hosts matching the Transform rule. Requests to other hosts (e.g., httpbin.org) should NOT carry a Bearer token:
 
-```
-test headers to https://httpbin.org/headers
+```bash
+azd ai agent invoke -o "raw" "test headers to https://httpbin.org/headers"
 → Echoed headers should NOT contain "Authorization: Bearer ..."
 ```
 
