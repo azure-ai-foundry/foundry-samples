@@ -25,6 +25,8 @@ Use this image to answer questions like:
 - **Single JSON response.** All probe outcomes are returned in one HTTP 200 response — per-probe failures are reported in the `status` / `hint` fields, not via non-2xx HTTP codes. This keeps client-side parsing simple.
 - **Caller controls the probe matrix.** The request body lists hostnames; nothing is hard-coded to a specific customer ACR. An empty body runs only the safe defaults (container info, env dump, and a small set of public Azure endpoints).
 - **No secrets in the response.** Env vars matching `KEY`, `SECRET`, `PASSWORD`, `TOKEN`, `CONNECTION_STRING`, or `SAS` are reported with their length only.
+- **Extensible probe framework.** Each diagnostic is a small, self-registering **probe** that emits one uniform `ProbeResult` (`probe`/`status`/`findings`/`metrics`/`evidence`). A probe-agnostic runner executes them under isolation and an aggregator rolls them into a top-level `summary`. Adding a probe requires **no** change to the handler, runner, or aggregator — see [DEVELOPING_PROBES.md](src/diagnostic-agent-python-invocations/DEVELOPING_PROBES.md). The response is validated by [`schema/report.schema.json`](src/diagnostic-agent-python-invocations/schema/report.schema.json).
+- **Structured, uniform output.** Every probe emits the same `ProbeResult` (`probe`/`status`/`findings`/`metrics`/`evidence`) under `results[]`, with a probe-agnostic `summary` rollup. New consumers and LLM readers get one shape to parse across all diagnostics; the response is validated by [`schema/report.schema.json`](src/diagnostic-agent-python-invocations/schema/report.schema.json).
 
 ## Getting Started (Bring Your Own Infrastructure)
 
@@ -167,9 +169,13 @@ All fields are optional:
   "resolvers":      ["168.63.129.16"],
   "record_types":   ["A", "AAAA"],
   "raw_dns":        true,
+  "dns_attempts":   20,
+  "gai_attempts":   20,
+  "parallel_probe": true,
   "direct_targets": ["10.0.1.9:443"],
   "include_env_dump":       true,
   "include_container_info": true,
+  "include_evidence":       true,
   "tcp_timeout_sec":  5,
   "http_timeout_sec": 10,
   "dns_timeout_sec":  5
@@ -189,6 +195,7 @@ All fields are optional:
 | `direct_targets` | `[]` | `ip:port` (or `host:port`) reachability tests that **skip DNS** — isolate a network-path break from a DNS break. |
 | `include_env_dump` | `true` | Returns env vars matching an allowlist prefix (`FOUNDRY_`, `AZURE_`, `KUBERNETES_`, etc.); credential-shaped values are length-only. |
 | `include_container_info` | `true` | Hostname, container IP, default gateway from `/proc/net/route`, resolvers + full `resolv.conf` detail (`search`, `ndots`, `timeout`, `attempts`). |
+| `include_evidence` | `true` | Include each probe's verbose `evidence` block (raw dig output, per-resolver records, before/after counters). Set `false` for a lean response carrying only `status`/`findings`/`metrics`. |
 | `tcp_timeout_sec` | `5` | Per-attempt TCP/TLS timeout. |
 | `http_timeout_sec` | `10` | HTTP timeout. |
 | `dns_timeout_sec` | `5` | Per-query raw DNS timeout. |
@@ -199,77 +206,102 @@ If the body is empty, the agent runs only the defaults: container info + env dum
 
 ## Response shape
 
+Every probe emits one uniform `ProbeResult` under `results[]`; `summary` is a
+probe-agnostic rollup of them. Top-level `status` reports whether the **agent** ran
+(`ok`, or `partial` if a probe crashed); `summary.status` is the **diagnostic
+verdict** (`ok`/`warn`/`fail`). The response is always HTTP 200 and is validated by
+[`schema/report.schema.json`](src/diagnostic-agent-python-invocations/schema/report.schema.json).
+
 ```json
 {
+  "schema_version": 1,
   "status": "ok",
-  "agent_session_id": "...",
-  "invocation_id": "...",
-  "timestamp_utc": "2026-06-12T...",
-  "checks": {
-    "container": {
-      "hostname": "...",
-      "ip": "10.0.0.42",
-      "default_route": "10.0.0.1 via eth0",
-      "resolvers": ["168.63.129.16"]
-    },
-    "env": {
-      "AZURE_REGION": "westus2",
-      "FOUNDRY_PROJECT_ENDPOINT": "https://...",
-      "KUBERNETES_SERVICE_HOST": "10.0.0.1"
-    },
-    "hosts": [
-      {
-        "host": "<acr>.azurecr.io",
-        "dns":      {"status": "ok", "ips": ["10.0.1.4"], "any_private": true, "all_private": true},
-        "dns_raw": {
-          "per_resolver": [
-            {"resolver": "10.0.0.10", "classification": "DNS_OK_PRIVATE",
-             "cname_chain": ["<acr>.privatelink.azurecr.io"],
-             "records": {"A": {"rcode": "NOERROR", "answers": ["10.0.1.4"], "ms": 6.2}},
-             "dig": ";; ->>HEADER<<- status: NOERROR, 2 answer(s), 6.2ms udp\n..."},
-            {"resolver": "168.63.129.16", "classification": "DNS_OK_PUBLIC_FOR_PRIVATE",
-             "records": {"A": {"rcode": "NOERROR", "answers": ["20.53.44.203"]}}, "hint": "..."}
-          ],
-          "resolver_disagreement": {"classification": "RESOLVER_DISAGREE",
-            "private_from": ["10.0.0.10"], "not_private_from": ["168.63.129.16"], "hint": "..."}
-        },
-        "dns_vs_raw": {"classification": "GAI_RAW_CONSISTENT", "getaddrinfo_ips": ["10.0.1.4"], "raw_ips": ["10.0.1.4"]},
-        "tcp_443":  {"status": "ok", "ip": "10.0.1.4", "port": 443, "ms": 1.8},
-        "tls_443":  {"status": "ok", "version": "TLSv1.3", "cipher": "TLS_AES_256_GCM_SHA384", "cert_subject": "CN=*.azurecr.io", "cert_sans": ["*.azurecr.io", "*.<region>.data.azurecr.io"]},
-        "http_get": {"status": "ok", "code": 401, "headers": {"www-authenticate": "Bearer realm=...", "docker-distribution-api-version": "registry/2.0"}}
-      }
+  "summary": {
+    "status": "fail",
+    "targets_failed": ["<acct>.services.ai.azure.com"],
+    "findings_by_severity": {"error": 2, "warning": 1, "info": 3},
+    "top_findings": [
+      {"probe": "dns.getaddrinfo", "code": "GAI_FAIL_RAW_OK", "severity": "error",
+       "message": "getaddrinfo fails though the record resolves at the wire level.",
+       "target": "<acct>.services.ai.azure.com"},
+      {"probe": "dns.raw", "code": "DNS_OK_PRIVATE_INTERMITTENT", "severity": "warning",
+       "message": "A-record UDP via configured resolver timed out ~45% of attempts; TCP works.",
+       "target": "<acct>.services.ai.azure.com"}
     ],
-    "public_hosts": [
-      {"status": "ok", "url": "https://www.microsoft.com/", "code": 200}
-      ]
-  }
+    "probes_run": ["container.info","env.dump","dns.getaddrinfo","dns.raw","dns.parallel","conn.tcp","conn.tls","conn.http","net.udp_counters"],
+    "probes_errored": []
+  },
+  "results": [
+    {"probe": "dns.getaddrinfo", "probe_version": 1, "status": "fail",
+     "target": {"host": "<acct>.services.ai.azure.com"},
+     "summary": "getaddrinfo FAILED (gaierror)",
+     "findings": [{"code": "GAI_FAIL_RAW_OK", "severity": "error",
+       "message": "getaddrinfo failed but the record resolves at the wire level.",
+       "remediation": "Root cause is the DNS path/server, not the app; see dns.raw."}],
+     "metrics": {"gai_attempts": 20, "gai_failures": 3, "gai_failure_rate": 0.15},
+     "evidence": {"...": "gated by include_evidence"}, "elapsed_ms": 210.4},
+
+    {"probe": "dns.raw", "probe_version": 1, "status": "warn",
+     "target": {"host": "<acct>.services.ai.azure.com"},
+     "summary": "DNS_OK_PRIVATE_INTERMITTENT",
+     "findings": [{"code": "DNS_OK_PRIVATE_INTERMITTENT", "severity": "warning",
+       "message": "A over UDP 11/20 ok, 9 timeouts (avg 1367ms); TCP OK; AAAA OK.",
+       "remediation": "Fix UDP A-record recursion on the resolver, or add a 2nd resolver / VNet-local Private Resolver."}],
+     "metrics": {"a_udp_timeout_rate": 0.45, "a_udp_avg_ms": 1367.0, "a_tcp_ok": 1},
+     "elapsed_ms": 41230.7},
+
+    {"probe": "dns.parallel", "probe_version": 1, "status": "ok",
+     "target": {"host": "<acct>.services.ai.azure.com"},
+     "summary": "PARALLEL_DUAL_OK",
+     "findings": [{"code": "PARALLEL_DUAL_OK", "severity": "info",
+       "message": "20/20 both-ok — rules out same-socket concurrent-query collision.",
+       "remediation": null}],
+     "metrics": {"both_ok_rate": 1.0, "a_lost": 0, "aaaa_lost": 0}, "elapsed_ms": 620.9},
+
+    {"probe": "net.udp_counters", "probe_version": 1, "status": "ok",
+     "target": {"kind": "container"},
+     "summary": "No local UDP/interface drops; loss is on the path or upstream.",
+     "findings": [{"code": "LOCAL_UDP_CLEAN", "severity": "info",
+       "message": "No local UDP/interface drops during the run.", "remediation": null}],
+     "metrics": {"udp_in_errors_delta": 0, "udp_rcvbuf_errors_delta": 0, "iface_rx_dropped_delta": 0},
+     "elapsed_ms": 4.2}
+  ]
 }
 ```
 
+Each probe's `evidence` (when `include_evidence` is true) carries the full raw
+detail — for `dns.raw` that includes the per-resolver records, rcodes, CNAME
+chains, `dig`-style text, and the UDP-vs-TCP comparison.
+
 ## Interpretation cheat-sheet
 
-| Symptom in response | Likely cause |
+**Read `summary.top_findings` first** for the verdict, then drill into `results[]`
+for detail. Every finding carries a stable `code` (e.g. `GAI_FAIL_RAW_OK`), for
+problems a `remediation`, and supporting numbers under the result's `metrics`.
+
+| Probe / finding `code` | Likely cause |
 |---|---|
-| `hosts[].dns.status = FAIL gaierror` | Resolver doesn't have the zone. For `privatelink.*`, the private DNS zone isn't linked to this VNet. **See `hosts[].dns_raw` for the real rcode.** |
-| `hosts[].dns.ips` all RFC1918 → ✅ | Private Endpoint resolution is working. |
-| `hosts[].dns.ips` contain a public IP for a `privatelink.*` host | Zone link missing or pointed at the wrong VNet. `hint` field flags this. |
-| `dns_raw.per_resolver[].classification = DNS_OK_PUBLIC_FOR_PRIVATE` | Name CNAMEs to `privatelink.*` but resolved to a **public** IP. For a **configured** resolver this means it doesn't serve the private zone; for an **extra** comparison resolver (e.g. `168.63.129.16` from a spoke VNet) this is **expected** in a centralized/hub-DNS design. |
-| `dns_raw.per_resolver[].classification = DNS_INTERMITTENT` / `DNS_OK_PRIVATE_INTERMITTENT` | Some attempts answered, others timed out (`timeout_rate`). The record exists but delivery through this resolver/path is unreliable (packet loss, forwarder capacity, flaky hub/ExpressRoute hop). Fix DNS-path reliability; add a second resolver or a local Private Resolver. |
-| `dns_raw.per_resolver[].classification = DNS_UDP_DROP_TCP_OK` | UDP/53 times out but TCP/53 answers — EDNS/MTU fragmentation dropped on the path. Allow UDP fragments/EDNS(0) or use a local Private Resolver. |
-| `dns_raw.verdict` | The classification of the **configured** resolver(s) only — use this as the authoritative verdict; extra comparison resolvers are informational. |
-| `dns_raw.resolver_disagreement = RESOLVER_DISAGREE` | Some resolvers return the private IP, some don't — the private zone is only linked to part of the DNS path. Classic "works from the VM subnet, not the agent subnet." |
-| `dns_raw.per_resolver[].classification = DNS_SERVFAIL` | Resolver/forwarder is authoritative-but-broken for the zone (or its conditional forwarder failed). Fast failure. |
-| `dns_raw.per_resolver[].classification = DNS_REFUSED` | Source-based ACL/view excludes this subnet — authorize the agent-subnet source on the DNS server. |
-| `dns_raw.per_resolver[].classification = DNS_TIMEOUT` | Resolver/forwarder unreachable or dropping packets from this subnet (NSG/UDR/peering). Slow failure ⇒ path problem, not a missing record. |
-| `dns_raw.per_resolver[].classification = DNS_NODATA` | Name exists (NOERROR) but no A/AAAA record in the zone this resolver serves. |
-| `dns_vs_raw.classification = GAI_FAIL_RAW_OK` | `getaddrinfo` fails but the record resolves at the wire level — a dual-stack/AAAA, `ndots`/search-domain, or `nsswitch` quirk, not a DNS outage. |
-| `direct_targets[].tcp.status = ok` while the same host fails DNS | The private IP is reachable — the break is **DNS**, not the network path. |
-| `tcp_443.status = FAIL timeout` | NSG egress rule, UDR routing to an NVA that black-holes the flow, or firewall drop. |
-| `tcp_443.status = FAIL refused` | PE is in Disconnected state, or an upstream device is sending RST. |
-| `tls_443.status = FAIL SSLCertVerificationError` | A firewall is doing TLS interception. Bypass `*.azurecr.io` / `*.azure.com`. |
-| `tls_443.status = FAIL SSLError` mid-handshake | NVA breaking SNI. Enable SNI passthrough. |
-| `http_get.code = 401` on `/v2/` for ACR | Registry is reachable. ✅ |
-| `http_get.code = 403` on `/v2/` for ACR | PNA=Disabled + caller not on an approved PE. |
+| `dns.getaddrinfo` `GAI_FAIL_RAW_OK` | `getaddrinfo` fails but the record resolves at the wire level — the app-visible failure is in the DNS **path/server**, not connectivity. Drill into `dns.raw`. |
+| `dns.getaddrinfo` `GAI_INTERMITTENT` (`gai_failure_rate > 0`) | The OS resolver fails intermittently — quantifies the `EAI_AGAIN` the app actually experiences. |
+| `dns.raw` `DNS_OK_PRIVATE_INTERMITTENT` / `DNS_INTERMITTENT` (`a_udp_timeout_rate`) | Some attempts answered, others timed out. Record exists but the resolver/path is unreliable (packet loss, forwarder capacity, flaky hub/ExpressRoute hop). Fix DNS-path reliability; add a second resolver or a local Private Resolver. |
+| `dns.raw` `DNS_UDP_DROP_TCP_OK` (`a_tcp_ok=1`, high `a_udp_timeout_rate`) | UDP/53 times out but TCP/53 answers — EDNS/MTU fragmentation or UDP-response loss on the path. Allow UDP fragments/EDNS(0) or use a local Private Resolver. |
+| `dns.raw` `DNS_OK_PUBLIC_FOR_PRIVATE` | Name CNAMEs to `privatelink.*` but resolved to a **public** IP. For a **configured** resolver it doesn't serve the private zone; for an **extra** comparison resolver (e.g. `168.63.129.16` from a spoke VNet) this is **expected** in a hub-DNS design. |
+| `dns.raw` `DNS_SERVFAIL` | Resolver/forwarder authoritative-but-broken for the zone (or its conditional forwarder failed). Fast failure. |
+| `dns.raw` `DNS_REFUSED` | Source-based ACL/view excludes this subnet — authorize the agent-subnet source on the DNS server. |
+| `dns.raw` `DNS_TIMEOUT` | Resolver/forwarder unreachable or dropping packets from this subnet (NSG/UDR/peering). Slow failure ⇒ path problem, not a missing record. |
+| `dns.raw` `DNS_NXDOMAIN` / `DNS_NODATA` | Name/record missing in the zone this resolver serves. |
+| `dns.raw` `RESOLVER_DISAGREE` | Resolvers return different answers — the private zone is only linked to part of the DNS path. Classic "works from the VM subnet, not the agent subnet." |
+| `dns.parallel` `PARALLEL_DUAL_LOSS` (`both_ok_rate < 1`) | Parallel A+AAAA on one socket loses replies while sequential queries are clean — a concurrent-query problem (the `EAI_AGAIN` `dig` can't reproduce and firewalls show no drops for). |
+| `dns.parallel` `PARALLEL_DUAL_OK` | Parallel A+AAAA always succeeded — **rules out** the same-socket concurrent-query collision; look at the raw A-record path (`dns.raw`) instead. |
+| `net.udp_counters` `LOCAL_UDP_CLEAN` | No local NIC/UDP-socket drops during the run — the loss is on the network **path or upstream server**, not this sandbox. |
+| `net.udp_counters` `LOCAL_UDP_DROPS` | Local UDP/socket drops occurred — part of the loss may be local (socket-buffer exhaustion, CPU starvation). Inspect the per-counter deltas. |
+| `conn.direct` `ok` while the same host fails DNS | The private IP is reachable — the break is **DNS**, not the network path. |
+| `conn.tcp` `TCP_FAIL` (timeout) | NSG egress rule, UDR routing to an NVA that black-holes the flow, or firewall drop. |
+| `conn.tcp` `TCP_FAIL` (refused) | PE is in Disconnected state, or an upstream device is sending RST. |
+| `conn.tls` `TLS_FAIL` (SSLCertVerificationError) | A firewall is doing TLS interception. Bypass `*.azurecr.io` / `*.azure.com`. |
+| `conn.tls` `TLS_FAIL` (SSLError mid-handshake) | NVA breaking SNI. Enable SNI passthrough. |
+| `conn.http` `code=401` on `/v2/` for ACR | Registry is reachable. ✅ |
+| `conn.http` `code=403` on `/v2/` for ACR | PNA=Disabled + caller not on an approved PE. |
 
 ## Per-service expected results
 
