@@ -153,7 +153,7 @@ echo ""
 echo "Deploying Playwright connection..."
 
 SCRIPT_DIR=$(dirname "$0")
-BICEP_FILE="$SCRIPT_DIR/../infra/playwright-connection.bicep"
+BICEP_FILE="$SCRIPT_DIR/../infra-modules/playwright-connection.bicep"
 
 # Build parameters as a JSON file to avoid exposing secrets in process arguments
 PARAMS_FILE=$(mktemp)
