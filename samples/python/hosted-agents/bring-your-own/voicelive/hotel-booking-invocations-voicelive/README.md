@@ -30,6 +30,71 @@ Depending on session state, the agent emits:
 - Custom typed UI events (`ui.hotel_cards`, `ui.hotel_detail`, `ui.action_buttons`, `ui.booking_confirmed`, `ui.booking_update`)
 - Final `done`
 
+### Voice Live compatibility
+
+For **Invocations** protocol agents, to make the agent work with Voice Live, the agent needs:
+
+- The agent can process voice live transcription input: `{"type": "input_audio.transcription", "input": "example voice input"}`
+- The agent should output the text to be read as the following SSE, Voice Live will generate audio for the the `delta` text in the `output_audio_transcription.delta` event:
+  ```
+  data: {"type": "output_audio_transcription.delta", "delta": "The weather "}
+  data: {"type": "output_audio_transcription.delta", "delta": "in Seattle "}
+  data: {"type": "output_audio_transcription.delta", "delta": "is 52°F "}
+  data: {"type": "output_audio_transcription.delta", "delta": "and partly cloudy."}
+  data: {"type": "output_audio_transcription.done", "text": "The weather in Seattle is 52°F and partly cloudy."}
+  data: {"type": "done"}
+  ```
+- The agent manifest must declare `voiceLiveCompatible: "true"` in the metadata section to indicate compatibility with Voice Live.
+
+### Custom structured input and passthrough events
+
+#### Invoke input
+
+In addition to speech-triggered invocations, clients can also send custom structured data to your agent by including an `invoke_input` field in `response.create` messages. Voice Live passes this JSON verbatim to your container.
+
+For example, if the client sends:
+
+```json
+{
+  "type": "response.create",
+  "response": {
+    "invoke_input": {
+      "type": "button.click",
+      "action": "confirm_booking"
+    }
+  }
+}
+```
+
+Your container receives a POST to `/invocations` with body:
+
+```json
+{
+  "type": "button.click",
+  "action": "confirm_booking"
+}
+```
+
+#### Passthrough event
+
+Your agent can send any custom event type in the SSE stream. Voice Live forwards these to the client as `response.invocation.delta` messages.
+
+For example, if your agent emits:
+
+```json
+data: {"type": "ui.flight_card", "flight": "AA 1234", "price": "$850"}
+```
+
+The client receives:
+
+```json
+{"type": "response.invocation.delta", "delta": {"type": "ui.flight_card", "flight": "AA 1234", "price": "$850"}}
+```
+
+This allows you to send structured data or UI cards to the client alongside speech responses.
+
+
+
 ## Running the agent locally
 
 ### Prerequisites
