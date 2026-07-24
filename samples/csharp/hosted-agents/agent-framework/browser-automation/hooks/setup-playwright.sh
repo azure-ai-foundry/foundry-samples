@@ -16,11 +16,19 @@ echo "This agent requires a Playwright Workspace connection."
 echo ""
 
 # ── Read pre-set values from azd env ──────────────────────────────────────────
+# Load all env values once and look up by key. Avoids per-key calls to
+# azd env get-value which outputs ERROR to stdout on missing keys.
 
-PLAYWRIGHT_RESOURCE_ID=$(azd env get-value PLAYWRIGHT_SERVICE_RESOURCE_ID 2>/dev/null || echo "")
-PLAYWRIGHT_REGION=$(azd env get-value PLAYWRIGHT_REGION 2>/dev/null || echo "")
-AUTH_TYPE=$(azd env get-value PLAYWRIGHT_AUTH_TYPE 2>/dev/null || echo "")
-SUBSCRIPTION_ID=$(azd env get-value AZURE_SUBSCRIPTION_ID 2>/dev/null || echo "")
+_AZD_ENV_CACHE=$(azd env get-values 2>/dev/null || true)
+
+_azd_get() {
+    printf '%s' "$_AZD_ENV_CACHE" | grep "^${1}=" | head -1 | sed 's/^[^=]*="//' | sed 's/"$//'
+}
+
+PLAYWRIGHT_RESOURCE_ID=$(_azd_get PLAYWRIGHT_SERVICE_RESOURCE_ID)
+PLAYWRIGHT_REGION=$(_azd_get PLAYWRIGHT_REGION)
+AUTH_TYPE=$(_azd_get PLAYWRIGHT_AUTH_TYPE)
+SUBSCRIPTION_ID=$(_azd_get AZURE_SUBSCRIPTION_ID)
 
 # ── Determine if we can prompt ─────────────────────────────────────────────────
 # azd hooks with `interactive: true` always connect stdin, even with --no-prompt.
@@ -140,9 +148,9 @@ fi
 
 # ── Deploy Bicep ──────────────────────────────────────────────────────────────
 
-RESOURCE_GROUP=$(azd env get-value AZURE_RESOURCE_GROUP 2>/dev/null || echo "")
-AI_ACCOUNT_NAME=$(azd env get-value AZURE_AI_ACCOUNT_NAME 2>/dev/null || echo "")
-AI_PROJECT_NAME=$(azd env get-value AZURE_AI_PROJECT_NAME 2>/dev/null || echo "")
+RESOURCE_GROUP=$(_azd_get AZURE_RESOURCE_GROUP)
+AI_ACCOUNT_NAME=$(_azd_get AZURE_AI_ACCOUNT_NAME)
+AI_PROJECT_NAME=$(_azd_get AZURE_AI_PROJECT_NAME)
 
 if [ -z "$RESOURCE_GROUP" ] || [ -z "$AI_ACCOUNT_NAME" ] || [ -z "$AI_PROJECT_NAME" ]; then
     echo "Error: AZURE_RESOURCE_GROUP, AZURE_AI_ACCOUNT_NAME, and AZURE_AI_PROJECT_NAME must be set." >&2
