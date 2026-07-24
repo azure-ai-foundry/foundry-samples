@@ -1,0 +1,5 @@
+.azure
+raw-logs.txt
+appPackage/build/
+appPackage/color.png
+appPackage/outline.png
