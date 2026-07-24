@@ -17,6 +17,13 @@
 #   (g) base-ref RESOLUTION: pull_request -> origin/<target>, push -> HEAD~1 (--print-base-ref)
 set -uo pipefail
 
+# The unit harness asserts on the detector's STDOUT only. It must NOT leak into the
+# runner's real $GITHUB_OUTPUT — otherwise the ~10 detector invocations below append
+# has_changes/count/samples lines to the step's output file and GitHub rejects it
+# ("Unable to process file command 'output'"). The GITHUB_OUTPUT emission is proven
+# separately by the detect->consume plumbing job in the selftest workflow.
+unset GITHUB_OUTPUT GITHUB_ENV GITHUB_STATE 2>/dev/null || true
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT="$HERE/../detect-changed-samples.sh"
 
