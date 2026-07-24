@@ -178,6 +178,7 @@ Already built an agent with CrewAI or your own code? The protocol SDKs (`azure-a
 | Sample                                                             | What it shows                                                                                                                |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | **[Hello World](bring-your-own/responses/hello-world/)**           | Minimal agent — calls a Foundry model via the Responses API and returns the reply. The simplest possible BYO starting point. |
+| **[uv + pyproject](bring-your-own/responses/uv-pyproject/)**       | Existing-code initialization and remote code deployment with `pyproject.toml`, `uv.lock`, and system TLS certificates.      |
 | **[LangGraph Chat](bring-your-own/responses/langgraph-chat/)**     | LangGraph conversational agent hosted on Foundry with multi-turn history via the Responses protocol.                         |
 | **[Notetaking Agent](bring-your-own/responses/notetaking-agent/)** | Agent that takes and retrieves notes using a custom tool.                                                                    |
 | **[Session Multiplexing](bring-your-own/responses/session-multiplexing/)** | Demonstrates multiple callers sharing one `agent_session_id` while `previous_response_id` history stays scoped by platform user context. |
