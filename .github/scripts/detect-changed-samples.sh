@@ -145,7 +145,16 @@ trap 'rm -f "$CHANGED_FILES" "$UNIQUE"' EXIT
 } | sort -u > "$UNIQUE"
 
 # --- Compute outputs ---------------------------------------------------------
-COUNT="$(grep -c . "$UNIQUE" 2>/dev/null || echo 0)"
+# `grep -c . file` prints 0 AND exits 1 on an empty file; a `|| echo 0` fallback
+# then double-prints, making COUNT="0\n0". That later leaks a bare "0" line into
+# $GITHUB_OUTPUT, which GitHub Actions rejects ("Invalid format '0'") — crashing
+# the detect step on any docs-only PR. Guard on file-non-empty so COUNT is always
+# a single clean integer.
+if [ -s "$UNIQUE" ]; then
+    COUNT="$(grep -c . "$UNIQUE")"
+else
+    COUNT=0
+fi
 if [ "$COUNT" -gt 0 ]; then HAS_CHANGES="true"; else HAS_CHANGES="false"; fi
 
 # Build a JSON array (dependency-light; escape backslash and double-quote).

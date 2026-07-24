@@ -184,6 +184,27 @@ fi
 rm -rf "$ART"
 
 echo ""
+echo "=============================================================="
+echo " GITHUB_OUTPUT hygiene on EMPTY result (regression: bare '0')"
+echo "=============================================================="
+# An empty (docs-only) result must write ONLY clean key=value lines to the real
+# $GITHUB_OUTPUT. Regression guard for the grep -c double-'0' bug that emitted a
+# bare "0" line and made GitHub reject the step ("Invalid format '0'").
+# Diffing HEAD against itself is a guaranteed empty-but-successful diff.
+GO="$(mktemp)"
+GITHUB_OUTPUT="$GO" bash "$SCRIPT" --base-ref HEAD >/dev/null 2>&1
+if grep -qxE '[0-9]+' "$GO"; then
+    fail "(h) empty result leaked a bare numeric line into GITHUB_OUTPUT: $(tr '\n' '|' < "$GO")"
+elif [ "$(grep -c '^count=0$' "$GO")" = 1 ] \
+     && grep -q '^has_changes=false$' "$GO" \
+     && grep -q '^samples=\[\]$' "$GO"; then
+    pass "(h) empty result writes clean count=0 / has_changes=false / samples=[]"
+else
+    fail "(h) empty-result GITHUB_OUTPUT malformed: $(tr '\n' '|' < "$GO")"
+fi
+rm -f "$GO"
+
+echo ""
 echo "==================================================="
 echo "  checks passed: $PASS_N   failed: $FAIL_N"
 echo "==================================================="
