@@ -196,6 +196,9 @@ When running `azd ai agent init -m ./14-browser-automation-agent/azure.yaml` fro
 >
 > Using the parent-directory invocation shown above (or a fresh empty folder with the remote manifest URL) avoids this.
 
+> [!NOTE]
+> **Linux/macOS:** After `azd ai agent init`, run `chmod +x hooks/*.sh` to make the hook scripts executable. `azd ai agent init` downloads files via the GitHub API, which does not preserve file permissions.
+
 The same init flow also asks for the model deployment because [`azure.yaml`](azure.yaml) declares a `model` resource named `AZURE_AI_MODEL_DEPLOYMENT_NAME`. The selected deployment is used for the generated Azure deployment configuration and for the hosted agent's `AZURE_AI_MODEL_DEPLOYMENT_NAME` runtime environment variable. It does not update the sample's local `.env` file; set that file separately only when running the agent locally.
 
 ### Deployment hooks
