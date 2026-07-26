@@ -95,3 +95,12 @@
 
 # Python hosted-agents declarative customer support (issue #799)
 /samples/python/hosted-agents/agent-framework/responses/09-declarative-customer-support/ @TaoChenOSU @alliscode @lindazqli
+
+# Hosted-agents invocations hello-world — python + csharp (issue #813)
+# Owners: top contributors from git log of each path.
+/samples/python/hosted-agents/bring-your-own/invocations/hello-world/ @ankitbko @therealjohn @dooriya @antriksh30
+/samples/csharp/hosted-agents/bring-your-own/invocations/HelloWorld/   @ankitbko @therealjohn @dooriya
+
+# Python prompt-agents code-interpreter-custom (issue #822)
+# Owners: only contributor in git log.
+/samples/python/prompt-agents/code-interpreter-custom/ @brandom-msft
