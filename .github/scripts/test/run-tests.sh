@@ -12,6 +12,10 @@
 #   - guardrails: unknown language, missing --sample-dir, missing --language => error
 #   - --results-dir plumbing lands each sample path in passed/failed/errored.txt
 #
+# Plus P1.3 (ADO 5449687) dependency-install transport classification:
+#   - pip/npm install against a forced-unreachable registry (127.0.0.1:1) => error (exit 2)
+#   - an unaccompanied resolution failure (package not found, no transport) => fail (exit 1)
+#
 # Designed to run on a GitHub Actions ubuntu-latest runner AFTER setup-dotnet /
 # setup-python / setup-node / setup-java / setup-go have put the toolchains on PATH
 # (that is the "callable from GH Actions on a real runner" proof). It also runs
@@ -166,6 +170,45 @@ if [ "$YQ_OK" = true ]; then
     assert_file_has "$RESULTS/passed.txt" "$FIX/csharp-yaml-good"
     assert_file_has "$RESULTS/failed.txt" "$FIX/csharp-yaml-broken"
 fi
+
+echo ""
+echo "=============================================================="
+echo " Dependency-install transport classification (P1.3 / ADO 5449687)"
+echo "=============================================================="
+# Proves the failure-vs-error split on dependency RESOLUTION — the P1.3 gap:
+#   - a forced-unreachable registry (localhost blackhole) => ERROR (exit 2), NEVER fail.
+#   - an unaccompanied resolution failure (package not found) => FAIL (exit 1).
+# Both are hermetic: 127.0.0.1:1 has nothing listening (=> connection refused), and the FAIL
+# case uses PIP_NO_INDEX + an empty --find-links so pip resolves nothing WITHOUT any network.
+EMPTY_LINKS="$(mktemp -d)"
+
+# pip: blackhole index => transport evidence => ERROR. requirements.txt names a REAL package,
+# so pip ALSO prints its misleading "No matching distribution" conclusion after exhausting
+# retries — this case proves transport evidence WINS over that generic line (the precedence fix).
+# The FAIL case (no index at all) prints the SAME "No matching distribution" WITHOUT transport
+# evidence => must stay FAIL. Same fixture, opposite verdicts: the whole point of P1.3.
+if toolchain_ready python; then
+    check "pip install: registry unreachable -> error" 2 error -- \
+        env "PIP_INDEX_URL=http://127.0.0.1:1" "PIP_RETRIES=1" "PIP_DEFAULT_TIMEOUT=5" \
+            bash "$SCRIPT" --language python --sample-dir "$FIX/python-deps" --results-dir "$RESULTS"
+    check "pip install: unresolvable package (no transport) -> fail" 1 fail -- \
+        env "PIP_NO_INDEX=1" "PIP_FIND_LINKS=$EMPTY_LINKS" \
+            bash "$SCRIPT" --language python --sample-dir "$FIX/python-deps" --results-dir "$RESULTS"
+else
+    echo "  SKIP  pip transport cases — python toolchain absent (BLOCKED-on-env; the runner has it)"
+    SKIP_N=$((SKIP_N + 2))
+fi
+
+# npm: blackhole registry => connect ECONNREFUSED => ERROR (exit 2).
+if toolchain_ready typescript; then
+    check "npm install: registry unreachable -> error" 2 error -- \
+        env "NPM_CONFIG_REGISTRY=http://127.0.0.1:1" "NPM_CONFIG_FETCH_RETRIES=0" \
+            bash "$SCRIPT" --language typescript --sample-dir "$FIX/typescript-deps" --results-dir "$RESULTS"
+else
+    echo "  SKIP  npm transport case — node/npm toolchain absent (BLOCKED-on-env; the runner has it)"
+    SKIP_N=$((SKIP_N + 1))
+fi
+rm -rf "$EMPTY_LINKS"
 
 echo ""
 echo "==================================================="
