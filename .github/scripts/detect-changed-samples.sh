@@ -91,6 +91,30 @@ git rev-parse --git-dir >/dev/null 2>&1 || error "not a git repository (cwd=$(pw
 SAMPLES_ROOT="${SAMPLES_ROOT%/}"
 
 # --- Base-ref resolution -----------------------------------------------------
+# Known limitations (faithful port of the frozen ADO DetectChanges design; see
+# the P1.2 close-out for the risk analysis). These are documented, accepted
+# characteristics — not bugs — but the next engineer should know the sharp edges:
+#
+#   1. PR diff is TWO-DOT (`diff origin/<target> HEAD`), not merge-base
+#      (three-dot). If <target> advances after the PR diverged, the diff can
+#      surface files the PR never touched -> extra samples validated. This is a
+#      FALSE POSITIVE (wasteful, never fail-open) and is usually neutralized by
+#      GitHub's synthetic PR merge-commit checkout (refs/pull/N/merge).
+#
+#   2. Non-PR (push/dispatch) base is `HEAD~1` -> only the FINAL commit
+#      transition. A direct multi-commit push can miss samples changed in
+#      earlier commits (the event's `before` SHA is ignored). Merge/squash
+#      commits are fine (HEAD~1 first-parent captures the whole delta). This is
+#      the one direction that could FALSE-NEGATIVE on the push path.
+#
+#   3. The fetch below is BEST-EFFORT (`|| true`). If a fresh fetch fails but a
+#      stale `origin/<target>` already exists, the diff runs against the stale
+#      ref -> exit 0 with a wrong answer. Only fails loud when NO usable ref
+#      remains. Low-probability on a fresh runner (checkout populates the ref
+#      seconds earlier) but in tension with the fail-loud principle (ADO 5247751).
+#
+# Tracked refinement (base-ref robustness): use github.event.before on push and
+# stop swallowing fetch failure. Do NOT change the frozen logic here ad hoc.
 resolve_base_ref() {
     if [ -n "$BASE_REF" ]; then
         echo "$BASE_REF"
