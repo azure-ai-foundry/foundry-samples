@@ -66,6 +66,33 @@ Only needed for the **org-wide** path (publishing to your tenant app catalog), n
 > [!NOTE]
 > **Region availability:** This sample relies on [Foundry hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd), so your Foundry account and related resources must live in a region that supports them. See the [hosted-agent region list](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd) for the current set (it changes over time).
 
+
+## Local Debug in VS Code
+
+### Step 1: Open the correct workspace folder
+
+The launch configuration and tasks are defined inside `src/echoagent/`, not the repo root. VS Code must have that folder loaded as a workspace root before F5 works.
+
+If you opened the repo root folder, add the inner folder first:
+
+1. **File → Add Folder to Workspace…**
+2. Select `src/echoagent/` and click **Add**.
+
+The Explorer panel should now show `echoagent` as a workspace root (with its own `.vscode/` visible). You can then save this as a multi-root workspace file if you like.
+
+### Step 2: Press F5
+
+Press **F5** (or **Run → Start Debugging**). The launch configuration will:
+
+1. Install `agentsplayground` if not already installed (one-time, via winget).
+2. Create a `.venv` (Python 3.13) and install `requirements.txt` if not already done.
+3. Start the agent (`main.py`) under the VS Code debugger.
+4. Launch **M365 Agents Playground** automatically once port 8088 is ready.
+
+When the debug session ends, the `postDebugTask` kills `agentsplayground` and any process still bound to port 8088.
+
+Once the Playground window opens, type a message — the agent echoes it back. You can set breakpoints in `main.py` as with any Python project.
+
 ## Deploying the Agent to Microsoft Foundry
 
 ### Step 1: Sign in
