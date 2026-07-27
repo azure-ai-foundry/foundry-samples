@@ -235,4 +235,3 @@ Linux / macOS: use `./migrate.sh` with the same flags.
 | `v1_to_v2_migration.py` | Core migration engine |
 | `requirements.txt` | Python deps (baked into the Docker image, also used by `migrate.ps1`) |
 | `Dockerfile` | Container: Python 3.11 + Azure CLI + requirements |
-| `entrypoint-login.sh` | Helper entrypoint for Azure-auth scenarios inside the container |
