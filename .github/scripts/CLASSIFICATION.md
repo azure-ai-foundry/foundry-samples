@@ -72,6 +72,15 @@ never fails **open** to `pass`.
 - `dep_infra_signature()` is a **narrow heuristic**, not a robust classifier. It matches known
   transport strings and **will need maintenance** as runner `pip` / `npm` versions drift their
   error wording. Unknown output stays `failure`.
+- **Blocked-registry / proxy `403`.** The transport allow-list catches connection-level failures
+  (DNS, refused/reset, timeout) and registry `5xx`, but **not** an HTTP `403 Forbidden` or a
+  blocked-page response from a policy proxy. This matters where a registry is deliberately fenced
+  off — e.g. Microsoft Security is blocking direct access to public npm registries on
+  Microsoft-managed devices, routing installs through a CFS-protected feed; a package still inside
+  the release-hold window can come back `403`/blocked. Such a block is arguably *infra*, but in v1
+  it classifies as `failure` (bias-to-`failure`, no false `error`). This is moot for the deliverable
+  itself — the pipeline runs on GitHub-hosted runners, not managed devices — but bites local runs on
+  managed devices. Promoting proxy-`403`/blocked-registry to `error` is deferred follow-up.
 
 ## Proof
 
