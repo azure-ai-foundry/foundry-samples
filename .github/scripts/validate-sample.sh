@@ -258,7 +258,10 @@ default_validate_typescript() {
         require_tool npm
         echo "Installing dependencies..."
         local npmlog; npmlog="$(mktemp)"
-        if ! ( cd "$SAMPLE_DIR" && npm install --silent ) >"$npmlog" 2>&1; then
+        # NOT --silent: that suppresses error output too, which would blind
+        # dep_infra_signature to transport errors. --loglevel=error keeps success
+        # quiet while still emitting the network/registry failure text we classify on.
+        if ! ( cd "$SAMPLE_DIR" && npm install --no-audit --no-fund --loglevel=error ) >"$npmlog" 2>&1; then
             cat "$npmlog"
             if dep_infra_signature "$npmlog"; then
                 rm -f "$npmlog"
