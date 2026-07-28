@@ -12,3 +12,5 @@ Found a bug or have a suggestion? [Open an issue](https://github.com/microsoft-f
 
 Sample contributions are submitted through a private staging repository. If you're a Microsoft employee or contractor, see the [contributing guidelines](CONTRIBUTING.md) for how to get started.
 
+
+<!-- P2.1 probe: docs-only change (no sample.yaml ancestor) -> expect detect has_changes=false, validate job skipped -->
