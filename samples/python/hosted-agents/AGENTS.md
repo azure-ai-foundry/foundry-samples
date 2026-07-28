@@ -5,11 +5,27 @@ Conventions for AI agents creating or editing samples under
 tree, so this applies to Python hosted-agent samples. Treat these as shared
 conventions and a starting point — adapt to what each sample actually needs.
 
+## Starting a new sample
+
+Copy both shared templates into the new sample:
+
+1. Copy [`README-template.md`](./README-template.md) to `README.md`.
+2. Copy [`AGENTS-template.md`](./AGENTS-template.md) to `AGENTS.md`.
+3. Replace the placeholders, update paths and commands, and remove sections or
+   bullets that do not apply.
+
+The Foundry Toolkit generates `.vscode/launch.json` and `.vscode/tasks.json` in
+the scaffolded workspace to support the **F5** flow. Do not commit those generated
+files to the sample.
+
+Match deployment guidance to the sample's `azure.yaml`: direct code deployment
+uses `codeConfiguration` and does not require a Dockerfile; Dockerfile guidance
+applies only when the sample uses container deployment through `docker.path`.
+
 ## README conventions
 
 Most samples follow the shared template,
-[`README-template.md`](./README-template.md): a good default is to copy it and
-fill in the `{{placeholders}}`. It keeps a familiar section flow:
+[`README-template.md`](./README-template.md). It keeps a familiar section flow:
 
 1. What this sample demonstrates
 2. How it works — plus any sample-specific background (e.g. "Environment
@@ -32,6 +48,8 @@ fill in the `{{placeholders}}`. It keeps a familiar section flow:
   forms such as `azd ext install azure.ai.agents`).
 - Prefer self-contained READMEs over deferring run/deploy steps to a parent
   README or hiding steps inside collapsible `<details>` blocks.
+- Keep Toolkit-generated `.vscode` launch/task files out of the sample; document
+  that the Toolkit creates them in the scaffolded workspace.
 
 ## When a sample legitimately differs
 
@@ -46,6 +64,3 @@ force it:
 
 Use the template for structure and shared vocabulary, and keep whatever
 sample-specific sections a reader needs.
-
-> The per-sample `AGENTS.md` (hosted-agent overview, `azd` lifecycle, Microsoft
-> Foundry Skill) still applies; this file only adds README conventions.
