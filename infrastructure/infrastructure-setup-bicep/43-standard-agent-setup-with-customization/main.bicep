@@ -31,7 +31,7 @@ param location string = 'eastus'
 
 @maxLength(9)
 @description('The name of the Azure AI Foundry resource.')
-param aiFoundryName string = 'foundy'
+param aiFoundryName string = 'foundry'
 
 @description('Name for your foundry project resource.')
 param foundryProjectName string = 'project'
