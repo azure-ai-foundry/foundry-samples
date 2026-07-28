@@ -5,7 +5,6 @@ agent:
 dataset_file: eval/browser_automation_queries.jsonl
 evaluators:
     - builtin.task_completion
-    - builtin.task_adherence
     - builtin.relevance
 options:
     eval_model: gpt-5.4-mini
