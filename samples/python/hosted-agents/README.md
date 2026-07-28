@@ -123,6 +123,8 @@ The platform manages conversation history, streaming lifecycle, and background e
 9. **[Downstream Azure services](./agent-framework/responses/09-downstream-azure/)** — Call Azure Blob Storage and Service Bus from the agent using its per-agent Microsoft Entra identity (no connection strings).
 10. **[A2A Delegation](./agent-framework/a2a/01-delegation/)** — Two-agent walkthrough: a hosted Responses **caller** delegates to a hosted Responses **executor** that is exposed as an A2A endpoint via Foundry's incoming A2A feature, wired together through a Foundry Toolbox `a2a_preview` tool over a `RemoteA2A` connection.
 11. **[Content safety guardrail](./agent-framework/responses/16-content-safety-guardrail/)** — Attach a Responsible AI content safety guardrail to a hosted agent so the platform screens prompts and responses against your safety policy.
+12. **[Harness Research](./agent-framework/responses/19-harness-research/)** — Build a long-running research assistant with plans, todos, web search, compaction, and autonomous execute-mode loops.
+13. **[Harness Data Processing](./agent-framework/responses/20-harness-data-processing/)** — Analyze bundled data with file tools and complete protected writes through structured approvals.
 
 ### Invocations protocol
 
