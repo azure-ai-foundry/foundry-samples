@@ -282,7 +282,7 @@ This sample includes a co-located eval suite under `eval/`. To run:
 azd ai agent eval run --config eval.yaml --no-prompt
 ```
 
-The dataset (`eval/browser_automation_queries.jsonl`) contains 5 queries covering form filling, web scraping, and navigation against public URLs. Evaluators: `task_completion`, `task_adherence`, `relevance`.
+The dataset (`eval/browser_automation_queries.jsonl`) contains 16 queries covering form filling, knowledge extraction, financial data, maps, shopping, education, research, news, time/utility, dev tools, recipe, dictionary, and sports against public URLs. Evaluators: `task_completion`, `relevance`.
 
 ## Guidance
 
