@@ -26,6 +26,8 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | 12  | [Foundry Skills](responses/12-foundry-skills/)                             | An agent that uploads `SKILL.md` files to the Foundry Skills REST API and downloads them at startup, decoupling tone/policy guidelines from agent code.                                                                                       |
 | 13  | [Foundry Memory](responses/13-foundry-memory/)                             | An agent with persistent semantic memory backed by an Azure AI Foundry Memory Store, using `FoundryMemoryProvider` to remember user facts across sessions.                                                                                    |
 | 14  | [Browser Automation Agent](responses/14-browser-automation-agent/)         | A Foundry-hosted browser automation agent using Foundry Toolbox and the Browser Automation tool (Azure Playwright Service) for general browsing, web scraping, and form filling.                                                                |
+| 19  | [Harness Research](responses/19-harness-research/)                         | A research harness with planning, todos, web search, compaction, file memory, and autonomous execute-mode looping over the Responses protocol.                                                                                                |
+| 20  | [Harness Data Processing](responses/20-harness-data-processing/)           | A file-backed data-analysis harness that auto-runs read-only tools and exposes resumable approval requests for protected writes over the Responses protocol.                                                                                   |
 
 ### Invocations API
 
