@@ -125,6 +125,7 @@ The platform manages conversation history, streaming lifecycle, and background e
 11. **[Content safety guardrail](./agent-framework/responses/16-content-safety-guardrail/)** — Attach a Responsible AI content safety guardrail to a hosted agent so the platform screens prompts and responses against your safety policy.
 12. **[Harness Research](./agent-framework/responses/19-harness-research/)** — Build a long-running research assistant with plans, todos, web search, compaction, and autonomous execute-mode loops.
 13. **[Harness Data Processing](./agent-framework/responses/20-harness-data-processing/)** — Analyze bundled data with file tools and complete protected writes through structured approvals.
+14. **[Harness scaling capabilities](./agent-framework/responses/21-harness-scaling-capabilities/)** — Combine file skills, a confined shell, CodeAct, and concurrent background research in one multi-turn personal-finance harness agent.
 
 ### Invocations protocol
 
