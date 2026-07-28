@@ -1,3 +1,4 @@
+# P2.1 probe: harmless comment to trigger detection (known-good -> expect L3 PASS)
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import PromptAgentDefinition

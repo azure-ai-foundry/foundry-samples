@@ -1,3 +1,4 @@
+def broken(:  # P2.1 probe: deliberate syntax error (known-broken -> expect L3 FAIL, exit 1)
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 
