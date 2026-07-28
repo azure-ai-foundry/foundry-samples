@@ -19,8 +19,6 @@ env/
 # Docker files
 .dockerignore
 
-# azd / infra / scripts / Teams app package (not needed in the container)
+# azd / Teams app package (not needed in the container)
 .azure/
-infra/
-scripts/
 appPackage/

@@ -3,11 +3,11 @@
 requiredVersions:
   extensions:
     azure.ai.agents: '>=1.0.0-beta.4'
-name: echoagent
+name: echo-activity
 services:
   ai-project:
     host: azure.ai.project
-  echoagent:
+  echo-activity:
     host: azure.ai.agent
     metadata:
       tags:
@@ -15,7 +15,7 @@ services:
         - Activity Protocol
         - Bring Your Own
         - Python
-    project: src/echoagent
+    project: src/echo-activity
     language: python
     codeConfiguration:
       runtime: python_3_13
@@ -23,7 +23,7 @@ services:
     uses:
       - ai-project
     kind: hosted
-    name: echoagent
+    name: echo-activity
     displayName: Echo (Python, Activity)
     description: >
       Minimal echo agent using the Activity protocol with a bring-your-own

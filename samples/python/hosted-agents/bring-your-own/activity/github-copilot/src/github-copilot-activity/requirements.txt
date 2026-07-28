@@ -1,0 +1,28 @@
+# Activity-protocol host, pinned to the published beta release on PyPI. Pulls in
+# azure-ai-agentserver-core transitively. Bump when a newer beta is needed.
+azure-ai-agentserver-activity==1.0.0b1
+
+# Microsoft 365 Agents SDK
+microsoft-agents-hosting-core
+microsoft-agents-authentication-msal
+microsoft-agents-activity
+
+# The M365 SDK connector imports aiohttp but does not declare it; pin explicitly.
+aiohttp>=3.9.0
+
+# GitHub Copilot SDK — runs the assistant's model + tool-calling loop. Imports as the
+# top-level ``copilot`` package.
+github-copilot-sdk>=0.2.0
+
+# Pydantic — parameter models for the custom Copilot SDK tools.
+pydantic>=2.0.0
+
+# File ingestion — extract text from PDF, DOCX, and PPTX attachments shared in
+# Teams. Plain-text / code / data files need no extra parser (decoded directly).
+pypdf>=4.0.0
+python-docx>=1.1.0
+python-pptx>=0.6.23
+
+# Azure identity — mints the Managed-Identity bearer token for the Foundry
+# model provider used by the Copilot SDK.
+azure-identity>=1.17.0
