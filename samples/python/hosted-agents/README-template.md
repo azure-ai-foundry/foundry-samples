@@ -135,7 +135,7 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 
 ### Deploy to Foundry
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `azure.yaml` to identify the service source folder and auto-populate settings.
 2. If prompted, complete **Foundry Project Setup** to select subscription and project.
 3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
 4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
