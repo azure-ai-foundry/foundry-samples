@@ -23,7 +23,7 @@ async def on_message(context, state):
 host.run()
 ```
 
-See [main.py](src/echoagent/main.py) for the complete implementation, including the `conversationUpdate` welcome handler and the error handler.
+See [main.py](src/echo-activity/main.py) for the complete implementation, including the `conversationUpdate` welcome handler and the error handler.
 
 ### Agent Hosting
 
@@ -59,7 +59,7 @@ Only needed for the **org-wide** path (publishing to your tenant app catalog), n
 > [!IMPORTANT]
 > **Pick a unique agent name before your first deploy.** The agent name becomes the GLOBAL
 > Azure Bot name (`<agent-name>-bot-uai`), which must be unique. If you keep the default
-> `echoagent`, the bot-creation step can fail with `"The requested bot name is not available"`
+> `echo-activity`, the bot-creation step can fail with `"The requested bot name is not available"`
 > because someone (or a previous deploy) already claimed it. Pick a short, lowercase name and
 > set it as the service key and `name:` in [azure.yaml](azure.yaml) (keep the two in sync).
 
@@ -71,14 +71,14 @@ Only needed for the **org-wide** path (publishing to your tenant app catalog), n
 
 ### Step 1: Open the correct workspace folder
 
-The launch configuration and tasks are defined inside `src/echoagent/`, not the repo root. VS Code must have that folder loaded as a workspace root before F5 works.
+The launch configuration and tasks are defined inside `src/echo-activity/`, not the repo root. VS Code must have that folder loaded as a workspace root before F5 works.
 
 If you opened the repo root folder, add the inner folder first:
 
 1. **File → Add Folder to Workspace…**
-2. Select `src/echoagent/` and click **Add**.
+2. Select `src/echo-activity/` and click **Add**.
 
-The Explorer panel should now show `echoagent` as a workspace root (with its own `.vscode/` visible). You can then save this as a multi-root workspace file if you like.
+The Explorer panel should now show `echo-activity` as a workspace root (with its own `.vscode/` visible). You can then save this as a multi-root workspace file if you like.
 
 ### Step 2: Press F5
 
