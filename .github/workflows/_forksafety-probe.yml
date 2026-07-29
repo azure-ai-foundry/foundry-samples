@@ -1,0 +1,32 @@
+name: _forksafety-probe
+
+# THROWAWAY diagnostic (P2.1 fork-safety proof, ADO 5449695) — lives ONLY on the fork
+# proof branch, never merged upstream. It demonstrates the platform fork boundary that the
+# real `validate` floor lane relies on: on a PR from a fork, GitHub withholds repo secrets
+# and issues a read-only token. We print the LENGTH of a known-existing repo secret (never
+# its value) — length 0 proves it was withheld. GitHub also masks secret values in logs.
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report fork-PR trust context
+        env:
+          EVENT: ${{ github.event_name }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+          CANARY: ${{ secrets.MODEL_DEPLOYMENT_NAME }}
+        run: |
+          echo "event=$EVENT"
+          echo "head_repo=$HEAD_REPO  base_repo=$BASE_REPO  is_fork=$IS_FORK"
+          echo "canary secret (MODEL_DEPLOYMENT_NAME) length=${#CANARY}"
+          if [ -z "$CANARY" ]; then
+            echo "RESULT: canary WITHHELD (empty) -> barren fork runner, no secrets"
+          else
+            echo "RESULT: canary PRESENT (len>0) -> trusted (same-repo) context"
+          fi

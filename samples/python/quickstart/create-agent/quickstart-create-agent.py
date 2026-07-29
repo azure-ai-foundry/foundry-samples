@@ -21,3 +21,4 @@ agent = project.agents.create_version(
     ),
 )
 print(f"Agent created (id: {agent.id}, name: {agent.name}, version: {agent.version})")
+# P2.1 fork-safety probe: harmless known-good edit so detect fires and validate goes green on a real fork PR
