@@ -5,14 +5,14 @@ hosted-agent runtime sandbox.
 
 On each invocation this thin handler builds a :class:`ProbeContext` from the
 request, lets the :mod:`runner` execute every registered probe, and returns a
-single structured JSON response assembled by :mod:`report`. It answers:
+structured JSON response or an opt-in SSE stream assembled by :mod:`report`. It answers:
 
     "What can the runtime inside the delegated agent subnet actually reach,
      and if a name won't resolve or a host won't connect, where does it break?"
 
-Architecture (see ``DEVELOPING_PROBES.md``):
+Architecture (see ``DEVELOPMENT.md`` at the sample root):
 
-    request → ProbeContext.from_spec → runner.run_all(registry) → report.build_report → JSON
+    request → ProbeContext.from_spec → runner.run_all(registry) → report.build_report → JSON/SSE
 
 Every probe emits the same ``ProbeResult`` envelope, so adding a probe requires
 no change here or in the runner/aggregator (Open/Closed). Probes are discovered
@@ -35,6 +35,11 @@ POST body contract (all fields optional)::
       "dns_attempts":     20,                       // repeat each query -> intermittency
       "gai_attempts":     20,                       // repeat getaddrinfo -> OS failure rate
       "parallel_probe":   true,                     // glibc-style parallel A+AAAA on one socket
+    "dns_propagation_probe": true,                // time-spaced getaddrinfo sampling
+    "dns_propagation_duration_sec": 30,
+    "dns_propagation_interval_sec": 1,
+    "dns_propagation_threshold_sec": 15,
+    "stream":            true,                    // SSE heartbeats + final report
       "include_env_dump":        true,
       "include_container_info":  true,
       "include_evidence":        true,              // include verbose per-probe evidence
@@ -60,13 +65,14 @@ import traceback
 from datetime import datetime, timezone
 
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from azure.ai.agentserver.invocations import InvocationAgentServerHost
 
 import probes  # noqa: F401 — importing registers all built-in probes
 from framework import report, runner
 from framework.context import ProbeContext
+from framework.streaming import stream_report, wants_stream
 
 logging.basicConfig(
     level=os.environ.get("DEBUG_AGENT_LOG_LEVEL", "INFO"),
@@ -93,8 +99,28 @@ def _parse_body(body: bytes) -> dict:
 app = InvocationAgentServerHost()
 
 
+def _build_diagnostic_report(
+    ctx: ProbeContext,
+    session_id: str | None,
+    invocation_id: str | None,
+) -> dict:
+    t_start = time.perf_counter()
+    results = runner.run_all(ctx)
+    elapsed_ms = round((time.perf_counter() - t_start) * 1000, 1)
+    body_out = report.build_report(
+        ctx, results, session_id=session_id, invocation_id=invocation_id, elapsed_ms=elapsed_ms,
+    )
+    summary = body_out.get("summary", {})
+    logger.info(
+        "invoke ok invocation=%s session=%s ms=%s results=%d verdict=%s errored=%s",
+        invocation_id, session_id, elapsed_ms, len(results),
+        summary.get("status"), summary.get("probes_errored"),
+    )
+    return body_out
+
+
 @app.invoke_handler
-async def handle_invoke(request: Request) -> JSONResponse:
+async def handle_invoke(request: Request) -> Response:
     session_id = getattr(request.state, "session_id", None)
     invocation_id = getattr(request.state, "invocation_id", None)
     t_start = time.perf_counter()
@@ -110,19 +136,18 @@ async def handle_invoke(request: Request) -> JSONResponse:
         )
         logger.debug("invoke spec=%s", spec)
 
-        results = runner.run_all(ctx)
-        elapsed_ms = round((time.perf_counter() - t_start) * 1000, 1)
-
-        body_out = report.build_report(
-            ctx, results, session_id=session_id, invocation_id=invocation_id, elapsed_ms=elapsed_ms,
-        )
-        summary = body_out.get("summary", {})
-        logger.info(
-            "invoke ok invocation=%s session=%s ms=%s results=%d verdict=%s errored=%s",
-            invocation_id, session_id, elapsed_ms, len(results),
-            summary.get("status"), summary.get("probes_errored"),
-        )
-        return JSONResponse(body_out)
+        build_report = lambda: _build_diagnostic_report(ctx, session_id, invocation_id)
+        if wants_stream(spec, request.headers.get("accept", "")):
+            return StreamingResponse(
+                stream_report(build_report, invocation_id),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+        return JSONResponse(build_report())
     except Exception as e:  # noqa: BLE001 — last-chance; still return 200 with details
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 1)
         tb = traceback.format_exc()

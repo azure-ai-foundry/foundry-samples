@@ -22,10 +22,10 @@ Use this image to answer questions like:
 
 - **Stdlib-only probe code.** All DNS / TCP / TLS / HTTP probes are written against `socket`, `ssl`, `urllib`, and `http.client`. The network is the very thing being diagnosed; the probes must not depend on import-time package fetches or pyca handshakes that obscure the failure mode.
 - **No model, no project endpoint.** The manifest declares no `resources` and no `environment_variables`. The image is portable across any Foundry project.
-- **Single JSON response.** All probe outcomes are returned in one HTTP 200 response — per-probe failures are reported in the `status` / `hint` fields, not via non-2xx HTTP codes. This keeps client-side parsing simple.
+- **Buffered JSON or opt-in SSE.** By default, all probe outcomes are returned as one JSON document. Set `"stream": true` or send `Accept: text/event-stream` to receive SSE heartbeats followed by the complete report. Per-probe failures remain in the report rather than becoming non-2xx HTTP responses.
 - **Caller controls the probe matrix.** The request body lists hostnames; nothing is hard-coded to a specific customer ACR. An empty body runs only the safe defaults (container info, env dump, and a small set of public Azure endpoints).
 - **No secrets in the response.** Env vars matching `KEY`, `SECRET`, `PASSWORD`, `TOKEN`, `CONNECTION_STRING`, or `SAS` are reported with their length only.
-- **Extensible probe framework.** Each diagnostic is a small, self-registering **probe** that emits one uniform `ProbeResult` (`probe`/`status`/`findings`/`metrics`/`evidence`). A probe-agnostic runner executes them under isolation and an aggregator rolls them into a top-level `summary`. Adding a probe requires **no** change to the handler, runner, or aggregator — see [DEVELOPING_PROBES.md](src/diagnostic-agent-python-invocations/DEVELOPING_PROBES.md). The response is validated by [`schema/report.schema.json`](src/diagnostic-agent-python-invocations/schema/report.schema.json).
+- **Extensible probe framework.** Each diagnostic is a small, self-registering **probe** that emits one uniform `ProbeResult` (`probe`/`status`/`findings`/`metrics`/`evidence`). A probe-agnostic runner executes them under isolation and an aggregator rolls them into a top-level `summary`. Adding a probe requires **no** change to the handler, runner, or aggregator — see [DEVELOPMENT.md](DEVELOPMENT.md#developing-probes). The response is validated by [`schema/report.schema.json`](src/diagnostic-agent-python-invocations/schema/report.schema.json).
 - **Structured, uniform output.** Every probe emits the same `ProbeResult` (`probe`/`status`/`findings`/`metrics`/`evidence`) under `results[]`, with a probe-agnostic `summary` rollup. New consumers and LLM readers get one shape to parse across all diagnostics; the response is validated by [`schema/report.schema.json`](src/diagnostic-agent-python-invocations/schema/report.schema.json).
 
 ## Getting Started (Bring Your Own Infrastructure)
@@ -172,6 +172,11 @@ All fields are optional:
   "dns_attempts":   20,
   "gai_attempts":   20,
   "parallel_probe": true,
+  "dns_propagation_probe":         true,
+  "dns_propagation_duration_sec":  30,
+  "dns_propagation_interval_sec":   1,
+  "dns_propagation_threshold_sec": 15,
+  "stream": true,
   "direct_targets": ["10.0.1.9:443"],
   "include_env_dump":       true,
   "include_container_info": true,
@@ -192,6 +197,11 @@ All fields are optional:
 | `dns_attempts` | `1` | Repeat each raw DNS query N times to expose **intermittency**. Reports per-resolver `timeout_rate`, `successes/attempts`, and min/max/avg latency; classifies `DNS_INTERMITTENT` / `DNS_OK_PRIVATE_INTERMITTENT` when some attempts answer and others time out. On any UDP timeout it also probes **TCP/53** and flags `DNS_UDP_DROP_TCP_OK` (EDNS/MTU fragmentation). |
 | `gai_attempts` | `1` | Repeat the OS `getaddrinfo` call N times and report the **failure rate** (`successes/failures`, per-error counts) — measures the intermittent `EAI_AGAIN` the app actually experiences, separate from the raw wire-level result. |
 | `parallel_probe` | `false` | Mimic glibc's default `getaddrinfo`: send **A and AAAA back-to-back on one UDP socket** and measure how often a reply is lost (`both_ok_rate`). A loss here while raw sequential queries are clean is the signature of a **concurrent-query** problem (`PARALLEL_DUAL_LOSS`) — the cause of `getaddrinfo` failures that `dig` cannot reproduce and that firewalls show no drops for. |
+| `dns_propagation_probe` | `false` | Run the opt-in `dns.propagation` probe for each host. It samples OS `getaddrinfo` over time and records a timestamped attempt timeline. Use it to distinguish delayed network-connection/DNS propagation from persistent or intermittent DNS failure. |
+| `dns_propagation_duration_sec` | `30` | Observation window in seconds. Clamped to `0`–`120`. |
+| `dns_propagation_interval_sec` | `1` | Target cadence between samples in seconds. Values below `0.1` are clamped to `0.1`; query time counts toward the interval. |
+| `dns_propagation_threshold_sec` | `15` | Failure at invocation start that recovers within this threshold produces `DNS_INITIAL_INSTABILITY`; recovery after it produces `DNS_PROPAGATION_DELAY`. Failure for the full window produces `DNS_FAILURE_PERSISTED`. Clamped to the observation window. |
+| `stream` | `false` | Return Server-Sent Events instead of buffered JSON. The stream emits `started`, a `heartbeat` every five seconds while probes run, the complete report in `report`, then `done`. Sending `Accept: text/event-stream` also enables streaming. |
 | `direct_targets` | `[]` | `ip:port` (or `host:port`) reachability tests that **skip DNS** — isolate a network-path break from a DNS break. |
 | `include_env_dump` | `true` | Returns env vars matching an allowlist prefix (`FOUNDRY_`, `AZURE_`, `KUBERNETES_`, etc.); credential-shaped values are length-only. |
 | `include_container_info` | `true` | Hostname, container IP, default gateway from `/proc/net/route`, resolvers + full `resolv.conf` detail (`search`, `ndots`, `timeout`, `attempts`). |
@@ -204,13 +214,27 @@ You may also send a **plain-text body** containing a single hostname; the agent 
 
 If the body is empty, the agent runs only the defaults: container info + env dump + the built-in public-host list. No private hosts are probed unless explicitly requested.
 
+For long-running diagnostics, request SSE and disable curl buffering:
+
+```bash
+curl -sS -N -X POST "<invocations-url>" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"hosts":["<customer-acr>.azurecr.io"],"public_hosts":[],"dns_propagation_probe":true,"stream":true}'
+```
+
+Heartbeats reduce idle-connection timeout risk but do not override a platform or client maximum invocation duration.
+
 ## Response shape
 
 Every probe emits one uniform `ProbeResult` under `results[]`; `summary` is a
 probe-agnostic rollup of them. Top-level `status` reports whether the **agent** ran
 (`ok`, or `partial` if a probe crashed); `summary.status` is the **diagnostic
-verdict** (`ok`/`warn`/`fail`). The response is always HTTP 200 and is validated by
-[`schema/report.schema.json`](src/diagnostic-agent-python-invocations/schema/report.schema.json).
+verdict** (`ok`/`warn`/`fail`). With `stream` omitted or `false`, this report is the
+HTTP 200 JSON response body. With `stream: true`, the HTTP 200 body is an SSE stream
+and this report appears in the `report` event's `report` property. The report itself
+is validated by [`schema/report.schema.json`](src/diagnostic-agent-python-invocations/schema/report.schema.json).
 
 ```json
 {
@@ -293,6 +317,8 @@ problems a `remediation`, and supporting numbers under the result's `metrics`.
 | `dns.raw` `RESOLVER_DISAGREE` | Resolvers return different answers — the private zone is only linked to part of the DNS path. Classic "works from the VM subnet, not the agent subnet." |
 | `dns.parallel` `PARALLEL_DUAL_LOSS` (`both_ok_rate < 1`) | Parallel A+AAAA on one socket loses replies while sequential queries are clean — a concurrent-query problem (the `EAI_AGAIN` `dig` can't reproduce and firewalls show no drops for). |
 | `dns.parallel` `PARALLEL_DUAL_OK` | Parallel A+AAAA always succeeded — **rules out** the same-socket concurrent-query collision; look at the raw A-record path (`dns.raw`) instead. |
+| `dns.propagation` `DNS_INITIAL_INSTABILITY` | DNS failed immediately after invocation start but recovered within the threshold. Delay dependent calls until resolution is stable and investigate startup-time network propagation. |
+| `dns.propagation` `DNS_PROPAGATION_DELAY` / `DNS_FAILURE_PERSISTED` | DNS remained unavailable beyond the configured threshold or throughout the observation window. Investigate managed-network connection and private-DNS propagation. |
 | `net.udp_counters` `LOCAL_UDP_CLEAN` | No local NIC/UDP-socket drops during the run — the loss is on the network **path or upstream server**, not this sandbox. |
 | `net.udp_counters` `LOCAL_UDP_DROPS` | Local UDP/socket drops occurred — part of the loss may be local (socket-buffer exhaustion, CPU starvation). Inspect the per-counter deltas. |
 | `conn.direct` `ok` while the same host fails DNS | The private IP is reachable — the break is **DNS**, not the network path. |
@@ -398,6 +424,8 @@ curl -sS -X POST "http://localhost:8088/invocations" \
 ```
 
 The interesting runs happen when the image is deployed into a Foundry project and invoked from there.
+
+Maintainers validating response and deployment-mode compatibility should see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Deploying to Microsoft Foundry
 

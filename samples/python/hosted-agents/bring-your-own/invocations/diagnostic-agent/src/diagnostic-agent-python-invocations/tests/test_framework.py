@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import unittest
+from unittest import mock
 
 # Put the agent source dir (the parent of tests/) on the path.
 _SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -36,6 +37,7 @@ from framework.contract import (  # noqa: E402
     status_from_findings,
     worst_status,
 )
+from framework.streaming import stream_report, wants_stream  # noqa: E402
 
 try:
     import jsonschema  # type: ignore
@@ -155,11 +157,30 @@ class RegistryRunnerTests(unittest.TestCase):
                 order_log.append(self.id)
                 raise RuntimeError("kaboom")
 
+        @registry.register
+        class Later:
+            id = "example.later"
+            version = 1
+            order = 30
+
+            def applies_to(self, ctx):
+                return True
+
+            def run(self, ctx):
+                order_log.append(self.id)
+                return [result(self.id, 1, Status.OK)]
+
         results = runner.run_all(_ctx())
         by = {r.probe: r for r in results}
         self.assertEqual(by["example.good"].status, Status.OK)  # survived
         self.assertEqual(by["example.boom"].status, Status.ERROR)  # isolated
-        self.assertEqual(order_log, ["example.good", "example.boom"])  # order respected
+        self.assertEqual(by["example.later"].status, Status.OK)  # later probe still ran
+        self.assertEqual(order_log, ["example.good", "example.boom", "example.later"])
+
+        body = report.build_report(_ctx(), results, session_id="s", invocation_id="i", elapsed_ms=1.0)
+        self.assertEqual(body["status"], "partial")
+        self.assertEqual(body["summary"]["probes_errored"], ["example.boom"])
+        self.assertIn("example.later", body["summary"]["probes_run"])
 
     def test_pre_snapshot_runs_before_all(self):
         events = []
@@ -197,6 +218,41 @@ class RegistryRunnerTests(unittest.TestCase):
         # every pre_snapshot precedes every run
         self.assertLess(events.index("pre"), events.index("second_run"))
         self.assertLess(events.index("pre"), events.index("run"))
+
+    def test_malformed_probe_output_is_isolated(self):
+        @registry.register
+        class Malformed:
+            id = "example.malformed"
+            version = 1
+            order = 10
+
+            def applies_to(self, ctx):
+                return True
+
+            def run(self, ctx):
+                return [None]
+
+        @registry.register
+        class Later:
+            id = "example.after-malformed"
+            version = 1
+            order = 20
+
+            def applies_to(self, ctx):
+                return True
+
+            def run(self, ctx):
+                return [result(self.id, 1, Status.OK)]
+
+        ctx = _ctx()
+        results = runner.run_all(ctx)
+        body = report.build_report(ctx, results, session_id="s", invocation_id="i", elapsed_ms=1.0)
+
+        self.assertEqual([row["probe"] for row in body["results"]], ["example.malformed", "example.after-malformed"])
+        self.assertEqual(body["results"][0]["status"], "error")
+        self.assertEqual(body["results"][0]["findings"][0]["code"], "PROBE_ERROR")
+        self.assertEqual(body["results"][1]["status"], "ok")
+        self.assertEqual(body["status"], "partial")
 
 
 class RollupTests(unittest.TestCase):
@@ -261,6 +317,243 @@ class HostIsolationTests(unittest.TestCase):
         # bad host -> one isolated error result; good host still produced results
         self.assertTrue(any(p == "host.reachability" and s == Status.ERROR and h == "bad" for p, s, h in rows))
         self.assertTrue(any(p == "dns.getaddrinfo" and h == "good" for p, s, h in rows))
+
+
+class DnsPropagationTests(unittest.TestCase):
+    class FakeClock:
+        def __init__(self):
+            self.now = 0.0
+
+        def monotonic(self):
+            return self.now
+
+        def sleep(self, seconds):
+            self.now += seconds
+
+    def test_zero_duration_is_preserved(self):
+        ctx = _ctx(
+            dns_propagation_duration_sec=0,
+            dns_propagation_interval_sec=0,
+            dns_propagation_threshold_sec=0,
+        )
+
+        self.assertEqual(ctx.dns_propagation_duration_sec, 0)
+        self.assertEqual(ctx.dns_propagation_interval_sec, 0.1)
+        self.assertEqual(ctx.dns_propagation_threshold_sec, 0)
+
+    def test_disabled_by_default(self):
+        from probes.dns_propagation import DnsPropagationProbe
+
+        self.assertFalse(DnsPropagationProbe().applies_to(_ctx(hosts=["example.test"])))
+
+    def test_pre_snapshot_captures_initial_dns_before_other_probes(self):
+        from probes import dns_propagation
+
+        events = []
+
+        @registry.register
+        class LaterProbe:
+            id = "example.later"
+            version = 1
+            order = 2
+
+            def applies_to(self, ctx):
+                return True
+
+            def run(self, ctx):
+                events.append("later")
+                return []
+
+        ctx = _ctx(
+            hosts=["example.test"],
+            dns_propagation_probe=True,
+            dns_propagation_duration_sec=0,
+        )
+        with mock.patch.object(
+            dns_propagation.probelib,
+            "probe_dns",
+            side_effect=lambda _host: events.append("dns") or {"status": "ok", "ips": ["10.0.0.1"]},
+        ):
+            results = runner.run_all(ctx)
+
+        self.assertEqual(events[:2], ["dns", "later"])
+        self.assertEqual(results[0].probe, "dns.propagation")
+        self.assertEqual(results[0].evidence["attempts"][0]["elapsed_sec"], 0.0)
+
+    def test_multiple_hosts_share_the_same_observation_window(self):
+        from probes import dns_propagation
+
+        clock = self.FakeClock()
+        ctx = _ctx(
+            hosts=["one.test", "two.test"],
+            dns_propagation_probe=True,
+            dns_propagation_duration_sec=10,
+            dns_propagation_interval_sec=5,
+            dns_propagation_threshold_sec=10,
+        )
+        with (
+            mock.patch.object(dns_propagation.time, "monotonic", clock.monotonic),
+            mock.patch.object(dns_propagation.time, "sleep", clock.sleep),
+            mock.patch.object(
+                dns_propagation.probelib,
+                "probe_dns",
+                return_value={"status": "ok", "ips": ["10.0.0.1"]},
+            ),
+        ):
+            probe = dns_propagation.DnsPropagationProbe()
+            probe.pre_snapshot(ctx)
+            rows = probe.run(ctx)
+
+        self.assertEqual(clock.now, 10.0)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(
+            [[attempt["elapsed_sec"] for attempt in row.evidence["attempts"]] for row in rows],
+            [[0.0, 5.0, 10.0], [0.0, 5.0, 10.0]],
+        )
+
+    def test_samples_at_deadline_when_interval_does_not_divide_duration(self):
+        from probes import dns_propagation
+
+        clock = self.FakeClock()
+        ctx = _ctx(
+            hosts=["example.test"],
+            dns_propagation_probe=True,
+            dns_propagation_duration_sec=10,
+            dns_propagation_interval_sec=6,
+            dns_propagation_threshold_sec=10,
+        )
+        with (
+            mock.patch.object(dns_propagation.time, "monotonic", clock.monotonic),
+            mock.patch.object(dns_propagation.time, "sleep", clock.sleep),
+            mock.patch.object(
+                dns_propagation.probelib,
+                "probe_dns",
+                return_value={"status": "ok", "ips": ["10.0.0.1"]},
+            ),
+        ):
+            probe = dns_propagation.DnsPropagationProbe()
+            probe.pre_snapshot(ctx)
+            row = probe.run(ctx)[0]
+
+        self.assertEqual([attempt["elapsed_sec"] for attempt in row.evidence["attempts"]], [0.0, 6.0, 10.0])
+
+    def test_recovery_after_threshold_warns(self):
+        from probes import dns_propagation
+
+        clock = self.FakeClock()
+
+        def resolve(_host):
+            if clock.now < 20:
+                return {"status": "FAIL", "err": "gaierror", "msg": "temporary failure"}
+            return {"status": "ok", "ips": ["10.0.0.1"]}
+
+        ctx = _ctx(
+            hosts=["example.test"],
+            dns_propagation_probe=True,
+            dns_propagation_duration_sec=20,
+            dns_propagation_interval_sec=5,
+            dns_propagation_threshold_sec=15,
+        )
+        with (
+            mock.patch.object(dns_propagation.time, "monotonic", clock.monotonic),
+            mock.patch.object(dns_propagation.time, "sleep", clock.sleep),
+            mock.patch.object(dns_propagation.probelib, "probe_dns", resolve),
+        ):
+            row = dns_propagation.DnsPropagationProbe().run(ctx)[0]
+
+        self.assertEqual(row.status, Status.WARN)
+        self.assertEqual([f.code for f in row.findings], ["DNS_PROPAGATION_DELAY"])
+        self.assertEqual(row.metrics["first_success_after_sec"], 20.0)
+        self.assertEqual(row.metrics["persisted_past_threshold"], 1)
+        self.assertEqual([a["elapsed_sec"] for a in row.evidence["attempts"]], [0.0, 5.0, 10.0, 15.0, 20.0])
+
+    def test_recovery_before_threshold_still_reports_initial_instability(self):
+        from probes import dns_propagation
+
+        clock = self.FakeClock()
+
+        def resolve(_host):
+            if clock.now < 5:
+                return {"status": "FAIL", "err": "gaierror", "msg": "temporary failure"}
+            return {"status": "ok", "ips": ["10.0.0.1"]}
+
+        ctx = _ctx(
+            hosts=["example.test"],
+            dns_propagation_probe=True,
+            dns_propagation_duration_sec=20,
+            dns_propagation_interval_sec=5,
+            dns_propagation_threshold_sec=15,
+        )
+        with (
+            mock.patch.object(dns_propagation.time, "monotonic", clock.monotonic),
+            mock.patch.object(dns_propagation.time, "sleep", clock.sleep),
+            mock.patch.object(dns_propagation.probelib, "probe_dns", resolve),
+        ):
+            row = dns_propagation.DnsPropagationProbe().run(ctx)[0]
+
+        self.assertEqual(row.status, Status.WARN)
+        self.assertEqual([f.code for f in row.findings], ["DNS_INITIAL_INSTABILITY"])
+        self.assertEqual(row.metrics["first_success_after_sec"], 5.0)
+        self.assertEqual(row.metrics["persisted_past_threshold"], 0)
+
+    def test_failure_for_full_window_fails(self):
+        from probes import dns_propagation
+
+        clock = self.FakeClock()
+        ctx = _ctx(
+            hosts=["example.test"],
+            dns_propagation_probe=True,
+            dns_propagation_duration_sec=20,
+            dns_propagation_interval_sec=5,
+            dns_propagation_threshold_sec=15,
+        )
+        failure = {"status": "FAIL", "err": "gaierror", "msg": "temporary failure"}
+        with (
+            mock.patch.object(dns_propagation.time, "monotonic", clock.monotonic),
+            mock.patch.object(dns_propagation.time, "sleep", clock.sleep),
+            mock.patch.object(dns_propagation.probelib, "probe_dns", return_value=failure),
+        ):
+            row = dns_propagation.DnsPropagationProbe().run(ctx)[0]
+
+        self.assertEqual(row.status, Status.FAIL)
+        self.assertEqual([f.code for f in row.findings], ["DNS_FAILURE_PERSISTED"])
+        self.assertNotIn("first_success_after_sec", row.metrics)
+        self.assertEqual(row.metrics["persisted_past_threshold"], 1)
+
+
+class StreamingTests(unittest.IsolatedAsyncioTestCase):
+    def test_stream_selection_is_opt_in(self):
+        self.assertFalse(wants_stream({}))
+        self.assertTrue(wants_stream({"stream": True}))
+        self.assertTrue(wants_stream({}, "application/json, text/event-stream"))
+
+    async def test_heartbeat_precedes_final_report(self):
+        import time
+
+        def build_report():
+            time.sleep(0.03)
+            return {"schema_version": 1, "status": "ok"}
+
+        events = []
+        async for frame in stream_report(build_report, "inv-1", heartbeat_sec=0.01):
+            events.append(json.loads(frame.removeprefix("data: ").strip()))
+
+        self.assertEqual(events[0], {"type": "started", "invocation_id": "inv-1"})
+        self.assertTrue(any(event["type"] == "heartbeat" for event in events))
+        self.assertEqual(events[-2]["type"], "report")
+        self.assertEqual(events[-2]["report"], {"schema_version": 1, "status": "ok"})
+        self.assertEqual(events[-1], {"type": "done", "invocation_id": "inv-1"})
+
+    async def test_worker_failure_becomes_error_event(self):
+        def build_report():
+            raise RuntimeError("boom")
+
+        events = []
+        async for frame in stream_report(build_report, "inv-2", heartbeat_sec=0.01):
+            events.append(json.loads(frame.removeprefix("data: ").strip()))
+
+        self.assertEqual([event["type"] for event in events], ["started", "error", "done"])
+        self.assertEqual(events[1]["error"], {"type": "RuntimeError", "message": "boom"})
 
 
 if __name__ == "__main__":

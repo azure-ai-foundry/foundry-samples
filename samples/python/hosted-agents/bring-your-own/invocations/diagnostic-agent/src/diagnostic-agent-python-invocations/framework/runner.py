@@ -53,6 +53,8 @@ def run_all(ctx: ProbeContext) -> list[ProbeResult]:
         t0 = time.perf_counter()
         try:
             produced = probe.run(ctx) or []
+            if not isinstance(produced, list) or any(not isinstance(item, ProbeResult) for item in produced):
+                raise TypeError(f"Probe '{pid}' must return list[ProbeResult]")
             results.extend(produced)
             logger.info(
                 "probe %s produced=%d ms=%.1f",

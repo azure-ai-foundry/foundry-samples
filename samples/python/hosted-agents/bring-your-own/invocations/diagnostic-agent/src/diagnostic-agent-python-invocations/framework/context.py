@@ -30,6 +30,9 @@ _DEFAULT_PUBLIC_HOSTS = [
     "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
 ]
 
+_MAX_DNS_PROPAGATION_DURATION_SEC = 120.0
+_MIN_DNS_PROPAGATION_INTERVAL_SEC = 0.1
+
 
 @dataclass
 class ProbeContext:
@@ -48,6 +51,10 @@ class ProbeContext:
     dns_attempts: int
     gai_attempts: int
     parallel_probe: bool
+    dns_propagation_probe: bool
+    dns_propagation_duration_sec: float
+    dns_propagation_interval_sec: float
+    dns_propagation_threshold_sec: float
 
     # timeouts
     tcp_timeout_sec: int
@@ -76,6 +83,19 @@ class ProbeContext:
         if public_hosts is None:
             public_hosts = list(_DEFAULT_PUBLIC_HOSTS)
 
+        propagation_duration = min(
+            max(float(spec.get("dns_propagation_duration_sec", 30)), 0.0),
+            _MAX_DNS_PROPAGATION_DURATION_SEC,
+        )
+        propagation_interval = max(
+            float(spec.get("dns_propagation_interval_sec", 1)),
+            _MIN_DNS_PROPAGATION_INTERVAL_SEC,
+        )
+        propagation_threshold = min(
+            max(float(spec.get("dns_propagation_threshold_sec", 15)), 0.0),
+            propagation_duration,
+        )
+
         return cls(
             spec=spec,
             hosts=spec.get("hosts") or [],
@@ -89,6 +109,10 @@ class ProbeContext:
             dns_attempts=int(spec.get("dns_attempts") or 1),
             gai_attempts=int(spec.get("gai_attempts") or 1),
             parallel_probe=bool(spec.get("parallel_probe", False)),
+            dns_propagation_probe=bool(spec.get("dns_propagation_probe", False)),
+            dns_propagation_duration_sec=propagation_duration,
+            dns_propagation_interval_sec=propagation_interval,
+            dns_propagation_threshold_sec=propagation_threshold,
             tcp_timeout_sec=int(spec.get("tcp_timeout_sec") or 5),
             http_timeout_sec=int(spec.get("http_timeout_sec") or 10),
             dns_timeout_sec=int(spec.get("dns_timeout_sec") or 5),
