@@ -10,13 +10,39 @@ Microsoft has no responsibility to you or others with respect to any of these sa
 
 # What this sample demonstrates
 
-A simple **conversational assistant** hosted agent built with the **Bring Your Own** approach on the **Activity protocol** in Python. Unlike the [echo](../echo) sample, this is a real conversational assistant: it chats through the **[GitHub Copilot SDK](https://pypi.org/project/github-copilot-sdk/)** — which runs its own model + tool-calling loop — and exposes a couple of custom tools (a to-do list and reading files shared in the chat).
+A **conversational assistant** hosted agent built with the **Bring Your Own** approach on the **Activity protocol** in Python. Unlike the [echo](../echo) sample, this is a real assistant: it chats through the **[GitHub Copilot SDK](https://pypi.org/project/github-copilot-sdk/)** — which runs its own model + tool-calling loop — and exposes a few custom tools plus rich Teams UI.
 
-It demonstrates how [`azure-ai-agentserver-activity`](https://pypi.org/project/azure-ai-agentserver-activity/) acts as the Foundry host — bridging to the [M365 Agents SDK](https://github.com/microsoft/Agents-for-python) for activity processing and outbound Teams delivery — while the **Copilot SDK** does the AI heavy lifting. You don't hand-write a tool-calling loop: you point the SDK at a model, register a few tools, and call `send_and_wait`.
+It demonstrates how [`azure-ai-agentserver-activity`](https://pypi.org/project/azure-ai-agentserver-activity/) acts as the Foundry host — bridging to the [M365 Agents SDK](https://github.com/microsoft/Agents-for-python) for activity processing and outbound Teams delivery — while the **Copilot SDK** does the AI heavy lifting. You don't hand-write a tool-calling loop: you point the SDK at a model, register a few tools, and stream the reply.
+
+## Features
+
+| Feature | What it does |
+|---------|--------------|
+| **Streaming chat** | Replies stream token-by-token into Teams, with transient “working…” status updates while the model runs tools. |
+| **To-do list** | Model tools to add / list / complete tasks, persisted per conversation. Asking to see them renders an **interactive Adaptive Card** with Done / Delete / Add buttons. |
+| **Read shared files** | Attach any file in Teams (PDF, DOCX, PPTX, code, …) and the model reads it directly with its own file tools — no server-side extraction. |
+| **Image understanding (vision)** | Paste or attach an image and the model sees it (sent inline as a base64 blob). |
+| **Generate downloadable files** | Ask it to "write a doc / essay / report / slides" and the model **creates the file itself** — text formats (`.txt`, `.md`, `.csv`, `.json`, `.html`, code) directly, and `.docx` / `.pptx` / `.pdf` by running its own Python — then hands it back as a Teams **File Consent** download. |
+
+> The Adaptive Card task board and File Consent download flow are **Teams personal-scope** features; in M365 Copilot (BizChat) the same actions fall back to text.
+
+### How the agent creates files (the model does it, code-interpreter style)
+
+A language model's only output is a **stream of text tokens** — it can write a
+document's *content*, but it can't emit the *bytes* of a `.docx`, `.pptx`, or
+`.pdf` (those are ZIP-of-XML archives and binary object graphs, not text). So the
+model does what a code-interpreter tool does: it **writes and runs its own Python**
+in the workspace using the Copilot SDK's built-in shell/file tools. For text
+formats it just writes the file; for Office/PDF it `pip install`s a library
+(`python-docx`, `python-pptx`, `reportlab`) at runtime and builds the file. Then it
+calls the `deliver_file` tool with the path, and [`outfiles.py`](src/github-copilot-activity/outfiles.py)
+reads the bytes and offers them as a download. This keeps the sample's own code
+tiny — no server-side renderers — and lets the model handle whatever format it can
+write. Image *generation* isn't supported (that needs an image model).
 
 ## How It Works
 
-The message handler is tiny. It forwards the user's text to the Copilot SDK and sends back the reply:
+The message handler streams the model's reply and then attaches any model-requested UI (a task card or a generated file) to the same streaming response:
 
 ```python
 from azure.ai.agentserver.activity import ActivityAgentServerHost
@@ -29,28 +55,38 @@ app = host.agent_app
 async def on_message(context, _state):
     conversation_id = context.activity.conversation.id
     text = (context.activity.text or "").strip()
-    reply = await copilot_client.ask(conversation_id, text)
-    await context.send_activity(reply)
+    stream = context.streaming_response
+    async for kind, chunk in copilot_client.ask_stream(conversation_id, text):
+        if kind == "progress":
+            stream.queue_informative_update(chunk)   # transient “working…” line
+        elif chunk:
+            stream.queue_text_chunk(chunk)           # streamed reply text
+    await _deliver_ui(context, conversation_id, stream)  # attach card/file, if any
+    await stream.end_stream()
 
 host.run()
 ```
 
-Everything AI-related lives in three small modules alongside `main.py`:
+The logic lives in a few small modules alongside `main.py`:
 
 | File | Responsibility |
 |------|----------------|
-| [`client.py`](src/github-copilot-activity/client.py) | The Copilot SDK harness. Creates one `CopilotClient` session per container, wires your **Foundry model** as the provider, registers the tools, and exposes `ask(conversation_id, text) -> str`. |
-| [`tools.py`](src/github-copilot-activity/tools.py) | The custom tool set defined with `copilot.define_tool` (JSON schema generated from Pydantic models): a per-conversation to-do list (add / list / complete). |
-| [`files.py`](src/github-copilot-activity/files.py) | When the user shares a file, downloads it and extracts text (plain text, PDF, DOCX, PPTX) which `main.py` folds straight into the prompt so the model can reason over it. |
+| [`client.py`](src/github-copilot-activity/client.py) | The Copilot SDK harness. Creates **one session per conversation**, wires your **Foundry model** as the provider, registers the tools, and exposes `ask_stream(conversation_id, text, files)` which yields streaming `(kind, text)` events. |
+| [`tools.py`](src/github-copilot-activity/tools.py) | The custom tools defined with `copilot.define_tool` (JSON schema from Pydantic models): a per-conversation to-do list (`add_task` / `list_tasks` / `complete_task`) and `deliver_file` (sends a file the model created for download). Tools that need UI queue a request in a per-turn **outbox**. |
+| [`files.py`](src/github-copilot-activity/files.py) | Downloads files/images the user shares (verbatim, no extraction) and hands the raw path (or an inline image blob for vision) to the model. |
+| [`outfiles.py`](src/github-copilot-activity/outfiles.py) | The outbound Teams **File Consent** flow — reads the file the model created and, on *Allow*, uploads the bytes so the file renders as a download. |
+| [`cards.py`](src/github-copilot-activity/cards.py) | The Adaptive Card to-do board (Universal Actions) and the invoke-response helpers for its buttons. |
 
 ### The Copilot SDK runs the agent loop
 
-The key difference from a raw-LLM sample: **you don't write the tool-calling loop.** The Copilot SDK's `session.send_and_wait(text)` internally calls the model, invokes any tools the model requests, feeds the results back, re-prompts the model, and repeats until it produces a final answer. The agent just registers tools with `define_tool` and reads the reply.
+The key difference from a raw-LLM sample: **you don't write the tool-calling loop.** The Copilot SDK's session internally calls the model, invokes any tools the model requests, feeds the results back, re-prompts the model, and repeats until it produces a final answer. The agent just registers tools with `define_tool` and streams the reply.
+
+Because SDK tools are pure functions and can't send Teams activities themselves, a tool that needs to show UI (a task card, a generated file) records the request in a per-turn **outbox**; `main.py` drains it after the turn and attaches the card/file to the streaming response.
 
 ```python
 # client.py (abridged)
 session = await client.create_session(
-    session_id=os.environ.get("FOUNDRY_AGENT_SESSION_ID") or str(uuid.uuid4()),
+    session_id=_sdk_session_id(conversation_id),   # one session per conversation
     provider=ProviderConfig(
         type="azure",
         base_url=os.environ["FOUNDRY_PROJECT_ENDPOINT"],
@@ -59,11 +95,13 @@ session = await client.create_session(
     ),
     model=os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
     tools=tools.build_tools(conversation_id),
+    available_tools=ToolSet().add_builtin("*").add_custom("*"),
     system_message={"mode": "replace", "content": SYSTEM_MESSAGE},
     on_permission_request=PermissionHandler.approve_all,
+    streaming=True,
 )
-event = await session.send_and_wait(text, timeout=90)
-reply = event.to_dict()["data"]["content"]
+await session.send(text, attachments=attachments or None)
+# events (tool activity + streamed text) arrive via session.on(...)
 ```
 
 ### Model auth (your Foundry model via Managed Identity)
@@ -72,7 +110,7 @@ The assistant uses a **Foundry model deployment** (`gpt-5-mini` by default). The
 
 ### Session model
 
-The Foundry platform pins each Teams conversation to its own container and injects a valid `FOUNDRY_AGENT_SESSION_ID`. The assistant uses that as the Copilot SDK session id (one session per container), falling back to a random UUID only for local runs.
+Each Teams conversation gets **its own Copilot SDK session**, keyed by a hash of the conversation id (the id doubles as the provider's `prompt_cache_key`, which has a 64-char limit). Keeping sessions per-conversation isolates each chat's context and tools and means a redeploy doesn't strand anyone on stale state. To-do items are persisted to a small JSON file under the hosted agent's durable `$HOME`, so they survive container idle/recycle.
 
 ### Agent Hosting
 
@@ -161,7 +199,7 @@ Press **F5** (or **Run → Start Debugging**). The launch configuration will:
 
 When the debug session ends, the `postDebugTask` kills `agentsplayground` and any process still bound to port 8088.
 
-Once the Playground window opens, type a message — the agent echoes it back. You can set breakpoints in `main.py` as with any Python project.
+Once the Playground window opens, type a message — the assistant replies via the Copilot SDK (try "add a task: buy coffee", or ask it to write a short doc). You can set breakpoints in `main.py` as with any Python project.
 
 ## Deploying the Agent to Microsoft Foundry
 
@@ -198,8 +236,11 @@ Package and install the Teams app using the generated `TEAMS_APP_SETUP.md` guide
 and start chatting. Try:
 
 - "Hi, what can you do?"
-- "Add a task: buy coffee" → "List my tasks" → "Mark it done"
+- "Add a task: buy coffee" → "Show my tasks" (renders the card) → tap **Done**
 - Share a PDF/DOCX and ask "What are the key points?"
+- Attach an image and ask "What's in this picture?"
+- "Write a short markdown doc about black holes" → click **Allow** to download it
+- "Make a 3-slide pptx introducing our team" → click **Allow** to download the deck
 
 > [!NOTE]
 > If **Upload a custom app** is greyed out, custom-app upload is disabled for your account —

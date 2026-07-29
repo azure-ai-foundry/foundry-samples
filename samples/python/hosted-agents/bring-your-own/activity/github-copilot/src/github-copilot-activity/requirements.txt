@@ -10,19 +10,22 @@ microsoft-agents-activity
 # The M365 SDK connector imports aiohttp but does not declare it; pin explicitly.
 aiohttp>=3.9.0
 
-# GitHub Copilot SDK — runs the assistant's model + tool-calling loop. Imports as the
-# top-level ``copilot`` package.
+# GitHub Copilot SDK — runs the assistant model + tool-calling loop. Imports as
+# the top-level ``copilot`` package.
 github-copilot-sdk>=0.2.0
 
 # Pydantic — parameter models for the custom Copilot SDK tools.
 pydantic>=2.0.0
 
-# File ingestion — extract text from PDF, DOCX, and PPTX attachments shared in
-# Teams. Plain-text / code / data files need no extra parser (decoded directly).
-pypdf>=4.0.0
-python-docx>=1.1.0
-python-pptx>=0.6.23
+# HTTP client — download the raw files the user shares in Teams (handed to the
+# model as attachments; the model reads/parses them itself).
+httpx>=0.27.0
 
-# Azure identity — mints the Managed-Identity bearer token for the Foundry
+# Azure identity — mints the Managed-Identity bearer token for the BYOK Foundry
 # model provider used by the Copilot SDK.
 azure-identity>=1.17.0
+
+# NOTE: no document libraries are pinned here. To create Word / PowerPoint / PDF
+# downloads the model installs what it needs at runtime (e.g. `pip install
+# python-docx`) using the Copilot SDK's shell/python tools, then builds the file
+# and calls the deliver_file tool with its path.
