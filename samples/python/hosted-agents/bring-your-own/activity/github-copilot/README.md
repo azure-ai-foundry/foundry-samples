@@ -116,6 +116,53 @@ Only needed for the **org-wide** path (publishing to your tenant app catalog), n
 > [!NOTE]
 > **Region availability:** This sample relies on [Foundry hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd), so your Foundry account and related resources must live in a region that supports them (and has `gpt-5-mini` capacity). See the [hosted-agent region list](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd) for the current set.
 
+## Local Debug in VS Code
+
+### Step 1: Open the correct workspace folder
+
+The launch configuration and tasks are defined inside `src/github-copilot/`, not the repo root. VS Code must have that folder loaded as a workspace root before F5 works.
+
+If you opened the repo root folder, add the inner folder first:
+
+1. **File → Add Folder to Workspace…**
+2. Select `src/github-copilot/` and click **Add**.
+
+The Explorer panel should now show `github-copilot` as a workspace root (with its own `.vscode/` visible). You can then save this as a multi-root workspace file if you like.
+
+### Step 2: Prepare the LLM model and .env file
+
+Sign in to the Azure account that owns your Foundry project. The agent uses `DefaultAzureCredential` to acquire auth tokens at runtime, and Azure CLI credentials are one of the credential sources it checks — so `az login` is required for local runs:
+
+```powershell
+az login
+```
+
+Copy `.env.example` to `.env` and fill in the required values:
+
+```powershell
+Copy-Item src/github-copilot-activity/.env.example src/github-copilot-activity/.env
+```
+
+Then open `.env` and set:
+
+| Variable | Description |
+|---|---|
+| `FOUNDRY_PROJECT_ENDPOINT` | Your Foundry project endpoint, e.g. `https://<account>.services.ai.azure.com/api/projects/<project>` |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | The model deployment name, e.g. `gpt-5-mini` |
+
+### Step 3: Press F5
+
+Press **F5** (or **Run → Start Debugging**). The launch configuration will:
+
+1. Install `agentsplayground` if not already installed (one-time, via winget).
+2. Create a `.venv` (Python 3.13) and install `requirements.txt` if not already done.
+3. Start the agent (`main.py`) under the VS Code debugger.
+4. Launch **M365 Agents Playground** automatically once port 8088 is ready.
+
+When the debug session ends, the `postDebugTask` kills `agentsplayground` and any process still bound to port 8088.
+
+Once the Playground window opens, type a message — the agent echoes it back. You can set breakpoints in `main.py` as with any Python project.
+
 ## Deploying the Agent to Microsoft Foundry
 
 ### Step 1: Sign in
