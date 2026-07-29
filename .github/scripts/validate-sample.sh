@@ -25,13 +25,21 @@
 #             (a sample.yaml command exits non-zero; or the language default's
 #              compile/build/py_compile exits non-zero)
 #   2  ERROR  OUR INFRA is sick — page us, do not quarantine
-#             (bad/missing args, unknown language, missing sample dir, unreadable or
-#              malformed sample.yaml, a required toolchain binary missing from PATH,
-#              or yq unavailable when a sample.yaml must be read)
+#             PRECONDITION errors (bad/missing args, unknown language, missing sample dir,
+#             unreadable or malformed sample.yaml, a required toolchain binary missing from
+#             PATH, yq unavailable when a sample.yaml must be read), OR a RUNTIME transport
+#             failure: a `pip install` / `npm install` that failed with positive
+#             transport/registry evidence (DNS failure, connection refused/reset, connect/read
+#             timeout, or a registry 5xx). See dep_infra_signature() + CLASSIFICATION.md.
 #
-# Gray area (honest v1): dependency-resolution failures (pip install / npm install)
-# stay FAIL — usually the sample's declared deps are wrong — but are log-tagged
-# `[classify:gray]` so a later advisory pass can audit registry/network mis-classifications.
+# failure-vs-error on dependency install (honest v1): only the two DEDICATED install steps
+# (`pip install`, `npm install`) are inspected. A positive transport signature => ERROR (this
+# wins even when pip later prints a generic "No matching distribution" line, which it emits
+# AFTER exhausting retries against an unreachable index). An UNACCOMPANIED resolution error
+# (bad/missing package, version conflict) => FAIL. Anything unmatched => FAIL (bias
+# ambiguous->fail, never fail-open to pass). The merged resolve+compile tools (dotnet build,
+# mvn compile, gradle build, go build, npm run build) are NOT inspected in v1 — their output
+# mixes restore+compile+user-script, so they stay FAIL. Documented limit in CLASSIFICATION.md.
 #
 # Outputs:
 #   - prints `verdict=pass|fail|error` on stdout (also appended to $GITHUB_OUTPUT if set)
@@ -111,6 +119,49 @@ ensure_yq() {
     command -v yq >/dev/null 2>&1 || error "yq not available on PATH (required to read sample.yaml)"
 }
 
+# dep_infra_signature <logfile>: return 0 IFF the captured dependency-install log shows
+# HIGH-CONFIDENCE transport/registry evidence (DNS / connection refused-reset / connect-read
+# timeout / registry 5xx). This is a deliberately NARROW heuristic, not a robust classifier:
+#   - it matches only tool-specific transport strings, never generic words like "timeout";
+#   - a positive match wins even when pip later prints a generic "No matching distribution"
+#     line (pip emits that AFTER exhausting retries against an unreachable index);
+#   - it is scoped to the direct `pip install` / `npm install` steps only;
+#   - anything unmatched stays FAIL (bias ambiguous->fail, never fail-open to pass);
+#   - EXPECT maintenance as runner pip/npm versions drift their error strings.
+# The full captured log is printed by the caller before classifying, so diagnosis is preserved.
+dep_infra_signature() {
+    local log="${1:-}"
+    [ -n "$log" ] && [ -f "$log" ] || return 1
+    grep -Eiq \
+        -e 'temporary failure in name resolution' \
+        -e 'could not resolve host' \
+        -e 'name or service not known' \
+        -e 'getaddrinfo' \
+        -e 'eai_again' \
+        -e 'enotfound' \
+        -e 'econnrefused' \
+        -e 'connection refused' \
+        -e 'econnreset' \
+        -e 'connection reset' \
+        -e 'etimedout' \
+        -e 'connection timed out' \
+        -e 'read timed out' \
+        -e 'readtimeouterror' \
+        -e 'connecttimeouterror' \
+        -e 'network timeout' \
+        -e 'newconnectionerror' \
+        -e 'max retries exceeded' \
+        -e 'failed to establish a new connection' \
+        -e 'proxyerror' \
+        -e 'network is unreachable' \
+        -e '50[0234] server error' \
+        -e 'service unavailable' \
+        -e 'bad gateway' \
+        -e 'gateway time-?out' \
+        -e 'internal server error' \
+        "$log"
+}
+
 # --- Part 1: the once-only shared sample.yaml runner -------------------------
 # Byte-identical across all five ADO jobs today. Reads build -> validate -> test
 # and runs them in order; the first non-zero command is a sample FAIL.
@@ -177,10 +228,18 @@ default_validate_csharp() {
 default_validate_python() {
     if [ -f "$SAMPLE_DIR/requirements.txt" ]; then
         echo "Installing requirements..."
-        if ! pip install -r "$SAMPLE_DIR/requirements.txt" -q; then
-            echo "[classify:gray] dependency-resolution failure (pip install) — kept FAIL per v1 gray-area rule"
+        local piplog; piplog="$(mktemp)"
+        if ! pip install -r "$SAMPLE_DIR/requirements.txt" -q >"$piplog" 2>&1; then
+            cat "$piplog"
+            if dep_infra_signature "$piplog"; then
+                rm -f "$piplog"
+                error "pip install: registry/network unreachable (transport evidence in log)"
+            fi
+            rm -f "$piplog"
+            echo "[classify:fail] pip install dependency-resolution failure (no transport evidence)"
             fail "pip install failed"
         fi
+        rm -f "$piplog"
     fi
     local pyfile
     for pyfile in "$SAMPLE_DIR"/*.py; do
@@ -198,10 +257,21 @@ default_validate_typescript() {
     if [ -f "$SAMPLE_DIR/package.json" ]; then
         require_tool npm
         echo "Installing dependencies..."
-        if ! ( cd "$SAMPLE_DIR" && npm install --silent ); then
-            echo "[classify:gray] dependency-resolution failure (npm install) — kept FAIL per v1 gray-area rule"
+        local npmlog; npmlog="$(mktemp)"
+        # NOT --silent: that suppresses error output too, which would blind
+        # dep_infra_signature to transport errors. --loglevel=error keeps success
+        # quiet while still emitting the network/registry failure text we classify on.
+        if ! ( cd "$SAMPLE_DIR" && npm install --no-audit --no-fund --loglevel=error ) >"$npmlog" 2>&1; then
+            cat "$npmlog"
+            if dep_infra_signature "$npmlog"; then
+                rm -f "$npmlog"
+                error "npm install: registry/network unreachable (transport evidence in log)"
+            fi
+            rm -f "$npmlog"
+            echo "[classify:fail] npm install dependency-resolution failure (no transport evidence)"
             fail "npm install failed"
         fi
+        rm -f "$npmlog"
         if ( cd "$SAMPLE_DIR" && npm run build --if-present ); then
             pass
         else

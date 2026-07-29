@@ -1,0 +1,2 @@
+name: p22-probe-samerepo-l4
+validate: echo "L3 probe ok (deterministic pass)"
