@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: harness-data-processing
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  harness-data-processing:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Azure AI AgentServer
+        - Responses Protocol
+        - Agent Framework
+        - Harness Agent
+    project: src/harness-data-processing
+    language: csharp
+    codeConfiguration:
+      runtime: dotnet_10
+      entryPoint: harness-data-processing.dll
+    uses:
+      - ai-project
+    kind: hosted
+    name: harness-data-processing
+    displayName: Harness Data Processing Agent
+    description: Agent Framework harness agent that reads, analyzes, and processes CSV data files using AsHarnessAgent with the FileAccessProvider, demonstrating file access tools and tool approval (read-only auto-approved, writes/deletes require approval).
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry
