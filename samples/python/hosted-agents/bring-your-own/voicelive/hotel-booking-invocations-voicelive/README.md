@@ -181,6 +181,10 @@ azd ai agent monitor
 
 For full deployment guidance, see [Azure AI Foundry hosted agents](https://aka.ms/azdaiagent/docs).
 
+### Sample client
+
+We also provide a sample web UI client in the [../client/hotel-booking-sample-client](../client/hotel-booking-sample-client) folder. It demonstrates how to connect to the agent and do interaction with voice and custom events.
+
 ## Notes for production use
 
 - Session state is in-memory and resets when the process restarts.
