@@ -52,7 +52,7 @@ from ADO 5247751 — a silent empty diff once let an unvalidated change through 
 
 To be consumable as `needs.<job>.outputs.*`, the emitting step needs an `id`, **and** the job
 must re-export the step outputs under its own `outputs:` block. Writing `$GITHUB_OUTPUT` alone
-is necessary but not sufficient. See `detect-changed-samples-selftest.yml` for the wiring.
+is necessary but not sufficient. See the `detect`→`consume` jobs in `scripts-selftest.yml` for the wiring.
 
 ## Known sharp edges (tracked, not blockers)
 
@@ -69,11 +69,11 @@ design — documented in-code in the "Known limitations" block above `resolve_ba
 
 ## Where it's proven
 
-Inert self-test workflow ([`../workflows/detect-changed-samples-selftest.yml`](../workflows/detect-changed-samples-selftest.yml),
-`contents: read`, no secrets/OIDC): a hermetic check harness
-([`test/run-detect-tests.sh`](./test/run-detect-tests.sh)) plus real-runner jobs proving both
-a changed-sample payload and a docs-only empty set flow through `needs.*.outputs`
-uncorrupted.
+Scripts self-test workflow ([`../workflows/scripts-selftest.yml`](../workflows/scripts-selftest.yml),
+`contents: read`, no secrets/OIDC), triggered on any PR touching `.github/scripts/**`: a hermetic
+check harness ([`test/run-detect-tests.sh`](./test/run-detect-tests.sh)) proves the detection cases
+plus the docs-only empty-set / `$GITHUB_OUTPUT` hygiene contract, and a real-runner `detect`→`consume`
+job proves a changed-sample payload flows through `needs.*.outputs` uncorrupted.
 
 ## Related
 

@@ -85,7 +85,7 @@ never fails **open** to `pass`.
 ## Proof
 
 The contract is exercised end-to-end on a real GitHub Actions runner by
-`.github/scripts/test/run-tests.sh` (invoked from `.github/workflows/validate-sample-selftest.yml`):
+`.github/scripts/test/run-tests.sh` (invoked from the `validate-harness` job in `.github/workflows/scripts-selftest.yml`):
 a forced-unreachable registry (`127.0.0.1:1` blackhole) for `pip install` / `npm install`
 classifies as `error` (exit 2), while an unaccompanied resolution failure classifies as
 `failure` (exit 1).

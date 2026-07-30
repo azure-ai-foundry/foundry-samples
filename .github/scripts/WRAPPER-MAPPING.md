@@ -25,9 +25,13 @@ mislabels the `Validate` stage as "Stage 2"; that comment is ignored.)
 
 ## GitHub-Actions targets on this branch (`brandom-msft-fluffy-lamp`, stacked on P1.3 `01cdde17`)
 
-- `.github/workflows/validate-sample-selftest.yml` — real-runner harness for the `Validate` port.
-- `.github/workflows/detect-changed-samples-selftest.yml` — real-runner harness for the `DetectChanges` port,
-  including the `needs.*.outputs` cross-job plumbing proof.
+- `.github/workflows/scripts-selftest.yml` — real-runner harness for BOTH ports (`validate-harness` +
+  `detect-harness` jobs) plus the `needs.*.outputs` cross-job plumbing proof (`detect`→`consume`).
+  > **Note (post-P1.4 consolidation):** this audit was written against two separate harness workflows,
+  > `validate-sample-selftest.yml` and `detect-changed-samples-selftest.yml`, which were later merged into
+  > the single `scripts-selftest.yml` and re-triggered on `pull_request` + `paths: ['.github/scripts/**']`.
+  > The file names and line-number citations throughout the rest of this document refer to those original
+  > pre-consolidation files and are preserved as a point-in-time record.
 - `.github/scripts/validate-sample.sh` — the once-only validator that collapses the five duplicated ADO
   per-language jobs into one function set.
 - `.github/scripts/detect-changed-samples.sh` — the in-job change detector.
