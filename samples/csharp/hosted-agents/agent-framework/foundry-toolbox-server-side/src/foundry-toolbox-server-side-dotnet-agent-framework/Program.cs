@@ -38,7 +38,8 @@ var toolboxName = Environment.GetEnvironmentVariable("TOOLBOX_NAME")
 
 // Create the agent. No toolbox tools are wired up here: the hosting layer supplies them
 // at request time (see AddFoundryToolboxes below).
-AIAgent agent = new AIProjectClient(projectEndpoint, new DefaultAzureCredential())
+var credential = new DefaultAzureCredential();
+AIAgent agent = new AIProjectClient(projectEndpoint, credential)
     .AsAIAgent(
         model: deployment,
         instructions: "You are a helpful assistant with access to Azure AI Foundry toolbox tools. "
@@ -54,7 +55,7 @@ builder.Services.AddFoundryResponses(agent);
 // injects them into every request. Tool calls are brokered by the Foundry platform, so
 // the agent process does not hard-code or locally execute the toolbox's tools. Omitting a
 // version resolves the toolbox's current default version.
-builder.Services.AddFoundryToolboxes(toolboxName);
+builder.Services.AddFoundryToolboxes(credential, toolboxName);
 
 builder.RegisterProtocol("responses", endpoints => endpoints.MapFoundryResponses());
 

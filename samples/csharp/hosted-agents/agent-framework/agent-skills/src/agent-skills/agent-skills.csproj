@@ -17,11 +17,11 @@
 
   <ItemGroup>
     <!-- Agent Framework core - provides AgentSkillsProvider and ChatClientAgent. -->
-    <PackageReference Include="Microsoft.Agents.AI" Version="1.12.0" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.15.0" />
     <!-- Agent Framework hosting - provides AgentHost, AddFoundryResponses, MapFoundryResponses. -->
-    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.12.0-preview.260629.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Foundry.Hosting" Version="1.15.0-preview.260722.1" />
     <!-- Foundry SDK - provides AIProjectClient, AsAIAgent, and ProjectAgentSkills (Azure.AI.Projects.Agents). -->
-    <PackageReference Include="Azure.AI.Projects" Version="2.1.0-beta.3" />
+    <PackageReference Include="Azure.AI.Projects" Version="2.1.0-beta.4" />
     <!-- .env file support for local development. -->
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
   </ItemGroup>
