@@ -1,1 +1,2 @@
 .env.example
+.env.e2e-tests
