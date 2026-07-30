@@ -22,6 +22,18 @@ Match deployment guidance to the sample's `azure.yaml`: direct code deployment
 uses `codeConfiguration` and does not require a Dockerfile; Dockerfile guidance
 applies only when the sample uses container deployment through `docker.path`.
 
+## Cloud E2E contract for new samples
+
+Every new Python hosted-agent sample must add a private `test-spec.yml` with a
+responsible Microsoft owner alias, supported experiences, deterministic turns,
+and assertions for its defining behavior. Legacy payload/default support is for
+migration and is not sufficient for a new sample.
+
+Read and follow the authoritative [hosted-agent cloud E2E test-spec schema and
+onboarding checklist](../../../internal/tools/samples-hosted-agents/README.md).
+Run both the documented `validate` and protocol-aware `plan` commands before
+submitting changes.
+
 ## README conventions
 
 Most samples follow the shared template,
