@@ -1,13 +1,15 @@
 name: validate
 
 # The REAL PR-triggered L3 "floor" lane (P2.1, ADO 5449695) — distinct from the inert
-# *-selftest.yml dev harnesses. It validates every changed sample to Build Readiness
+# scripts-selftest.yml dev harness. It validates every changed sample to Build Readiness
 # Level 3 (Load) using the shared scripts ported in Phase 1.
 #
 # FORK-SAFE BY CONSTRUCTION (this is the headline property):
 #   - on: pull_request  (NEVER pull_request_target) — so PRs from forks run this with a
 #     read-only GITHUB_TOKEN and NO access to secrets, per GitHub's documented behavior.
-#   - permissions: contents: read only. No `environment:`. No secret references anywhere.
+#   - permissions: contents: read is the workflow default. No `environment:` and no secret
+#     references on any FORK-REACHABLE job (detect/validate) — the credentialed `trusted` L4
+#     lane below is structurally unreachable from forks (if: fork != true), so it never runs here.
 #   - The job checks out and EXECUTES untrusted fork code (dotnet build, npm install,
 #     pip install, mvn compile, ...). That is intentional and safe *because* the runner is
 #     barren: nothing here can exfiltrate a credential, because there is no credential.

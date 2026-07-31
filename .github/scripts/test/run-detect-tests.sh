@@ -15,6 +15,9 @@
 #   (e) two different samples changed -> both present, sorted
 #   (f) FAIL LOUD: a nonexistent base ref makes git diff error -> exit 1 (ADO 5247751)
 #   (g) base-ref RESOLUTION: pull_request -> origin/<target>, push -> HEAD~1 (--print-base-ref)
+#   (h) GITHUB_OUTPUT hygiene: an empty (docs-only) result writes clean count=0 /
+#       has_changes=false / samples=[] with no bare-'0' line (grep -c regression guard)
+# Also asserts --output-dir writes changed_files.txt + unique_changed_samples.txt.
 set -uo pipefail
 
 # The unit harness asserts on the detector's STDOUT only. It must NOT leak into the
