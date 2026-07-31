@@ -6,7 +6,7 @@ This project is a **Microsoft Foundry hosted agent** — a containerized AI agen
 
 - `Dockerfile` — container definition
 - `src/diagnostic-agent-python-invocations/main.py` — thin invoke handler (parse → run probes → report)
-- `src/diagnostic-agent-python-invocations/DEVELOPING_PROBES.md` — how to add a new diagnostic probe (start here)
+- `DEVELOPMENT.md` — how to add a diagnostic probe and validate deployment modes (start here)
 - `src/diagnostic-agent-python-invocations/schema/report.schema.json` — the response envelope contract
 
 ## Development workflow

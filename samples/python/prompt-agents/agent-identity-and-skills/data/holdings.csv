@@ -1,0 +1,11 @@
+ticker,name,sector,qty,avg_cost_usd,current_price_usd,dividend_yield_pct,beta,analyst_rating
+MSFT,Microsoft Corp,Information Technology,40,310.50,432.10,0.72,0.90,buy
+AAPL,Apple Inc,Information Technology,25,165.20,228.40,0.45,1.20,buy
+JNJ,Johnson & Johnson,Health Care,30,158.00,152.30,3.10,0.55,hold
+JPM,JPMorgan Chase,Financials,20,142.75,201.60,2.20,1.10,buy
+XOM,Exxon Mobil,Energy,35,98.40,113.80,3.40,0.85,hold
+PG,Procter & Gamble,Consumer Staples,18,145.10,167.90,2.45,0.40,hold
+NVDA,NVIDIA Corp,Information Technology,15,95.30,132.50,0.03,1.75,buy
+KO,Coca-Cola Co,Consumer Staples,50,58.20,62.10,3.05,0.60,hold
+VTI,Vanguard Total Market ETF,Diversified,12,225.00,278.40,1.30,1.00,buy
+BND,Vanguard Total Bond ETF,Fixed Income,40,72.10,73.05,3.60,0.05,hold

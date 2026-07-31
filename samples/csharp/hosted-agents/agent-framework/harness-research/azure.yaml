@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+    extensions:
+        azure.ai.agents: '>=1.0.0-beta.4'
+name: harness-research
+services:
+    ai-project:
+        host: azure.ai.project
+        deployments:
+            - model:
+                format: OpenAI
+                name: gpt-5.4-mini
+                version: "2026-03-17"
+              name: gpt-5.4-mini
+              sku:
+                capacity: 60
+                name: GlobalStandard
+    harness-research:
+        project: src/harness-research
+        host: azure.ai.agent
+        language: csharp
+        uses:
+            - ai-project
+        codeConfiguration:
+            entryPoint: harness-research.dll
+            runtime: dotnet_10
+        container:
+            resources:
+                cpu: "0.5"
+                memory: 1Gi
+        description: Agent Framework harness agent that plans and executes research tasks using AsHarnessAgent, demonstrating the built-in TodoProvider, AgentModeProvider (plan/execute), FileMemoryProvider, tool approval, and a loop evaluator that re-invokes the agent until all todos complete.
+        displayName: Harness Research Agent
+        environmentVariables:
+            - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+              value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+        kind: hosted
+        metadata:
+            tags:
+                - AI Agent Hosting
+                - Azure AI AgentServer
+                - Responses Protocol
+                - Agent Framework
+                - Harness Agent
+        name: harness-research
+        protocols:
+            - protocol: responses
+              version: 2.0.0
+infra:
+    provider: microsoft.foundry

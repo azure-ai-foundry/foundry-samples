@@ -51,7 +51,8 @@ var toolboxName = Environment.GetEnvironmentVariable("TOOLBOX_NAME")
 // The agent is backed by the project's Responses API. It carries no tools directly —
 // the toolbox's tools are registered below via AddFoundryToolboxes and injected by the
 // hosting layer at request time as host-executed MCP tools.
-var projectClient = new AIProjectClient(projectEndpoint, new DefaultAzureCredential());
+var credential = new DefaultAzureCredential();
+var projectClient = new AIProjectClient(projectEndpoint, credential);
 
 // Hosted containers inject FOUNDRY_AGENT_TOOLSET_ENDPOINT (the toolbox MCP proxy base).
 // When it is absent (local dev, or environments that don't inject it), derive it from the
@@ -80,7 +81,7 @@ builder.Services.AddFoundryResponses(agent);
 // startup (FOUNDRY_AGENT_TOOLSET_ENDPOINT, auto-injected by the platform), discovers the
 // toolbox's tools, and injects them into the agent. The platform proxy resolves each
 // tool's connection credential, so the agent runs under its own identity.
-builder.Services.AddFoundryToolboxes(options => options.ApiVersion = "v1", toolboxName);
+builder.Services.AddFoundryToolboxes(credential, options => options.ApiVersion = "v1", toolboxName);
 
 builder.RegisterProtocol("responses", endpoints => endpoints.MapFoundryResponses());
 

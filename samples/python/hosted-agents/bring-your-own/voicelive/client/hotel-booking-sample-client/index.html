@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hotel Booking — Voice Live SDK</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --red: #ef4444;
+      --purple: #a855f7;
+      --teal: #22d3ee;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header .logo { font-size: 22px; }
+    header h1 { font-size: 17px; font-weight: 600; flex: 1; }
+    #connectionBadge {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-weight: 500;
+    }
+    .badge-disconnected { background: #1c1c1c; color: var(--muted); border: 1px solid var(--border); }
+    .badge-connecting   { background: #422006; color: var(--amber); border: 1px solid #78350f; }
+    .badge-connected    { background: #052e16; color: var(--green); border: 1px solid #166534; }
+
+    /* ── Main layout ────────────────────────────── */
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Left: conversation ─────────────────────── */
+    #conversationPanel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Bubbles */
+    .msg {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg-user      { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+    .msg-assistant { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .msg-status    { align-self: center; color: var(--muted); font-size: 12px; font-style: italic; padding: 4px 0; }
+    .msg-wrapper-user {
+      display: flex; flex-direction: column; align-items: flex-end;
+      align-self: flex-end; max-width: 85%;
+    }
+    .msg-wrapper-assistant {
+      display: flex; flex-direction: column; align-items: flex-start;
+      align-self: flex-start; max-width: 85%;
+    }
+    .msg-label { font-size: 11px; color: var(--muted); margin-bottom: 3px; font-weight: 500; }
+
+    /* ── Hotel cards ──────────────────────────── */
+    .hotel-cards-row {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      align-self: flex-start; max-width: 90%;
+    }
+    .hotel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      min-width: 155px;
+      flex: 1;
+      transition: border-color 0.15s;
+    }
+    .hotel-card:hover { border-color: var(--accent); }
+    .hotel-card .hc-name  { font-weight: 600; font-size: 14px; color: #f1f5f9; }
+    .hotel-card .hc-price { color: var(--green); font-weight: 700; font-size: 15px; margin: 4px 0; }
+    .hotel-card .hc-rating { color: var(--amber); font-size: 12px; }
+    .hotel-card .hc-features { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .hotel-card .hc-features span {
+      background: #0f172a; padding: 2px 7px; border-radius: 4px;
+      font-size: 11px; color: var(--muted);
+    }
+    .hotel-card .hc-select {
+      margin-top: 10px; width: 100%;
+      padding: 7px; border: 1.5px solid var(--accent); border-radius: 7px;
+      background: transparent; color: var(--accent);
+      font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+    }
+    .hotel-card .hc-select:hover { background: var(--accent); color: #fff; }
+
+    /* ── Hotel detail card ────────────────────── */
+    .hotel-detail-card {
+      align-self: flex-start;
+      background: #0c2340;
+      border: 1.5px solid var(--accent);
+      border-radius: 12px;
+      padding: 14px 16px;
+      max-width: 85%;
+      font-size: 14px;
+    }
+    .hotel-detail-card .hd-name  { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .hotel-detail-card .hd-price { color: var(--muted); font-size: 13px; margin-bottom: 2px; }
+    .hotel-detail-card .hd-total { font-size: 20px; font-weight: 700; color: var(--accent); margin: 4px 0 8px; }
+    .hotel-detail-card .hd-features { display: flex; flex-wrap: wrap; gap: 4px; }
+    .hotel-detail-card .hd-features span {
+      background: #0f172a; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; color: var(--muted);
+    }
+
+    /* ── Booking confirmed card ───────────────── */
+    .booking-confirmed-card {
+      align-self: flex-start;
+      background: linear-gradient(135deg, #064e3b, #065f46);
+      border: 1.5px solid #10b981;
+      border-radius: 12px;
+      padding: 16px;
+      max-width: 85%;
+    }
+    .booking-confirmed-card .bc-icon  { font-size: 28px; margin-bottom: 6px; }
+    .booking-confirmed-card .bc-title { font-weight: 700; font-size: 15px; color: #34d399; }
+    .booking-confirmed-card .bc-code  {
+      font-size: 18px; font-weight: 700; font-family: 'Cascadia Code', monospace;
+      color: #6ee7b7; margin: 6px 0;
+    }
+    .booking-confirmed-card .bc-detail { font-size: 13px; color: #a7f3d0; line-height: 1.6; }
+
+    /* ── Booking update card ──────────────────── */
+    .booking-update-card {
+      align-self: flex-start;
+      background: #1c1208;
+      border: 1px solid #854d0e;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--amber);
+      max-width: 85%;
+    }
+
+    /* ── Action buttons ───────────────────────── */
+    .action-buttons-row { display: flex; gap: 8px; flex-wrap: wrap; align-self: flex-start; }
+    .btn-action {
+      padding: 9px 18px;
+      border-radius: 9px;
+      border: 1.5px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: all 0.12s;
+    }
+    .btn-action:hover { background: var(--accent); color: #fff; }
+    .btn-action.confirm { border-color: #16a34a; color: #4ade80; }
+    .btn-action.confirm:hover { background: #16a34a; color: #fff; }
+    .btn-action.cancel  { border-color: #475569; color: var(--muted); }
+    .btn-action.cancel:hover  { background: #475569; color: #fff; }
+
+    /* ── Bottom bar ───────────────────────────── */
+    #bottomBar {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface);
+    }
+    #bottomBar button {
+      padding: 9px 20px; border-radius: 8px; border: none;
+      font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+    }
+    #btnConnect    { background: var(--accent); color: #fff; }
+    #btnConnect:hover     { background: #1d4ed8; }
+    #btnConnect:disabled  { opacity: 0.5; cursor: not-allowed; }
+    #btnDisconnect { background: #7f1d1d; color: #fca5a5; }
+    #btnDisconnect:hover  { background: #991b1b; }
+    #btnDisconnect:disabled { opacity: 0.5; cursor: not-allowed; }
+    #listeningHint { font-size: 12px; color: var(--muted); }
+
+    /* ── Right sidebar ────────────────────────── */
+    #sidebar {
+      width: 320px;
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      background: var(--surface);
+      overflow-y: auto;
+    }
+    .sidebar-section {
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px 12px;
+      cursor: pointer; user-select: none;
+    }
+    .sidebar-section-header h3 {
+      font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--muted); font-weight: 600;
+    }
+    .collapse-icon { font-size: 12px; color: var(--muted); transition: transform 0.2s; }
+    .sidebar-section.collapsed .collapse-icon { transform: rotate(-90deg); }
+    .sidebar-section.collapsed .sidebar-section-body { display: none; }
+    .sidebar-section-body { padding: 0 16px 14px; }
+
+    /* Config inputs */
+    .config-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .config-row:last-child { margin-bottom: 0; }
+    .config-row label {
+      font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .config-row input, .config-row select {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 7px 10px;
+      color: var(--text); font-size: 13px; outline: none;
+    }
+    .config-row input:focus, .config-row select:focus { border-color: var(--accent); }
+    .config-row input:disabled, .config-row select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Voice status */
+    #voiceStatus {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 8px;
+      background: var(--bg); border: 1px solid var(--border);
+    }
+    #voiceStatusDot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--border); transition: background 0.3s; flex-shrink: 0;
+    }
+    #voiceStatusDot.listening  { background: var(--green); animation: pulse 1.5s infinite; }
+    #voiceStatusDot.speaking   { background: var(--accent); animation: pulse 1s infinite; }
+    #voiceStatusDot.processing { background: var(--amber); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    #voiceStatusText { font-size: 13px; }
+
+    /* Booking status */
+    #bookingStatus {
+      font-size: 13px; min-height: 48px;
+    }
+    .booking-status-idle    { color: var(--muted); font-style: italic; }
+    .booking-status-search  { color: var(--teal); }
+    .booking-status-select  { color: var(--amber); }
+    .booking-status-booked  { color: var(--green); font-weight: 500; }
+
+    /* Events panel */
+    #eventsPanel { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 80px; }
+    #events {
+      flex: 1; overflow-y: auto; padding: 0 16px 12px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 11px;
+    }
+    .event-entry {
+      padding: 3px 0; color: var(--muted);
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .event-type { color: var(--amber); }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="logo">🏨</span>
+    <h1>Hotel Booking — Voice Live SDK</h1>
+    <span id="connectionBadge" class="badge-disconnected">Disconnected</span>
+  </header>
+
+  <main>
+    <!-- Left: conversation -->
+    <div id="conversationPanel">
+      <div id="messages">
+        <div class="msg msg-status">Connect to the agent and start talking.</div>
+      </div>
+      <div id="bottomBar">
+        <button id="btnConnect">Connect</button>
+        <button id="btnDisconnect" disabled>Disconnect</button>
+        <span id="listeningHint"></span>
+      </div>
+    </div>
+
+    <!-- Right: sidebar -->
+    <div id="sidebar">
+
+      <!-- Connection (collapsible) -->
+      <div class="sidebar-section collapsed" id="connectionSection">
+        <div class="sidebar-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h3>Connection</h3>
+          <span class="collapse-icon">&#9660;</span>
+        </div>
+        <div class="sidebar-section-body">
+          <div class="config-row">
+            <label>Endpoint</label>
+            <input id="cfgEndpoint" placeholder="https://...services.ai.azure.com" />
+          </div>
+          <div class="config-row">
+            <label>Agent Name</label>
+            <input id="cfgAgentName" value="hotel-booking-agent" />
+          </div>
+          <div class="config-row">
+            <label>Project Name</label>
+            <input id="cfgProjectName" placeholder="my-project" />
+          </div>
+          <div class="config-row">
+            <label>Access Token</label>
+            <input id="cfgToken" type="password" placeholder="az account get-access-token" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Voice -->
+      <div class="sidebar-section collapsed">
+        <div class="sidebar-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h3>Voice</h3>
+          <span class="collapse-icon">&#9660;</span>
+        </div>
+        <div class="sidebar-section-body">
+          <div class="config-row">
+            <label>TTS Voice</label>
+            <select id="cfgVoice">
+              <option value="en-US-Ava:DragonHDLatestNeural">Ava HD (Female)</option>
+              <option value="en-US-AvaMultilingualNeural">Ava Multilingual (Female)</option>
+              <option value="en-US-AndrewMultilingualNeural">Andrew (Male)</option>
+              <option value="en-US-GuyMultilingualNeural">Guy (Male)</option>
+              <option value="alloy">Alloy (OpenAI)</option>
+              <option value="echo">Echo (OpenAI)</option>
+              <option value="shimmer">Shimmer (OpenAI)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Voice Status -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-header" style="cursor:default">
+          <h3>Voice Status</h3>
+        </div>
+        <div class="sidebar-section-body">
+          <div id="voiceStatus">
+            <div id="voiceStatusDot"></div>
+            <span id="voiceStatusText">Idle</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Booking Status -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-header" style="cursor:default">
+          <h3>Booking Status</h3>
+        </div>
+        <div class="sidebar-section-body">
+          <div id="bookingStatus" class="booking-status-idle">No active booking</div>
+        </div>
+      </div>
+
+      <!-- Events -->
+      <div class="sidebar-section" id="eventsPanel" style="flex:1; border-bottom:none;">
+        <div class="sidebar-section-header" style="cursor:default">
+          <h3>Events</h3>
+        </div>
+        <div id="events"></div>
+      </div>
+
+    </div><!-- /#sidebar -->
+  </main>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

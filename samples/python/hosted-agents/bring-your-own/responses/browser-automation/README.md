@@ -149,6 +149,9 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 cd ..
 azd ai agent init -m ./browser-automation/azure.yaml
 
+# On Linux/macOS: make hook scripts executable (azd ai agent init does not preserve file permissions)
+chmod +x hooks/*.sh
+
 # Provision — the postprovision hook handles Playwright connection + toolbox setup
 azd provision
 

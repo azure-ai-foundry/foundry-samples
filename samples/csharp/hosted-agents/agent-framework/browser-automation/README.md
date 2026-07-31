@@ -120,6 +120,9 @@ mkdir browser-automation-agent && cd browser-automation-agent
 azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/csharp/hosted-agents/agent-framework/browser-automation/azure.yaml
 ```
 
+> [!NOTE]
+> **Linux/macOS:** After `azd ai agent init`, run `chmod +x hooks/*.sh` to make the hook scripts executable. `azd ai agent init` downloads files via the GitHub API, which does not preserve file permissions.
+
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one.
 
 ### Provision Azure resources (if needed)

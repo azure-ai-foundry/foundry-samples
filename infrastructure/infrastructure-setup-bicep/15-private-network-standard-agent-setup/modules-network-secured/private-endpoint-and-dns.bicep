@@ -23,6 +23,8 @@ Security Benefits:
 */
 
 // Resource names and identifiers
+@description('Azure region for the private endpoints. Defaults to the resource group location for backward compatibility; pass the deployment location so private endpoints are co-located with their target resources when the resource group is in a different region.')
+param location string = resourceGroup().location
 @description('Name of the AI Foundry account')
 param aiAccountName string
 @description('Name of the AI Search service')
@@ -113,7 +115,7 @@ resource peSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' existin
 // - Establishes private connection to AI Services account
 resource aiAccountPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: '${aiAccountName}-private-endpoint'
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: { id: peSubnet.id } // Deploy in customer hub subnet
     privateLinkServiceConnections: [
@@ -135,7 +137,7 @@ resource aiAccountPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01
 // - Establishes private connection to AI Search service
 resource aiSearchPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: '${aiSearchName}-private-endpoint'
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: { id: peSubnet.id } // Deploy in customer hub subnet
     privateLinkServiceConnections: [
@@ -157,7 +159,7 @@ resource aiSearchPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01'
 // - Establishes private connection to blob storage
 resource storagePrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: '${storageName}-private-endpoint'
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: { id: peSubnet.id } // Deploy in customer hub subnet
     privateLinkServiceConnections: [
@@ -176,7 +178,7 @@ resource storagePrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' 
 
 resource cosmosDBPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: '${cosmosDBName}-private-endpoint'
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: { id: peSubnet.id } // Deploy in customer hub subnet
     privateLinkServiceConnections: [

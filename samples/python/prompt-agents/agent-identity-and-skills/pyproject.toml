@@ -1,0 +1,17 @@
+[project]
+name = "agent-identity-and-skills"
+version = "0.1.0"
+description = "Foundry prompt-agent sample: Skills + agent managed identity (Key Vault secret hygiene)."
+requires-python = ">=3.10"
+dependencies = [
+    "azure-ai-projects>=2.0.0b3",
+    "azure-identity>=1.19.0",
+    "openai>=1.54.0",
+    "python-dotenv>=1.0.1",
+]
+
+[dependency-groups]
+notebook = [
+    "ipykernel>=6.29.0",
+    "jupyter>=1.1.0",
+]

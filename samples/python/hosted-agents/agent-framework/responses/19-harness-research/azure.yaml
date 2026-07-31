@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: agent-framework-harness-research-responses
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4
+        model:
+          format: OpenAI
+          name: gpt-5.4
+          version: '2026-03-05'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  agent-framework-harness-research-responses:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - Agent Framework
+        - AI Agent Hosting
+        - Azure AI AgentServer
+        - Responses Protocol
+        - Harness Agent
+        - Research
+        - Web Search
+    project: src/agent-framework-harness-research-responses
+    language: python
+    uses:
+      - ai-project
+    kind: hosted
+    name: agent-framework-harness-research-responses
+    displayName: Harness Research Agent (Responses)
+    description: A research harness agent with web search, planning, todos, and compaction.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

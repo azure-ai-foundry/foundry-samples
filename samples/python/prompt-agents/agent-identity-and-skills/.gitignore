@@ -1,0 +1,7 @@
+.env
+.venv/
+downloaded_skills/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+investment-plan.md

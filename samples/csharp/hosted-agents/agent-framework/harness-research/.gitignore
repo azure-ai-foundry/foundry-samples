@@ -1,0 +1,14 @@
+# Local environment configuration (never commit secrets)
+.env
+
+# .NET build output
+bin/
+obj/
+
+# azd local environment
+.azure/
+
+# Harness-generated runtime state and output
+**/agent-files/
+**/.checkpoints/
+**/downloaded_skills/
