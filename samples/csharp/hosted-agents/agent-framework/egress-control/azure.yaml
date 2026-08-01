@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.6'
+name: agent-framework-egress-control-responses-dotnet
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-4.1
+        model:
+          format: OpenAI
+          name: gpt-4.1
+          version: '2025-04-14'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  agent-framework-egress-control-responses-dotnet:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - Agent Framework
+        - AI Agent Hosting
+        - Azure AI AgentServer
+        - Responses Protocol
+        - Egress Control
+        - Network Isolation
+        - Security
+    project: src/agent-framework-egress-control-responses-dotnet
+    language: csharp
+    codeConfiguration:
+      runtime: dotnet_10
+      entryPoint: agent-framework-egress-control-responses-dotnet.dll
+    uses:
+      - ai-project
+    kind: hosted
+    name: agent-framework-egress-control-responses-dotnet
+    displayName: Egress control test agent (.NET Agent Framework, Responses)
+    description: A .NET Agent Framework agent for testing managed egress proxy policies on Foundry hosted agents.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: EGRESS_TEST_VERIFY_TLS
+        value: ${EGRESS_TEST_VERIFY_TLS}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+    policies:
+      - type: rai_policy
+        raiPolicyName: ${RAI_POLICY_ID}
+infra:
+  provider: microsoft.foundry
+  layers:
+    - provider: microsoft.foundry
+      path: infra/foundry
+      name: foundry
+    - provider: bicep
+      path: infra/egress
+      name: egress
+      dependsOn:
+        - foundry

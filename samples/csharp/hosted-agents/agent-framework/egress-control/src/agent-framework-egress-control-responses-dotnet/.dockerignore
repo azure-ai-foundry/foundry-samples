@@ -1,0 +1,18 @@
+# Build artifacts
+**/bin/
+**/obj/
+
+# IDE settings
+.vs/
+.vscode/
+**/.idea/
+
+# Version control
+.git/
+.gitignore
+
+# Local environment
+.env
+
+# Docker files
+.dockerignore
