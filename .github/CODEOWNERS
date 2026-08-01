@@ -95,3 +95,9 @@
 
 # Python hosted-agents declarative customer support (issue #799)
 /samples/python/hosted-agents/agent-framework/responses/09-declarative-customer-support/ @TaoChenOSU @alliscode @lindazqli
+
+# Python prompt-agents area — owners from git log (issue #822)
+/samples/python/prompt-agents/ @brandom-msft @achauhan-scc
+
+# TypeScript quickstart agent-service — consistent with peer dirs owned by AI-Platform-Docs (issue #734)
+/samples/typescript/quickstart/agent-service/ @microsoft-foundry/AI-Platform-Docs
