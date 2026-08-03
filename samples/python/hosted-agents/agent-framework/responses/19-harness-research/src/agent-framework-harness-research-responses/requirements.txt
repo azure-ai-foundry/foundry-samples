@@ -1,5 +1,6 @@
-agent-framework-foundry
-agent-framework-foundry-hosting>=1.0.0a260630
+agent-framework-core==1.12.1
+agent-framework-foundry==1.10.3
+agent-framework-foundry-hosting==1.0.0b260722
 
 # debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
 debugpy
