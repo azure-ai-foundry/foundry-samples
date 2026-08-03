@@ -124,7 +124,7 @@ the **Microsoft Teams** channel.
 
 ### Step 3: Chat with it in Teams
 
-Package and install the Teams app using the generated [TEAMS_APP_SETUP.md](TEAMS_APP_SETUP.md)
+Package and install the Teams app using the generated `TEAMS_APP_SETUP.md`
 guide, then open **Microsoft Teams**, find your agent in the chat list (or under
 **Apps → Manage your apps**), send it a message, and it echoes back.
 
