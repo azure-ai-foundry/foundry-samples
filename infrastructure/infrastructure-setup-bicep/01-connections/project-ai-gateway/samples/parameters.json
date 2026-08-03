@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "aiFoundryAccountName": {
+            "value": "YOUR-FOUNDRY-ACCOUNT-NAME"
+        },
+        "projectName": {
+            "value": "YOUR-NEW-PROJECT-NAME"
+        },
+        "apimResourceId": {
+            "value": "/subscriptions/YOUR-SUBSCRIPTION-ID/resourceGroups/YOUR-APIM-RG/providers/Microsoft.ApiManagement/service/YOUR-APIM-SERVICE-NAME"
+        },
+        "projectDisplayName": {
+            "value": "My New Project"
+        },
+        "projectDescription": {
+            "value": "Project created with AI Gateway enabled by default."
+        },
+        "sharedApiId": {
+            "value": ""
+        }
+    }
+}
