@@ -15,3 +15,6 @@ azure-identity>=1.17.0
 
 # Utilities
 python-dotenv>=1.0.0
+
+# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
+debugpy

@@ -29,3 +29,6 @@ azure-identity>=1.17.0
 # downloads the model installs what it needs at runtime (e.g. `pip install
 # python-docx`) using the Copilot SDK's shell/python tools, then builds the file
 # and calls the deliver_file tool with its path.
+
+# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
+debugpy
