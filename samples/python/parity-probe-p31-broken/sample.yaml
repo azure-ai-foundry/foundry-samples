@@ -1,0 +1,5 @@
+name: P3.1 Parity Probe - Broken
+description: Throwaway deterministic validation probe for P3.1. Do not merge.
+
+build: "echo 'P3.1 probe: no dependencies'"
+validate: "python -m py_compile probe.py"
