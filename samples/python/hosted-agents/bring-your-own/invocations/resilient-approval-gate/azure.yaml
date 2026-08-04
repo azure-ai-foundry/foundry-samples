@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: resilient-approval-gate
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  resilient-approval-gate:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Invocations Protocol
+        - Bring Your Own
+        - Human-in-the-Loop
+        - Long-Running
+        - Resilient Tasks
+        - Python
+    project: src/resilient-approval-gate
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: resilient-approval-gate
+    displayName: Resilient Approval Gate (Invocations)
+    description: A long-running, crash-resilient human-in-the-loop agent built on the resilient @multi_turn_task primitive from azure-ai-agentserver-core. Plans a goal, gates the plan on human approval, executes it step by step with per-step checkpoints, and gates each irreversible step on a second human confirmation — performed exactly once even across container restarts. Includes an inline OpenAPI spec.
+    protocols:
+      - protocol: invocations
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry
