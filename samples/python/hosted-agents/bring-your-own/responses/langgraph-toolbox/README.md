@@ -159,7 +159,11 @@ azd auth login
 > - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
 > - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
 
-This sample exposes the toolbox tools to a LangGraph ReAct loop. The agent reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. The sample bundles a [`toolbox.yaml`](src/toolbox-langgraph/toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
+This sample exposes the toolbox tools to a LangGraph ReAct loop. `azure.yaml`
+provisions `toolbox-langgraph-tools`, containing `web_search` plus the public
+Microsoft Learn MCP server, when you deploy the sample. For local development
+against an existing project, you can instead create the same toolbox from the
+bundled [`toolbox.yaml`](src/toolbox-langgraph/toolbox.yaml):
 
 ```bash
 azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
@@ -169,7 +173,9 @@ The first version becomes the default automatically. Manage with `azd ai toolbox
 
 To stage incremental changes safely, use `azd ai toolbox connection add/remove` and `azd ai toolbox skill add/list/remove` &mdash; each creates a new toolbox version that carries forward existing connections and skills but **doesn't** change the default. Promote a version with `azd ai toolbox publish my-toolbox <version>` when you're ready to make it active.
 
-`azd ai toolbox create` prints the toolbox's versioned MCP endpoint. Copy that endpoint and set it as `TOOLBOX_ENDPOINT`: run `azd env set TOOLBOX_ENDPOINT "<endpoint>"` for deployed agents, or put it in `.env` for local runs. The endpoint looks like `https://<account>.services.ai.azure.com/api/projects/<project>/toolboxes/my-toolbox/versions/1/mcp?api-version=v1`. The sample parses the toolbox name from the endpoint, so you don't need to set `TOOLBOX_NAME` separately.
+`azd ai toolbox create` prints the toolbox's versioned MCP endpoint. For local
+runs, either set `TOOLBOX_ENDPOINT` to that endpoint or set `TOOLBOX_NAME` to
+the created toolbox name.
 
 > [!NOTE]
 > To attach tools that need credentials (MCP servers with API keys or OAuth, Azure AI Search, Bing Custom Search, and more), create a project connection with `azd ai connection create` and reference it from `toolbox.yaml` by `project_connection_id`.
@@ -268,8 +274,8 @@ my-project/
 |----------|----------|-------------|
 | `FOUNDRY_PROJECT_ENDPOINT` | **Yes** | Project endpoint URL — platform-injected at runtime |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | **Yes** | Model deployment name (e.g. `gpt-4.1`) |
-| `TOOLBOX_ENDPOINT` | **Yes** | Full toolbox MCP endpoint URL. Copy the versioned endpoint from the `azd ai toolbox create` output. |
-| `TOOLBOX_NAME` | No | Toolbox name. If `TOOLBOX_ENDPOINT` isn't set, the agent builds the latest-version endpoint from this and `FOUNDRY_PROJECT_ENDPOINT`. |
+| `TOOLBOX_ENDPOINT` | No | Full toolbox MCP endpoint URL. Takes precedence when set. |
+| `TOOLBOX_NAME` | **Yes, unless `TOOLBOX_ENDPOINT` is set** | Toolbox name. The deployed sample uses the provisioned `toolbox-langgraph-tools`. |
 
 Set `TOOLBOX_ENDPOINT` to the full MCP URL. Two forms are supported:
 ```
@@ -330,8 +336,8 @@ az role assignment create \
 
 ### Agent starts but returns no tools
 
-Check that `TOOLBOX_ENDPOINT` is set and the toolbox exists. The URL must include
-`?api-version=v1`.
+Check that `TOOLBOX_NAME` identifies a toolbox in the configured project, or
+that `TOOLBOX_ENDPOINT` is set to a valid URL containing `?api-version=v1`.
 
 ### OAuth consent required
 
@@ -436,4 +442,3 @@ This project welcomes contributions and suggestions.
 ## Trademarks
 
 This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft trademarks or logos is subject to and must follow [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general). Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship. Any use of third-party trademarks or logos are subject to those third-party's policies.
-

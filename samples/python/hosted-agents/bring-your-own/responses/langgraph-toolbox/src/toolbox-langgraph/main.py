@@ -32,12 +32,10 @@ import pathlib
 import re
 from urllib.parse import unquote, urlparse
 
-import httpx
 from dotenv import load_dotenv
 
 load_dotenv(override=False)
 
-from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from azure.ai.agentserver.responses import (
     ResponseContext,
@@ -47,15 +45,9 @@ from azure.ai.agentserver.responses import (
     get_input_expanded,
 )
 from azure.ai.agentserver.responses.models import CreateResponse
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from azure.identity import DefaultAzureCredential
+from langchain_azure_ai.chat_models import AzureAIOpenAIApiChatModel
 from langchain_azure_ai.tools import AzureAIProjectToolbox
-
-# Container protocol v2.0.0 exposes the inbound per-request context
-# (call_id, session_id, ...) via a ContextVar populated by the runtime.
-from azure.ai.agentserver.core import (
-    FoundryAgentRequestContext,
-    get_request_context,
-)
 
 # ── Agent name and logger ────────────────────────────────────────────────────
 
@@ -72,7 +64,7 @@ def _read_agent_name() -> str:
 AGENT_NAME = _read_agent_name()
 logger = logging.getLogger(AGENT_NAME)
 
-# ── LLM (Chat Completions API via Azure OpenAI endpoint) ────────────────────
+# ── LLM ─────────────────────────────────────────────────────────────────────
 
 PROJECT_ENDPOINT = os.getenv("FOUNDRY_PROJECT_ENDPOINT", "")
 if not PROJECT_ENDPOINT:
@@ -82,30 +74,11 @@ MODEL_DEPLOYMENT_NAME = os.getenv("AZURE_AI_MODEL_DEPLOYMENT_NAME", "")
 if not MODEL_DEPLOYMENT_NAME:
     raise ValueError("AZURE_AI_MODEL_DEPLOYMENT_NAME environment variable must be set")
 
-_credential = DefaultAzureCredential()
-token_provider = get_bearer_token_provider(
-    _credential,
-    "https://ai.azure.com/.default",
-)
-
-
-class _AzureTokenAuth(httpx.Auth):
-    """httpx Auth that injects a fresh bearer token on every request."""
-
-    def auth_flow(self, request):
-        request.headers["Authorization"] = f"Bearer {token_provider()}"
-        yield request
-
-
-_llm_http_client = httpx.Client(auth=_AzureTokenAuth())
-_llm_async_http_client = httpx.AsyncClient(auth=_AzureTokenAuth())
-
-llm = ChatOpenAI(
-    base_url=f"{PROJECT_ENDPOINT.rstrip('/')}/openai/v1",
-    api_key="placeholder",  # overridden by _AzureTokenAuth
+llm = AzureAIOpenAIApiChatModel(
+    project_endpoint=PROJECT_ENDPOINT,
+    credential=DefaultAzureCredential(),
     model=MODEL_DEPLOYMENT_NAME,
-    http_client=_llm_http_client,
-    http_async_client=_llm_async_http_client,
+    streaming=True,
 )
 
 # ── Toolbox MCP helpers ────────────────────────────────────────────────────
@@ -128,16 +101,6 @@ elif _TOOLBOX_NAME:
     )
 else:
     TOOLBOX_ENDPOINT = ""
-
-# Feature-flag header value (e.g. "Toolboxes=V1Preview").
-_TOOLBOX_FEATURES = os.getenv("FOUNDRY_AGENT_TOOLBOX_FEATURES", "Toolboxes=V1Preview")
-
-# Platform-injected per-request call identifier (container protocol v2.0.0).
-# Extracted from the inbound responses request via ``get_request_context()`` and
-# forwarded on the egress toolbox MCP calls so the platform can correlate the
-# downstream tool calls with the originating request. The header name is owned
-# by the SDK; use ``platform_headers()`` instead of hardcoding it.
-
 
 def _toolbox_name_from_endpoint(endpoint: str) -> str | None:
     """Extract toolbox name from endpoint URL path."""
@@ -166,7 +129,7 @@ def create_agent(model, tools):
     return create_react_agent(model, tools, prompt=SYSTEM_PROMPT)
 
 
-async def quickstart(call_id: str | None = None):
+async def quickstart():
     """Build and return a LangGraph agent wired to a Foundry toolbox.
 
     Uses AzureAIProjectToolbox from langchain-azure-ai to resolve and load
@@ -182,21 +145,7 @@ async def quickstart(call_id: str | None = None):
         )
 
     logger.info(f"Connecting to toolbox: {TOOLBOX_ENDPOINT}")
-    extra_headers = {"Foundry-Features": _TOOLBOX_FEATURES} if _TOOLBOX_FEATURES else {}
-    # Forward the inbound per-request call ID on toolbox egress calls. Note:
-    # AzureAIProjectToolbox only accepts static extra_headers at construction and
-    # the agent/toolbox is cached (see _get_agent), so the call ID captured on the
-    # first request is reused for the lifetime of the cached toolbox.
-    if call_id:
-        extra_headers.update(
-            FoundryAgentRequestContext(call_id=call_id).platform_headers()
-        )
-    toolbox = AzureAIProjectToolbox(
-        project_endpoint=PROJECT_ENDPOINT,
-        toolbox_name=toolbox_name,
-        credential=DefaultAzureCredential(),
-        extra_headers=extra_headers,
-    )
+    toolbox = AzureAIProjectToolbox(toolbox_name=toolbox_name)
     tools = await toolbox.get_tools()
 
     # Enable error handling so that tool-call failures are returned as tool
@@ -305,19 +254,19 @@ def _extract_consent_url(exc: BaseException) -> str:
 
 def _get_input_text(request: CreateResponse) -> str | None:
     """Extract plain text from a CreateResponse input."""
-    inp = request.input
+    inp = request.get("input")
     if isinstance(inp, str):
         return inp
     items = get_input_expanded(request)
     for item in items:
-        content = getattr(item, "content", None)
+        content = item.get("content")
         if content is None:
             continue
         if isinstance(content, str):
             return content
         if isinstance(content, list):
             for part in content:
-                text = getattr(part, "text", None)
+                text = part.get("text")
                 if text:
                     return text
     return None
@@ -332,7 +281,7 @@ _mcp_client = None  # Keep MCP client alive to prevent session GC
 _agent_lock = asyncio.Lock()
 
 
-async def _get_agent(call_id: str | None = None):
+async def _get_agent():
     global _agent, _mcp_client
     if _agent is not None:
         return _agent
@@ -341,7 +290,7 @@ async def _get_agent(call_id: str | None = None):
         if _agent is not None:
             return _agent
 
-        _agent, _mcp_client = await quickstart(call_id)
+        _agent, _mcp_client = await quickstart()
         return _agent
 
 
@@ -353,7 +302,7 @@ async def handle_response(
 ):
     stream = ResponseEventStream(
         response_id=context.response_id,
-        model=getattr(request, "model", None),
+        request=request,
     )
 
     yield stream.emit_created()
@@ -370,16 +319,8 @@ async def handle_response(
         return
 
     try:
-        # Extract the per-request call ID (container protocol v2.0.0) from the
-        # inbound request context so it can be forwarded on toolbox egress calls.
-        call_id = None
-        try:
-            call_id = get_request_context().call_id
-        except Exception:  # noqa: BLE001
-            call_id = None
-        logger.info("Processing request %s (call_id %s)",
-                    context.response_id, call_id)
-        agent = await _get_agent(call_id)
+        logger.info("Processing request %s", context.response_id)
+        agent = await _get_agent()
         result = await asyncio.wait_for(
             agent.ainvoke({"messages": [("user", user_input)]}),
             timeout=240.0,

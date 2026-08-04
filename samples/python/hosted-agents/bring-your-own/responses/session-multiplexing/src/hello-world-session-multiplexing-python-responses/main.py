@@ -18,10 +18,6 @@ from azure.ai.agentserver.responses import (
     ResponsesServerOptions,
     TextResponse,
 )
-from azure.ai.agentserver.responses.models import (
-    MessageContentInputTextContent,
-    MessageContentOutputTextContent,
-)
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
 
@@ -43,20 +39,18 @@ _SYSTEM_PROMPT = (
     "Use the conversation history that is provided for this request."
 )
 
-_ROLE_MAP = {
-    MessageContentOutputTextContent: "assistant",
-    MessageContentInputTextContent: "user",
-}
+_ROLE_MAP = {"output_text": "assistant", "input_text": "user"}
 
 
 def _build_input(current_input: str, history: list) -> list[dict]:
     """Convert platform history + current message into Responses API input."""
     items = []
     for item in history:
-        for content in getattr(item, "content", None) or []:
-            role = _ROLE_MAP.get(type(content))
-            if role and content.text:
-                items.append({"role": role, "content": content.text})
+        for content in item.get("content") or []:
+            role = _ROLE_MAP.get(content.get("type"))
+            text = content.get("text")
+            if role and text:
+                items.append({"role": role, "content": text})
     items.append({"role": "user", "content": current_input})
     return items
 

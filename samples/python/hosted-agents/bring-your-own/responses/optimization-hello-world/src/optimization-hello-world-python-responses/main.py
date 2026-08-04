@@ -25,15 +25,9 @@ from azure.ai.agentserver.responses import (
     ResponseContext,
     ResponsesAgentServerHost,
     ResponsesServerOptions,
-    TextResponse,
+    ResponseEventStream,
 )
 from azure.ai.agentserver.responses.models import (
-    MessageContentInputTextContent,
-    MessageContentOutputTextContent,
-)
-
-from azure.ai.agentserver.responses.streaming import ResponseEventStream
-from azure.ai.agentserver.responses.models._generated.sdk.models.models._models import (
     ResponseUsage,
     ResponseUsageInputTokensDetails,
     ResponseUsageOutputTokensDetails,
@@ -95,12 +89,12 @@ def _build_input(current_input: str, history: list) -> list[dict]:
     """Build Responses API input from conversation history and current message."""
     input_items = []
     for item in history:
-        if hasattr(item, "content") and item.content:
-            for content in item.content:
-                if isinstance(content, MessageContentOutputTextContent) and content.text:
-                    input_items.append({"role": "assistant", "content": content.text})
-                elif isinstance(content, MessageContentInputTextContent) and content.text:
-                    input_items.append({"role": "user", "content": content.text})
+        for content in item.get("content") or []:
+            text = content.get("text")
+            if content.get("type") == "output_text" and text:
+                input_items.append({"role": "assistant", "content": text})
+            elif content.get("type") == "input_text" and text:
+                input_items.append({"role": "user", "content": text})
     input_items.append({"role": "user", "content": current_input})
     return input_items
 

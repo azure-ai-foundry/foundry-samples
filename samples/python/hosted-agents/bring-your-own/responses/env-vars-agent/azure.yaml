@@ -16,6 +16,29 @@ services:
         sku:
           name: GlobalStandard
           capacity: 10
+  dummy-api-key:
+    host: azure.ai.connection
+    uses:
+      - ai-project
+    category: ApiKey
+    target: https://example.com
+    authType: ApiKey
+    credentials:
+      type: ApiKey
+      key: foundry-samples-dummy-api-key
+  dummy-custom-keys:
+    host: azure.ai.connection
+    uses:
+      - ai-project
+    category: CustomKeys
+    target: https://example.com
+    authType: CustomKeys
+    credentials:
+      type: CustomKeys
+      keys:
+        secret-key: foundry-samples-dummy-secret-key
+    metadata:
+      plain-key: foundry-samples-dummy-plain-value
   env-vars-agent-responses-python:
     host: azure.ai.agent
     metadata:
@@ -33,6 +56,8 @@ services:
       entryPoint: main.py
     uses:
       - ai-project
+      - dummy-api-key
+      - dummy-custom-keys
     kind: hosted
     name: env-vars-agent-responses-python
     displayName: Env Vars Agent (Python, Responses)

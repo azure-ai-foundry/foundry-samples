@@ -25,9 +25,12 @@ Built with `azure-ai-agentserver-responses` (BYO — no Agent Framework). The mo
 
 ## How It Works
 
-1. **Connection setup (one-time)**: in your Foundry project, create
-   - an **ApiKey** connection named `dummy-api-key` (give it a `target` URL and a `key`), and
-   - a **CustomKeys** connection named `dummy-custom-keys` with two custom keys — `secret-key` (marked **as secret**) and `plain-key` (plain).
+1. **Connection setup**: `azure.yaml` provisions
+   - an **ApiKey** connection named `dummy-api-key`, and
+   - a **CustomKeys** connection named `dummy-custom-keys` with a secret
+     `secret-key` credential and plain `plain-key` metadata.
+   The committed values are non-production demonstration values; replace them
+   when adapting the sample to real connections.
 2. **Template declaration**: `azure.yaml` declares the four env vars with placeholder values:
    ```yaml
    - name: SECRET_API_KEY
@@ -61,7 +64,8 @@ Built with `azure-ai-agentserver-responses` (BYO — no Agent Framework). The mo
 - Python 3.12+
 - Azure CLI installed and authenticated (`az login`)
 - Foundry project with a deployed model (e.g., `gpt-5.4-mini`)
-- (For deployment) the project's hosted-agent feature enabled, plus the two connections referenced above (`dummy-api-key` ApiKey, `dummy-custom-keys` CustomKeys)
+- (For deployment) the project's hosted-agent feature enabled; `azure.yaml`
+  creates the two demonstration connections referenced by the agent
 
 ### Using `azd`
 

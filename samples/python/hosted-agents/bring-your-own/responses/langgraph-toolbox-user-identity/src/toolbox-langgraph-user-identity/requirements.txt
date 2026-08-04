@@ -1,6 +1,5 @@
-azure-ai-agentserver-responses==1.0.0b9
-langchain-azure-ai>=1.2.2
-langchain-openai>=1.1.14
+azure-ai-agentserver-responses==2.0.0b0
+langchain-azure-ai>=1.2.3
 langgraph>=1.1.8
 langchain-mcp-adapters>=0.2.2
 # langchain-mcp-adapters currently uses APIs removed in MCP 2.

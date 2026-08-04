@@ -34,11 +34,6 @@ from azure.ai.agentserver.responses import (
     ResponsesAgentServerHost,
     ResponsesServerOptions,
 )
-from azure.ai.agentserver.responses.models import (
-    MessageContentInputTextContent,
-    MessageContentOutputTextContent,
-)
-
 from task_store import TaskStore, TaskStatus
 from router_agent import (
     ROUTER_SYSTEM_PROMPT,
@@ -125,12 +120,12 @@ def _build_input(current_input: str, history: list) -> list[dict]:
     """Convert conversation history + current input into LLM message format."""
     input_items = []
     for item in history:
-        if hasattr(item, "content") and item.content:
-            for content in item.content:
-                if isinstance(content, MessageContentOutputTextContent) and content.text:
-                    input_items.append({"type": "message", "role": "assistant", "content": _strip_debug_tags(content.text)})
-                elif isinstance(content, MessageContentInputTextContent) and content.text:
-                    input_items.append({"type": "message", "role": "user", "content": content.text})
+        for content in item.get("content") or []:
+            text = content.get("text")
+            if content.get("type") == "output_text" and text:
+                input_items.append({"type": "message", "role": "assistant", "content": _strip_debug_tags(text)})
+            elif content.get("type") == "input_text" and text:
+                input_items.append({"type": "message", "role": "user", "content": text})
     input_items.append({"type": "message", "role": "user", "content": current_input})
     return input_items
 
@@ -286,7 +281,7 @@ async def handler(
 
     stream = ResponseEventStream(
         response_id=context.response_id,
-        model=getattr(request, "model", None),
+        request=request,
     )
 
     yield stream.emit_created()

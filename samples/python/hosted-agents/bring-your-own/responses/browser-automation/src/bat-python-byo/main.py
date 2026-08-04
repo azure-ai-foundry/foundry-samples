@@ -12,10 +12,6 @@ Required environment variables:
     AZURE_AI_MODEL_DEPLOYMENT_NAME: Model deployment name (declared in agent.manifest.yaml)
 """
 
-from azure.ai.agentserver.responses.models import (
-    MessageContentInputTextContent,
-    MessageContentOutputTextContent,
-)
 from azure.ai.agentserver.responses import (
     CreateResponse,
     ResponseContext,
@@ -314,19 +310,19 @@ app = ResponsesAgentServerHost(
 
 def _get_input_text(request: CreateResponse) -> str | None:
     """Extract plain text from a CreateResponse input."""
-    inp = request.input
+    inp = request.get("input")
     if isinstance(inp, str):
         return inp
     items = get_input_expanded(request)
     for item in items:
-        content = getattr(item, "content", None)
+        content = item.get("content")
         if content is None:
             continue
         if isinstance(content, str):
             return content
         if isinstance(content, list):
             for part in content:
-                text = getattr(part, "text", None)
+                text = part.get("text")
                 if text:
                     return text
     return None
@@ -336,12 +332,12 @@ def _build_input(current_input: str, history: list) -> list[dict]:
     """Build Responses API input from conversation history and current message."""
     input_items = []
     for item in history:
-        if hasattr(item, "content") and item.content:
-            for content in item.content:
-                if isinstance(content, MessageContentOutputTextContent) and content.text:
-                    input_items.append({"role": "assistant", "content": content.text})
-                elif isinstance(content, MessageContentInputTextContent) and content.text:
-                    input_items.append({"role": "user", "content": content.text})
+        for content in item.get("content") or []:
+            text = content.get("text")
+            if content.get("type") == "output_text" and text:
+                input_items.append({"role": "assistant", "content": text})
+            elif content.get("type") == "input_text" and text:
+                input_items.append({"role": "user", "content": text})
     input_items.append({"role": "user", "content": current_input})
     return input_items
 
@@ -355,7 +351,7 @@ async def handler(
     """Handle browser automation requests with tool-calling loop and verbose streaming."""
     stream = ResponseEventStream(
         response_id=context.response_id,
-        model=getattr(request, "model", None),
+        request=request,
     )
 
     yield stream.emit_created()
