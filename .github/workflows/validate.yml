@@ -7,9 +7,11 @@ name: validate
 # FORK-SAFE BY CONSTRUCTION (this is the headline property):
 #   - on: pull_request  (NEVER pull_request_target) — so PRs from forks run this with a
 #     read-only GITHUB_TOKEN and NO access to secrets, per GitHub's documented behavior.
-#   - permissions: contents: read is the workflow default. No `environment:` and no secret
-#     references on any FORK-REACHABLE job (detect/validate) — the credentialed `trusted` L4
-#     lane below is structurally unreachable from forks (if: fork != true), so it never runs here.
+#   - The required `trusted` job ALWAYS runs. Forks execute its credential-free L3 path, then
+#     fail explicitly with a promotion-required error. A job-level fork skip is forbidden:
+#     GitHub treats a required check that concludes `skipped` as satisfied.
+#   - Every credentialed setup/L4 step has an explicit same-repo guard. Fork isolation remains
+#     layered: read-only fork token/no secrets/no OIDC issuance + step-level guards.
 #   - The job checks out and EXECUTES untrusted fork code (dotnet build, npm install,
 #     pip install, mvn compile, ...). That is intentional and safe *because* the runner is
 #     barren: nothing here can exfiltrate a credential, because there is no credential.
@@ -19,13 +21,12 @@ name: validate
 # decided IN-JOB by detect-changed-samples.sh and fanned out via needs.*.outputs. The
 # trusted L4 lane (secrets, fork-gated) is the `trusted` job at the BOTTOM of THIS workflow
 # (P2.2, ADO 5449696) — a SINGLE job (never a matrix), so its required-check context is exactly
-# `validate / trusted` (workflow name `validate` + job name `trusted`).
+# `trusted` (displayed by Actions as `validate / trusted`).
 
 on:
   pull_request:
-    # `ready_for_review` is added for the fork-gated `trusted` job (P2.2): it re-triggers the
-    # workflow when a draft is marked ready. The floor lane still runs on drafts via the default
-    # opened/synchronize; draft-skip is enforced ONLY on the `trusted` job's `if:` (not here).
+    # `ready_for_review` preserves an explicit re-trigger when a draft is marked ready. The
+    # trusted job also runs on drafts: a job-level draft skip would produce a skipped check.
     # No `branches:` filter (runs for every PR, incl. those targeting main) and no `paths:`
     # filter (path detection is data-driven in-job, not a trigger shim).
     types: [opened, synchronize, reopened, ready_for_review]
@@ -150,24 +151,19 @@ jobs:
   #   - SINGLE JOB, no per-language matrix. A matrix of required checks reinstates the rejected
   #     aggregator/gate-shim. Speed comes from IN-JOB parallelism (the L3 step backgrounds
   #     validate-sample.sh per changed sample), never from fan-out into multiple checks.
-  #   - if: fork != true → fork PRs skip this job, so a fork structurally cannot produce the
-  #     `validate / trusted` check → un-mergeable once P3 makes it required → promotion forced.
+  #   - ALWAYS RUNS for every triggered PR. Forks run credential-free L3, then fail in-job with
+  #     a promotion-required error. Never restore a job-level fork/draft `if:`: P3.3 proved that
+  #     GitHub treats a required job that concludes `skipped` as satisfying the merge gate.
   #   - Docs-only PRs SHORT-CIRCUIT before any Azure/secret step (has_changes gate). A docs-only
-  #     PR still yields a PRESENT, PASSING check (correct "no sample owes L4"); a fork yields NO
-  #     check at all. Those two outcomes are deliberately different and handled at different levels
-  #     (fork/draft at the job `if:`; docs-only in-job).
-  #   - Draft-skipped; concurrency cancels superseded runs.
+  #     same-repo PR yields a PRESENT, PASSING check (correct "no sample owes L4"); every fork
+  #     yields a PRESENT, FAILING check and requires maintainer promotion.
+  #   - Concurrency cancels superseded runs.
   #   - L4 = the pre-provisioned WARM validation project via SKIP_PROVISION=true (never provisions
   #     per PR — cold provisioning is the cadence lane's sole job). OIDC federated login, no stored
-  #     secret. Env L4-validation verified 2026-07-29 to carry zero protection_rules, so the
-  #     environment binding does not pause docs-only runs.
+  #     secret. Env L4-validation MUST carry zero protection_rules: because this always-running job
+  #     binds the environment, an environment reviewer rule would stall a fork instead of failing it.
   trusted:
     needs: detect
-    # Fork + draft gate ONLY. The docs-only short-circuit is in-job (below) so it yields a passing
-    # check; forks/drafts skip the job entirely. head.repo.fork is a boolean.
-    if: >-
-      github.event.pull_request.head.repo.fork != true &&
-      github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     # Binds the OIDC subject to environment:L4-validation (matches the Azure federated credential)
     # and scopes vars.AZURE_* to that environment.
@@ -190,10 +186,10 @@ jobs:
 
       # --- Docs-only short-circuit (BEFORE any secret/Azure step) ---------------
       # If detect found no changed sample, nothing owes L4 → the trusted gate is satisfied. Log and
-      # let the job end green WITHOUT touching OIDC/secrets. Every real step below is guarded on
-      # has_changes == 'true', so a docs-only PR can never reach azure/login.
+      # let a SAME-REPO job end green WITHOUT touching OIDC/secrets. Forks never short-circuit to
+      # success; they reach the explicit promotion failure below.
       - name: Short-circuit docs-only PRs before secrets
-        if: needs.detect.outputs.has_changes != 'true'
+        if: needs.detect.outputs.has_changes != 'true' && github.event.pull_request.head.repo.fork != true
         run: echo "No changed samples (docs-only) -> no sample owes L4 -> trusted gate satisfied. Skipping L3+L4 without touching secrets."
 
       # --- Derive which toolchains the changed samples actually need ------------
@@ -321,11 +317,24 @@ jobs:
           fi
           echo "L3 green for all $pass changed sample(s)."
 
+      # A fork must produce a terminal FAILURE, never a skipped required check. This step uses a
+      # status function so it still emits the promotion instruction after a broken fork's L3 fails.
+      - name: Reject fork until maintainer promotion
+        if: ${{ !cancelled() && github.event.pull_request.head.repo.fork == true }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::Fork runner unexpectedly received an OIDC request surface; refusing to continue."
+            exit 1
+          fi
+          echo "::error::Fork PRs cannot satisfy the trusted gate directly. A maintainer must promote this commit to a same-repo branch, where the credentialed L4 path can run."
+          exit 1
+
       # --- L4: reach the WARM project via OIDC (only after L3 green) ------------
       # Reached only when real samples changed AND L3 passed (default step success() gating). This
       # is the trusted secret boundary: federated OIDC login, no stored secret.
       - name: Azure login via OIDC (no secret)
-        if: needs.detect.outputs.has_changes == 'true'
+        if: needs.detect.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork != true
         uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
@@ -333,7 +342,7 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: L4 smoke against the warm project (SKIP_PROVISION)
-        if: needs.detect.outputs.has_changes == 'true'
+        if: needs.detect.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork != true
         env:
           AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
           MODEL_DEPLOYMENT: gpt-5.4-mini
@@ -353,5 +362,5 @@ jobs:
           echo "L4 OK: OIDC + SKIP_PROVISION warm-project reach + least-priv inference all green."
 
       - name: Trusted verdict
-        if: needs.detect.outputs.has_changes == 'true'
+        if: needs.detect.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork != true
         run: echo "validate / trusted GREEN — L3 passed for all changed samples AND the L4 warm-project smoke passed."

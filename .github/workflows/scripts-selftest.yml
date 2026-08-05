@@ -11,19 +11,30 @@ name: scripts self-test
 # construction: permissions is contents:read only, no secrets, no OIDC, no privileged runners.
 # These are pure script tests. Do NOT make any job here a required check and do NOT edit rulesets.
 #
-# Trigger scope: only PRs that touch `.github/scripts/**` run this — a normal sample-authoring PR
-# (samples/**, docs, etc.) never triggers it, so there is zero added friction for contributors.
+# Trigger scope: validation scripts, their tests, or the two validation workflow definitions.
+# A normal sample-authoring PR (samples/**, docs, etc.) never triggers it, so there is zero added
+# friction for contributors.
 # No `push:` trigger: PR-time is the gate that matters; `workflow_dispatch` covers manual/backfill.
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - '.github/scripts/**'
+      - '.github/workflows/validate.yml'
+      - '.github/workflows/scripts-selftest.yml'
 
 permissions:
   contents: read
 
 jobs:
+  # --- Required-gate structure: hermetic Bash assertions, no credentials -------------------------
+  workflow-structure-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: validate.yml trusted-gate structure exit gate
+        run: bash .github/scripts/test/run-workflow-structure-tests.sh
+
   # --- Detector harness: hermetic (git + coreutils only), runs fully GREEN anywhere --------------
   detect-harness:
     runs-on: ubuntu-latest
