@@ -10,6 +10,8 @@ name: validate
 #   - The required `trusted` job ALWAYS runs. Forks execute its credential-free L3 path, then
 #     fail explicitly with a promotion-required error. A job-level fork skip is forbidden:
 #     GitHub treats a required check that concludes `skipped` as satisfied.
+#   - `trusted` uses the status-function condition `!cancelled()` so a failed/malformed `detect`
+#     dependency starts the job and fails its first contract-check step instead of skipping open.
 #   - Every credentialed setup/L4 step has an explicit same-repo guard. Fork isolation remains
 #     layered: read-only fork token/no secrets/no OIDC issuance + step-level guards.
 #   - The job checks out and EXECUTES untrusted fork code (dotnet build, npm install,
@@ -154,6 +156,9 @@ jobs:
   #   - ALWAYS RUNS for every triggered PR. Forks run credential-free L3, then fail in-job with
   #     a promotion-required error. Never restore a job-level fork/draft `if:`: P3.3 proved that
   #     GitHub treats a required job that concludes `skipped` as satisfying the merge gate.
+  #   - FAILS CLOSED when `detect` fails or emits malformed outputs. The exact job-level
+  #     `!cancelled()` status condition starts trusted after dependency failure; the FIRST step
+  #     validates the dependency result/output contract before checkout or docs-only handling.
   #   - Docs-only PRs SHORT-CIRCUIT before any Azure/secret step (has_changes gate). A docs-only
   #     same-repo PR yields a PRESENT, PASSING check (correct "no sample owes L4"); every fork
   #     yields a PRESENT, FAILING check and requires maintainer promotion.
@@ -164,6 +169,7 @@ jobs:
   #     binds the environment, an environment reviewer rule would stall a fork instead of failing it.
   trusted:
     needs: detect
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     # Binds the OIDC subject to environment:L4-validation (matches the Azure federated credential)
     # and scopes vars.AZURE_* to that environment.
@@ -182,6 +188,53 @@ jobs:
       # the cadence lane only and must never be "warmed" here for speed).
       SKIP_PROVISION: "true"
     steps:
+      # MUST remain first. A failed `needs` job normally skips dependents; the job-level
+      # !cancelled() condition starts trusted, and this contract check turns dependency/output
+      # corruption into a terminal failure before missing values can resemble "docs-only".
+      - name: Validate sample detection contract
+        env:
+          DETECT_RESULT: ${{ needs.detect.result }}
+          HAS_CHANGES: ${{ needs.detect.outputs.has_changes }}
+          COUNT: ${{ needs.detect.outputs.count }}
+          SAMPLES: ${{ needs.detect.outputs.samples }}
+        run: |
+          set -euo pipefail
+          fail_contract() {
+            echo "::error::$1"
+            exit 1
+          }
+
+          if [ "$DETECT_RESULT" != "success" ]; then
+            fail_contract "Sample detection did not succeed (result=${DETECT_RESULT:-missing}); trusted fails closed."
+          fi
+          case "$HAS_CHANGES" in
+            true|false) ;;
+            *) fail_contract "Invalid detect output has_changes='${HAS_CHANGES:-missing}'; expected exactly true or false." ;;
+          esac
+          case "$COUNT" in
+            ''|*[!0-9]*) fail_contract "Invalid detect output count='${COUNT:-missing}'; expected a non-negative integer." ;;
+          esac
+
+          if ! sample_count="$(printf '%s' "$SAMPLES" | jq -er '
+            if type == "array"
+              and all(.[]; type == "string" and startswith("samples/") and length > 8)
+            then length
+            else error("samples must be an array of sample paths")
+            end
+          ')"; then
+            fail_contract "Invalid detect output samples; expected JSON array of paths under samples/."
+          fi
+          if [ "$COUNT" != "$sample_count" ]; then
+            fail_contract "Detect output count=$COUNT does not match samples length=$sample_count."
+          fi
+          if [ "$HAS_CHANGES" = "true" ] && [ "$sample_count" = "0" ]; then
+            fail_contract "Detect output has_changes=true requires at least one sample."
+          fi
+          if [ "$HAS_CHANGES" = "false" ] && [ "$sample_count" != "0" ]; then
+            fail_contract "Detect output has_changes=false requires samples=[] and count=0."
+          fi
+          echo "Detection contract valid: has_changes=$HAS_CHANGES count=$COUNT."
+
       - uses: actions/checkout@v4
 
       # --- Docs-only short-circuit (BEFORE any secret/Azure step) ---------------
