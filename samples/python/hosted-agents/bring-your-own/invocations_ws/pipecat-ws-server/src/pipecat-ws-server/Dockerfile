@@ -15,6 +15,22 @@ RUN pip install --no-cache-dir -r requirements.txt \
         -o -type d -name 'test' \) \
         -exec rm -rf {} + 2>/dev/null; true
 
+# Pre-download the NLTK 'punkt_tab' tokenizer data at build time.
+#
+# pipecat.utils.string runs `nltk.data.find("tokenizers/punkt_tab")` at *import*
+# time and falls back to `nltk.download(...)` when it is missing. Because pip
+# does not ship NLTK corpora, that lookup misses in a stock image and every
+# cold start pays a network round trip before the module finishes importing.
+#
+# Baking the data in makes the lookup a local hit. The redundant .zip is
+# removed because NLTK reads the extracted directory when both are present.
+#
+# NLTK_DATA is set explicitly rather than relying on /usr/local/share/nltk_data
+# happening to be on NLTK's default search path.
+ENV NLTK_DATA=/usr/local/share/nltk_data
+RUN python -m nltk.downloader -d "$NLTK_DATA" punkt_tab \
+    && find "$NLTK_DATA" -name '*.zip' -delete
+
 # Copy application code
 COPY server.py bot_websocket_server.py azure_fast_transcription_stt.py azure_tts_text_streaming.py ./
 
