@@ -101,6 +101,39 @@ az deployment group create \
   --parameters clientSecret=<your-client-secret>
 ```
 
+## After deployment — create an agent that uses the model
+
+A `ModelGateway` connection is the gateway-category connection behind three golden-path
+variants: a model in **another Foundry / Azure OpenAI account** (variant 2 — point
+`targetUrl` at that account's inference endpoint), a **third-party model provider**
+(variant 3, e.g. OpenAI), and your own **bring-your-own-gateway (BYOG)** (variant 4). Once
+the connection exists, an agent references the model as `<connectionName>/<modelName>`.
+
+> [!IMPORTANT]
+> BYOM `<connection>/<model>` resolution works **only** for gateway-category connections
+> (`ModelGateway` here, or `ApiManagement`). A plain `AzureOpenAI` / `CognitiveService`
+> connection is **not** resolvable by a prompt agent and fails with `Connection '<name>' not
+> found` — use this `ModelGateway` connection (not `connection-azure-openai.bicep` /
+> `connection-foundry.bicep`) to BYOM a model from another account.
+
+> [!IMPORTANT]
+> A BYOM model — whether it comes from another account, a 3P provider, or your own gateway —
+> works **only** with a *prompt agent* invoked through the **Responses API**. The classic
+> Assistants API (`create_agent` + threads + runs) cannot resolve `<connection>/<model>` and
+> fails with `invalid_engine_error: Failed to resolve model info`.
+
+The connection-agnostic script at
+[`../public-byom-apim/samples/create-agent.py`](../public-byom-apim/samples/create-agent.py)
+works here too — point it at your project and pass this connection's model:
+
+```bash
+pip install "azure-ai-projects>=2.0.0" azure-identity
+python ../public-byom-apim/samples/create-agent.py \
+  --endpoint https://<account>.services.ai.azure.com/api/projects/<project> \
+  --model    <connectionName>/<modelName> \
+  --prompt   "Say hello in five words."
+```
+
 ## Validation Features
 
 The template includes built-in validation:

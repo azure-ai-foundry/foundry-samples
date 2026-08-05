@@ -1,0 +1,12 @@
+{
+  "$schema": "https://aka.ms/azure-quickstart-templates-metadata-schema#",
+  "type": "QuickStart",
+  "itemDisplayName": "Public Bring-Your-Own-Model with Azure API Management",
+  "description": "Layers a public (non-VNet) Azure API Management AI Gateway in front of an existing backend Foundry account and adds a Bring-Your-Own-Model (BYOM) connection to an existing Foundry project. Public counterpart of the private cross-region BYOM extension. Demonstrates the bring-your-own-model pattern documented at https://learn.microsoft.com/azure/foundry/agents/how-to/ai-gateway.",
+  "summary": "Existing project + existing backend Foundry account bridged by a public StandardV2 APIM — project MI authenticates to APIM, APIM mints tokens for the backend, model deployments surface as <connection>/<deployment> in agent code.",
+  "githubUsername": "pradeepkintali",
+  "dateUpdated": "2026-08-03",
+  "environments": [
+    "AzureCloud"
+  ]
+}

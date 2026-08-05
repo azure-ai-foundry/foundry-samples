@@ -1,0 +1,874 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.45.15.27210",
+      "templateHash": "4374549885433917955"
+    }
+  },
+  "parameters": {
+    "projectResourceId": {
+      "type": "string",
+      "defaultValue": "/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/sample-rg/providers/Microsoft.CognitiveServices/accounts/sample-foundry-account/projects/sample-project",
+      "metadata": {
+        "description": "Resource ID of the EXISTING Microsoft Foundry project the BYOM connection is added to."
+      }
+    },
+    "backendAccountName": {
+      "type": "string",
+      "defaultValue": "sample-backend-account",
+      "metadata": {
+        "description": "Name of the EXISTING backend Foundry account (in THIS resource group) that hosts the model deployments."
+      }
+    },
+    "backendRegion": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Region of the backend Foundry account. Emitted on the x-aigw-region trace header."
+      }
+    },
+    "projectMiClientId": {
+      "type": "string",
+      "defaultValue": "00000000-0000-0000-0000-000000000000",
+      "metadata": {
+        "description": "Application (client) ID of the Foundry project managed identity. APIM uses this to validate inbound tokens."
+      }
+    },
+    "assignBackendRole": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Whether to create the role assignment granting APIM's managed identity \"Cognitive Services User\" on the backend account. Requires Microsoft.Authorization/roleAssignments/write (Owner or User Access Administrator) on the backend account. Set to false if you deploy as Contributor and arrange this role assignment out-of-band."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Region for the APIM service. Defaults to the resource group location."
+      }
+    },
+    "apimName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Globally unique APIM service name. Resolves to <name>.azure-api.net. Leave empty to auto-generate."
+      }
+    },
+    "publisherEmail": {
+      "type": "string",
+      "metadata": {
+        "description": "Publisher email required by APIM at create time."
+      }
+    },
+    "publisherName": {
+      "type": "string",
+      "metadata": {
+        "description": "Publisher organization name required by APIM at create time."
+      }
+    },
+    "connectionName": {
+      "type": "string",
+      "defaultValue": "ai-gateway",
+      "metadata": {
+        "description": "Foundry portal name for the AI Gateway connection. Shows up as <connectionName>/<deploymentName> in agent code."
+      }
+    },
+    "inferenceApiVersion": {
+      "type": "string",
+      "defaultValue": "2024-10-21",
+      "metadata": {
+        "description": "Inference API version sent to the backend by Foundry SDK calls."
+      }
+    },
+    "backendModelDeployments": {
+      "type": "array",
+      "defaultValue": [
+        {
+          "name": "gpt-4o",
+          "format": "OpenAI",
+          "version": "2024-11-20"
+        }
+      ],
+      "metadata": {
+        "description": "Model deployments on the backend account to surface through the gateway. Each entry: { name, format, version }."
+      }
+    }
+  },
+  "variables": {
+    "uniqueSuffix": "[substring(uniqueString(resourceGroup().id), 0, 4)]",
+    "effectiveApimName": "[if(empty(parameters('apimName')), format('apim-{0}-aigw', variables('uniqueSuffix')), parameters('apimName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('apim-{0}-deployment', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "apimName": {
+            "value": "[variables('effectiveApimName')]"
+          },
+          "publisherEmail": {
+            "value": "[parameters('publisherEmail')]"
+          },
+          "publisherName": {
+            "value": "[parameters('publisherName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.45.15.27210",
+              "templateHash": "3116384650399790376"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Region for APIM."
+              }
+            },
+            "apimName": {
+              "type": "string",
+              "metadata": {
+                "description": "Globally unique APIM service name. Resolves to <name>.azure-api.net."
+              }
+            },
+            "publisherEmail": {
+              "type": "string",
+              "metadata": {
+                "description": "Publisher email — required by APIM at create time."
+              }
+            },
+            "publisherName": {
+              "type": "string",
+              "metadata": {
+                "description": "Publisher organization name — required by APIM at create time."
+              }
+            },
+            "skuCapacity": {
+              "type": "int",
+              "defaultValue": 1,
+              "metadata": {
+                "description": "StandardV2 capacity units. 1 is enough for a single-region pattern."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ApiManagement/service",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('apimName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "StandardV2",
+                "capacity": "[parameters('skuCapacity')]"
+              },
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "publisherEmail": "[parameters('publisherEmail')]",
+                "publisherName": "[parameters('publisherName')]",
+                "publicNetworkAccess": "Enabled"
+              }
+            }
+          ],
+          "outputs": {
+            "apimResourceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ApiManagement/service', parameters('apimName'))]"
+            },
+            "apimName": {
+              "type": "string",
+              "value": "[parameters('apimName')]"
+            },
+            "apimGatewayUrl": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ApiManagement/service', parameters('apimName')), '2024-05-01').gatewayUrl]"
+            },
+            "apimPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ApiManagement/service', parameters('apimName')), '2024-05-01', 'full').identity.principalId]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "condition": "[parameters('assignBackendRole')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('apim-backend-role-{0}-deployment', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "apimPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('apim-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.apimPrincipalId.value]"
+          },
+          "backendAccountName": {
+            "value": "[parameters('backendAccountName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.45.15.27210",
+              "templateHash": "9666952861271279139"
+            }
+          },
+          "parameters": {
+            "apimPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Object/principal ID of the APIM service MI."
+              }
+            },
+            "backendAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Backend Foundry account name. The role assignment is scoped to this account."
+              }
+            }
+          },
+          "variables": {
+            "cognitiveServicesUserRoleId": "a97b65f3-24c7-4388-baec-2e87135dc908"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('backendAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('backendAccountName')), parameters('apimPrincipalId'), variables('cognitiveServicesUserRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
+                "principalId": "[parameters('apimPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "value": "[extensionResourceId(resourceId('Microsoft.CognitiveServices/accounts', parameters('backendAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('backendAccountName')), parameters('apimPrincipalId'), variables('cognitiveServicesUserRoleId')))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('apim-{0}-deployment', variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('inference-api-{0}-deployment', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "apimName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('apim-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.apimName.value]"
+          },
+          "projectMiClientId": {
+            "value": "[parameters('projectMiClientId')]"
+          },
+          "backendAccountName": {
+            "value": "[parameters('backendAccountName')]"
+          },
+          "backendRegion": {
+            "value": "[parameters('backendRegion')]"
+          },
+          "projectRegion": {
+            "value": "[parameters('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.45.15.27210",
+              "templateHash": "4966448200759845480"
+            }
+          },
+          "parameters": {
+            "apimName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the APIM service the API is created on."
+              }
+            },
+            "tenantId": {
+              "type": "string",
+              "defaultValue": "[subscription().tenantId]",
+              "metadata": {
+                "description": "Tenant ID used to validate inbound Entra tokens from the Foundry project MI."
+              }
+            },
+            "projectMiClientId": {
+              "type": "string",
+              "metadata": {
+                "description": "Application (client) ID of the Foundry project managed identity that is allowed to call this API. Must match the appId behind the project MI principalId."
+              }
+            },
+            "tokenAudience": {
+              "type": "string",
+              "defaultValue": "https://cognitiveservices.azure.com/",
+              "metadata": {
+                "description": "Audience the Foundry project requested its token for. Must match the Audience set on the Foundry model connection. Default is the standard Cognitive Services audience."
+              }
+            },
+            "backendAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Backend Foundry account name — used to compose the public OpenAI FQDN."
+              }
+            },
+            "backendRegion": {
+              "type": "string",
+              "metadata": {
+                "description": "Backend Foundry account region — emitted on x-aigw-region trace header."
+              }
+            },
+            "projectRegion": {
+              "type": "string",
+              "metadata": {
+                "description": "Project region — emitted on x-aigw-region trace header."
+              }
+            },
+            "apiPath": {
+              "type": "string",
+              "defaultValue": "inference",
+              "metadata": {
+                "description": "Inference API path under the APIM gateway. Default = inference, so the full URL is https://<apim>.azure-api.net/inference/deployments/{deploymentName}/chat/completions."
+              }
+            }
+          },
+          "variables": {
+            "backendBaseUrl": "[format('https://{0}.openai.azure.com/openai', parameters('backendAccountName'))]",
+            "inboundPolicyXml": "<policies>\r\n  <inbound>\r\n    <base />\r\n    <validate-azure-ad-token tenant-id=\"${TENANT_ID}\" header-name=\"Authorization\" failed-validation-httpcode=\"401\" failed-validation-error-message=\"Unauthorized: Foundry project MI token failed validation.\">\r\n      <client-application-ids>\r\n        <application-id>${PROJECT_MI_CLIENT_ID}</application-id>\r\n      </client-application-ids>\r\n      <audiences>\r\n        <audience>${TOKEN_AUDIENCE}</audience>\r\n      </audiences>\r\n    </validate-azure-ad-token>\r\n    <set-backend-service base-url=\"${BACKEND_BASE_URL}\" />\r\n    <authentication-managed-identity resource=\"${TOKEN_AUDIENCE}\" />\r\n    <set-header name=\"x-aigw-backend\" exists-action=\"override\">\r\n      <value>${APIM_NAME} / ${BACKEND_ACCOUNT_NAME}</value>\r\n    </set-header>\r\n    <set-header name=\"x-aigw-region\" exists-action=\"override\">\r\n      <value>${PROJECT_REGION} to ${BACKEND_REGION}</value>\r\n    </set-header>\r\n  </inbound>\r\n  <backend><base /></backend>\r\n  <outbound>\r\n    <base />\r\n    <set-header name=\"x-aigw-backend\" exists-action=\"override\">\r\n      <value>${APIM_NAME} / ${BACKEND_ACCOUNT_NAME}</value>\r\n    </set-header>\r\n    <set-header name=\"x-aigw-region\" exists-action=\"override\">\r\n      <value>${PROJECT_REGION} to ${BACKEND_REGION}</value>\r\n    </set-header>\r\n  </outbound>\r\n  <on-error><base /></on-error>\r\n</policies>\r\n",
+            "renderedPolicy": "[replace(replace(replace(replace(replace(replace(replace(variables('inboundPolicyXml'), '${TENANT_ID}', parameters('tenantId')), '${PROJECT_MI_CLIENT_ID}', parameters('projectMiClientId')), '${TOKEN_AUDIENCE}', parameters('tokenAudience')), '${BACKEND_BASE_URL}', variables('backendBaseUrl')), '${APIM_NAME}', parameters('apimName')), '${BACKEND_ACCOUNT_NAME}', parameters('backendAccountName')), '${PROJECT_REGION}', parameters('projectRegion'))]",
+            "renderedPolicyFinal": "[replace(variables('renderedPolicy'), '${BACKEND_REGION}', parameters('backendRegion'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ApiManagement/service/apis",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', parameters('apimName'), parameters('apiPath'))]",
+              "properties": {
+                "displayName": "Foundry inference (AI Gateway)",
+                "path": "[parameters('apiPath')]",
+                "protocols": [
+                  "https"
+                ],
+                "subscriptionRequired": false,
+                "serviceUrl": "[variables('backendBaseUrl')]"
+              }
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), parameters('apiPath'), 'chat-completions')]",
+              "properties": {
+                "displayName": "Chat Completions",
+                "method": "POST",
+                "urlTemplate": "/deployments/{deploymentName}/chat/completions",
+                "templateParameters": [
+                  {
+                    "name": "deploymentName",
+                    "type": "string",
+                    "description": "Model deployment name on the backend Foundry account",
+                    "required": true
+                  }
+                ],
+                "request": {
+                  "queryParameters": [
+                    {
+                      "name": "api-version",
+                      "type": "string",
+                      "required": false
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiPath'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/policies",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), parameters('apiPath'), 'policy')]",
+              "properties": {
+                "format": "rawxml",
+                "value": "[variables('renderedPolicyFinal')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiPath'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "apiId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiPath'))]"
+            },
+            "apiName": {
+              "type": "string",
+              "value": "[parameters('apiPath')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('apim-backend-role-{0}-deployment', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('apim-{0}-deployment', variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('byom-connection-{0}-deployment', variables('uniqueSuffix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "projectResourceId": {
+            "value": "[parameters('projectResourceId')]"
+          },
+          "apimResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('apim-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.apimResourceId.value]"
+          },
+          "apiName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('inference-api-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.apiName.value]"
+          },
+          "connectionName": {
+            "value": "[parameters('connectionName')]"
+          },
+          "authType": {
+            "value": "ProjectManagedIdentity"
+          },
+          "isSharedToAll": {
+            "value": true
+          },
+          "deploymentInPath": {
+            "value": "true"
+          },
+          "inferenceAPIVersion": {
+            "value": "[parameters('inferenceApiVersion')]"
+          },
+          "staticModels": {
+            "copy": [
+              {
+                "name": "value",
+                "count": "[length(parameters('backendModelDeployments'))]",
+                "input": "[createObject('name', parameters('backendModelDeployments')[copyIndex('value')].name, 'properties', createObject('model', createObject('name', parameters('backendModelDeployments')[copyIndex('value')].name, 'version', parameters('backendModelDeployments')[copyIndex('value')].version, 'format', parameters('backendModelDeployments')[copyIndex('value')].format)))]"
+              }
+            ]
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.45.15.27210",
+              "templateHash": "13893214881552268545"
+            }
+          },
+          "parameters": {
+            "projectResourceId": {
+              "type": "string",
+              "defaultValue": "/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg-sample/providers/Microsoft.CognitiveServices/accounts/sample-foundry-account/projects/sample-project",
+              "metadata": {
+                "description": "Resource ID of the AI Foundry project"
+              }
+            },
+            "apimResourceId": {
+              "type": "string",
+              "defaultValue": "/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg-sample/providers/Microsoft.ApiManagement/service/sample-apim",
+              "metadata": {
+                "description": "Resource ID of the APIM service"
+              }
+            },
+            "apiName": {
+              "type": "string",
+              "defaultValue": "sample-api",
+              "metadata": {
+                "description": "Name of the API in APIM"
+              }
+            },
+            "connectionName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Name for the connection (auto-generated if empty)"
+              }
+            },
+            "apimSubscriptionName": {
+              "type": "string",
+              "defaultValue": "master",
+              "metadata": {
+                "description": "APIM subscription name for API key auth"
+              }
+            },
+            "authType": {
+              "type": "string",
+              "defaultValue": "ApiKey",
+              "allowedValues": [
+                "ApiKey",
+                "ProjectManagedIdentity"
+              ],
+              "metadata": {
+                "description": "Authentication type"
+              }
+            },
+            "isSharedToAll": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Share connection to all project users"
+              }
+            },
+            "deploymentInPath": {
+              "type": "string",
+              "defaultValue": "true",
+              "allowedValues": [
+                "true",
+                "false"
+              ],
+              "metadata": {
+                "description": "Whether deployment name is in URL path vs body"
+              }
+            },
+            "inferenceAPIVersion": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "API version for inference calls (chat completions, embeddings)"
+              }
+            },
+            "deploymentAPIVersion": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "API version for deployment management (optional)"
+              }
+            },
+            "listModelsEndpoint": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Endpoint for listing models (enables dynamic discovery)"
+              }
+            },
+            "getModelEndpoint": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Endpoint for getting model details (enables dynamic discovery)"
+              }
+            },
+            "deploymentProvider": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Provider for model discovery (AzureOpenAI, etc.)"
+              }
+            },
+            "staticModels": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Static model list (array of model objects, optional)"
+              }
+            },
+            "customHeaders": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Custom headers (object with string key-value pairs, optional)"
+              }
+            },
+            "authConfig": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Authentication configuration (object for custom auth headers)"
+              }
+            }
+          },
+          "variables": {
+            "apimServiceName": "[split(parameters('apimResourceId'), '/')[8]]",
+            "generatedConnectionName": "[format('apim-{0}-{1}', variables('apimServiceName'), parameters('apiName'))]",
+            "finalConnectionName": "[if(not(equals(parameters('connectionName'), '')), parameters('connectionName'), variables('generatedConnectionName'))]",
+            "hasDeploymentAPIVersion": "[not(equals(parameters('deploymentAPIVersion'), ''))]",
+            "hasInferenceAPIVersion": "[not(equals(parameters('inferenceAPIVersion'), ''))]",
+            "hasModelDiscovery": "[and(and(not(equals(parameters('listModelsEndpoint'), '')), not(equals(parameters('getModelEndpoint'), ''))), not(equals(parameters('deploymentProvider'), '')))]",
+            "hasStaticModels": "[greater(length(parameters('staticModels')), 0)]",
+            "hasCustomHeaders": "[not(empty(parameters('customHeaders')))]",
+            "hasAuthConfig": "[not(empty(parameters('authConfig')))]",
+            "bothConfiguredError": "[and(variables('hasModelDiscovery'), variables('hasStaticModels'))]",
+            "validationMessage": "[if(variables('bothConfiguredError'), 'ERROR: Cannot configure both static models and dynamic discovery. Use either staticModels array OR modelDiscovery parameters, not both.', '')]",
+            "neitherConfiguredError": "[and(not(variables('hasModelDiscovery')), not(variables('hasStaticModels')))]",
+            "neitherConfiguredMessage": "ERROR: Must configure either static models (staticModels array) OR dynamic discovery (listModelsEndpoint, getModelEndpoint, deploymentProvider). Cannot have neither.",
+            "metadata": "[union(createObject('deploymentInPath', parameters('deploymentInPath')), if(variables('hasInferenceAPIVersion'), createObject('inferenceAPIVersion', parameters('inferenceAPIVersion')), createObject()), if(variables('hasDeploymentAPIVersion'), createObject('deploymentAPIVersion', parameters('deploymentAPIVersion')), createObject()), if(variables('hasModelDiscovery'), createObject('modelDiscovery', string(createObject('listModelsEndpoint', parameters('listModelsEndpoint'), 'getModelEndpoint', parameters('getModelEndpoint'), 'deploymentProvider', parameters('deploymentProvider')))), createObject()), if(and(variables('hasStaticModels'), not(variables('hasModelDiscovery'))), createObject('models', string(parameters('staticModels'))), createObject()), if(variables('hasCustomHeaders'), createObject('customHeaders', string(parameters('customHeaders'))), createObject()), if(variables('hasAuthConfig'), createObject('authConfig', string(parameters('authConfig'))), createObject()))]"
+          },
+          "resources": [
+            {
+              "condition": "[variables('bothConfiguredError')]",
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2023-08-01",
+              "name": "[format('validation-error-{0}', uniqueString(resourceGroup().id))]",
+              "location": "[resourceGroup().location]",
+              "kind": "AzurePowerShell",
+              "properties": {
+                "azPowerShellVersion": "8.0",
+                "scriptContent": "[format('throw \"{0}\"', variables('validationMessage'))]",
+                "retentionInterval": "PT1H"
+              }
+            },
+            {
+              "condition": "[variables('neitherConfiguredError')]",
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2023-08-01",
+              "name": "[format('config-validation-error-{0}', uniqueString(resourceGroup().id))]",
+              "location": "[resourceGroup().location]",
+              "kind": "AzurePowerShell",
+              "properties": {
+                "azPowerShellVersion": "8.0",
+                "scriptContent": "[format('throw \"{0}\"', variables('neitherConfiguredMessage'))]",
+                "retentionInterval": "PT1H"
+              }
+            },
+            {
+              "condition": "[and(not(variables('bothConfiguredError')), not(variables('neitherConfiguredError')))]",
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "unified-apim-connection",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "projectResourceId": {
+                    "value": "[parameters('projectResourceId')]"
+                  },
+                  "connectionName": {
+                    "value": "[variables('finalConnectionName')]"
+                  },
+                  "apimResourceId": {
+                    "value": "[parameters('apimResourceId')]"
+                  },
+                  "apiName": {
+                    "value": "[parameters('apiName')]"
+                  },
+                  "apimSubscriptionName": {
+                    "value": "[parameters('apimSubscriptionName')]"
+                  },
+                  "authType": {
+                    "value": "[parameters('authType')]"
+                  },
+                  "isSharedToAll": {
+                    "value": "[parameters('isSharedToAll')]"
+                  },
+                  "metadata": {
+                    "value": "[variables('metadata')]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.45.15.27210",
+                      "templateHash": "4374802911541635158"
+                    }
+                  },
+                  "parameters": {
+                    "projectResourceId": {
+                      "type": "string"
+                    },
+                    "connectionName": {
+                      "type": "string"
+                    },
+                    "apimResourceId": {
+                      "type": "string"
+                    },
+                    "apiName": {
+                      "type": "string"
+                    },
+                    "apimSubscriptionName": {
+                      "type": "string",
+                      "defaultValue": "master"
+                    },
+                    "authType": {
+                      "type": "string",
+                      "defaultValue": "ApiKey"
+                    },
+                    "isSharedToAll": {
+                      "type": "bool",
+                      "defaultValue": false
+                    },
+                    "metadata": {
+                      "type": "object"
+                    }
+                  },
+                  "variables": {
+                    "aiFoundryName": "[split(parameters('projectResourceId'), '/')[8]]",
+                    "projectName": "[split(parameters('projectResourceId'), '/')[10]]",
+                    "apimSubscriptionId": "[split(parameters('apimResourceId'), '/')[2]]",
+                    "apimResourceGroupName": "[split(parameters('apimResourceId'), '/')[4]]",
+                    "apimServiceName": "[split(parameters('apimResourceId'), '/')[8]]"
+                  },
+                  "resources": [
+                    {
+                      "condition": "[equals(parameters('authType'), 'ApiKey')]",
+                      "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+                      "apiVersion": "2025-04-01-preview",
+                      "name": "[format('{0}/{1}/{2}', variables('aiFoundryName'), variables('projectName'), parameters('connectionName'))]",
+                      "properties": {
+                        "category": "ApiManagement",
+                        "target": "[format('{0}/{1}', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('apimSubscriptionId'), variables('apimResourceGroupName')), 'Microsoft.ApiManagement/service', variables('apimServiceName')), '2021-08-01').gatewayUrl, reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('apimSubscriptionId'), variables('apimResourceGroupName')), 'Microsoft.ApiManagement/service/apis', variables('apimServiceName'), parameters('apiName')), '2021-08-01').path)]",
+                        "authType": "ApiKey",
+                        "isSharedToAll": "[parameters('isSharedToAll')]",
+                        "credentials": {
+                          "key": "[listSecrets(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('apimSubscriptionId'), variables('apimResourceGroupName')), 'Microsoft.ApiManagement/service/subscriptions', variables('apimServiceName'), parameters('apimSubscriptionName')), '2021-08-01').primaryKey]"
+                        },
+                        "metadata": "[parameters('metadata')]"
+                      }
+                    },
+                    {
+                      "condition": "[equals(parameters('authType'), 'ProjectManagedIdentity')]",
+                      "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+                      "apiVersion": "2025-04-01-preview",
+                      "name": "[format('{0}/{1}/{2}', variables('aiFoundryName'), variables('projectName'), parameters('connectionName'))]",
+                      "properties": {
+                        "category": "ApiManagement",
+                        "target": "[format('{0}/{1}', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('apimSubscriptionId'), variables('apimResourceGroupName')), 'Microsoft.ApiManagement/service', variables('apimServiceName')), '2021-08-01').gatewayUrl, reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('apimSubscriptionId'), variables('apimResourceGroupName')), 'Microsoft.ApiManagement/service/apis', variables('apimServiceName'), parameters('apiName')), '2021-08-01').path)]",
+                        "authType": "ProjectManagedIdentity",
+                        "audience": "https://cognitiveservices.azure.com",
+                        "isSharedToAll": "[parameters('isSharedToAll')]",
+                        "credentials": {},
+                        "metadata": "[parameters('metadata')]"
+                      }
+                    }
+                  ],
+                  "outputs": {
+                    "connectionName": {
+                      "type": "string",
+                      "value": "[if(equals(parameters('authType'), 'ApiKey'), parameters('connectionName'), parameters('connectionName'))]"
+                    },
+                    "connectionId": {
+                      "type": "string",
+                      "value": "[if(equals(parameters('authType'), 'ApiKey'), resourceId('Microsoft.CognitiveServices/accounts/projects/connections', variables('aiFoundryName'), variables('projectName'), parameters('connectionName')), parameters('connectionName'))]"
+                    },
+                    "targetUrl": {
+                      "type": "string",
+                      "value": "[format('{0}/{1}', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('apimSubscriptionId'), variables('apimResourceGroupName')), 'Microsoft.ApiManagement/service', variables('apimServiceName')), '2021-08-01').gatewayUrl, reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('apimSubscriptionId'), variables('apimResourceGroupName')), 'Microsoft.ApiManagement/service/apis', variables('apimServiceName'), parameters('apiName')), '2021-08-01').path)]"
+                    },
+                    "authType": {
+                      "type": "string",
+                      "value": "[parameters('authType')]"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "value": "[parameters('metadata')]"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "connectionName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the created connection"
+              },
+              "value": "[variables('finalConnectionName')]"
+            },
+            "metadata": {
+              "type": "object",
+              "metadata": {
+                "description": "Final metadata configuration"
+              },
+              "value": "[variables('metadata')]"
+            },
+            "authType": {
+              "type": "string",
+              "metadata": {
+                "description": "Authentication type used"
+              },
+              "value": "[parameters('authType')]"
+            },
+            "hasStaticModels": {
+              "type": "bool",
+              "value": "[variables('hasStaticModels')]"
+            },
+            "hasModelDiscovery": {
+              "type": "bool",
+              "value": "[variables('hasModelDiscovery')]"
+            },
+            "hasCustomHeaders": {
+              "type": "bool",
+              "value": "[variables('hasCustomHeaders')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('apim-{0}-deployment', variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('inference-api-{0}-deployment', variables('uniqueSuffix')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "apimName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', format('apim-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.apimName.value]"
+    },
+    "apimGatewayUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', format('apim-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.apimGatewayUrl.value]"
+    },
+    "inferenceApiName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', format('inference-api-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.apiName.value]"
+    },
+    "byomConnectionName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', format('byom-connection-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.connectionName.value]"
+    }
+  }
+}
