@@ -2,6 +2,8 @@ from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import PromptAgentDefinition
 
+# P3.1 parity probe: intentional no-op change; do not merge.
+
 # Format: "https://resource_name.ai.azure.com/api/projects/project_name"
 PROJECT_ENDPOINT = "your_project_endpoint"
 AGENT_NAME = "your_agent_name"
