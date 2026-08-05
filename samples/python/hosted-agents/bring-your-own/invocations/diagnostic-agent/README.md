@@ -226,6 +226,45 @@ curl -sS -N -X POST "<invocations-url>" \
 
 Heartbeats reduce idle-connection timeout risk but do not override a platform or client maximum invocation duration.
 
+## Keeping the sandbox warm
+
+A hosted-agent sandbox suspends after ~15 minutes idle. To hold one sandbox warm for extended inspection (for example, watching host metrics over an hour) **without an external caller**, the agent can self-ping on a fixed cadence using its own managed identity. This is off by default and enabled purely with environment variables — a single deploy keeps the sandbox warm, with no extra request needed.
+
+The loop acquires a data-plane token via `DefaultAzureCredential`, then POSTs `{"keepalive_ping": true}` to this agent's own external invocations endpoint. That body hits a cheap short-circuit returning `200 {"status": "alive"}` before any probe runs, so each keepalive is inexpensive and never recurses. A `200` also confirms the agent's identity has data-plane invoke permission; a `401`/`403` means it does not.
+
+| Env var | Default | Notes |
+|---|---|---|
+| `KEEPALIVE_SELF_PING` | *(unset)* | Set to `1`/`true`/`yes` to start the loop at container startup. Off by default. |
+| `KEEPALIVE_SELF_PING_INTERVAL_SEC` | `120` | Cadence between pings in seconds. Keep it under the ~15-min idle timeout. |
+| `KEEPALIVE_SELF_PING_DURATION_SEC` | `900` | Total window in seconds; the loop exits after this. The default 15 min keeps the sandbox warm for the run and then lets it idle out (~30 min total lifetime). Raise it for long-running inspection (for example `28800` for 8 hours), or set `0` to run for the container's lifetime. |
+| `KEEPALIVE_SELF_PING_TIMEOUT_SEC` | `30` | Per-ping HTTP timeout in seconds. |
+| `KEEPALIVE_SELF_PING_API_VERSION` | `v1` | Invocations API version used in the self-ping URL. |
+
+The endpoint and session are taken from the platform-injected env vars `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_AGENT_NAME`, and `FOUNDRY_AGENT_SESSION_ID`; if the project endpoint or agent name is unset the loop logs a warning and does nothing.
+
+Any caller can POST `{"keepalive_ping": true}` to the invocations endpoint to read the loop's current status without scraping container logs — the short-circuit response carries a `keepalive_self_ping` block:
+
+```json
+{
+  "status": "alive",
+  "agent_session_id": "…",
+  "invocation_id": "…",
+  "keepalive_self_ping": {
+    "enabled": true,
+    "running": true,
+    "interval_sec": 120,
+    "duration_sec": 900,
+    "ping_count": 7,
+    "last_code": 200,
+    "last_error": null,
+    "last_ping_utc": "2026-08-04T14:52:31.004+00:00",
+    "last_session_id": "…"
+  }
+}
+```
+
+When the loop is off, `enabled` and `running` are `false` and `last_code` is `null`.
+
 ## Response shape
 
 Every probe emits one uniform `ProbeResult` under `results[]`; `summary` is a
