@@ -53,7 +53,10 @@ jobs:
         # Reads $GITHUB_EVENT_NAME (pull_request) + $GITHUB_BASE_REF (target branch), diffs
         # scoped to samples/, and emits has_changes/count/samples to $GITHUB_OUTPUT. Fails
         # loud (exit 1) if the git diff itself errors — never a fake empty set.
-        run: bash .github/scripts/detect-changed-samples.sh
+        # TEMPORARY P3.3 CONTROLLED PROOF — intentional failure, do not merge.
+        run: |
+          echo "::error::P3.3 controlled scheduler proof: detect fails intentionally"
+          exit 97
 
   # --- Validate each changed sample to L3, one runner per sample ---------------
   validate:
