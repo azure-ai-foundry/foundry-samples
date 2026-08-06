@@ -1,0 +1,79 @@
+name: l4-declared-proof
+
+on:
+  push:
+    branches:
+      - brandom-msft-p4-0-l4-execution
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    environment: L4-validation
+    env:
+      SKIP_PROVISION: "true"
+      AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+      MODEL_DEPLOYMENT: gpt-5.4-mini
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Azure login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run declared L4 against warm project
+        run: |
+          set -euo pipefail
+          mkdir -p _l4-proof
+          cat > _l4-proof/sample.yaml <<'YAML'
+          name: warm-project-l4-proof
+          description: Ephemeral declared-L4 proof against the warm validation project.
+          l4:
+            command: "bash run-l4.sh"
+            required_env:
+              - AZURE_OPENAI_ENDPOINT
+              - MODEL_DEPLOYMENT
+          YAML
+          cat > _l4-proof/run-l4.sh <<'BASH'
+          #!/usr/bin/env bash
+          set -uo pipefail
+
+          if ! TOKEN="$(az account get-access-token \
+              --resource https://cognitiveservices.azure.com \
+              --query accessToken -o tsv)"; then
+            exit 2
+          fi
+
+          if ! HTTP="$(curl -sS -o response.json -w '%{http_code}' \
+              "${AZURE_OPENAI_ENDPOINT}/openai/v1/responses" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"model\":\"${MODEL_DEPLOYMENT}\",\"input\":\"Reply with the single word: pong\"}")"; then
+            exit 2
+          fi
+
+          cat response.json
+          echo
+          case "$HTTP" in
+            200) exit 0 ;;
+            401|403|408|429|5??) exit 2 ;;
+            *) exit 1 ;;
+          esac
+          BASH
+          chmod +x _l4-proof/run-l4.sh
+
+          bash .github/scripts/validate-sample.sh \
+            --level 4 \
+            --sample-dir _l4-proof
