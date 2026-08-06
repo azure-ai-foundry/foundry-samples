@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: resilient-research
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  resilient-research:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Invocations Protocol
+        - Bring Your Own
+        - Long-Running
+        - Resilient Tasks
+        - Streaming
+        - Steering
+        - Python
+    project: src/resilient-research
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: resilient-research
+    displayName: Resilient Research (Invocations)
+    description: A long-running, crash-resilient deep-research agent built on the resilient @multi_turn_task primitive and the streaming API from azure-ai-agentserver-core. Runs a multi-phase research plan of streaming LLM sub-calls, checkpointing per sub-call so a container restart resumes mid-phase with no gap. Supports live SSE streaming (with resumable reconnect), operator cancel, and transparent mid-run steering.
+    protocols:
+      - protocol: invocations
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      # Pacing is tuned for a quick hosted demo (and to keep CI invocations
+      # well within timeout). Raise NUM_PHASES / CALLS_PER_PHASE and the
+      # cooldowns to turn this into a genuine long-runner that exercises
+      # multi-restart recovery.
+      - name: NUM_PHASES
+        value: "2"
+      - name: CALLS_PER_PHASE
+        value: "2"
+      - name: INTRA_PHASE_COOLDOWN_SEC
+        value: "0"
+      - name: INTER_PHASE_COOLDOWN_SEC
+        value: "0"
+      - name: TARGET_OUTPUT_TOKENS
+        value: "300"
+    container:
+      resources:
+        cpu: '1'
+        memory: 2Gi
+infra:
+  provider: microsoft.foundry
