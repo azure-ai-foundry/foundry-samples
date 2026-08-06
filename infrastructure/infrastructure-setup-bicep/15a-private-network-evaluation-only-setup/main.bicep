@@ -215,6 +215,7 @@ module privateEndpointAndDNS 'modules-network-secured/private-endpoint-and-dns.b
   name: '${uniqueSuffix}-private-endpoint'
   params: {
     aiAccountName: aiAccount.outputs.accountName
+    location: location                               // Co-locate PEs with target resources (issue #657)
     storageName: aiDependencies.outputs.azureStorageName
     vnetName: vnet.outputs.virtualNetworkName
     peSubnetName: vnet.outputs.peSubnetName
