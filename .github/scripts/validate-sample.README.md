@@ -54,6 +54,11 @@ The contract is:
   Gateway`, or similar application responses. If a command can distinguish a
   known credential, endpoint, or cloud transport failure, it must normalize
   that condition to exit `2`; ambiguous conditions must exit `1`.
+- Do not expose a tool's raw exit code unless it already follows this contract.
+  Common tools use `2` for sample-side conditions such as invalid arguments,
+  interrupted tests, or usage errors. Wrap those commands so only a known
+  caller/cloud infrastructure failure exits `2`; normalize other nonzero
+  statuses to `1`.
 - `l4.required_env` is optional. When present, it must be a list of valid
   environment-variable names. Every listed variable must be non-empty or the
   validator returns infrastructure error (`2`) before executing sample code.
