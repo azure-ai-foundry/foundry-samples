@@ -1,9 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 COPY HelloWorld.csproj ./
-RUN dotnet restore HelloWorld.csproj
 COPY Program.cs ./
-RUN dotnet publish HelloWorld.csproj -c Release -o /app
+# Publish ReadyToRun: precompile IL to native code for the target runtime so
+# the JIT does far less work during container start. Restore/build/publish are
+# collapsed into one publish because ReadyToRun must be set at restore time
+# too (otherwise NETSDK1094). --self-contained false keeps the framework-
+# dependent layout, so this costs image size but not a runtime dependency.
+RUN dotnet publish HelloWorld.csproj -c Release -r linux-musl-x64 --self-contained false -p:PublishReadyToRun=true -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS final
 WORKDIR /app

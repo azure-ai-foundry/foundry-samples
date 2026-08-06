@@ -10,18 +10,19 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY main.py ./
 
-# Precompile to bytecode at build time so every cold start doesn't have to.
-# PYTHONDONTWRITEBYTECODE blocks bytecode *writes*, not *reads*, so the flag
-# set above still prevents runtime .pyc churn while these prebuilt
-# __pycache__ directories are used.
-#
-# Dependencies are compiled best-effort (`|| true`): a stray unparsable file
-# vendored by a third-party package shouldn't fail the build, and Python just
-# falls back to compiling it at import. Application code is compiled strictly,
-# so a syntax error in this sample fails the build rather than the container.
-RUN PYTHONDONTWRITEBYTECODE= python -m compileall -q /usr/local/lib/python3.12/site-packages || true; \
-    PYTHONDONTWRITEBYTECODE= python -m compileall -q /app
-
 EXPOSE 8088
+
+# Precompile Python bytecode at build time so cold starts don't pay for it.
+# These base images ship almost none of the standard library precompiled
+# (~2% of stdlib .py files, on both Debian-slim and Azure Linux), so without
+# this every new container recompiles hundreds of stdlib modules on first
+# import. Dependencies are best-effort (`|| true`) so a stray unparsable file
+# vendored by a third-party package can't fail the build; application code is
+# compiled strictly so a syntax error surfaces at build time rather than at
+# container start.
+# PYTHONDONTWRITEBYTECODE is cleared for these commands only: it blocks
+# bytecode *writes*, not *reads*, so images that set it still benefit.
+RUN PYTHONDONTWRITEBYTECODE= python -m compileall -q $(python -c "import sysconfig as s; print(s.get_paths()['stdlib'], s.get_paths()['purelib'])") || true; \
+    PYTHONDONTWRITEBYTECODE= python -m compileall -q .
 
 CMD ["python", "main.py"]
