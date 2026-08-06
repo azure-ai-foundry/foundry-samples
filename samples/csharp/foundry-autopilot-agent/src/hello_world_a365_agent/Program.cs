@@ -30,6 +30,19 @@ else
     Console.WriteLine("KeyVaultName not configured. Key Vault integration skipped.");
 }
 
+// Map the blueprint client id (already provided via FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID)
+// onto the ServiceConnection client id the Agent SDK expects.
+var blueprintClientId = Environment.GetEnvironmentVariable("FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID");
+if (!string.IsNullOrEmpty(blueprintClientId))
+{
+    builder.Configuration["Connections:ServiceConnection:Settings:ClientId"] = blueprintClientId;
+    Console.WriteLine("ServiceConnection ClientId set from FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID.");
+}
+else
+{
+    Console.WriteLine("FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID not set. ServiceConnection ClientId not configured.");
+}
+
 // Add controllers support
 builder.Services.AddControllers();
 
