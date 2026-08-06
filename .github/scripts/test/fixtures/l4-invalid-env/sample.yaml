@@ -1,0 +1,5 @@
+name: l4-invalid-env
+description: Hermetic L4 fixture whose required_env field is not a string list.
+l4:
+  command: "true"
+  required_env: L4_TEST_ENDPOINT

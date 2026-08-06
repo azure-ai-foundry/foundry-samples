@@ -1,0 +1,4 @@
+name: l4-fail
+description: Hermetic L4 fixture whose sample assertion fails without infrastructure evidence.
+l4:
+  command: "echo 'sample assertion failed'; exit 7"

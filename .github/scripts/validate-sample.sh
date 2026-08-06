@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# validate-sample.sh — reusable single-sample validator (Build Readiness Level 3 / Load).
+# validate-sample.sh — reusable single-sample validator (L3 Load or declared L4 execution).
 #
 # Ported from .azure-pipelines/validation.yml Stage 2, which duplicated the same
 # per-sample body across five per-language jobs (C#, Python, TypeScript, Java, Go).
@@ -12,37 +12,37 @@
 # This script assumes the required toolchain is already on PATH and reports ERROR if not.
 #
 # Usage:
-#   validate-sample.sh --language <csharp|python|typescript|java|go> \
+#   validate-sample.sh [--level 3] --language <csharp|python|typescript|java|go> \
 #                      --sample-dir <path> [--results-dir <dir>]
+#   validate-sample.sh --level 4 --sample-dir <path> [--results-dir <dir>]
 #
 # Verdict / exit codes — the classifier. This split is load-bearing: downstream lanes
 # and the sync gate trust it, and ERROR must NEVER be treated as a sample failure
 # (that is what protects good samples from being quarantined when our infra breaks).
 #
-#   0  PASS   the sample loads at L3
-#             (sample.yaml build/validate/test all exit 0, or the language default succeeds)
+#   0  PASS   the requested level passed
+#             (L3 commands/default pass; or L4 command passes/none is declared)
 #   1  FAIL   the SAMPLE is broken
-#             (a sample.yaml command exits non-zero; or the language default's
-#              compile/build/py_compile exits non-zero)
+#             (an L3/L4 sample command exits non-zero; or the language default's
+#              compile/build/py_compile exits non-zero, without positive infra evidence)
 #   2  ERROR  OUR INFRA is sick — page us, do not quarantine
 #             PRECONDITION errors (bad/missing args, unknown language, missing sample dir,
 #             unreadable or malformed sample.yaml, a required toolchain binary missing from
 #             PATH, yq unavailable when a sample.yaml must be read), OR a RUNTIME transport
-#             failure: a `pip install` / `npm install` that failed with positive
+#             failure: a `pip install` / `npm install` or declared L4 command that failed with positive
 #             transport/registry evidence (DNS failure, connection refused/reset, connect/read
-#             timeout, or a registry 5xx). See dep_infra_signature() + CLASSIFICATION.md.
+#             timeout, or a registry 5xx). See infra_transport_signature() + CLASSIFICATION.md.
 #
-# failure-vs-error on dependency install (honest v1): only the two DEDICATED install steps
-# (`pip install`, `npm install`) are inspected. A positive transport signature => ERROR (this
-# wins even when pip later prints a generic "No matching distribution" line, which it emits
-# AFTER exhausting retries against an unreachable index). An UNACCOMPANIED resolution error
-# (bad/missing package, version conflict) => FAIL. Anything unmatched => FAIL (bias
-# ambiguous->fail, never fail-open to pass). The merged resolve+compile tools (dotnet build,
-# mvn compile, gradle build, go build, npm run build) are NOT inspected in v1 — their output
-# mixes restore+compile+user-script, so they stay FAIL. Documented limit in CLASSIFICATION.md.
+# failure-vs-error at runtime (honest v1): the two DEDICATED install steps (`pip install`,
+# `npm install`) and the isolated L4 command are inspected. Positive transport evidence =>
+# ERROR; an unaccompanied command failure => FAIL (bias ambiguous->fail, never fail-open).
+# The merged resolve+compile tools (dotnet build, mvn compile, gradle build, go build,
+# npm run build) are NOT inspected in v1 — their output mixes restore+compile+user-script,
+# so they stay FAIL. Documented limit in CLASSIFICATION.md.
 #
 # Outputs:
 #   - prints `verdict=pass|fail|error` on stdout (also appended to $GITHUB_OUTPUT if set)
+#   - in L4 mode, also prints/appends `l4_declared=true|false`
 #   - if --results-dir is given, appends the sample path to
 #     passed.txt | failed.txt | errored.txt in that directory.
 #
@@ -54,14 +54,20 @@ set -uo pipefail
 LANGUAGE=""
 SAMPLE_DIR=""
 RESULTS_DIR=""
+LEVEL="3"
+L4_DECLARED=""
 SAMPLE_YAML_FAIL_STEP=""
 PYTHON_VENV_DIR=""
 
 usage() {
     cat <<'EOF'
-Usage: validate-sample.sh --language <lang> --sample-dir <path> [--results-dir <dir>]
+Usage:
+  validate-sample.sh [--level 3] --language <lang> --sample-dir <path> [--results-dir <dir>]
+  validate-sample.sh --level 4 --sample-dir <path> [--results-dir <dir>]
 
+  --level        Validation level: 3 (default) or 4.
   --language     One of: csharp | python | typescript | java | go (frozen set).
+                 Required for L3; optional for L4.
   --sample-dir   Path to the single sample directory to validate.
   --results-dir  Optional. Directory to append passed.txt/failed.txt/errored.txt.
 
@@ -76,8 +82,14 @@ EOF
 emit_verdict() {
     # $1 = pass|fail|error, $2 = exit code
     local verdict="$1" code="$2"
+    if [ "$LEVEL" = "4" ] && [ -n "$L4_DECLARED" ]; then
+        echo "l4_declared=${L4_DECLARED}"
+    fi
     echo "verdict=${verdict}"
     if [ -n "${GITHUB_OUTPUT:-}" ]; then
+        if [ "$LEVEL" = "4" ] && [ -n "$L4_DECLARED" ]; then
+            echo "l4_declared=${L4_DECLARED}" >> "$GITHUB_OUTPUT"
+        fi
         echo "verdict=${verdict}" >> "$GITHUB_OUTPUT"
     fi
     if [ -n "$RESULTS_DIR" ]; then
@@ -119,17 +131,17 @@ ensure_yq() {
     command -v yq >/dev/null 2>&1 || error "yq not available on PATH (required to read sample.yaml)"
 }
 
-# dep_infra_signature <logfile>: return 0 IFF the captured dependency-install log shows
+# infra_transport_signature <logfile>: return 0 IFF the captured command log shows
 # HIGH-CONFIDENCE transport/registry evidence (DNS / connection refused-reset / connect-read
 # timeout / registry 5xx). This is a deliberately NARROW heuristic, not a robust classifier:
 #   - it matches only tool-specific transport strings, never generic words like "timeout";
 #   - a positive match wins even when pip later prints a generic "No matching distribution"
 #     line (pip emits that AFTER exhausting retries against an unreachable index);
-#   - it is scoped to the direct `pip install` / `npm install` steps only;
+#   - it is scoped to direct `pip install`, `npm install`, and declared L4 command logs;
 #   - anything unmatched stays FAIL (bias ambiguous->fail, never fail-open to pass);
 #   - EXPECT maintenance as runner pip/npm versions drift their error strings.
 # The full captured log is printed by the caller before classifying, so diagnosis is preserved.
-dep_infra_signature() {
+infra_transport_signature() {
     local log="${1:-}"
     [ -n "$log" ] && [ -f "$log" ] || return 1
     grep -Eiq \
@@ -231,7 +243,7 @@ default_validate_python() {
         local piplog; piplog="$(mktemp)"
         if ! pip install -r "$SAMPLE_DIR/requirements.txt" -q >"$piplog" 2>&1; then
             cat "$piplog"
-            if dep_infra_signature "$piplog"; then
+            if infra_transport_signature "$piplog"; then
                 rm -f "$piplog"
                 error "pip install: registry/network unreachable (transport evidence in log)"
             fi
@@ -259,11 +271,11 @@ default_validate_typescript() {
         echo "Installing dependencies..."
         local npmlog; npmlog="$(mktemp)"
         # NOT --silent: that suppresses error output too, which would blind
-        # dep_infra_signature to transport errors. --loglevel=error keeps success
+        # infra_transport_signature to transport errors. --loglevel=error keeps success
         # quiet while still emitting the network/registry failure text we classify on.
         if ! ( cd "$SAMPLE_DIR" && npm install --no-audit --no-fund --loglevel=error ) >"$npmlog" 2>&1; then
             cat "$npmlog"
-            if dep_infra_signature "$npmlog"; then
+            if infra_transport_signature "$npmlog"; then
                 rm -f "$npmlog"
                 error "npm install: registry/network unreachable (transport evidence in log)"
             fi
@@ -352,6 +364,98 @@ cleanup_python_venv() {
     rm -rf "$PYTHON_VENV_DIR"
 }
 
+# --- Part 3: opt-in L4 execution ---------------------------------------------
+# Contract:
+#   l4:
+#     command: "<credentialed runtime assertion>"
+#     required_env: [OPTIONAL_ENV_NAME, ...]  # optional
+#
+# The caller owns authentication and configuration. This script never provisions, logs in,
+# or invents defaults: it inherits the caller environment and requires the caller to set
+# SKIP_PROVISION to exactly true or false. A missing declaration is a successful no-op.
+run_l4() {
+    local yaml="$SAMPLE_DIR/sample.yaml"
+    if [ ! -f "$yaml" ]; then
+        L4_DECLARED=false
+        echo "No sample.yaml L4 declaration; nothing owes L4."
+        pass
+    fi
+
+    ensure_yq
+    if ! yq eval '.' "$yaml" >/dev/null 2>&1; then
+        error "sample.yaml is unreadable or malformed: $yaml"
+    fi
+
+    if [ "$(yq eval 'has("l4")' "$yaml" 2>/dev/null)" != "true" ]; then
+        L4_DECLARED=false
+        echo "No sample.yaml L4 declaration; nothing owes L4."
+        pass
+    fi
+    L4_DECLARED=true
+
+    local l4_kind command_tag cmd
+    l4_kind="$(yq eval '.l4 | kind' "$yaml" 2>/dev/null)" ||
+        error "failed to read sample.yaml l4 declaration: $yaml"
+    [ "$l4_kind" = "!!map" ] ||
+        error "sample.yaml l4 must be a mapping with a string command"
+
+    command_tag="$(yq eval '.l4.command | tag' "$yaml" 2>/dev/null)" ||
+        error "failed to read sample.yaml l4.command: $yaml"
+    [ "$command_tag" = "!!str" ] ||
+        error "sample.yaml l4.command must be a non-empty string"
+    cmd="$(yq eval '.l4.command' "$yaml" 2>/dev/null)" ||
+        error "failed to read sample.yaml l4.command: $yaml"
+    printf '%s' "$cmd" | grep -q '[^[:space:]]' ||
+        error "sample.yaml l4.command must be a non-empty string"
+
+    if [ "$(yq eval '.l4 | has("required_env")' "$yaml" 2>/dev/null)" = "true" ]; then
+        local required_env_kind env_count i env_name env_tag
+        required_env_kind="$(yq eval '.l4.required_env | kind' "$yaml" 2>/dev/null)" ||
+            error "failed to read sample.yaml l4.required_env: $yaml"
+        [ "$required_env_kind" = "!!seq" ] ||
+            error "sample.yaml l4.required_env must be a list of environment-variable names"
+        env_count="$(yq eval '.l4.required_env | length' "$yaml" 2>/dev/null)" ||
+            error "failed to read sample.yaml l4.required_env: $yaml"
+        i=0
+        while [ "$i" -lt "$env_count" ]; do
+            env_tag="$(yq eval ".l4.required_env[$i] | tag" "$yaml" 2>/dev/null)" ||
+                error "failed to read sample.yaml l4.required_env[$i]: $yaml"
+            [ "$env_tag" = "!!str" ] ||
+                error "sample.yaml l4.required_env[$i] must be a string"
+            env_name="$(yq eval ".l4.required_env[$i]" "$yaml" 2>/dev/null)" ||
+                error "failed to read sample.yaml l4.required_env[$i]: $yaml"
+            [[ "$env_name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
+                error "sample.yaml l4.required_env[$i] is not a valid environment-variable name: $env_name"
+            [ -n "${!env_name:-}" ] ||
+                error "required L4 environment variable is missing or empty: $env_name"
+            i=$((i + 1))
+        done
+    fi
+
+    case "${SKIP_PROVISION:-}" in
+        true|false) ;;
+        "") error "SKIP_PROVISION must be set by the L4 caller to true or false" ;;
+        *) error "SKIP_PROVISION must be exactly true or false (got: $SKIP_PROVISION)" ;;
+    esac
+
+    echo "Running L4 command (SKIP_PROVISION=$SKIP_PROVISION): $cmd"
+    local l4log
+    l4log="$(mktemp)" || error "failed to create temporary L4 command log"
+    if ( cd "$SAMPLE_DIR" && eval "$cmd" ) >"$l4log" 2>&1; then
+        cat "$l4log"
+        rm -f "$l4log"
+        pass
+    fi
+
+    cat "$l4log"
+    if infra_transport_signature "$l4log"; then
+        rm -f "$l4log"
+        error "L4 command failed with registry/network transport evidence"
+    fi
+    rm -f "$l4log"
+    fail "sample.yaml l4.command exited non-zero"
+}
+
 python_setup_venv() {
     require_tool python
     PYTHON_VENV_DIR="$SAMPLE_DIR/.venv"
@@ -366,6 +470,7 @@ python_setup_venv() {
 # --- Argument parsing --------------------------------------------------------
 while [ $# -gt 0 ]; do
     case "$1" in
+        --level)       LEVEL="${2:-}";       shift $(( $# > 1 ? 2 : 1 )) ;;
         --language)    LANGUAGE="${2:-}";    shift $(( $# > 1 ? 2 : 1 )) ;;
         --sample-dir)  SAMPLE_DIR="${2:-}";  shift $(( $# > 1 ? 2 : 1 )) ;;
         --results-dir) RESULTS_DIR="${2:-}"; shift $(( $# > 1 ? 2 : 1 )) ;;
@@ -375,17 +480,30 @@ while [ $# -gt 0 ]; do
 done
 
 # --- Guards (ordered so the ERROR tier is provable without any toolchain) -----
-case "$LANGUAGE" in
-    csharp|python|typescript|java|go) ;;
-    "") error "missing required --language" ;;
-    *)  error "unsupported language '$LANGUAGE' (frozen set: csharp|python|typescript|java|go)" ;;
+case "$LEVEL" in
+    3|4) ;;
+    "") error "missing value for --level (expected 3 or 4)" ;;
+    *)  error "unsupported validation level '$LEVEL' (expected 3 or 4)" ;;
 esac
 
 [ -n "$SAMPLE_DIR" ] || error "missing required --sample-dir"
 [ -d "$SAMPLE_DIR" ] || error "sample directory not found: $SAMPLE_DIR"
 SAMPLE_DIR="${SAMPLE_DIR%/}"
 
-echo "=== validate-sample: language=$LANGUAGE dir=$SAMPLE_DIR ==="
+if [ "$LEVEL" = "3" ] || [ -n "$LANGUAGE" ]; then
+    case "$LANGUAGE" in
+        csharp|python|typescript|java|go) ;;
+        "") error "missing required --language for L3" ;;
+        *)  error "unsupported language '$LANGUAGE' (frozen set: csharp|python|typescript|java|go)" ;;
+    esac
+fi
+
+echo "=== validate-sample: level=L$LEVEL language=${LANGUAGE:-n/a} dir=$SAMPLE_DIR ==="
+
+if [ "$LEVEL" = "4" ]; then
+    run_l4
+    error "internal: no L4 verdict emitted"
+fi
 
 # Python creates its isolated venv before the sample.yaml/default branch (ADO parity),
 # so sample.yaml commands also run inside the venv.

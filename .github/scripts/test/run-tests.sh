@@ -9,6 +9,7 @@
 #
 # Plus, toolchain-free proofs:
 #   - shared run_sample_yaml path: sample.yaml validate:true => pass, :false => fail (needs yq)
+#   - L4 contract: declared pass/fail/error, required environment, and undeclared no-op
 #   - guardrails: unknown language, missing --sample-dir, missing --language => error
 #   - --results-dir plumbing lands each sample path in passed/failed/errored.txt
 #
@@ -92,6 +93,26 @@ check() {
     fi
 }
 
+# check_l4 <desc> <expected_exit> <expected_verdict> <expected_declared> -- <command...>
+check_l4() {
+    local desc="$1" exp_code="$2" exp_verdict="$3" exp_declared="$4"
+    shift 4
+    [ "$1" = "--" ] && shift
+    local out code verdict declared
+    out="$("$@" 2>&1)"
+    code=$?
+    verdict="$(printf '%s\n' "$out" | sed -n 's/^verdict=\(pass\|fail\|error\)$/\1/p' | tail -1)"
+    declared="$(printf '%s\n' "$out" | sed -n 's/^l4_declared=\(true\|false\)$/\1/p' | tail -1)"
+    if [ "$code" = "$exp_code" ] && [ "$verdict" = "$exp_verdict" ] && [ "$declared" = "$exp_declared" ]; then
+        echo "  PASS  $desc  (exit=$code verdict=$verdict l4_declared=$declared)"
+        PASS_N=$((PASS_N + 1))
+    else
+        echo "  FAIL  $desc  expected exit=$exp_code verdict=$exp_verdict l4_declared=$exp_declared, got exit=$code verdict=${verdict:-<none>} l4_declared=${declared:-<none>}"
+        printf '%s\n' "$out" | sed 's/^/        | /'
+        FAIL_N=$((FAIL_N + 1))
+    fi
+}
+
 assert_file_has() {
     # $1 = file, $2 = substring
     if grep -qF "$2" "$1" 2>/dev/null; then
@@ -104,6 +125,7 @@ assert_file_has() {
 }
 
 RESULTS="$(mktemp -d)"
+OUTPUTS="$(mktemp)"
 
 # SCRUB_BIN: a PATH holding ONLY coreutils the script needs to REACH its
 # require_tool check (ls to detect *.csproj, mkdir for --results-dir, etc.) but
@@ -115,7 +137,7 @@ for tool in ls mkdir cat rm sed grep dirname basename cp mv; do
     src="$(command -v "$tool" 2>/dev/null)"
     [ -n "$src" ] && ln -s "$src" "$SCRUB_BIN/$tool"
 done
-trap 'rm -rf "$RESULTS" "$SCRUB_BIN"' EXIT
+trap 'rm -rf "$RESULTS" "$SCRUB_BIN" "$OUTPUTS"' EXIT
 
 echo "=============================================================="
 echo " Per-language classifier (good=0 / broken=1 / toolchain-gone=2)"
@@ -152,11 +174,47 @@ fi
 
 echo ""
 echo "=============================================================="
+echo " Per-sample L4 declaration contract (toolchain-free; needs yq)"
+echo "=============================================================="
+if [ "$YQ_OK" = true ]; then
+    check_l4 "L4 declared command + inherited env -> pass" 0 pass true -- \
+        env "GITHUB_OUTPUT=$OUTPUTS" "SKIP_PROVISION=true" "L4_TEST_ENDPOINT=https://stub.invalid" \
+            bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-good" --results-dir "$RESULTS"
+    check_l4 "L4 cold caller keeps SKIP_PROVISION=false -> pass" 0 pass true -- \
+        env "SKIP_PROVISION=false" \
+            bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-cold" --results-dir "$RESULTS"
+    check_l4 "L4 undeclared -> clean no-op" 0 pass false -- \
+        env "GITHUB_OUTPUT=$OUTPUTS" \
+            bash "$SCRIPT" --level 4 --sample-dir "$FIX/csharp-yaml-good" --results-dir "$RESULTS"
+    check_l4 "L4 assertion failure -> fail" 1 fail true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-fail" --results-dir "$RESULTS"
+    check_l4 "L4 transport evidence -> error" 2 error true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-infra" --results-dir "$RESULTS"
+    check_l4 "L4 missing required env -> error" 2 error true -- \
+        env -u L4_TEST_ENDPOINT "SKIP_PROVISION=true" \
+            bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-good" --results-dir "$RESULTS"
+    check_l4 "L4 missing SKIP_PROVISION -> error" 2 error true -- \
+        env -u SKIP_PROVISION "L4_TEST_ENDPOINT=https://stub.invalid" \
+            bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-good" --results-dir "$RESULTS"
+    check_l4 "L4 invalid declaration shape -> error" 2 error true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-invalid" --results-dir "$RESULTS"
+    check_l4 "L4 missing command -> error" 2 error true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-missing-command" --results-dir "$RESULTS"
+    check_l4 "L4 invalid required_env -> error" 2 error true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-invalid-env" --results-dir "$RESULTS"
+else
+    echo "  SKIP  L4 contract cases — yq unavailable (BLOCKED-on-env)"
+    SKIP_N=$((SKIP_N + 10))
+fi
+
+echo ""
+echo "=============================================================="
 echo " Guardrails (ERROR tier, no toolchain required)"
 echo "=============================================================="
 check "unknown language -> error"   2 error -- bash "$SCRIPT" --language rust   --sample-dir "$FIX/csharp-good"
 check "missing sample-dir -> error" 2 error -- bash "$SCRIPT" --language csharp --sample-dir "$FIX/does-not-exist"
 check "missing --language -> error" 2 error -- bash "$SCRIPT" --sample-dir "$FIX/csharp-good"
+check "unknown --level -> error" 2 error -- bash "$SCRIPT" --level 5 --sample-dir "$FIX/csharp-good"
 
 echo ""
 echo "=============================================================="
@@ -168,7 +226,13 @@ assert_file_has "$RESULTS/errored.txt" "$FIX/csharp-good"
 if [ "$YQ_OK" = true ]; then
     # The yq sample.yaml cases above already appended to passed/failed.txt.
     assert_file_has "$RESULTS/passed.txt" "$FIX/csharp-yaml-good"
+    assert_file_has "$RESULTS/passed.txt" "$FIX/l4-good"
+    assert_file_has "$RESULTS/passed.txt" "$FIX/l4-cold"
+    assert_file_has "$RESULTS/failed.txt" "$FIX/l4-fail"
+    assert_file_has "$RESULTS/errored.txt" "$FIX/l4-infra"
     assert_file_has "$RESULTS/failed.txt" "$FIX/csharp-yaml-broken"
+    assert_file_has "$OUTPUTS" "l4_declared=true"
+    assert_file_has "$OUTPUTS" "l4_declared=false"
 fi
 
 echo ""
