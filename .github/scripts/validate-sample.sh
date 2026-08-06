@@ -396,7 +396,7 @@ run_l4() {
     local l4_kind command_tag cmd
     l4_kind="$(yq eval '.l4 | kind' "$yaml" 2>/dev/null)" ||
         error "failed to read sample.yaml l4 declaration: $yaml"
-    [ "$l4_kind" = "!!map" ] ||
+    [ "$l4_kind" = "map" ] ||
         error "sample.yaml l4 must be a mapping with a string command"
 
     command_tag="$(yq eval '.l4.command | tag' "$yaml" 2>/dev/null)" ||
@@ -412,7 +412,7 @@ run_l4() {
         local required_env_kind env_count i env_name env_tag
         required_env_kind="$(yq eval '.l4.required_env | kind' "$yaml" 2>/dev/null)" ||
             error "failed to read sample.yaml l4.required_env: $yaml"
-        [ "$required_env_kind" = "!!seq" ] ||
+        [ "$required_env_kind" = "seq" ] ||
             error "sample.yaml l4.required_env must be a list of environment-variable names"
         env_count="$(yq eval '.l4.required_env | length' "$yaml" 2>/dev/null)" ||
             error "failed to read sample.yaml l4.required_env: $yaml"
