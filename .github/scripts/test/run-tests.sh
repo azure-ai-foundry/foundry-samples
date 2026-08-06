@@ -206,9 +206,11 @@ if [ "$YQ_OK" = true ]; then
         env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-missing-command" --results-dir "$RESULTS"
     check_l4 "L4 invalid required_env -> error" 2 error true -- \
         env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-invalid-env" --results-dir "$RESULTS"
+    check "L4 malformed sample.yaml -> error" 2 error -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-malformed" --results-dir "$RESULTS"
 else
     echo "  SKIP  L4 contract cases — yq unavailable (BLOCKED-on-env)"
-    SKIP_N=$((SKIP_N + 12))
+    SKIP_N=$((SKIP_N + 13))
 fi
 
 echo ""
@@ -219,6 +221,8 @@ check "unknown language -> error"   2 error -- bash "$SCRIPT" --language rust   
 check "missing sample-dir -> error" 2 error -- bash "$SCRIPT" --language csharp --sample-dir "$FIX/does-not-exist"
 check "missing --language -> error" 2 error -- bash "$SCRIPT" --sample-dir "$FIX/csharp-good"
 check "unknown --level -> error" 2 error -- bash "$SCRIPT" --level 5 --sample-dir "$FIX/csharp-good"
+check_l4 "L4 absent sample.yaml -> no-op without yq" 0 pass false -- \
+    env "PATH=$SCRUB_BIN" "$BASH_BIN" "$SCRIPT" --level 4 --sample-dir "$FIX/csharp-good"
 
 echo ""
 echo "=============================================================="
@@ -234,6 +238,7 @@ if [ "$YQ_OK" = true ]; then
     assert_file_has "$RESULTS/passed.txt" "$FIX/l4-cold"
     assert_file_has "$RESULTS/failed.txt" "$FIX/l4-fail"
     assert_file_has "$RESULTS/errored.txt" "$FIX/l4-infra"
+    assert_file_has "$RESULTS/errored.txt" "$FIX/l4-malformed"
     assert_file_has "$RESULTS/failed.txt" "$FIX/l4-transport-like"
     assert_file_has "$RESULTS/failed.txt" "$FIX/l4-unexpected"
     assert_file_has "$RESULTS/failed.txt" "$FIX/csharp-yaml-broken"
