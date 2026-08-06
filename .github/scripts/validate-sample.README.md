@@ -23,8 +23,8 @@ Both modes use the same exit and verdict contract:
 | Exit | Verdict | Meaning |
 |---|---|---|
 | `0` | `pass` | The requested check passed. In L4 mode, no declaration is also a clean no-op. |
-| `1` | `fail` | The sample command/assertion failed without positive infrastructure evidence. |
-| `2` | `error` | The validator precondition or caller environment is invalid, or the command log has a recognized transport failure. |
+| `1` | `fail` | The sample command/assertion failed. |
+| `2` | `error` | The validator precondition or caller environment is invalid, or an L4 command explicitly reported caller/cloud infrastructure failure. |
 
 See `CLASSIFICATION.md` for the authoritative failure-versus-error rules.
 
@@ -44,9 +44,16 @@ l4:
 The contract is:
 
 - `l4.command` is a required, non-empty shell string. The validator runs it from
-  the sample directory with Bash. Exit `0` is the pass assertion; any other exit
-  is a sample failure unless the captured output contains positive transport
-  evidence covered by `CLASSIFICATION.md`.
+  the sample directory with Bash and captures/preserves its output.
+- The command owns a strict three-way result: exit `0` means pass, exit `1`
+  means the sample/assertion failed, and exit `2` means a known caller/cloud
+  infrastructure failure. Any other nonzero exit is conservatively classified
+  as sample failure.
+- The validator never infers L4 infrastructure failure from stdout/stderr text.
+  A broken sample can legitimately print `503 Service Unavailable`, `Bad
+  Gateway`, or similar application responses. If a command can distinguish a
+  known credential, endpoint, or cloud transport failure, it must normalize
+  that condition to exit `2`; ambiguous conditions must exit `1`.
 - `l4.required_env` is optional. When present, it must be a list of valid
   environment-variable names. Every listed variable must be non-empty or the
   validator returns infrastructure error (`2`) before executing sample code.

@@ -1,4 +1,4 @@
 name: l4-infra
-description: Hermetic L4 fixture with positive transport evidence for infrastructure classification.
+description: Hermetic L4 fixture whose command normalizes known caller infrastructure failure.
 l4:
-  command: "echo 'curl: (7) Failed to connect: Connection refused' >&2; exit 7"
+  command: "echo 'known caller infrastructure failure' >&2; exit 2"

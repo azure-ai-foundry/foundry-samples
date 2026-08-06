@@ -28,17 +28,16 @@
 #   2  ERROR  OUR INFRA is sick — page us, do not quarantine
 #             PRECONDITION errors (bad/missing args, unknown language, missing sample dir,
 #             unreadable or malformed sample.yaml, a required toolchain binary missing from
-#             PATH, yq unavailable when a sample.yaml must be read), OR a RUNTIME transport
-#             failure: a `pip install` / `npm install` or declared L4 command that failed with positive
-#             transport/registry evidence (DNS failure, connection refused/reset, connect/read
-#             timeout, or a registry 5xx). See infra_transport_signature() + CLASSIFICATION.md.
+#             PATH, yq unavailable when a sample.yaml must be read), OR a dedicated `pip install` /
+#             `npm install` failure with positive transport evidence, OR an L4 command that
+#             explicitly reports caller/cloud infrastructure failure with exit 2.
 #
 # failure-vs-error at runtime (honest v1): the two DEDICATED install steps (`pip install`,
-# `npm install`) and the isolated L4 command are inspected. Positive transport evidence =>
-# ERROR; an unaccompanied command failure => FAIL (bias ambiguous->fail, never fail-open).
-# The merged resolve+compile tools (dotnet build, mvn compile, gradle build, go build,
-# npm run build) are NOT inspected in v1 — their output mixes restore+compile+user-script,
-# so they stay FAIL. Documented limit in CLASSIFICATION.md.
+# `npm install`) are inspected for positive transport evidence. Arbitrary L4 output is NEVER
+# inferred: its command owns normalization to 0=PASS, 1=FAIL, or 2=ERROR; every other nonzero
+# remains FAIL (bias ambiguous->fail, never fail-open). The merged resolve+compile tools
+# (dotnet build, mvn compile, gradle build, go build, npm run build) are NOT inspected in v1.
+# Documented limit in CLASSIFICATION.md.
 #
 # Outputs:
 #   - prints `verdict=pass|fail|error` on stdout (also appended to $GITHUB_OUTPUT if set)
@@ -131,17 +130,18 @@ ensure_yq() {
     command -v yq >/dev/null 2>&1 || error "yq not available on PATH (required to read sample.yaml)"
 }
 
-# infra_transport_signature <logfile>: return 0 IFF the captured command log shows
+# dep_infra_signature <logfile>: return 0 IFF a captured dedicated dependency-install log shows
 # HIGH-CONFIDENCE transport/registry evidence (DNS / connection refused-reset / connect-read
-# timeout / registry 5xx). This is a deliberately NARROW heuristic, not a robust classifier:
+# timeout / registry 5xx). This is a deliberately NARROW pip/npm heuristic:
 #   - it matches only tool-specific transport strings, never generic words like "timeout";
 #   - a positive match wins even when pip later prints a generic "No matching distribution"
 #     line (pip emits that AFTER exhausting retries against an unreachable index);
-#   - it is scoped to direct `pip install`, `npm install`, and declared L4 command logs;
+#   - it is scoped to direct `pip install` and `npm install` logs only;
+#   - arbitrary sample/L4 output MUST NOT be passed here;
 #   - anything unmatched stays FAIL (bias ambiguous->fail, never fail-open to pass);
 #   - EXPECT maintenance as runner pip/npm versions drift their error strings.
 # The full captured log is printed by the caller before classifying, so diagnosis is preserved.
-infra_transport_signature() {
+dep_infra_signature() {
     local log="${1:-}"
     [ -n "$log" ] && [ -f "$log" ] || return 1
     grep -Eiq \
@@ -243,7 +243,7 @@ default_validate_python() {
         local piplog; piplog="$(mktemp)"
         if ! pip install -r "$SAMPLE_DIR/requirements.txt" -q >"$piplog" 2>&1; then
             cat "$piplog"
-            if infra_transport_signature "$piplog"; then
+            if dep_infra_signature "$piplog"; then
                 rm -f "$piplog"
                 error "pip install: registry/network unreachable (transport evidence in log)"
             fi
@@ -271,11 +271,11 @@ default_validate_typescript() {
         echo "Installing dependencies..."
         local npmlog; npmlog="$(mktemp)"
         # NOT --silent: that suppresses error output too, which would blind
-        # infra_transport_signature to transport errors. --loglevel=error keeps success
+        # dep_infra_signature to transport errors. --loglevel=error keeps success
         # quiet while still emitting the network/registry failure text we classify on.
         if ! ( cd "$SAMPLE_DIR" && npm install --no-audit --no-fund --loglevel=error ) >"$npmlog" 2>&1; then
             cat "$npmlog"
-            if infra_transport_signature "$npmlog"; then
+            if dep_infra_signature "$npmlog"; then
                 rm -f "$npmlog"
                 error "npm install: registry/network unreachable (transport evidence in log)"
             fi
@@ -441,19 +441,17 @@ run_l4() {
     echo "Running L4 command (SKIP_PROVISION=$SKIP_PROVISION): $cmd"
     local l4log
     l4log="$(mktemp)" || error "failed to create temporary L4 command log"
-    if ( cd "$SAMPLE_DIR" && eval "$cmd" ) >"$l4log" 2>&1; then
-        cat "$l4log"
-        rm -f "$l4log"
-        pass
-    fi
-
+    local l4_rc
+    ( cd "$SAMPLE_DIR" && eval "$cmd" ) >"$l4log" 2>&1
+    l4_rc=$?
     cat "$l4log"
-    if infra_transport_signature "$l4log"; then
-        rm -f "$l4log"
-        error "L4 command failed with registry/network transport evidence"
-    fi
     rm -f "$l4log"
-    fail "sample.yaml l4.command exited non-zero"
+    case "$l4_rc" in
+        0) pass ;;
+        1) fail "sample.yaml l4.command reported sample failure (exit 1)" ;;
+        2) error "sample.yaml l4.command reported caller/cloud infrastructure error (exit 2)" ;;
+        *) fail "sample.yaml l4.command exited with unexpected status $l4_rc (classified fail)" ;;
+    esac
 }
 
 python_setup_venv() {

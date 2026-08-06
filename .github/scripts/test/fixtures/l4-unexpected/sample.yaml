@@ -1,0 +1,4 @@
+name: l4-unexpected
+description: Unexpected nonzero L4 statuses conservatively classify as sample failure.
+l4:
+  command: "echo 'unexpected sample command status' >&2; exit 7"

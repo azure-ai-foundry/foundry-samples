@@ -11,7 +11,7 @@ consumes its verdict.
 |------|---------|---------|-------------------|
 | `0`  | `pass`  | The requested level passed: L3 builds/compiles, or the declared L4 command exited 0. L4 with no declaration is also a successful no-op. | none |
 | `1`  | `fail`  | **The SAMPLE is broken**, or a runtime failure we cannot positively attribute to our infra. | P4.4 may count a strike / quarantine (advisory-first). |
-| `2`  | `error` | **OUR INFRA is sick** — a precondition error, or a positively-identified transport/registry failure. | Page us. **P4.4 must NEVER count or quarantine on `error`.** |
+| `2`  | `error` | **OUR INFRA is sick** — a precondition error, a dedicated dependency install with positively-identified transport failure, or an L4 command explicitly reporting caller/cloud infrastructure failure with exit 2. | Page us. **P4.4 must NEVER count or quarantine on `error`.** |
 
 The split is a safety interlock. A real breakage mislabeled `error` hides broken code forever
 (there is no counter behind `error`). A transient infra blip mislabeled `failure` risks
@@ -28,19 +28,23 @@ quarantining a healthy sample. Both directions are dangerous; keep the split hon
 - `yq` unavailable when a `sample.yaml` must be read
 - Python venv create/activate failure
 
-**Runtime transport/registry failures (P1.3 base, extended to L4 in P4.0):**
+**Runtime infrastructure failures:**
 - a `pip install` or `npm install` that failed with **positive transport evidence**:
   DNS failure, connection refused/reset, connect/read timeout, or a registry `5xx`.
-- a declared L4 command that failed with the same positive transport evidence.
-- Detection lives in `infra_transport_signature()` — a **narrow allow-list of tool-specific
+- a declared L4 command that explicitly exits `2` after identifying a known caller/cloud
+  infrastructure failure (for example credential, endpoint, or cloud transport failure).
+- Pip/npm detection lives in `dep_infra_signature()` — a **narrow allow-list of tool-specific
   transport strings** (e.g. `ECONNREFUSED`, `ENOTFOUND`, `Temporary failure in name
   resolution`, `Max retries exceeded`, `503 Server Error`). It is the authoritative signature
-  list; this doc deliberately does not duplicate it.
+  list for those dedicated install logs only; arbitrary L4 output never enters it.
 
 ## What is `failure` (exit 1)
 
 - any `sample.yaml` build/validate/test command exits non-zero
-- a declared `sample.yaml` L4 command exits non-zero without positive transport evidence
+- a declared `sample.yaml` L4 command exits `1`
+- a declared L4 command exits with any unexpected nonzero status other than explicit error `2`
+- an L4 command exits `1` after printing transport-like application text such as
+  `503 Service Unavailable`; text alone never upgrades L4 to infrastructure error
 - a compile/build step fails: `dotnet build`, `mvn compile`, `gradle build`, `go build`,
   `npm run build`, `node --check`, `py_compile`
 - a dependency install (`pip install` / `npm install`) fails **without** transport evidence —
@@ -50,8 +54,9 @@ quarantining a healthy sample. Both directions are dangerous; keep the split hon
 ## Ambiguity-bias rule
 
 When a dependency-install failure shows **no** positive transport evidence, it is classified
-`failure`, **never** `pass`. When we genuinely cannot tell an infra blip from a sample break,
-we bias to **`failure`**.
+`failure`, **never** `pass`. L4 commands must normalize a known infrastructure condition to
+exit `2`; output text is not interpreted. When we genuinely cannot tell an infra blip from a
+sample break, we bias to **`failure`**.
 
 Rationale — *recourse asymmetry*, not "strikes are cheap":
 - A false `error` has **no counter**: it silently hides real breakage forever.
@@ -66,15 +71,14 @@ never fails **open** to `pass`.
 
 ## Honest v1 limits
 
-- Only the two **dedicated** dependency-install steps — `pip install` and `npm install` — and
-  the isolated declared L4 command are inspected for transport evidence. The **merged
-  resolve+compile tools** (`dotnet build`,
+- Only the two **dedicated** dependency-install steps — `pip install` and `npm install` — are
+  inspected for transport evidence. The **merged resolve+compile tools** (`dotnet build`,
   `mvn compile`, `gradle build`, `go build`, `npm run build`) interleave dependency download
   with compilation and user scripts; grepping their combined output would manufacture false
   `error`s, so in v1 they classify as `failure`. A network blip that strikes *during* one of
   those merged steps can therefore be misread as a sample `failure`. This is a known limit, not
   a bug — extending it needs tool-specific restore phases and is deferred.
-- `infra_transport_signature()` is a **narrow heuristic**, not a robust classifier. It matches known
+- `dep_infra_signature()` is a **narrow heuristic**, not a robust classifier. It matches known
   transport strings and **will need maintenance** as runner `pip` / `npm` versions drift their
   error wording. Unknown output stays `failure`.
 - **Blocked-registry / proxy `403`.** The transport allow-list catches connection-level failures
@@ -92,7 +96,8 @@ never fails **open** to `pass`.
 The contract is exercised end-to-end on a real GitHub Actions runner by
 `.github/scripts/test/run-tests.sh` (invoked from the `validate-harness` job in
 `.github/workflows/scripts-selftest.yml`). It covers declared L4 pass, undeclared no-op,
-sample assertion failure, positive transport error, invalid declarations, missing caller
-environment, `GITHUB_OUTPUT`, and results files. The dependency checks separately prove that
-a forced-unreachable registry (`127.0.0.1:1` blackhole) classifies as `error` (exit 2), while
-an unaccompanied resolution failure classifies as `failure` (exit 1).
+explicit L4 fail/error exits, unexpected nonzero failure, transport-like text that remains a
+failure, invalid declarations, missing caller environment, `GITHUB_OUTPUT`, and results files.
+The dependency checks separately prove that a forced-unreachable registry
+(`127.0.0.1:1` blackhole) classifies as `error` (exit 2), while an unaccompanied resolution
+failure classifies as `failure` (exit 1).

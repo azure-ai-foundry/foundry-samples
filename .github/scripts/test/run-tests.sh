@@ -186,10 +186,14 @@ if [ "$YQ_OK" = true ]; then
     check_l4 "L4 undeclared -> clean no-op" 0 pass false -- \
         env "GITHUB_OUTPUT=$OUTPUTS" \
             bash "$SCRIPT" --level 4 --sample-dir "$FIX/csharp-yaml-good" --results-dir "$RESULTS"
-    check_l4 "L4 assertion failure -> fail" 1 fail true -- \
+    check_l4 "L4 explicit exit 1 -> fail" 1 fail true -- \
         env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-fail" --results-dir "$RESULTS"
-    check_l4 "L4 transport evidence -> error" 2 error true -- \
+    check_l4 "L4 explicit exit 2 -> error" 2 error true -- \
         env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-infra" --results-dir "$RESULTS"
+    check_l4 "L4 exit 1 with transport-like text -> fail" 1 fail true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-transport-like" --results-dir "$RESULTS"
+    check_l4 "L4 unexpected exit 7 -> fail" 1 fail true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-unexpected" --results-dir "$RESULTS"
     check_l4 "L4 missing required env -> error" 2 error true -- \
         env -u L4_TEST_ENDPOINT "SKIP_PROVISION=true" \
             bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-good" --results-dir "$RESULTS"
@@ -204,7 +208,7 @@ if [ "$YQ_OK" = true ]; then
         env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-invalid-env" --results-dir "$RESULTS"
 else
     echo "  SKIP  L4 contract cases — yq unavailable (BLOCKED-on-env)"
-    SKIP_N=$((SKIP_N + 10))
+    SKIP_N=$((SKIP_N + 12))
 fi
 
 echo ""
@@ -230,6 +234,8 @@ if [ "$YQ_OK" = true ]; then
     assert_file_has "$RESULTS/passed.txt" "$FIX/l4-cold"
     assert_file_has "$RESULTS/failed.txt" "$FIX/l4-fail"
     assert_file_has "$RESULTS/errored.txt" "$FIX/l4-infra"
+    assert_file_has "$RESULTS/failed.txt" "$FIX/l4-transport-like"
+    assert_file_has "$RESULTS/failed.txt" "$FIX/l4-unexpected"
     assert_file_has "$RESULTS/failed.txt" "$FIX/csharp-yaml-broken"
     assert_file_has "$OUTPUTS" "l4_declared=true"
     assert_file_has "$OUTPUTS" "l4_declared=false"
