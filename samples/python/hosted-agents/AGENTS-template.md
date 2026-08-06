@@ -31,13 +31,25 @@ Keep the bullet that matches this sample's `azure.yaml`:
   environment variables, and deployment mode
 - `src/{{agent-source-directory}}/{{entry-point}}` - agent implementation and server
   entry point
-- `src/{{agent-source-directory}}/requirements.txt` - Python dependencies
+- `src/{{agent-source-directory}}/requirements.txt` - portable, fully resolved Python runtime dependencies
 - `src/{{agent-source-directory}}/Dockerfile` - container definition; keep this bullet
   only for container-mode samples
 - `README.md` - prerequisites and supported local run, test, and deployment paths
 
 Add or remove entries so this list matches the sample. Do not commit `.vscode` launch or
 task files generated when the Foundry Toolkit scaffolds a local workspace.
+
+## Dependency workflow
+
+Follow the shared Python Hosted Agent dependency policy at
+`samples/python/hosted-agents/DEPENDENCY_POLICY.md`.
+
+`requirements.txt` is the portable consumer artifact and must pin the complete
+direct and transitive runtime graph. You may use any dependency-management tool,
+but export and commit its pip-compatible `requirements.txt`. Regenerate the
+artifact whenever `pyproject.toml`, a native lockfile, or another dependency input
+changes. Run the policy checker, including its `--resolve` closure check when
+network access is available, before completing dependency changes.
 
 ## Development workflow
 

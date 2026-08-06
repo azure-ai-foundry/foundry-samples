@@ -203,6 +203,12 @@ Already built an agent with CrewAI or your own code? The protocol SDKs (`azure-a
 | **[Human-in-the-Loop](bring-your-own/invocations/human-in-the-loop/)** | Long-running agent that pauses for human approval before continuing.                                        |
 | **[Event Grid Trigger](bring-your-own/invocations/event-grid-trigger/)** | Event-driven agent: Azure Storage → Event Grid → hosted agent (direct delivery, authenticated by the system topic's system-assigned managed identity); agent summarizes the new blob and writes the summary to a sibling Storage container. |
 
+## Python dependencies
+
+Each new or dependency-updated Python Hosted Agent runtime commits a fully resolved `requirements.txt` as its portable consumer artifact. Consumers can install it with standard pip, while sample authors remain free to use pip-tools, uv, Poetry, PDM, Pipenv, or another resolver to generate the file.
+
+See the [Python Hosted Agent dependency policy](DEPENDENCY_POLICY.md) for pinning rules, authoring-tool examples, validation commands, ratchet behavior, and exceptions.
+
 ## Deploy any sample
 
 Every sample deploys the same way and supports two equivalent paths. Pick the one that matches your workflow.

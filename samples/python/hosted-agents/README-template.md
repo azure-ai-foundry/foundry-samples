@@ -112,7 +112,7 @@ azd ai agent invoke "{{prompt}}"
 ### Set up the Python virtual environment
 
 - Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** to create a virtual environment in the workspace (or **Python: Select Interpreter** to use an existing one).
-- Install dependencies in the virtual environment:
+- Install the complete, resolved dependency graph from the committed `requirements.txt`. It is the sample's portable consumer artifact; when authoring or updating a sample, see the [Python Hosted Agent dependency policy](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/DEPENDENCY_POLICY.md).
 
   ```bash
   # use uv to accelerate
