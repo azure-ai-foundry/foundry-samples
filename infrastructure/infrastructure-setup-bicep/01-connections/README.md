@@ -12,7 +12,7 @@ variants in [`../golden-path`](../golden-path/README.md):
 | BYOM variant | Connection sample |
 |--------------|-------------------|
 | 1. APIM gateway + Foundry model in another project | [`public-byom-apim`](./public-byom-apim/) (creates the APIM gateway too) |
-| 2. No separate gateway — model in another Foundry / Azure OpenAI account | [`model-gateway`](./model-gateway/) (`samples/parameters-foundryazureai.json` or `parameters-foundryopenai.json`) — a **ModelGateway** connection pointed at the other account's inference endpoint |
+| 2. No separate gateway — model in another Foundry / Azure OpenAI account | [`model-gateway`](./model-gateway/) (`samples/parameters-foundryazureai.json`, `parameters-foundryopenai.json`, or `parameters-foundryanthropic.json`) — a **ModelGateway** connection pointed at the other account's inference endpoint |
 | 3. Third-party model provider | [`model-gateway`](./model-gateway/) (`samples/parameters-openai.json`) |
 | 4. BYOM + BYOG (your own 3P gateway) | [`model-gateway`](./model-gateway/) (custom `targetUrl`) |
 

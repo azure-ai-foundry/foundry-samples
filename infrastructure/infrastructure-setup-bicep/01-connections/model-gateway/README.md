@@ -56,6 +56,17 @@ az deployment group create \
   --parameters apiKey=<your-api-key>
 ```
 
+### Foundry Anthropic ModelGateway Connection
+```bash
+# 1. Edit samples/parameters-foundryanthropic.json with your resource IDs
+# 2. Deploy with your API key
+az deployment group create \
+  --resource-group <your-resource-group> \
+  --template-file connection-modelgateway.bicep \
+  --parameters @samples/parameters-foundryanthropic.json \
+  --parameters apiKey=<your-api-key>
+```
+
 
 ### Dynamic Discovery ModelGateway Connection
 ```bash
@@ -145,6 +156,7 @@ The template includes built-in validation:
 
 - `samples/parameters-openai.json`: For OpenAI connections with Bearer token authentication
 - `samples/parameters-foundryopenai.json`: For Foundry AzureOpenAI connection
+- `samples/parameters-foundryanthropic.json`: For Foundry Anthropic connection
 - `samples/parameters-dynamic.json`: For dynamic discovery connections with API key authentication
 - `samples/parameters-static.json`: For static model list connections with placeholder models
 - `samples/parameters-custom-auth-config.json`: For custom authentication and headers configuration

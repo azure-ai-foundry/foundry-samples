@@ -372,6 +372,7 @@ Before creating your ModelGateway connection in Azure AI Foundry, follow these s
    - `samples/parameters-oauth2.json` - For OAuth2 authentication (requires `clientId`, `tokenUrl`, `scopes`)
    - `samples/parameters-custom-auth-config.json` - For custom authentication headers
    - `samples/parameters-foundryopenai.json` - For Azure OpenAI Foundry connections
+  - `samples/parameters-foundryanthropic.json` - For Foundry Anthropic connections
 
 ### 2. **Update the parameter file** with your actual configuration values
    Use the rest of this guide to decide the correct parameter values for your gateway setup.
