@@ -57,9 +57,7 @@ def load_config(path: Path, repo_root: Path) -> list[str]:
     return samples
 
 
-def load_previous_results(path: Path | None, samples: set[str]) -> dict[str, Any]:
-    if path is None:
-        return {}
+def load_previous_results(path: Path, samples: set[str]) -> dict[str, Any]:
     try:
         body = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
@@ -69,7 +67,7 @@ def load_previous_results(path: Path | None, samples: set[str]) -> dict[str, Any
     except StateError as exc:
         raise PilotError(str(exc)) from exc
     if payload is None:
-        return {}
+        raise PilotError("previous dashboard body is missing hidden state marker")
     if payload.get("schema_version") != 1 or not isinstance(payload.get("results"), dict):
         raise PilotError("previous dashboard hidden state has an unsupported contract")
     return {
@@ -177,6 +175,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--yq", nargs="+", default=["yq"])
     parser.add_argument("--output", type=Path)
     parser.add_argument("--previous-body", type=Path)
+    parser.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help="start without previous dashboard state",
+    )
     parser.add_argument("--source-sha")
     parser.add_argument("--evidence-url")
     parser.add_argument("--run-at", help="fixed ISO-8601 UTC timestamp for tests")
@@ -197,6 +200,10 @@ def main() -> int:
             return 0
         if args.output is None:
             raise PilotError("--output is required unless --detect-l4-only is used")
+        if args.bootstrap == (args.previous_body is not None):
+            raise PilotError(
+                "exactly one of --previous-body or --bootstrap is required"
+            )
         if os.environ.get("SKIP_PROVISION") != "false":
             raise PilotError("SKIP_PROVISION must be exactly false for the pilot run")
 
@@ -205,7 +212,12 @@ def main() -> int:
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", run_at):
             raise PilotError("--run-at must use YYYY-MM-DDTHH:MM:SSZ")
 
-        results = load_previous_results(args.previous_body, set(samples))
+        if args.bootstrap:
+            results = {}
+        else:
+            if args.previous_body is None:
+                raise PilotError("--previous-body is required outside bootstrap mode")
+            results = load_previous_results(args.previous_body, set(samples))
         overall_failed = False
         validator = (repo_root / args.validator).resolve()
         if not validator.is_file():

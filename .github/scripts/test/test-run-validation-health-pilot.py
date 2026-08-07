@@ -84,7 +84,12 @@ exit 2
             newline="\n",
         )
 
-    def run_pilot(self, previous: dict | str | None = None) -> subprocess.CompletedProcess[str]:
+    def run_pilot(
+        self,
+        previous: dict | str | None = None,
+        *,
+        include_bootstrap: bool | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         output = self.root / "results.json"
         command = [
             sys.executable,
@@ -107,6 +112,10 @@ exit 2
             "--evidence-url",
             "https://github.com/example/actions/runs/1",
         ]
+        if include_bootstrap is None:
+            include_bootstrap = previous is None
+        if include_bootstrap:
+            command.append("--bootstrap")
         if previous is not None:
             body = self.root / "previous.md"
             if isinstance(previous, str):
@@ -199,6 +208,36 @@ exit 2
         )
         self.assertEqual(completed.returncode, 2)
         self.assertIn("hidden state marker is invalid", completed.stderr)
+        self.assertFalse(completed.output_path.exists())
+
+    def test_missing_hidden_state_fails_without_overwriting(self) -> None:
+        self.write_tools(l3_csharp=0, l3_python=0, csharp_l4=False, l4=0)
+        completed = self.run_pilot("# Validation health dashboard\n")
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("missing hidden state marker", completed.stderr)
+        self.assertFalse(completed.output_path.exists())
+
+    def test_state_mode_is_required(self) -> None:
+        self.write_tools(l3_csharp=0, l3_python=0, csharp_l4=False, l4=0)
+        completed = self.run_pilot(include_bootstrap=False)
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn(
+            "exactly one of --previous-body or --bootstrap is required",
+            completed.stderr,
+        )
+        self.assertFalse(completed.output_path.exists())
+
+    def test_bootstrap_and_previous_body_are_mutually_exclusive(self) -> None:
+        self.write_tools(l3_csharp=0, l3_python=0, csharp_l4=False, l4=0)
+        completed = self.run_pilot(
+            {"schema_version": 1, "results": {}},
+            include_bootstrap=True,
+        )
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn(
+            "exactly one of --previous-body or --bootstrap is required",
+            completed.stderr,
+        )
         self.assertFalse(completed.output_path.exists())
 
     def test_corrupted_hidden_state_prefix_fails_without_overwriting(self) -> None:
