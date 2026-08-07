@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "match_semantics": "first-match",
+  "glob_dialect": "p5-posix-v1",
+  "default_classification": "unresolved",
+  "default_check_class": "none",
+  "default_disposition": "unresolved",
+  "rules": [
+    {
+      "id": "internal-azure-pipelines",
+      "glob": ".azure-pipelines/**",
+      "classification": "internal-only",
+      "check_class": "none",
+      "disposition": "internal-only"
+    },
+    {
+      "id": "internal-github",
+      "glob": ".github/**",
+      "classification": "internal-only",
+      "check_class": "none",
+      "disposition": "internal-only"
+    },
+    {
+      "id": "internal-docs",
+      "glob": "docs/**",
+      "classification": "internal-only",
+      "check_class": "none",
+      "disposition": "internal-only"
+    },
+    {
+      "id": "internal-root",
+      "glob": "internal/**",
+      "classification": "internal-only",
+      "check_class": "none",
+      "disposition": "internal-only"
+    },
+    {
+      "id": "internal-public-overlay",
+      "glob": "public-overlay/**",
+      "classification": "internal-only",
+      "check_class": "none",
+      "disposition": "internal-only"
+    },
+    {
+      "id": "internal-readme",
+      "glob": "README.md",
+      "classification": "internal-only",
+      "check_class": "none",
+      "disposition": "internal-only"
+    },
+    {
+      "id": "internal-contributing",
+      "glob": "CONTRIBUTING.md",
+      "classification": "internal-only",
+      "check_class": "none",
+      "disposition": "internal-only"
+    },
+    {
+      "id": "internal-ci-skip",
+      "glob": "**/.ci-skip",
+      "classification": "internal-only",
+      "check_class": "none",
+      "disposition": "internal-only"
+    },
+    {
+      "id": "internal-code-ci-skip",
+      "glob": "**/.code-ci-skip",
+      "classification": "internal-only",
+      "check_class": "none",
+      "disposition": "internal-only"
+    },
+    {
+      "id": "python-hosted-agents-private-dependent",
+      "glob": "samples/python/hosted-agents/**",
+      "classification": "private-workflow-dependent",
+      "check_class": "hosted-agents",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "csharp-hosted-agents-private-dependent",
+      "glob": "samples/csharp/hosted-agents/**",
+      "classification": "private-workflow-dependent",
+      "check_class": "hosted-agents",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "bicep-private-dependent",
+      "glob": "infrastructure/infrastructure-setup-bicep/**",
+      "classification": "private-workflow-dependent",
+      "check_class": "bicep",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "samples-public-ready",
+      "glob": "samples/**",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "samples-classic-public-ready",
+      "glob": "samples-classic/**",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "samples-mistral-public-ready",
+      "glob": "samples-mistral/**",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "infrastructure-public-ready",
+      "glob": "infrastructure/**",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "migration-public-ready",
+      "glob": "migration/**",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "infra-public-ready",
+      "glob": ".infra/**",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "gitattributes-public-ready",
+      "glob": ".gitattributes",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "gitignore-public-ready",
+      "glob": ".gitignore",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "pre-commit-config-public-ready",
+      "glob": ".pre-commit-config.yaml",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "code-of-conduct-public-ready",
+      "glob": "CODE_OF_CONDUCT.md",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "license-public-ready",
+      "glob": "LICENSE",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "security-public-ready",
+      "glob": "SECURITY.md",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "support-public-ready",
+      "glob": "SUPPORT.md",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "conftest-public-ready",
+      "glob": "conftest.py",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "dev-requirements-public-ready",
+      "glob": "dev-requirements.txt",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "package-lock-public-ready",
+      "glob": "package-lock.json",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    },
+    {
+      "id": "tox-public-ready",
+      "glob": "tox.ini",
+      "classification": "public-ready",
+      "check_class": "none",
+      "disposition": "public-facing"
+    }
+  ]
+}
