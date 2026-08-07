@@ -1,5 +1,5 @@
 ---
-description: This template deploys a Microsoft Foundry project in one region and a backend Foundry account (with model deployments) in a SECOND region, connected through a customer-owned Azure API Management AI Gateway inside the same private VNet. It implements the cross-region private bring-your-own-model (BYOM) pattern documented in the Microsoft Learn "Bring your own model to Foundry Agent Service" article, extending template 16 with the APIM service, a backend Foundry account, a cross-region private endpoint, and the BYOM model connection on the project.
+description: This template deploys a network-secured Microsoft Foundry project with a project capability host and three optional bring-your-own-model paths: private APIM to another Foundry account, direct connection to another Foundry account, and a third-party model provider.
 page_type: sample
 products:
 - azure
@@ -10,9 +10,19 @@ languages:
 - json
 ---
 
-# Microsoft Foundry: Cross-Region Private BYOM via Azure API Management
+# Microsoft Foundry: VNet BYOM Golden Path with a Capability Host
 
-This template extends [template 16 (private-network standard agent + APIM private endpoint)](../../) with the pieces needed for the **cross-region private bring-your-own-model (BYOM)** pattern:
+This template extends [template 16 (private-network standard agent + APIM private endpoint)](../../) with the Bicep resources for three connected-model scenarios on a network-secured project:
+
+| Scenario | Connection | Model endpoint | Enable with |
+|---|---|---|---|
+| Foundry model through APIM | `ApiManagement`, project managed identity | Private through APIM outbound VNet integration and a cross-region private endpoint | Always deployed |
+| Foundry model without APIM | `ModelGateway`, API key | Backend Foundry public endpoint | `enableDirectFoundryConnection = true` |
+| Third-party provider | `ModelGateway`, API key | Provider's public OpenAI-compatible endpoint | `enableThirdPartyConnection = true` |
+
+All three produce a model reference in the form `<connection-name>/<deployment-name>` for a prompt agent invoked through the Responses API.
+
+The common project foundation includes:
 
 - A Microsoft Foundry **project** in one region (the *project region*, e.g. `canadaeast`).
 - A second Microsoft Foundry **account** in a different region (the *backend region*, e.g. `japaneast`) hosting the model deployments — typically frontier models that arrive in the backend region first.
@@ -20,6 +30,9 @@ This template extends [template 16 (private-network standard agent + APIM privat
 - A **cross-region private endpoint** from the project VNet into the backend Foundry account.
 - The `/inference` API on APIM with the full **managed-identity + backend-rewrite** policy chain.
 - A **BYOM model connection** on the project that surfaces the backend deployments as `<connection-name>/<deployment-name>` in agent code.
+
+> [!IMPORTANT]
+> The project capability host secures the project dependencies used by Agent Service, including Storage, Cosmos DB, and AI Search. It does not make connected-model inference originate from the delegated agent subnet. Connected-model calls originate from the managed Agent Service inference plane. Consequently, only the APIM scenario in this sample has a private model data path. The direct Foundry and third-party scenarios require endpoints that are reachable from that managed service plane.
 
 Reference: [Bring your own model to Foundry Agent Service](https://learn.microsoft.com/azure/foundry/agents/how-to/ai-gateway).
 
@@ -31,10 +44,16 @@ Use this template when:
 
 - The Foundry resource and the model you want to use **cannot live in the same region** — typically because frontier models (e.g. `gpt-5`, `gpt-5.1`) land in a region where Foundry projects are not yet GA, or vice versa.
 - You need the **AI Gateway pattern** (BYOM via APIM) — central observability, throttling, governance, and managed-identity rotation — in front of the model traffic.
-- You need **end-to-end private networking** — the backend Foundry account has `publicNetworkAccess = Disabled`, the cross-region PE keeps the traffic on the Microsoft backbone, and the model never appears on the public internet.
+- You need an **end-to-end private APIM path**. When direct Foundry is disabled, the backend Foundry account has `publicNetworkAccess = Disabled`, the cross-region PE keeps the traffic on the Microsoft backbone, and the model never appears on the public internet.
 - You want **managed-identity authentication** end to end. No API keys, no APIM subscription keys.
 
 If you only need APIM in front of a Foundry account in the **same region**, use [template 16](../../) directly. If you only need the connection artifact and you already have APIM + Foundry deployed, use [`01-connections/apim/connection-apim.bicep`](../../../01-connections/apim/).
+
+### Network boundary by scenario
+
+Enabling `enableDirectFoundryConnection` changes the backend account to `publicNetworkAccess: Enabled` and `disableLocalAuth: false` so Agent Service can authenticate with the generated API key. The APIM private endpoint remains in place, but the direct request does not traverse it. Do not enable this option if policy requires the model endpoint itself to remain private.
+
+The third-party endpoint and API key are supplied as deployment parameters. Pass `thirdPartyApiKey` as a secure command-line parameter or from a secret-aware deployment system; never put it in a parameter file. The endpoint must implement the OpenAI-compatible contract represented by `thirdPartyModels`.
 
 ---
 
@@ -61,6 +80,7 @@ This template extends [template 16's architecture](../../#network-secured-agent-
 │  ┌────────────────────────────────────────────────────────────────────┐    │
 │  │ apim-outbound     192.168.2.0/27                            [NEW]  │    │
 │  │ Delegated to Microsoft.Web/serverFarms                             │    │
+│  │ Network security group attached (required by APIM Standard v2)     │    │
 │  │ defaultOutboundAccess: false                                       │    │
 │  │                                                                    │    │
 │  │   ┌──────────────────────────────────────────────────────────┐     │    │
@@ -110,7 +130,7 @@ This template extends [template 16's architecture](../../#network-secured-agent-
 [NEW]  = added or changed in this extension on top of base template 16.
 ```
 
-> **Tip:** `agent-subnet` and `pe-subnet` (and the project Foundry account inside the VNet box) are inherited from [template 16](../../) unchanged. The `apim-outbound` subnet, `backend-pe` subnet, APIM service, cross-region private endpoint, and backend Foundry account in a second region are what this extension adds. The `[NEW]` annotations on `defaultOutboundAccess: false` and `disableLocalAuth: true` mark properties added in this extension to satisfy subscription-level guardrails (no shared keys on Cognitive Services; no implicit subnet egress).
+> **Tip:** For a new VNet, this extension declares all four subnets in one authoritative VNet resource so redeployment cannot remove an in-use child subnet. For an existing VNet, including one in another resource group or subscription, it derives the VNet scope and name from `existingVnetResourceId`, preserves template 16's additive behavior, and creates only the extension-owned `backend-pe` and `apim-outbound` child subnets. The APIM subnet includes the network security group required by APIM Standard v2.
 
 ---
 
@@ -121,7 +141,7 @@ This template extends [template 16's architecture](../../#network-secured-agent-
    - **Foundry Account Owner** to create the Foundry account.
 2. Quota for `gpt-4o`/`gpt-5`/`gpt-5.1` in the **backend** region, and quota for `gpt-4o` in the **project** region.
 3. Quota for **APIM StandardV2** in the project region.
-4. The Foundry project's managed-identity `appId` (client ID). The template needs this so APIM can validate inbound tokens against it. Look this up after creating the project, or run an existing template to get the project MI first.
+4. Permission to read the Foundry project's managed identity service principal in Microsoft Entra ID. The tested two-pass deployment creates the identity first, resolves its `appId` (client ID), and redeploys the APIM policy with that value.
 5. The same resource provider registrations as [template 16](../../#prerequisites) plus `Microsoft.ApiManagement`.
 
 ---
@@ -213,6 +233,10 @@ If this number equals the per-subscription per-region limit (default 5), deploym
 
 ## Deploy
 
+The APIM policy validates tokens issued to the project managed identity, but that identity does not exist until the project has been deployed. Use the same fixed `deploymentTimestamp` and resource names for both passes so the second pass updates the first deployment instead of creating another environment.
+
+### Pass 1: create the project identity
+
 ```bash
 az group create --name <rg> --location <project-region>
 
@@ -220,19 +244,46 @@ az deployment group create \
   --resource-group <rg> \
   --template-file main.bicep \
   --parameters @samples/parameters-cross-region.json \
-  --parameters projectMiClientId=<paste-client-id>
+  --parameters deploymentTimestamp=<fixed-timestamp> \
+  --parameters projectMiClientId=00000000-0000-0000-0000-000000000000
 ```
 
-Or with `.bicepparam`:
+The placeholder is used only to create the initial APIM policy. Do not invoke the gateway until the policy is updated in pass 2.
+
+### Pass 2: resolve the client ID and update the policy
+
+Get `projectId` from the first deployment's outputs, then resolve the project identity's principal ID to its application/client ID:
 
 ```bash
+PROJECT_ID="<outputs.projectId>"
+PROJECT_PRINCIPAL_ID=$(az resource show \
+  --ids "$PROJECT_ID" \
+  --api-version 2025-04-01-preview \
+  --query identity.principalId -o tsv)
+
+PROJECT_MI_CLIENT_ID=$(az ad sp show \
+  --id "$PROJECT_PRINCIPAL_ID" \
+  --query appId -o tsv)
+
 az deployment group create \
   --resource-group <rg> \
   --template-file main.bicep \
-  --parameters main.bicepparam
+  --parameters @samples/parameters-cross-region.json \
+  --parameters deploymentTimestamp=<same-fixed-timestamp> \
+  --parameters projectMiClientId="$PROJECT_MI_CLIENT_ID"
 ```
 
+The principal/object ID and application/client ID are different values. `projectMiClientId` requires the application/client ID. Allow 30 to 60 seconds for APIM policy propagation before creating and invoking a fresh prompt-agent version.
+
+You can use `main.bicepparam` instead of the JSON parameter file in both passes. Keep its `deploymentTimestamp` and all resource names unchanged between passes.
+
+By default, the project account remains private-only. For deployment-time SDK validation from one trusted caller, set `developerIpCidr` to that caller's CIDR, such as `203.0.113.10/32`. The module normalizes a single IPv4 `/32` for the Cognitive Services IP rule. Leave the parameter empty for the secure default of `publicNetworkAccess: Disabled`.
+
 After deployment, the gateway URL is in `outputs.apimGatewayUrl`. The connected models appear in the Foundry portal under **Connected resources** as `<connection-name>/<deployment-name>` (e.g. `ai-gateway/gpt-5`).
+
+### Validation status
+
+This template was deployed into a fresh test environment with a VNet-secured project and project capability host. Prompt-agent inference through the Responses API passed for both `ai-gateway/gpt-4.1-mini` and `foundry-direct/gpt-4.1-mini`. The external third-party scenario is implemented but was not tenant-validated because no external OpenAI-compatible endpoint and API key were available. APIM inference succeeded, but the test APIM instance had no Azure Monitor diagnostic setting, so independent gateway/backend log correlation was not collected.
 
 ---
 
@@ -343,7 +394,52 @@ Once everything is deployed, a single request from a Foundry agent to `gpt-5` tr
 
 ## Use the connected model from a Foundry agent
 
-Once deployment finishes, the BYOM connection appears on the Foundry project and the backend deployments become first-class models in the project. You consume them the same way you consume any Foundry model — the BYOM origin is transparent to agent code.
+Once deployment finishes, each enabled connection appears on the Foundry project and its configured deployments become connected models. Reference them as:
+
+- `ai-gateway/gpt-5` for the private APIM path.
+- `foundry-direct/gpt-5` for the direct Foundry path.
+- `third-party-models/<model-name>` for the third-party path.
+
+Connected models are supported by prompt agents through the Responses API. Do not use the classic Assistants threads/runs flow for this validation.
+
+### Enable the optional scenarios
+
+Direct Foundry uses the model deployments already declared in `backendModelDeployments`:
+
+```bicep
+param enableDirectFoundryConnection = true
+param directFoundryConnectionName = 'foundry-direct'
+```
+
+For an OpenAI-compatible third-party provider, describe each exposed model and pass the key separately at deployment time:
+
+```bicep
+param enableThirdPartyConnection = true
+param thirdPartyConnectionName = 'third-party-models'
+param thirdPartyTargetUrl = 'https://provider.example.com/v1'
+param thirdPartyModels = [
+  {
+    name: 'provider-model-name'
+    properties: {
+      model: {
+        name: 'provider-model-name'
+        version: '1'
+        format: 'OpenAI'
+      }
+    }
+  }
+]
+```
+
+```bash
+az deployment group create \
+  --resource-group <resource-group> \
+  --template-file main.bicep \
+  --parameters main.bicepparam \
+  --parameters thirdPartyApiKey='<secret>'
+```
+
+Do not commit the API key or write it to the cross-VM handoff folder.
 
 ### In the Foundry portal
 
@@ -355,10 +451,11 @@ Once deployment finishes, the BYOM connection appears on the Foundry project and
 
 ### In agent code (Python)
 
-When you create a prompt agent from the SDK, reference the connected model with the same `<connection-name>/<deployment-name>` syntax. Foundry routes the request through the connection — your code never sees APIM directly.
+When you create a prompt agent from the SDK, reference the connected model with the same `<connection-name>/<deployment-name>` syntax. Foundry routes the request through the connection; your code never sees APIM directly.
 
 ```python
 from azure.ai.projects import AIProjectClient
+from azure.ai.projects.models import PromptAgentDefinition
 from azure.identity import DefaultAzureCredential
 
 project = AIProjectClient(
@@ -366,16 +463,19 @@ project = AIProjectClient(
     credential=DefaultAzureCredential(),
 )
 
-agent = project.agents.create_agent(
-    model="ai-gateway/gpt-5",          # <connection-name>/<deployment-name>
-    name="cross-region-agent",
-    instructions="You are a helpful assistant.",
+agent = project.agents.create_version(
+    agent_name="cross-region-agent",
+    definition=PromptAgentDefinition(
+        model="ai-gateway/gpt-5",
+        instructions="You are a helpful assistant.",
+    ),
 )
 
-thread = project.agents.threads.create()
-project.agents.messages.create(thread_id=thread.id, role="user", content="Say hi.")
-run = project.agents.runs.create_and_process(thread_id=thread.id, agent_id=agent.id)
-print(project.agents.messages.list(thread_id=thread.id).data[0].content)
+response = project.get_openai_client().responses.create(
+    input="Say hi.",
+    extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
+)
+print(response.output_text)
 ```
 
 See [Create a prompt agent with a model connection](https://learn.microsoft.com/azure/foundry/agents/how-to/connected-foundry-models#use-a-connected-model-in-an-agent) for the full SDK reference.
@@ -501,7 +601,7 @@ Your token must come from a principal whose **app ID** matches the one the `vali
 | APIM AI Gateway API + policy chain | Not deployed | `/inference` API + MI/backend-rewrite/headers chain |
 | Cross-region private endpoint | Not deployed | Backend Foundry account PE on `backend-pe` subnet |
 | `backend-pe` subnet | Not present | Added as a third subnet (configurable CIDR) |
-| `apim-outbound` subnet | Not present | Added for APIM SV2 VNet integration |
+| `apim-outbound` subnet | Not present | Added with an NSG for APIM SV2 VNet integration |
 | BYOM model connection on project | Not created | Created automatically (calls `01-connections/apim/connection-apim.bicep`) |
 | Backend `publicNetworkAccess` | Project account is `Disabled` | Project **and** backend are `Disabled` |
 | Backend access path | N/A | Cross-region PE only |
@@ -512,9 +612,9 @@ Your token must come from a principal whose **app ID** matches the one the `vali
 
 ## Module map
 
-**Local modules (Local modules (extension-specific)):**
+**Local modules (extension-specific):**
 
-- [`modules/vnet-with-backend-subnet.bicep`](./modules/vnet-with-backend-subnet.bicep) — wraps template 16's VNet module and adds the `backend-pe` subnet.
+- [`modules/vnet-with-backend-subnet.bicep`](./modules/vnet-with-backend-subnet.bicep) - owns all four subnets atomically for a new VNet, or additively creates the extension subnets for an existing VNet; also creates the APIM outbound-subnet NSG.
 - [`modules/backend-ai-account.bicep`](./modules/backend-ai-account.bicep) — backend Foundry account in the backend region with the model deployments.
 - [`modules/backend-private-endpoint.bicep`](./modules/backend-private-endpoint.bicep) — cross-region PE on the `backend-pe` subnet; binds to the existing privatelink DNS zones.
 - [`modules/apim-service.bicep`](./modules/apim-service.bicep) — APIM StandardV2 + outbound VNet integration + system-assigned MI.
@@ -553,3 +653,4 @@ Your token must come from a principal whose **app ID** matches the one the `vali
 - Cross-region private endpoints from the project region to the backend account work because both ends are Azure-managed; you do **not** need VNet peering between regions.
 - APIM SV2 outbound VNet integration requires a `/27` or larger dedicated subnet (`apim-outbound`).
 - The backend Foundry account does **not** host its own project. It's used purely as a model host behind the AI Gateway.
+- The external third-party provider connection has not been tenant-validated in this sample because the test environment did not have a provider endpoint and credential.

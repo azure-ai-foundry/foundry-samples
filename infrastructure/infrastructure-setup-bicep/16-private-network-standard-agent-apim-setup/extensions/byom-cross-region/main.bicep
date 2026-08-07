@@ -13,6 +13,7 @@
     * A role assignment so APIM's MI can mint tokens for the backend account
     * A BYOM model connection on the project pointing at APIM
       (calls ../../../01-connections/apim/connection-apim.bicep)
+    * Optional direct Foundry and third-party ModelGateway connections
 
   Includes ALL of template 16's modules end-to-end (VNet, AI account + project,
   dependent resources, private endpoints, RBAC chain, capability host) so this
@@ -38,6 +39,9 @@ param projectModelFormat string = 'OpenAI'
 param projectModelVersion string = '2024-11-20'
 param projectModelSkuName string = 'GlobalStandard'
 param projectModelCapacity int = 30
+
+@description('Optional caller CIDR for authenticated project SDK access. Leave empty for private-only access.')
+param developerIpCidr string = ''
 
 param deploymentTimestamp string = utcNow('yyyyMMddHHmmss')
 var uniqueSuffix = substring(uniqueString('${resourceGroup().id}-${deploymentTimestamp}'), 0, 4)
@@ -143,6 +147,35 @@ param inferenceApiVersion string = '2024-10-21'
 @description('Application (client) ID of the Foundry project managed identity. APIM uses this to validate inbound tokens.')
 param projectMiClientId string
 
+@description('Create a ModelGateway connection directly to the backend Foundry account without APIM. This enables the backend public endpoint because connected-model inference originates from the managed Agent Service plane, not the delegated agent subnet.')
+param enableDirectFoundryConnection bool = false
+
+@description('Connection name for the direct Foundry model scenario.')
+param directFoundryConnectionName string = 'foundry-direct'
+
+@description('Create a ModelGateway connection to a third-party OpenAI-compatible model provider.')
+param enableThirdPartyConnection bool = false
+
+@description('Connection name for the third-party model provider scenario.')
+param thirdPartyConnectionName string = 'third-party-models'
+
+@description('Base URL of the third-party OpenAI-compatible endpoint, typically ending in /v1.')
+param thirdPartyTargetUrl string = ''
+
+@secure()
+@description('API key for the third-party model provider. Required when enableThirdPartyConnection is true.')
+param thirdPartyApiKey string = ''
+
+@description('Models exposed by the third-party connection. Each entry uses the ModelGateway static model shape.')
+param thirdPartyModels array = []
+
+@description('Authentication header configuration for the third-party endpoint.')
+param thirdPartyAuthConfig object = {
+  type: 'api_key'
+  name: 'Authorization'
+  format: 'Bearer'
+}
+
 // ---------------------------------------------------------------------------
 // DNS zones (same shape as template 16)
 // ---------------------------------------------------------------------------
@@ -175,6 +208,7 @@ param projectCapHost string = 'caphostproj'
 var storagePassedIn = !empty(azureStorageAccountResourceId)
 var searchPassedIn = !empty(aiSearchResourceId)
 var cosmosPassedIn = !empty(azureCosmosDBAccountResourceId)
+var existingVnetPassedIn = !empty(existingVnetResourceId)
 
 var acsParts = split(aiSearchResourceId, '/')
 var aiSearchServiceSubscriptionId = searchPassedIn ? acsParts[2] : subscription().subscriptionId
@@ -188,6 +222,11 @@ var storageParts = split(azureStorageAccountResourceId, '/')
 var azureStorageSubscriptionId = storagePassedIn ? storageParts[2] : subscription().subscriptionId
 var azureStorageResourceGroupName = storagePassedIn ? storageParts[4] : resourceGroup().name
 
+var vnetParts = split(existingVnetResourceId, '/')
+var vnetSubscriptionId = existingVnetPassedIn ? vnetParts[2] : subscription().subscriptionId
+var vnetResourceGroupName = existingVnetPassedIn ? vnetParts[4] : resourceGroup().name
+var effectiveVnetName = existingVnetPassedIn ? last(vnetParts) : vnetName
+
 // ===========================================================================
 // Compose: VNet (template 16 base) + backend-pe subnet + apim-outbound subnet
 // ===========================================================================
@@ -195,8 +234,10 @@ module vnet 'modules/vnet-with-backend-subnet.bicep' = {
   name: 'vnet-${vnetName}-deployment'
   params: {
     location: location
-    vnetName: vnetName
-    useExistingVnet: !empty(existingVnetResourceId)
+    vnetName: effectiveVnetName
+    useExistingVnet: existingVnetPassedIn
+    existingVnetSubscriptionId: vnetSubscriptionId
+    existingVnetResourceGroupName: vnetResourceGroupName
     vnetAddressPrefix: vnetAddressPrefix
     agentSubnetName: agentSubnetName
     agentSubnetPrefix: agentSubnetPrefix
@@ -204,34 +245,9 @@ module vnet 'modules/vnet-with-backend-subnet.bicep' = {
     peSubnetPrefix: peSubnetPrefix
     backendPeSubnetName: backendPeSubnetName
     backendPeSubnetPrefix: backendPeSubnetPrefix
+    apimOutboundSubnetName: apimOutboundSubnetName
+    apimOutboundSubnetPrefix: apimOutboundSubnetPrefix
   }
-}
-
-// Add the apim-outbound subnet alongside the others. Separate resource to
-// avoid racing the vnet module on subnet collection writes.
-resource apimOutboundSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
-  name: '${vnetName}/${apimOutboundSubnetName}'
-  properties: {
-    addressPrefix: apimOutboundSubnetPrefix
-    // defaultOutboundAccess: false closes the implicit egress path Azure
-    // assigns to subnets that lack explicit outbound (NAT GW / LB).
-    // APIM's outbound traffic is brokered by the SV2 platform, so the
-    // subnet itself does not need default outbound — and disabling it
-    // also satisfies subscription-level guardrails that require
-    // defaultOutboundAccess=false on every subnet.
-    defaultOutboundAccess: false
-    delegations: [
-      {
-        name: 'Microsoft.Web/serverFarms'
-        properties: {
-          serviceName: 'Microsoft.Web/serverFarms'
-        }
-      }
-    ]
-  }
-  dependsOn: [
-    vnet
-  ]
 }
 
 // ===========================================================================
@@ -248,6 +264,7 @@ module aiAccount '../../modules-network-secured/ai-account-identity.bicep' = {
     modelSkuName: projectModelSkuName
     modelCapacity: projectModelCapacity
     agentSubnetId: vnet.outputs.agentSubnetId
+    developerIpCidr: developerIpCidr
   }
 }
 
@@ -279,22 +296,6 @@ module aiDependencies '../../modules-network-secured/standard-dependent-resource
   }
 }
 
-// Existing-resource references so subsequent modules can dependsOn them
-resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' existing = {
-  name: aiDependencies.outputs.azureStorageName
-  scope: resourceGroup(azureStorageSubscriptionId, azureStorageResourceGroupName)
-}
-
-resource aiSearch 'Microsoft.Search/searchServices@2023-11-01' existing = {
-  name: aiDependencies.outputs.aiSearchName
-  scope: resourceGroup(aiDependencies.outputs.aiSearchServiceSubscriptionId, aiDependencies.outputs.aiSearchServiceResourceGroupName)
-}
-
-resource cosmosDB 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' existing = {
-  name: aiDependencies.outputs.cosmosDBName
-  scope: resourceGroup(cosmosDBSubscriptionId, cosmosDBResourceGroupName)
-}
-
 // ===========================================================================
 // Private endpoints + DNS zones for project-region resources
 // (Storage, Cosmos, AI Search, project Foundry account, optionally APIM)
@@ -308,6 +309,7 @@ module privateEndpointAndDNS '../../modules-network-secured/private-endpoint-and
     cosmosDBName: aiDependencies.outputs.cosmosDBName
     apiManagementName: validateExistingResources.outputs.apiManagementName
     vnetName: vnet.outputs.virtualNetworkName
+    privateEndpointLocation: location
     peSubnetName: vnet.outputs.peSubnetName
     suffix: uniqueSuffix
     vnetResourceGroupName: vnet.outputs.virtualNetworkResourceGroup
@@ -323,9 +325,8 @@ module privateEndpointAndDNS '../../modules-network-secured/private-endpoint-and
     existingDnsZones: existingDnsZones
   }
   dependsOn: [
-    aiSearch
-    storage
-    cosmosDB
+    vnet
+    aiDependencies
   ]
 }
 
@@ -339,7 +340,7 @@ module apimService 'modules/apim-service.bicep' = if (shouldCreateApim) {
   params: {
     location: location
     apimName: empty(apimName) ? 'apim-${uniqueSuffix}-aigw' : apimName
-    apimOutboundSubnetId: apimOutboundSubnet.id
+    apimOutboundSubnetId: vnet.outputs.apimOutboundSubnetId
     publisherEmail: publisherEmail
     publisherName: publisherName
   }
@@ -362,12 +363,20 @@ var effectiveApimPrincipalId = shouldCreateApim ? apimService!.outputs.apimPrinc
 // Backend Foundry account in the backend region + cross-region private endpoint
 // ===========================================================================
 module backendAccount 'modules/backend-ai-account.bicep' = {
-  name: 'backend-${backendAccountName}-deployment'
+  name: 'backend-${uniqueSuffix}-deployment'
   params: {
     location: backendLocation
     accountName: backendAccountName
     modelDeployments: backendModelDeployments
+    enableDirectModelConnection: enableDirectFoundryConnection
   }
+}
+
+resource backendAccountForDirectConnection 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = if (enableDirectFoundryConnection) {
+  name: backendAccountName
+  dependsOn: [
+    backendAccount
+  ]
 }
 
 // Reference the private DNS zones that template 16 deploys (or that we
@@ -399,6 +408,8 @@ module backendPe 'modules/backend-private-endpoint.bicep' = {
   }
   dependsOn: [
     aiDependencies
+    privateEndpointAndDNS
+    vnet
   ]
 }
 
@@ -454,9 +465,6 @@ module aiProject '../../modules-network-secured/ai-project-identity.bicep' = {
   }
   dependsOn: [
     privateEndpointAndDNS
-    cosmosDB
-    aiSearch
-    storage
   ]
 }
 
@@ -479,7 +487,6 @@ module storageAccountRoleAssignment '../../modules-network-secured/azure-storage
     projectPrincipalId: aiProject.outputs.projectPrincipalId
   }
   dependsOn: [
-    storage
     privateEndpointAndDNS
   ]
 }
@@ -492,7 +499,6 @@ module cosmosAccountRoleAssignments '../../modules-network-secured/cosmosdb-acco
     projectPrincipalId: aiProject.outputs.projectPrincipalId
   }
   dependsOn: [
-    cosmosDB
     privateEndpointAndDNS
   ]
 }
@@ -505,7 +511,6 @@ module aiSearchRoleAssignments '../../modules-network-secured/ai-search-role-ass
     projectPrincipalId: aiProject.outputs.projectPrincipalId
   }
   dependsOn: [
-    aiSearch
     privateEndpointAndDNS
   ]
 }
@@ -521,9 +526,6 @@ module addProjectCapabilityHost '../../modules-network-secured/add-project-capab
     projectCapHost: projectCapHost
   }
   dependsOn: [
-    aiSearch
-    storage
-    cosmosDB
     privateEndpointAndDNS
     cosmosAccountRoleAssignments
     storageAccountRoleAssignment
@@ -590,6 +592,61 @@ module byomConnection '../../../01-connections/apim/connection-apim.bicep' = {
   ]
 }
 
+// Direct Foundry connection. The managed Agent Service inference plane calls the
+// backend public endpoint; the project capability host does not proxy model traffic.
+module directFoundryConnection '../../../01-connections/model-gateway/connection-modelgateway.bicep' = if (enableDirectFoundryConnection) {
+  name: 'direct-foundry-connection-${uniqueSuffix}-deployment'
+  params: {
+    projectResourceId: aiProject.outputs.projectId
+    targetUrl: 'https://${backendAccountName}.openai.azure.com/openai'
+    gatewayName: backendAccountName
+    connectionName: directFoundryConnectionName
+    authType: 'ApiKey'
+    isSharedToAll: true
+    apiKey: backendAccountForDirectConnection!.listKeys().key1
+    deploymentInPath: 'true'
+    inferenceAPIVersion: inferenceApiVersion
+    staticModels: [for d in backendModelDeployments: {
+      name: d.name
+      properties: {
+        model: {
+          name: d.name
+          version: d.version
+          format: d.format
+        }
+      }
+    }]
+  }
+  dependsOn: [
+    addProjectCapabilityHost
+  ]
+}
+
+// Third-party providers are reached from the managed Agent Service inference
+// plane. The endpoint must therefore be publicly reachable and protected by auth.
+module thirdPartyConnection '../../../01-connections/model-gateway/connection-modelgateway.bicep' = if (enableThirdPartyConnection) {
+  name: 'third-party-connection-${uniqueSuffix}-deployment'
+  params: {
+    projectResourceId: aiProject.outputs.projectId
+    targetUrl: thirdPartyTargetUrl
+    gatewayName: 'third-party'
+    connectionName: thirdPartyConnectionName
+    authType: 'ApiKey'
+    isSharedToAll: true
+    apiKey: thirdPartyApiKey
+    deploymentInPath: 'false'
+    inferenceAPIVersion: ''
+    staticModels: thirdPartyModels
+    authConfig: thirdPartyAuthConfig
+    customHeaders: {
+      'x-ms-foundry-models': 'byom'
+    }
+  }
+  dependsOn: [
+    addProjectCapabilityHost
+  ]
+}
+
 // ===========================================================================
 // Outputs
 // ===========================================================================
@@ -598,4 +655,6 @@ output projectId string = aiProject.outputs.projectId
 output apimGatewayUrl string = shouldCreateApim ? apimService!.outputs.apimGatewayUrl : 'https://${effectiveApimName}.azure-api.net'
 output backendAccountId string = backendAccount.outputs.accountId
 output byomConnectionName string = byomConnection.outputs.connectionName
+output directFoundryConnectionName string = enableDirectFoundryConnection ? directFoundryConnection!.outputs.connectionName : ''
+output thirdPartyConnectionName string = enableThirdPartyConnection ? thirdPartyConnection!.outputs.connectionName : ''
 output backendPrivateEndpointId string = backendPe.outputs.privateEndpointId

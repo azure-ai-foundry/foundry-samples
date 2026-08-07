@@ -77,20 +77,29 @@ variant you deployed).
 | Step | What | Sample to run |
 |------|------|---------------|
 | 1 + 2 + 3 | Foundry account + project + VNet (+ PEs, DNS, agent infra) | [`15-private-network-standard-agent-setup`](../15-private-network-standard-agent-setup/) (standard) or [`11-private-network-basic-vnet`](../11-private-network-basic-vnet/) (basic) |
-| 4 + 5 | Create APIM AI Gateway inside the VNet **and** add a BYOM connection | [`16-.../extensions/byom-cross-region`](../16-private-network-standard-agent-apim-setup/extensions/byom-cross-region/) (creates APIM + backend account + BYOM connection, private) |
-| 6 | Create an agent | [`samples/*/quickstart/create-agent`](../../../samples/) |
+| 4 + 5 | Add an existing APIM to the private endpoint and DNS foundation | [`16-private-network-standard-agent-apim-setup`](../16-private-network-standard-agent-apim-setup/) (does not create the APIM API, policies, or BYOM connection) |
+| 4 + 5 | Create the APIM AI Gateway and connect a model in another region | [`16-.../extensions/byom-cross-region`](../16-private-network-standard-agent-apim-setup/extensions/byom-cross-region/) (private model path) |
+| 4 + 5 | Connect directly to a model in another Foundry account | The same [`byom-cross-region`](../16-private-network-standard-agent-apim-setup/extensions/byom-cross-region/) extension with `enableDirectFoundryConnection = true` |
+| 4 + 5 | Connect to a third-party OpenAI-compatible provider | The same [`byom-cross-region`](../16-private-network-standard-agent-apim-setup/extensions/byom-cross-region/) extension with `enableThirdPartyConnection = true` |
+| 6 | Create an agent | Use the [prompt-agent + Responses API flow](#step-6--create-an-agent-both-paths) |
 
 ### Notes for the VNet path
 
 - **Steps 1–3** are delivered together by templates `11`/`15`/`16` (account, project,
   BYO VNet, private endpoints, DNS, RBAC, capability host).
-- **Steps 4 + 5** — the private, VNet-integrated APIM + BYOM connection are delivered by
+- **Steps 4 + 5, APIM path** — the private, VNet-integrated APIM + BYOM connection are delivered by
   the [`byom-cross-region`](../16-private-network-standard-agent-apim-setup/extensions/byom-cross-region/)
   extension. It stands up a StandardV2 APIM (outbound VNet-integrated), a backend Foundry
   account, a cross-region private endpoint, the `/inference` API policy chain, and the BYOM
   connection — end to end private (`publicNetworkAccess = Disabled` on the backend).
   - If you already have a private APIM you only need to **connect**, use
     [`01-connections/apim`](../01-connections/apim/) instead.
+- **Steps 4 + 5, direct and third-party paths** — the extension reuses the shared
+  [`01-connections/model-gateway`](../01-connections/model-gateway/) module. These connected-model
+  calls originate from the managed Agent Service inference plane, not the delegated agent subnet,
+  so their upstream endpoints must be publicly reachable. The project dependencies remain
+  network-secured by the VNet and project capability host, but these two model paths are not
+  end-to-end private.
 - **Step 6** is identical to the public path — the [prompt-agent + Responses API flow](#step-6--create-an-agent-both-paths)
   is networking-agnostic; the private connectivity is already established by the infra.
 

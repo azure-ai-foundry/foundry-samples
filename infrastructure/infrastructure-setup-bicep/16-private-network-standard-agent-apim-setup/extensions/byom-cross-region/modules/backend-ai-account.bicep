@@ -29,6 +29,9 @@ param accountName string
 @description('Array of model deployments to create on the backend account. Each entry shape: { name, format, version, skuName, capacity }.')
 param modelDeployments array
 
+@description('Enable the public endpoint and local key authentication for a direct ModelGateway connection from the managed Agent Service inference plane.')
+param enableDirectModelConnection bool = false
+
 resource backendAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
   name: accountName
   location: location
@@ -48,8 +51,8 @@ resource backendAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview
       ipRules: []
       bypass: 'AzureServices'
     }
-    publicNetworkAccess: 'Disabled'
-    disableLocalAuth: true
+    publicNetworkAccess: enableDirectModelConnection ? 'Enabled' : 'Disabled'
+    disableLocalAuth: !enableDirectModelConnection
   }
 }
 
