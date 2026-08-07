@@ -1,4 +1,26 @@
 FROM python:3.12-slim
+
+# Network diagnostic CLIs that may be used by probes when exec'ing into the sandbox VM.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        dnsutils \
+        inetutils-telnet \
+        iproute2 \
+        iputils-arping \
+        iputils-ping \
+        iputils-tracepath \
+        mtr-tiny \
+        net-tools \
+        openssl \
+        tcpdump \
+        tcptraceroute \
+        traceroute \
+        tshark \
+        wget \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY . user_agent/
 WORKDIR /app/user_agent
