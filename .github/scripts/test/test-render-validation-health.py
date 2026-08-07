@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import sys
 import tempfile
@@ -87,10 +86,6 @@ class RendererTests(unittest.TestCase):
             markdown,
         )
         self.assertLess(markdown.index(C_SHARP), markdown.index(PYTHON))
-        self.assertRegex(
-            markdown,
-            r"<!-- validation-health-state-v1:[A-Za-z0-9_=-]+ -->",
-        )
 
     def test_status_mapping_dates_and_evidence(self) -> None:
         results = {
@@ -135,10 +130,6 @@ class RendererTests(unittest.TestCase):
         self.assertIn("2026-08-06 01:02 UTC", markdown)
         self.assertIn("2026-08-06 02:03 UTC", markdown)
         self.assertIn("2026-08-06 03:04 UTC", markdown)
-        self.assertEqual(
-            len(re.findall(r"validation-health-state-v1:", markdown)),
-            1,
-        )
 
     def test_invalid_selected_status_fails(self) -> None:
         results = {

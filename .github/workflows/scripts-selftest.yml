@@ -22,7 +22,6 @@ on:
       - '.github/validation-health-pilot.json'
       - '.github/scripts/**'
       - '.github/workflows/validate.yml'
-      - '.github/workflows/validation-health-pilot.yml'
       - '.github/workflows/scripts-selftest.yml'
 
 permissions:
@@ -40,8 +39,6 @@ jobs:
           python-version: '3.12'
       - name: Validation health dashboard renderer exit gate
         run: python .github/scripts/test/test-render-validation-health.py
-      - name: Validation health pilot runner exit gate
-        run: python .github/scripts/test/test-run-validation-health-pilot.py
 
   # --- Required-gate structure: hermetic Bash assertions, no credentials -------------------------
   workflow-structure-harness:

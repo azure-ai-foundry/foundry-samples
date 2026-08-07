@@ -13,8 +13,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlparse
 
-from validation_health_state import encode_state
-
 
 STATUS_DISPLAY = {
     "pass": "✅ Pass",
@@ -238,30 +236,6 @@ def render_markdown(
             "",
             "> This pilot uses public validation results only. A missing result means "
             "“never run,” not “pass.”",
-            "",
-            encode_state(
-                {
-                    "schema_version": 1,
-                    "source_sha": source_sha,
-                    "results": {
-                        sample: {
-                            level: {
-                                "status": level_result["status"],
-                                "run_at": level_result["run_at"].strftime(
-                                    "%Y-%m-%dT%H:%M:%SZ"
-                                ),
-                                **(
-                                    {"evidence_url": level_result["evidence_url"]}
-                                    if level_result["evidence_url"]
-                                    else {}
-                                ),
-                            }
-                            for level, level_result in sample_result.items()
-                        }
-                        for sample, sample_result in results.items()
-                    },
-                }
-            ),
             "",
         ]
     )
