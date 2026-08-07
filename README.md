@@ -10,5 +10,7 @@ Use the samples in this repository to try out Microsoft Foundry scenarios on you
 
 Found a bug or have a suggestion? [Open an issue](https://github.com/microsoft-foundry/foundry-samples/issues/new) — we welcome feedback from everyone!
 
-Sample contributions are submitted through a private staging repository. If you're a Microsoft employee or contractor, see the [contributing guidelines](CONTRIBUTING.md) for how to get started.
+> [!IMPORTANT]
+> **Transition draft:** The direct-public contribution path below is proposed for the public-first cutover. Until this draft pull request is merged, follow the contribution instructions on the `main` branch. Maintainers must remove this notice only after the cutover gates in the pull request are proven.
 
+To contribute a sample or fix, open a pull request directly in this repository. See the [contributing guidelines](CONTRIBUTING.md) for setup, validation, and review details.
