@@ -144,8 +144,26 @@ def _configure_application_insights() -> None:
         logger.warning("Failed to configure Application Insights: %s", ex)
 
 
+def _configure_blueprint_client_id() -> None:
+    blueprint_client_id = os.getenv("FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID")
+    if blueprint_client_id:
+        os.environ[
+            "CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTID"
+        ] = blueprint_client_id
+        print(
+            "ServiceConnection ClientId set from "
+            "FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID."
+        )
+    else:
+        print(
+            "FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID not set. "
+            "ServiceConnection ClientId not configured."
+        )
+
+
 _configure_key_vault()
 _configure_application_insights()
+_configure_blueprint_client_id()
 
 
 agents_sdk_config = load_configuration_from_env(environ)

@@ -1,14 +1,8 @@
 FROM python:3.12-slim AS runtime
 WORKDIR /app
 
-ARG BLUEPRINT_CLIENT_ID
-ARG AUTHORITY_ENDPOINT
-ARG TENANT_ID
-ARG AZURE_OPENAI_ENDPOINT
-ARG MODEL_DEPLOYMENT
-
 # Copy source. The build context is the agent project root
-# (samples/python/foundry-ai-teammate/src/hello_world_a365_agent),
+# (samples/python/foundry-autopilot-agent/src/hello_world_a365_agent),
 # so we land the package at /app/hello_world_a365_agent.
 COPY . /app/hello_world_a365_agent/
 
@@ -38,9 +32,6 @@ ENV MCP_PLATFORM_ENDPOINT=https://agent365.svc.cloud.microsoft
 # -----------------------------------------------------------------------------
 
 ENV CONNECTIONS__SERVICE_CONNECTION__SETTINGS__AUTHTYPE=IdentityProxyManager
-ENV CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTID=${BLUEPRINT_CLIENT_ID}
-ENV CONNECTIONS__SERVICE_CONNECTION__SETTINGS__AUTHORITY=${AUTHORITY_ENDPOINT}
-ENV CONNECTIONS__SERVICE_CONNECTION__SETTINGS__TENANTID=${TENANT_ID}
 ENV CONNECTIONS__SERVICE_CONNECTION__SETTINGS__SCOPES__0=5a807f24-c9de-44ee-a3a7-329e88a00ffc/.default
 
 ENV CONNECTIONSMAP__0__SERVICEURL=*
@@ -69,10 +60,8 @@ ENV AGENTAPPLICATION__USERAUTHORIZATION__HANDLERS__AGENTIC__SETTINGS__SCOPES=5a8
 
 
 # -----------------------------------------------------------------------------
-# Azure OpenAI Responses API configuration (read directly by agent.py)
+# Azure OpenAI Responses API configuration is injected when the hosted agent
+# version is created.
 # -----------------------------------------------------------------------------
-ENV AzureOpenAIEndpoint=${AZURE_OPENAI_ENDPOINT}
-ENV ModelDeployment=${MODEL_DEPLOYMENT}
-ENV FOUNDRY_AGENT_DEFAULT_INSTANCE_CLIENT_ID=${BLUEPRINT_CLIENT_ID}
 
 ENTRYPOINT ["python", "-m", "hello_world_a365_agent"]
