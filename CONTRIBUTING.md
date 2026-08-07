@@ -23,8 +23,8 @@ Before starting a substantial change, check for an existing issue. Open one when
 
 Pull requests run repository validation automatically:
 
-- Changes under `samples/` are detected and validated to the repository's supported build-readiness level.
-- Pull requests from forks run without repository credentials. The required `trusted` check is expected to remain blocked until a maintainer promotes the exact commit to a same-repository branch for trusted validation.
+- Supported changed samples under `samples/` are detected and validated to the repository's supported build-readiness level.
+- Pull requests from forks run without repository credentials. The required `trusted` check runs and fails until a maintainer promotes the exact head commit to a same-repository branch for trusted validation.
 - Documentation-only pull requests from same-repository branches satisfy the required check without running sample validation.
 
 Do not add credentials to a pull request or ask for secrets to be exposed to a fork. A maintainer will handle trusted validation when promotion is required.
