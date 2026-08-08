@@ -48,6 +48,8 @@ class ManifestError(ValueError):
 def _require_exact_fields(
     value: Mapping[str, Any], expected: frozenset[str], location: str
 ) -> None:
+    if any(not isinstance(field, str) for field in value):
+        raise ManifestError(f"{location} field names must be strings")
     actual = frozenset(value)
     missing = sorted(expected - actual)
     extra = sorted(actual - expected)
@@ -65,6 +67,14 @@ def _require_nonempty_string(value: Any, location: str) -> str:
         raise ManifestError(
             f"{location} must be a non-empty string without edge whitespace"
         )
+    return value
+
+
+def _require_enum_string(value: Any, allowed: frozenset[str], location: str) -> str:
+    if not isinstance(value, str):
+        raise ManifestError(f"{location} must be a string")
+    if value not in allowed:
+        raise ManifestError(f"{location} must be one of {sorted(allowed)}")
     return value
 
 
@@ -138,10 +148,7 @@ def _validate_delegation(delegation: Any, rule_glob: str, *, location: str) -> N
         raise ManifestError(f"{location} must be an object")
     _require_exact_fields(delegation, _DELEGATION_FIELDS, location)
 
-    if delegation["mode"] not in DELEGATION_MODES:
-        raise ManifestError(
-            f"{location}.mode must be one of {sorted(DELEGATION_MODES)}"
-        )
+    _require_enum_string(delegation["mode"], DELEGATION_MODES, f"{location}.mode")
     root = validate_repo_path(delegation["root"], location=f"{location}.root")
     if any(character in root for character in "*?[]{}!"):
         raise ManifestError(f"{location}.root must not contain glob syntax")
@@ -174,8 +181,7 @@ def validate_manifest(manifest: Any) -> Mapping[str, Any]:
         "default_disposition": DEFAULT_DISPOSITION,
     }
     for field, expected in expected_constants.items():
-        if manifest[field] != expected:
-            raise ManifestError(f"{field} must be {expected!r}")
+        _require_enum_string(manifest[field], frozenset({expected}), field)
 
     rules = manifest["rules"]
     if not isinstance(rules, list) or not rules:
@@ -188,8 +194,13 @@ def validate_manifest(manifest: Any) -> Mapping[str, Any]:
         if not isinstance(rule, Mapping):
             raise ManifestError(f"{location} must be an object")
 
+        if "classification" not in rule:
+            _require_exact_fields(rule, _RULE_FIELDS, location)
+        classification = _require_enum_string(
+            rule["classification"], CLASSIFICATIONS, f"{location}.classification"
+        )
         expected_fields = _RULE_FIELDS
-        if rule.get("classification") == "private-workflow-dependent":
+        if classification == "private-workflow-dependent":
             expected_fields = expected_fields | {"delegation"}
         _require_exact_fields(rule, expected_fields, location)
 
@@ -202,19 +213,13 @@ def validate_manifest(manifest: Any) -> Mapping[str, Any]:
         seen_ids.add(rule_id)
         seen_globs.add(glob)
 
-        if rule["classification"] not in CLASSIFICATIONS:
-            raise ManifestError(
-                f"{location}.classification must be one of {sorted(CLASSIFICATIONS)}"
-            )
-        if rule["check_class"] not in CHECK_CLASSES:
-            raise ManifestError(
-                f"{location}.check_class must be one of {sorted(CHECK_CLASSES)}"
-            )
-        if rule["disposition"] not in DISPOSITIONS:
-            raise ManifestError(
-                f"{location}.disposition must be one of {sorted(DISPOSITIONS)}"
-            )
-        if rule["classification"] == "private-workflow-dependent":
+        _require_enum_string(
+            rule["check_class"], CHECK_CLASSES, f"{location}.check_class"
+        )
+        _require_enum_string(
+            rule["disposition"], DISPOSITIONS, f"{location}.disposition"
+        )
+        if classification == "private-workflow-dependent":
             _validate_delegation(
                 rule["delegation"], glob, location=f"{location}.delegation"
             )

@@ -117,6 +117,24 @@ def test_rejects_invalid_top_level_values(field, bad_value):
 @pytest.mark.parametrize(
     "field",
     [
+        "match_semantics",
+        "glob_dialect",
+        "default_classification",
+        "default_check_class",
+        "default_disposition",
+    ],
+)
+@pytest.mark.parametrize("bad_value", [[], {}, 7, None])
+def test_rejects_non_string_top_level_contract_values(field, bad_value):
+    candidate = make_manifest()
+    candidate[field] = bad_value
+    with pytest.raises(MATCHER.ManifestError):
+        MATCHER.validate_manifest(candidate)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
         "schema_version",
         "match_semantics",
         "glob_dialect",
@@ -160,6 +178,17 @@ def test_rejects_unexpected_top_level_and_rule_fields():
     ],
 )
 def test_rejects_invalid_rule_fields_and_enums(field, bad_value):
+    candidate = make_manifest()
+    candidate["rules"][0][field] = bad_value
+    with pytest.raises(MATCHER.ManifestError):
+        MATCHER.validate_manifest(candidate)
+
+
+@pytest.mark.parametrize(
+    "field", ["id", "glob", "classification", "check_class", "disposition"]
+)
+@pytest.mark.parametrize("bad_value", [[], {}, 7, None])
+def test_rejects_non_string_rule_contract_values(field, bad_value):
     candidate = make_manifest()
     candidate["rules"][0][field] = bad_value
     with pytest.raises(MATCHER.ManifestError):
@@ -239,6 +268,20 @@ def test_rejects_invalid_delegation_objects(delegation):
         "hosted-agents",
     )
     candidate_rule["delegation"] = delegation
+    with pytest.raises(MATCHER.ManifestError):
+        MATCHER.validate_manifest(make_manifest([candidate_rule]))
+
+
+@pytest.mark.parametrize("field", ["mode", "root"])
+@pytest.mark.parametrize("bad_value", [[], {}, 7, None])
+def test_rejects_non_string_delegation_values(field, bad_value):
+    candidate_rule = rule(
+        "private",
+        "samples/python/hosted-agents/**",
+        "private-workflow-dependent",
+        "hosted-agents",
+    )
+    candidate_rule["delegation"][field] = bad_value
     with pytest.raises(MATCHER.ManifestError):
         MATCHER.validate_manifest(make_manifest([candidate_rule]))
 
@@ -507,7 +550,7 @@ def test_importable_api_supports_golden_p4_consumer(manifest):
     ]
 
 
-def run_cli(tmp_path, paths):
+def run_cli(tmp_path, paths, manifest_path=MANIFEST_PATH):
     paths_file = tmp_path / "paths.txt"
     paths_file.write_text("\n".join(paths) + "\n", encoding="utf-8")
     return subprocess.run(
@@ -516,7 +559,7 @@ def run_cli(tmp_path, paths):
             str(SCRIPT_PATH),
             "classify",
             "--manifest",
-            str(MANIFEST_PATH),
+            str(manifest_path),
             "--paths-file",
             str(paths_file),
             "--format",
@@ -562,3 +605,16 @@ def test_cli_rejects_duplicate_inputs_without_success_shaped_output(tmp_path):
     assert completed.returncode == 2
     assert completed.stdout == ""
     assert "unique" in completed.stderr
+
+
+def test_cli_rejects_malformed_enum_without_traceback(tmp_path):
+    malformed = make_manifest()
+    malformed["rules"][0]["classification"] = []
+    malformed_path = tmp_path / "malformed.json"
+    malformed_path.write_text(json.dumps(malformed), encoding="utf-8")
+
+    completed = run_cli(tmp_path, ["samples/a"], malformed_path)
+    assert completed.returncode == 2
+    assert completed.stdout == ""
+    assert completed.stderr.startswith("error: ")
+    assert "Traceback" not in completed.stderr
