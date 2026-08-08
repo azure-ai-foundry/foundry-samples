@@ -20,6 +20,7 @@ CLASSIFICATIONS = frozenset(
 )
 CHECK_CLASSES = frozenset({"none", "hosted-agents", "bicep"})
 DISPOSITIONS = frozenset({"internal-only", "public-facing"})
+DELEGATION_MODES = frozenset({"tracked-sample-yaml-roots", "rule-root"})
 DEFAULT_CLASSIFICATION = "unresolved"
 DEFAULT_CHECK_CLASS = "none"
 DEFAULT_DISPOSITION = "unresolved"
@@ -36,6 +37,7 @@ _TOP_LEVEL_FIELDS = frozenset(
     }
 )
 _RULE_FIELDS = frozenset({"id", "glob", "classification", "check_class", "disposition"})
+_DELEGATION_FIELDS = frozenset({"mode", "root"})
 _EXTGLOB_PREFIXES = ("@(", "+(", "?(", "*(", "!(")
 
 
@@ -131,6 +133,26 @@ def path_matches_glob(path: str, glob: str) -> bool:
     return glob_to_regex(glob).fullmatch(path) is not None
 
 
+def _validate_delegation(delegation: Any, rule_glob: str, *, location: str) -> None:
+    if not isinstance(delegation, Mapping):
+        raise ManifestError(f"{location} must be an object")
+    _require_exact_fields(delegation, _DELEGATION_FIELDS, location)
+
+    if delegation["mode"] not in DELEGATION_MODES:
+        raise ManifestError(
+            f"{location}.mode must be one of {sorted(DELEGATION_MODES)}"
+        )
+    root = validate_repo_path(delegation["root"], location=f"{location}.root")
+    if any(character in root for character in "*?[]{}!"):
+        raise ManifestError(f"{location}.root must not contain glob syntax")
+    if any(prefix in root for prefix in _EXTGLOB_PREFIXES):
+        raise ManifestError(f"{location}.root must not contain extglob syntax")
+    if rule_glob != f"{root}/**":
+        raise ManifestError(
+            f"{location}.root must be covered by its rule glob as '<root>/**'"
+        )
+
+
 def validate_manifest(manifest: Any) -> Mapping[str, Any]:
     """Validate a decoded manifest and return it unchanged."""
 
@@ -165,7 +187,11 @@ def validate_manifest(manifest: Any) -> Mapping[str, Any]:
         location = f"rules[{index}]"
         if not isinstance(rule, Mapping):
             raise ManifestError(f"{location} must be an object")
-        _require_exact_fields(rule, _RULE_FIELDS, location)
+
+        expected_fields = _RULE_FIELDS
+        if rule.get("classification") == "private-workflow-dependent":
+            expected_fields = expected_fields | {"delegation"}
+        _require_exact_fields(rule, expected_fields, location)
 
         rule_id = _require_nonempty_string(rule["id"], f"{location}.id")
         glob = validate_glob(rule["glob"], location=f"{location}.glob")
@@ -187,6 +213,10 @@ def validate_manifest(manifest: Any) -> Mapping[str, Any]:
         if rule["disposition"] not in DISPOSITIONS:
             raise ManifestError(
                 f"{location}.disposition must be one of {sorted(DISPOSITIONS)}"
+            )
+        if rule["classification"] == "private-workflow-dependent":
+            _validate_delegation(
+                rule["delegation"], glob, location=f"{location}.delegation"
             )
     return manifest
 
@@ -228,6 +258,9 @@ def _classify_validated_path(manifest: Mapping[str, Any], path: str) -> dict[str
                 "classification": rule["classification"],
                 "check_class": rule["check_class"],
                 "disposition": rule["disposition"],
+                "delegation": (
+                    dict(rule["delegation"]) if "delegation" in rule else None
+                ),
             }
     return {
         "path": path,
@@ -236,6 +269,7 @@ def _classify_validated_path(manifest: Mapping[str, Any], path: str) -> dict[str
         "classification": manifest["default_classification"],
         "check_class": manifest["default_check_class"],
         "disposition": manifest["default_disposition"],
+        "delegation": None,
     }
 
 

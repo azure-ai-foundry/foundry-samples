@@ -74,21 +74,33 @@
       "glob": "samples/python/hosted-agents/**",
       "classification": "private-workflow-dependent",
       "check_class": "hosted-agents",
-      "disposition": "public-facing"
+      "disposition": "public-facing",
+      "delegation": {
+        "mode": "tracked-sample-yaml-roots",
+        "root": "samples/python/hosted-agents"
+      }
     },
     {
       "id": "csharp-hosted-agents-private-dependent",
       "glob": "samples/csharp/hosted-agents/**",
       "classification": "private-workflow-dependent",
       "check_class": "hosted-agents",
-      "disposition": "public-facing"
+      "disposition": "public-facing",
+      "delegation": {
+        "mode": "tracked-sample-yaml-roots",
+        "root": "samples/csharp/hosted-agents"
+      }
     },
     {
       "id": "bicep-private-dependent",
       "glob": "infrastructure/infrastructure-setup-bicep/**",
       "classification": "private-workflow-dependent",
       "check_class": "bicep",
-      "disposition": "public-facing"
+      "disposition": "public-facing",
+      "delegation": {
+        "mode": "rule-root",
+        "root": "infrastructure/infrastructure-setup-bicep"
+      }
     },
     {
       "id": "samples-public-ready",
