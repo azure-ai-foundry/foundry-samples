@@ -95,3 +95,26 @@
 
 # Python hosted-agents declarative customer support (issue #799)
 /samples/python/hosted-agents/agent-framework/responses/09-declarative-customer-support/ @TaoChenOSU @alliscode @lindazqli
+
+# Python hosted-agents hello-world invocation sub-area (issue #890)
+/samples/python/hosted-agents/bring-your-own/invocations/hello-world/ @ankitbko @huimiu
+
+# Python prompt-agents — code-interpreter-custom and peer samples (issue #822)
+# Owners from git log; no parent CODEOWNERS entry exists for prompt-agents.
+/samples/python/prompt-agents/ @achauhan-scc @brandom-msft
+
+# Python black-forest-labs samples — owners from git log
+/samples/python/black-forest-labs/ @brandom-msft
+
+# Python external-agents samples — owners from git log
+/samples/python/external-agents/ @Ninhu
+
+# Python & C# foundry-autopilot-agent — owners from git log (issue routing)
+/samples/python/foundry-autopilot-agent/ @adyada @fosteramanda
+/samples/csharp/foundry-autopilot-agent/ @adyada @fosteramanda
+
+# C# foundry-workstream-manager-autopilot-agent — owner from git log
+/samples/csharp/foundry-workstream-manager-autopilot-agent/ @brandom-msft
+
+# CLI samples — owners from git log
+/samples/cli/ @brandom-msft @saanikaguptamicrosoft
