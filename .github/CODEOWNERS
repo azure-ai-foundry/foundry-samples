@@ -95,3 +95,6 @@
 
 # Python hosted-agents declarative customer support (issue #799)
 /samples/python/hosted-agents/agent-framework/responses/09-declarative-customer-support/ @TaoChenOSU @alliscode @lindazqli
+
+# Python prompt-agents samples (issue #822) — owners from git log top contributors
+/samples/python/prompt-agents/ @brandom-msft @achauhan-scc
