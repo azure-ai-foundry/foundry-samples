@@ -1,0 +1,62 @@
+name: validation report
+
+# Reusable consumer job. The validation producer owns the artifact schema and must
+# upload one versioned normalized JSON result per attempted sample plus this sorted
+# expected-samples JSON file. This workflow never reads raw logs or language internals.
+on:
+  workflow_call:
+    inputs:
+      results-artifact:
+        required: true
+        type: string
+      expected-samples-artifact:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download normalized result artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.results-artifact }}
+          path: ${{ runner.temp }}/validation-results
+
+      - name: Download attempted sample list
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.expected-samples-artifact }}
+          path: ${{ runner.temp }}/validation-expected
+
+      - name: Render run-scoped summary
+        id: render
+        if: always()
+        run: |
+          set -uo pipefail
+          python .github/scripts/render-validation-report.py \
+            --results-dir "$RUNNER_TEMP/validation-results" \
+            --expected-samples "$RUNNER_TEMP/validation-expected/expected-samples.json" \
+            --output "$RUNNER_TEMP/validation-report.md" \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          rc=$?
+          cat "$RUNNER_TEMP/validation-report.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "render_rc=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Fail incomplete reporting handoff
+        if: always()
+        env:
+          RENDER_RC: ${{ steps.render.outputs.render_rc }}
+        run: |
+          set -euo pipefail
+          if [ "$RENDER_RC" != "0" ]; then
+            echo "::error::Validation reporting handoff was incomplete or malformed."
+            exit 1
+          fi
