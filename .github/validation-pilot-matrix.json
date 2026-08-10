@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "repository": "microsoft-foundry/foundry-samples",
+  "samples": [
+    {
+      "id": "csharp-chat-with-agent",
+      "language": "csharp",
+      "shape": "quickstart",
+      "path": "samples/csharp/quickstart/chat-with-agent"
+    },
+    {
+      "id": "java-create-agent",
+      "language": "java",
+      "shape": "quickstart",
+      "path": "samples/java/quickstart/create-agent"
+    },
+    {
+      "id": "python-chat-with-agent",
+      "language": "python",
+      "shape": "quickstart-with-dependencies",
+      "path": "samples/python/quickstart/chat-with-agent"
+    },
+    {
+      "id": "typescript-chat-with-agent",
+      "language": "typescript",
+      "shape": "quickstart-declared-command",
+      "path": "samples/typescript/quickstart/chat-with-agent"
+    }
+  ]
+}

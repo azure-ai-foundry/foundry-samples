@@ -22,6 +22,8 @@ on:
       - '.github/scripts/**'
       - '.github/workflows/validate.yml'
       - '.github/workflows/scripts-selftest.yml'
+      - '.github/workflows/validation-pilot.yml'
+      - '.github/validation-pilot-matrix.json'
 
 permissions:
   contents: read
@@ -99,6 +101,13 @@ jobs:
 
       - name: Phase-1 exit gate — all 5 languages, pass(0)/fail(1)/error(2)
         run: bash .github/scripts/test/run-tests.sh
+
+  validation-pilot-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Producer contract tests
+        run: python -m unittest discover -s .github/scripts/test -p 'test_validation_pilot.py'
 
   # --- Plumbing isolation proof: detector outputs cross a REAL job boundary via needs.*.outputs ---
   # Proves the $GITHUB_OUTPUT -> steps.*.outputs -> job.outputs -> downstream needs.*.outputs chain
