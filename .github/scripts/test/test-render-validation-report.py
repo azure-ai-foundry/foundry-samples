@@ -21,7 +21,17 @@ class ReportTests(unittest.TestCase):
         self.results = self.root / "results"
         self.results.mkdir()
         self.expected = self.root / "expected.json"
-        self.expected.write_text(json.dumps(sorted([SAMPLE_A, SAMPLE_B])), encoding="utf-8")
+        self.expected.write_text(
+            json.dumps(
+                {
+                    "samples": [
+                        {"id": "a", "path": SAMPLE_A, "language": "python", "shape": "quickstart"},
+                        {"id": "b", "path": SAMPLE_B, "language": "csharp", "shape": "quickstart"},
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
         self.output = self.root / "summary.md"
 
     def tearDown(self) -> None:
@@ -46,17 +56,35 @@ class ReportTests(unittest.TestCase):
         )
 
     def write_result(self, sample: str, outcome: str = "passed") -> None:
-        name = sample.rsplit("/", 1)[-1] + ".json"
-        (self.results / name).write_text(
+        sample_id = "a" if sample == SAMPLE_A else "b"
+        sample_dir = self.results / sample_id
+        sample_dir.mkdir()
+        (sample_dir / "diagnostics.log").write_text("diagnostic\n", encoding="utf-8")
+        (sample_dir / "sample-result.json").write_text(
             json.dumps(
                 {
                     "schema_version": 1,
-                    "sample": sample,
+                    "sample": {
+                        "id": sample_id,
+                        "path": sample,
+                        "language": "python" if sample_id == "a" else "csharp",
+                        "shape": "quickstart",
+                    },
                     "outcome": outcome,
-                    "stage": "L3",
+                    "completed_stage": "L3 validation",
                     "duration_seconds": 12.5,
+                    "diagnostic_reference": "diagnostics.log",
+                    "artifact_reference": f"validation-pilot-{sample_id}",
                     "completed_at": "2026-08-10T19:22:33Z",
-                    "diagnostic_url": "https://github.com/example/repo/actions/runs/42",
+                    "run": {
+                        "repository": "example/repo",
+                        "workflow": "validation pilot",
+                        "run_id": "42",
+                        "run_attempt": "1",
+                        "sha": "abc",
+                        "ref": "refs/heads/main",
+                        "started_at": "2026-08-10T19:22:00Z",
+                    },
                 }
             ),
             encoding="utf-8",
@@ -64,7 +92,7 @@ class ReportTests(unittest.TestCase):
 
     def test_renders_all_outcomes_and_run_freshness(self) -> None:
         self.write_result(SAMPLE_A, "passed")
-        self.write_result(SAMPLE_B, "sample_failure")
+        self.write_result(SAMPLE_B, "sample failure")
         completed = self.run_report()
         self.assertEqual(completed.returncode, 0, completed.stderr)
         body = self.output.read_text(encoding="utf-8")
@@ -83,11 +111,13 @@ class ReportTests(unittest.TestCase):
         self.assertIn("⚠️ Infrastructure/error", body)
 
     def test_malformed_artifact_publishes_error_row_and_fails(self) -> None:
-        (self.results / "bad.json").write_text("{", encoding="utf-8")
+        bad = self.results / "bad"
+        bad.mkdir()
+        (bad / "sample-result.json").write_text("{", encoding="utf-8")
         completed = self.run_report()
         self.assertEqual(completed.returncode, 1)
         body = self.output.read_text(encoding="utf-8")
-        self.assertIn("invalid artifact: bad.json", body)
+        self.assertIn("invalid artifact: sample-result.json", body)
         self.assertIn("⚠️ Infrastructure/error", body)
 
 

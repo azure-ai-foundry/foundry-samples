@@ -1,15 +1,14 @@
 name: validation report
 
-# Reusable consumer job. The validation producer owns the artifact schema and must
-# upload one versioned normalized JSON result per attempted sample plus this sorted
-# expected-samples JSON file. This workflow never reads raw logs or language internals.
+# Reusable consumer job for validation-pilot v1. The producer owns the schema and
+# artifact completeness; this workflow only consumes normalized results and diagnostics.
 on:
   workflow_call:
     inputs:
       results-artifact:
         required: true
         type: string
-      expected-samples-artifact:
+      manifest-artifact:
         required: true
         type: string
 
@@ -32,7 +31,7 @@ jobs:
       - name: Download attempted sample list
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.expected-samples-artifact }}
+          name: ${{ inputs.manifest-artifact }}
           path: ${{ runner.temp }}/validation-expected
 
       - name: Render run-scoped summary
@@ -42,7 +41,7 @@ jobs:
           set -uo pipefail
           python .github/scripts/render-validation-report.py \
             --results-dir "$RUNNER_TEMP/validation-results" \
-            --expected-samples "$RUNNER_TEMP/validation-expected/expected-samples.json" \
+            --expected-samples "$RUNNER_TEMP/validation-expected/manifest.json" \
             --output "$RUNNER_TEMP/validation-report.md" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           rc=$?

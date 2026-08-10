@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Render a run-scoped GitHub Actions summary from normalized result artifacts.
-
-The artifact shape consumed here is an explicit adapter boundary for the reporting
-pilot. The validation session owns the canonical producer schema; this consumer
-must be aligned to that schema before production use.
-"""
+"""Render a run-scoped summary from validation-pilot v1 result artifacts."""
 
 from __future__ import annotations
 
@@ -14,26 +9,22 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlparse
-
 
 OUTCOMES = {
     "passed": "✅ Passed",
-    "sample_failure": "❌ Sample failure",
-    "infrastructure_error": "⚠️ Infrastructure/error",
-    "skipped": "⏭️ Skipped/not-completed",
+    "sample failure": "❌ Sample failure",
+    "infrastructure/error": "⚠️ Infrastructure/error",
+    "skipped/not-completed": "⏭️ Skipped/not-completed",
 }
-REQUIRED_FIELDS = {
-    "sample",
-    "outcome",
-    "stage",
-    "duration_seconds",
-    "completed_at",
+REQUIRED = {
+    "schema_version", "sample", "outcome", "completed_stage", "duration_seconds",
+    "diagnostic_reference", "artifact_reference", "completed_at", "run",
 }
+RUN_FIELDS = {"repository", "workflow", "run_id", "run_attempt", "sha", "ref", "started_at"}
 
 
 class ContractError(ValueError):
-    """Raised when the reporting adapter input is incomplete or malformed."""
+    pass
 
 
 def load_json(path: Path, label: str) -> Any:
@@ -45,26 +36,7 @@ def load_json(path: Path, label: str) -> Any:
         raise ContractError(f"{label} is not valid JSON: {exc}") from exc
 
 
-def validate_sample(value: Any, field: str = "sample") -> str:
-    if not isinstance(value, str) or not value.startswith("samples/"):
-        raise ContractError(f"{field} must be a repository-relative samples/ path")
-    if ".." in Path(value).parts or any(c in value for c in "|\r\n"):
-        raise ContractError(f"{field} contains an unsafe path")
-    return Path(value).as_posix()
-
-
-def validate_url(value: Any, field: str) -> str | None:
-    if value is None:
-        return None
-    if not isinstance(value, str):
-        raise ContractError(f"{field} must be a string")
-    parsed = urlparse(value)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise ContractError(f"{field} must be an absolute HTTP(S) URL")
-    return value
-
-
-def parse_timestamp(value: Any, field: str) -> datetime:
+def timestamp(value: Any, field: str) -> datetime:
     if not isinstance(value, str) or not value.endswith("Z"):
         raise ContractError(f"{field} must be an ISO-8601 UTC timestamp ending in Z")
     try:
@@ -76,136 +48,109 @@ def parse_timestamp(value: Any, field: str) -> datetime:
     return parsed
 
 
-def load_expected(path: Path) -> list[str]:
-    value = load_json(path, "expected samples")
-    if not isinstance(value, list) or not value:
-        raise ContractError("expected samples must be a non-empty JSON array")
-    samples = [validate_sample(item, "expected sample") for item in value]
-    if samples != sorted(set(samples)):
-        raise ContractError("expected samples must be sorted and unique")
+def sample_identity(value: Any, field: str) -> dict[str, str]:
+    keys = {"id", "path", "language", "shape"}
+    if not isinstance(value, dict) or set(value) != keys:
+        raise ContractError(f"{field} must contain exactly id, path, language, and shape")
+    if any(not isinstance(value[key], str) or not value[key] for key in keys):
+        raise ContractError(f"{field} fields must be non-empty strings")
+    if not value["path"].startswith("samples/") or ".." in Path(value["path"]).parts:
+        raise ContractError(f"{field}.path must be a safe repository-relative samples/ path")
+    return {key: value[key] for key in keys}
+
+
+def load_expected(path: Path) -> list[dict[str, str]]:
+    payload = load_json(path, "sample manifest")
+    if not isinstance(payload, dict) or not isinstance(payload.get("samples"), list) or not payload["samples"]:
+        raise ContractError("sample manifest must contain a non-empty samples array")
+    samples = [sample_identity(value, "manifest sample") for value in payload["samples"]]
+    ids = [value["id"] for value in samples]
+    if ids != sorted(set(ids)):
+        raise ContractError("manifest samples must be sorted and unique by id")
     return samples
 
 
-def load_record(path: Path) -> dict[str, Any]:
-    value = load_json(path, f"result artifact {path.name}")
-    if not isinstance(value, dict):
-        raise ContractError(f"result artifact {path.name} must be a JSON object")
-    if value.get("schema_version") != 1:
-        raise ContractError(f"result artifact {path.name} must use schema_version 1")
-    missing = REQUIRED_FIELDS - value.keys()
+def load_record(path: Path, expected: dict[str, str]) -> dict[str, Any]:
+    value = load_json(path, f"result artifact {path}")
+    if not isinstance(value, dict) or value.get("schema_version") != 1:
+        raise ContractError("result must be a schema_version 1 object")
+    missing = REQUIRED - value.keys()
     if missing:
-        raise ContractError(
-            f"result artifact {path.name} is missing fields: {sorted(missing)}"
-        )
-    sample = validate_sample(value["sample"])
-    outcome = value["outcome"]
-    if outcome not in OUTCOMES:
-        raise ContractError(f"{sample}.outcome is unsupported: {outcome!r}")
-    if not isinstance(value["stage"], str) or not value["stage"]:
-        raise ContractError(f"{sample}.stage must be a non-empty string")
-    if (
-        not isinstance(value["duration_seconds"], (int, float))
-        or isinstance(value["duration_seconds"], bool)
-        or value["duration_seconds"] < 0
-    ):
-        raise ContractError(f"{sample}.duration_seconds must be non-negative")
-    completed_at = parse_timestamp(value["completed_at"], f"{sample}.completed_at")
-    diagnostic_url = validate_url(value.get("diagnostic_url"), f"{sample}.diagnostic_url")
-    artifact_url = validate_url(value.get("artifact_url"), f"{sample}.artifact_url")
-    return {
-        "sample": sample,
-        "outcome": outcome,
-        "stage": value["stage"],
-        "duration_seconds": value["duration_seconds"],
-        "completed_at": completed_at,
-        "diagnostic_url": diagnostic_url,
-        "artifact_url": artifact_url,
-    }
+        raise ContractError(f"result is missing fields: {sorted(missing)}")
+    sample = sample_identity(value["sample"], "result sample")
+    if sample != expected:
+        raise ContractError(f"sample identity does not match manifest: {sample['id']}")
+    if value["outcome"] not in OUTCOMES:
+        raise ContractError(f"unsupported outcome: {value['outcome']!r}")
+    if not isinstance(value["completed_stage"], str) or not value["completed_stage"]:
+        raise ContractError("completed_stage must be non-empty")
+    if not isinstance(value["duration_seconds"], (int, float)) or isinstance(value["duration_seconds"], bool) or value["duration_seconds"] < 0:
+        raise ContractError("duration_seconds must be non-negative")
+    timestamp(value["completed_at"], "completed_at")
+    run = value["run"]
+    if not isinstance(run, dict) or not RUN_FIELDS <= run.keys():
+        raise ContractError(f"run is missing fields: {sorted(RUN_FIELDS - set(run or {}))}")
+    timestamp(run["started_at"], "run.started_at")
+    return {**value, "completed_at": timestamp(value["completed_at"], "completed_at")}
 
 
-def collect_records(results_dir: Path, expected: list[str]) -> tuple[list[dict[str, Any]], bool]:
+def collect(results_dir: Path, expected: list[dict[str, str]]) -> tuple[list[dict[str, Any]], bool]:
     if not results_dir.is_dir():
         raise ContractError(f"result artifact directory not found: {results_dir}")
+    expected_by_id = {value["id"]: value for value in expected}
     records: dict[str, dict[str, Any]] = {}
     incomplete = False
-    for path in sorted(results_dir.glob("*.json")):
+    for path in sorted(results_dir.glob("*/sample-result.json")):
         try:
-            record = load_record(path)
+            raw = load_json(path, f"result artifact {path}")
+            sample_id = raw.get("sample", {}).get("id") if isinstance(raw, dict) else None
+            if sample_id not in expected_by_id:
+                raise ContractError(f"unexpected sample id: {sample_id}")
+            if sample_id in records:
+                raise ContractError(f"duplicate result artifact for {sample_id}")
+            record = load_record(path, expected_by_id[sample_id])
+            if not (path.parent / "diagnostics.log").is_file():
+                raise ContractError(f"missing diagnostic: {path.parent / 'diagnostics.log'}")
+            records[sample_id] = record
         except ContractError as exc:
             incomplete = True
-            records[f"<invalid:{path.name}>"] = {
-                "sample": f"<invalid artifact: {path.name}>",
-                "outcome": "infrastructure_error",
-                "stage": "reporting",
-                "duration_seconds": 0,
-                "completed_at": None,
-                "diagnostic_url": None,
-                "artifact_url": None,
+            records[f"invalid:{path}"] = {
+                "sample": {"id": path.name, "path": f"<invalid artifact: {path.name}>", "language": "reporting", "shape": "error"},
+                "outcome": "infrastructure/error", "completed_stage": "reporting",
+                "duration_seconds": 0, "completed_at": None,
+                "diagnostic_reference": "—", "artifact_reference": path.name, "run": {},
                 "error": str(exc),
             }
-            continue
-        if record["sample"] in records:
-            incomplete = True
-            record["error"] = f"duplicate result artifact for {record['sample']}"
-            record["outcome"] = "infrastructure_error"
-        records[record["sample"]] = record
-
     for sample in expected:
-        if sample not in records:
+        if sample["id"] not in records:
             incomplete = True
-            records[sample] = {
-                "sample": sample,
-                "outcome": "infrastructure_error",
-                "stage": "reporting",
-                "duration_seconds": 0,
-                "completed_at": None,
-                "diagnostic_url": None,
-                "artifact_url": None,
-                "error": "expected result artifact is missing",
+            records[f"missing:{sample['id']}"] = {
+                "sample": sample, "outcome": "infrastructure/error",
+                "completed_stage": "reporting", "duration_seconds": 0,
+                "completed_at": None, "diagnostic_reference": "—",
+                "artifact_reference": "—", "run": {},
+                "error": f"expected result artifact is missing for {sample['id']}",
             }
-    return sorted(records.values(), key=lambda record: record["sample"]), incomplete
-
-
-def link(value: str | None) -> str:
-    if not value:
-        return "—"
-    encoded = quote(value, safe=":/?#@!$&'*+,;=%._~-")
-    return f"[link]({encoded})"
+    return sorted(records.values(), key=lambda value: value["sample"]["path"]), incomplete
 
 
 def render(records: list[dict[str, Any]], run_url: str | None) -> str:
     lines = [
-        "## Validation report",
-        "",
-        "_Run-scoped summary; only attempted samples are listed._",
-        "",
+        "## Validation report", "",
+        "_Run-scoped summary; only attempted samples are listed._", "",
         "| Sample | Outcome | Completed stage | Duration | Last run (UTC) | Diagnostic/artifact |",
         "|---|---|---|---:|---|---|",
     ]
     for record in records:
-        completed = (
-            record["completed_at"].strftime("%Y-%m-%d %H:%M:%S UTC")
-            if record["completed_at"]
-            else "—"
-        )
-        evidence = link(record["diagnostic_url"] or record["artifact_url"])
-        sample = f"`{record['sample']}`"
-        lines.append(
-            f"| {sample} | {OUTCOMES[record['outcome']]} | {record['stage']} | "
-            f"{record['duration_seconds']}s | {completed} | {evidence} |"
-        )
+        completed = record["completed_at"].strftime("%Y-%m-%d %H:%M:%S UTC") if record["completed_at"] else "—"
+        sample = f"`{record['sample']['path']}`"
+        evidence = f"`{record['diagnostic_reference']}` / `{record['artifact_reference']}`"
+        lines.append(f"| {sample} | {OUTCOMES[record['outcome']]} | {record['completed_stage']} | {record['duration_seconds']}s | {completed} | {evidence} |")
         if record.get("error"):
-            lines.append(f"| `{record['sample']}` | ⚠️ Incomplete | reporting | — | — | {record['error']} |")
+            lines.append(f"| {sample} | ⚠️ Incomplete | reporting | — | — | {record['error']} |")
     if run_url:
-        lines.extend(["", f"Run evidence: {link(run_url)}"])
-    lines.extend(
-        [
-            "",
-            "**Legend:** ✅ passed · ❌ sample failure · ⚠️ infrastructure/error · "
-            "⏭️ skipped/not-completed",
-            "",
-        ]
-    )
+        lines.extend(["", f"Run evidence: {run_url}"])
+    lines.extend(["", "**Legend:** ✅ passed · ❌ sample failure · ⚠️ infrastructure/error · ⏭️ skipped/not-completed", ""])
     return "\n".join(lines)
 
 
@@ -217,8 +162,7 @@ def main() -> int:
     parser.add_argument("--run-url")
     args = parser.parse_args()
     try:
-        expected = load_expected(args.expected_samples)
-        records, incomplete = collect_records(args.results_dir, expected)
+        records, incomplete = collect(args.results_dir, load_expected(args.expected_samples))
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(render(records, args.run_url), encoding="utf-8", newline="\n")
     except (ContractError, OSError) as exc:
