@@ -24,6 +24,7 @@ class ReportTests(unittest.TestCase):
         self.expected.write_text(
             json.dumps(
                 {
+                    "schema_version": 1,
                     "samples": [
                         {"id": "a", "path": SAMPLE_A, "language": "python", "shape": "quickstart"},
                         {"id": "b", "path": SAMPLE_B, "language": "csharp", "shape": "quickstart"},

@@ -8,9 +8,6 @@ on:
       results-artifact:
         required: true
         type: string
-      manifest-artifact:
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -28,34 +25,34 @@ jobs:
           name: ${{ inputs.results-artifact }}
           path: ${{ runner.temp }}/validation-results
 
-      - name: Download attempted sample list
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ inputs.manifest-artifact }}
-          path: ${{ runner.temp }}/validation-expected
-
-      - name: Render run-scoped summary
+      - name: Validate completeness contract
         id: render
         if: always()
         run: |
           set -uo pipefail
+          python .github/scripts/validate-validation-pilot-results.py \
+            --manifest .github/validation-pilot-matrix.json \
+            --artifacts "$RUNNER_TEMP/validation-results"
+          completeness_rc=$?
           python .github/scripts/render-validation-report.py \
             --results-dir "$RUNNER_TEMP/validation-results" \
-            --expected-samples "$RUNNER_TEMP/validation-expected/manifest.json" \
+            --expected-samples ".github/validation-pilot-matrix.json" \
             --output "$RUNNER_TEMP/validation-report.md" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          rc=$?
+          render_rc=$?
           cat "$RUNNER_TEMP/validation-report.md" >> "$GITHUB_STEP_SUMMARY"
-          echo "render_rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "completeness_rc=$completeness_rc" >> "$GITHUB_OUTPUT"
+          echo "render_rc=$render_rc" >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Fail incomplete reporting handoff
         if: always()
         env:
+          COMPLETENESS_RC: ${{ steps.render.outputs.completeness_rc }}
           RENDER_RC: ${{ steps.render.outputs.render_rc }}
         run: |
           set -euo pipefail
-          if [ "$RENDER_RC" != "0" ]; then
+          if [ "$COMPLETENESS_RC" != "0" ] || [ "$RENDER_RC" != "0" ]; then
             echo "::error::Validation reporting handoff was incomplete or malformed."
             exit 1
           fi

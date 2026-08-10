@@ -61,7 +61,12 @@ def sample_identity(value: Any, field: str) -> dict[str, str]:
 
 def load_expected(path: Path) -> list[dict[str, str]]:
     payload = load_json(path, "sample manifest")
-    if not isinstance(payload, dict) or not isinstance(payload.get("samples"), list) or not payload["samples"]:
+    if (
+        not isinstance(payload, dict)
+        or payload.get("schema_version") != 1
+        or not isinstance(payload.get("samples"), list)
+        or not payload["samples"]
+    ):
         raise ContractError("sample manifest must contain a non-empty samples array")
     samples = [sample_identity(value, "manifest sample") for value in payload["samples"]]
     ids = [value["id"] for value in samples]
@@ -72,7 +77,7 @@ def load_expected(path: Path) -> list[dict[str, str]]:
 
 def load_record(path: Path, expected: dict[str, str]) -> dict[str, Any]:
     value = load_json(path, f"result artifact {path}")
-    if not isinstance(value, dict) or value.get("schema_version") != 1:
+    if not isinstance(value, dict) or set(value) != REQUIRED or value.get("schema_version") != 1:
         raise ContractError("result must be a schema_version 1 object")
     missing = REQUIRED - value.keys()
     if missing:
@@ -88,9 +93,22 @@ def load_record(path: Path, expected: dict[str, str]) -> dict[str, Any]:
         raise ContractError("duration_seconds must be non-negative")
     timestamp(value["completed_at"], "completed_at")
     run = value["run"]
-    if not isinstance(run, dict) or not RUN_FIELDS <= run.keys():
+    if not isinstance(run, dict) or set(run) != RUN_FIELDS:
         raise ContractError(f"run is missing fields: {sorted(RUN_FIELDS - set(run or {}))}")
     timestamp(run["started_at"], "run.started_at")
+    for field in ("diagnostic_reference", "artifact_reference"):
+        reference = value[field]
+        if (
+            not isinstance(reference, str)
+            or not reference
+            or Path(reference).is_absolute()
+            or ".." in Path(reference).parts
+            or len(Path(reference).parts) != 1
+        ):
+            raise ContractError(f"{field} must be a relative filename")
+    diagnostic = path.parent / value["diagnostic_reference"]
+    if not diagnostic.is_file():
+        raise ContractError(f"missing diagnostic: {diagnostic}")
     return {**value, "completed_at": timestamp(value["completed_at"], "completed_at")}
 
 
@@ -109,8 +127,6 @@ def collect(results_dir: Path, expected: list[dict[str, str]]) -> tuple[list[dic
             if sample_id in records:
                 raise ContractError(f"duplicate result artifact for {sample_id}")
             record = load_record(path, expected_by_id[sample_id])
-            if not (path.parent / "diagnostics.log").is_file():
-                raise ContractError(f"missing diagnostic: {path.parent / 'diagnostics.log'}")
             records[sample_id] = record
         except ContractError as exc:
             incomplete = True
