@@ -6,9 +6,16 @@ This repository is entirely open source, guidance on how to contribute and links
 
 Use the samples in this repository to try out Microsoft Foundry scenarios on your local machine!
 
+## Daily public validation
+
+The daily validation cadence checks every metadata-bearing sample at 07:00 UTC
+and publishes a run-scoped report and diagnostic artifacts. Maintainers can also
+start it manually. See the
+[validation cadence guide](.github/validation-pilot.README.md) for coverage,
+outcomes, artifacts, and current L4 limitations.
+
 ## Contributing
 
 Found a bug or have a suggestion? [Open an issue](https://github.com/microsoft-foundry/foundry-samples/issues/new) — we welcome feedback from everyone!
 
 Sample contributions are submitted through a private staging repository. If you're a Microsoft employee or contractor, see the [contributing guidelines](CONTRIBUTING.md) for how to get started.
-

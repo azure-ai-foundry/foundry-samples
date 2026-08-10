@@ -1,33 +1,82 @@
 # Daily public validation cadence
 
-`validation-pilot.yml` runs daily at 07:00 UTC and can also be dispatched
-manually. It discovers every `samples/**/sample.yaml` at the checked-out commit,
-generates a deterministic manifest and matrix, and runs with `fail-fast: false`.
-The first full-fleet run should be manually reviewed before the first scheduled
-occurrence.
+The [Daily public validation cadence](workflows/validation-pilot.yml) runs every
+day at 07:00 UTC. Superseded runs are cancelled through workflow concurrency.
+Maintainers can also run it from **Actions** > **Daily public validation
+cadence** > **Run workflow**.
 
-All supported samples run build readiness. Samples declaring live-service validation use a separate credentialed
-matrix leg to avoid duplicate validation and unnecessary environment deployment
-records, but that leg still runs build readiness first and proceeds to live-service
-validation only when readiness passes. Declaring live-service validation never opts
-a sample out of build readiness. JavaScript uses the existing
-TypeScript/node validator mapping. Rust samples remain in the manifest and emit
-`skipped/not-completed` with an explicit unsupported-language reason.
+## Inventory and validation modes
 
-Each matrix leg persists `sample-result.json` and `diagnostics.log` in a
-versioned artifact. Declared `sample.yaml` live-service commands run through the
-existing `L4-validation` OIDC environment and warm-project seam. That environment
-name is a legacy external GitHub/Entra identifier and is not the validation mode
-name. P4.1 does not provision
-resources and does not set a cold-provisioning default.
+At the checked-out commit, the workflow deterministically discovers every
+`samples/**/sample.yaml` and generates the manifest and job matrices used by
+that run. There is no static matrix to maintain: a new
+`samples/**/sample.yaml` file is discovered automatically.
 
-The result schema remains owned by the producer and includes
-sample identity, one of `passed`, `sample failure`, `infrastructure/error`, or
-`skipped/not-completed`, the completed stage, duration, references to the
-diagnostic and result artifacts, completion time, and GitHub run metadata.
+The current inventory contains 72 samples:
 
-The completeness job fails the run if any discovered sample is missing,
-duplicated, malformed, or missing its diagnostic. Individual sample failures
-remain valid result records and do not prevent later matrix legs from running.
-The generated manifest is included in the normalized run artifact so the
-same-run report consumes exactly the inventory that was executed.
+- 61 samples have supported build-readiness validators.
+- 11 Rust samples emit explicit `skipped/not-completed` records because build
+  readiness does not yet support Rust.
+- JavaScript samples use the existing TypeScript/node validator.
+- Two samples opt in to live-service validation with
+  `live_service_validation` metadata.
+
+**Build readiness** is credential-free. It uses a sample's declared build,
+validate, or test command when present; otherwise, it uses the language-default
+restore, build, compile, or syntax check.
+
+**Live-service validation** is an opt-in, sample-owned runtime assertion. The
+workflow runs build readiness first and proceeds to the declared live-service
+command only when readiness passes. Authentication and configuration come from
+the caller, and the workflow preserves the current `SKIP_PROVISION=true`
+warm-project policy. The GitHub environment remains named `L4-validation`
+because that legacy external identifier is part of the Entra OIDC subject; it
+is not a current validation mode name.
+
+Discovery textually detects the `live_service_validation` key and rejects the
+legacy `l4` key with migration guidance. Do not infer broader YAML integrity,
+duplicate-ID, or path-safety guarantees from discovery until those guardrails
+are implemented.
+
+See the [per-sample validation contract](scripts/validate-sample.README.md) for
+metadata and local command examples. The runner modes are
+`--mode build-readiness` and `--mode live-service`.
+
+## Results and artifacts
+
+Producers emit schema-v2 manifests and results. Completeness and reporting
+readers retain schema-v1 compatibility for historical artifacts. New results
+use descriptive completed stages such as `build readiness validation` and
+`live-service validation`.
+
+Every result uses one of these outcomes:
+
+- `passed`
+- `sample failure`
+- `infrastructure/error`
+- `skipped/not-completed`
+
+A `sample failure` is valid reported data. Missing, duplicate, malformed, or
+incomplete result artifacts violate the reporting contract and fail the run.
+
+Each run publishes:
+
+- One `validation-pilot-{sample-id}` artifact per discovered sample, containing
+  `sample-result.json` and `diagnostics.log`.
+- The generated manifest in `validation-pilot-manifest`.
+- The consolidated
+  `validation-pilot-run-{run_id}-{run_attempt}` artifact.
+- A same-run summary in the `report / report` job.
+
+Cadence evidence is available in the
+[corrected manual run](https://github.com/microsoft-foundry/foundry-samples/actions/runs/31447067783)
+and the
+[first scheduled run](https://github.com/microsoft-foundry/foundry-samples/actions/runs/31469044031).
+
+The implementation and reporting contract are defined in:
+
+- [`.github/scripts/discover-validation-samples.py`](scripts/discover-validation-samples.py)
+- [`.github/scripts/run-validation-pilot.py`](scripts/run-validation-pilot.py)
+- [`.github/scripts/validate-validation-pilot-results.py`](scripts/validate-validation-pilot-results.py)
+- [`.github/scripts/render-validation-report.py`](scripts/render-validation-report.py)
+- [`.github/workflows/validation-report.yml`](workflows/validation-report.yml)
