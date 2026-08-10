@@ -16,9 +16,21 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNNER = ROOT / "scripts" / "run-validation-pilot.py"
 COMPLETENESS = ROOT / "scripts" / "validate-validation-pilot-results.py"
 MANIFEST = ROOT / "validation-pilot-matrix.json"
+WORKFLOW = ROOT / "workflows" / "validation-pilot.yml"
 
 
 class ValidationPilotTests(unittest.TestCase):
+    def test_workflow_calls_report_after_completeness(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("  report:", workflow)
+        self.assertIn("needs: completeness", workflow)
+        self.assertIn("if: ${{ always() && !cancelled() }}", workflow)
+        self.assertIn("uses: ./.github/workflows/validation-report.yml", workflow)
+        self.assertIn(
+            "results-artifact: validation-pilot-run-${{ github.run_id }}-${{ github.run_attempt }}",
+            workflow,
+        )
+
     def test_manifest_is_curated_and_supported(self) -> None:
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
         self.assertEqual(manifest["schema_version"], 1)

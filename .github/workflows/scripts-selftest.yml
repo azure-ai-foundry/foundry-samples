@@ -22,6 +22,7 @@ on:
       - '.github/scripts/**'
       - '.github/workflows/validate.yml'
       - '.github/workflows/scripts-selftest.yml'
+      - '.github/workflows/validation-report.yml'
       - '.github/workflows/validation-pilot.yml'
       - '.github/validation-pilot-matrix.json'
 
@@ -101,6 +102,14 @@ jobs:
 
       - name: Phase-1 exit gate — all 5 languages, pass(0)/fail(1)/error(2)
         run: bash .github/scripts/test/run-tests.sh
+
+  # --- Reporting consumer contract tests: fixtures only, no producer coupling ----------------------
+  report-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run normalized-artifact reporting tests
+        run: python .github/scripts/test/test-render-validation-report.py
 
   validation-pilot-contract:
     runs-on: ubuntu-latest

@@ -100,3 +100,10 @@ jobs:
           path: ${{ runner.temp }}/pilot-artifacts
           if-no-files-found: error
           retention-days: 90
+
+  report:
+    needs: completeness
+    if: ${{ always() && !cancelled() }}
+    uses: ./.github/workflows/validation-report.yml
+    with:
+      results-artifact: validation-pilot-run-${{ github.run_id }}-${{ github.run_attempt }}
