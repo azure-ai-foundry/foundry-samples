@@ -1,9 +1,9 @@
 {
     "$schema": "https://aka.ms/azure-quickstart-templates-metadata-schema#",
     "itemDisplayName": "Creates an AI Foundry using User-Assigned Identity",
-    "description": "This template allows you to create an AI Foundry account and project using User-Assigned Identity.",
-    "summary": "This template allows you to create an AI Foundry account and project using User-Assigned Identity.",
+    "description": "This template creates an AI Foundry account and project using a user-assigned identity, with Application Insights tracing.",
+    "summary": "Create an AI Foundry project with a user-assigned identity and Application Insights tracing.",
     "githubUsername": "andyaviles121",
-    "dateUpdated": "2025-04-16",
+    "dateUpdated": "2026-08-06",
     "type": "QuickStart"
   }
