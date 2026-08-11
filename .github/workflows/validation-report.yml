@@ -8,6 +8,10 @@ on:
       results-artifact:
         required: true
         type: string
+      manifest-path:
+        required: false
+        default: manifest.json
+        type: string
 
 permissions:
   contents: read
@@ -18,7 +22,6 @@ jobs:
     if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@v4
-
       - name: Download normalized result artifacts
         uses: actions/download-artifact@v4
         with:
@@ -31,12 +34,12 @@ jobs:
         run: |
           set -uo pipefail
           python .github/scripts/validate-validation-pilot-results.py \
-            --manifest .github/validation-pilot-matrix.json \
+            --manifest "$RUNNER_TEMP/validation-results/${{ inputs.manifest-path }}" \
             --artifacts "$RUNNER_TEMP/validation-results"
           completeness_rc=$?
           python .github/scripts/render-validation-report.py \
             --results-dir "$RUNNER_TEMP/validation-results" \
-            --expected-samples ".github/validation-pilot-matrix.json" \
+            --expected-samples "$RUNNER_TEMP/validation-results/${{ inputs.manifest-path }}" \
             --output "$RUNNER_TEMP/validation-report.md" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           render_rc=$?

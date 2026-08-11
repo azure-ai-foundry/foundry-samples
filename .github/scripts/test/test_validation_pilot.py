@@ -14,8 +14,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNNER = ROOT / "scripts" / "run-validation-pilot.py"
+DISCOVERY = ROOT / "scripts" / "discover-validation-samples.py"
 COMPLETENESS = ROOT / "scripts" / "validate-validation-pilot-results.py"
-MANIFEST = ROOT / "validation-pilot-matrix.json"
 WORKFLOW = ROOT / "workflows" / "validation-pilot.yml"
 
 
@@ -31,17 +31,41 @@ class ValidationPilotTests(unittest.TestCase):
             workflow,
         )
 
-    def test_manifest_is_curated_and_supported(self) -> None:
-        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-        self.assertEqual(manifest["schema_version"], 1)
-        self.assertEqual(len(manifest["samples"]), 4)
-        self.assertEqual(
-            {sample["language"] for sample in manifest["samples"]},
-            {"csharp", "java", "python", "typescript"},
-        )
-        for sample in manifest["samples"]:
-            self.assertTrue((ROOT.parent / sample["path"]).is_dir(), sample["path"])
-
+    def test_discovery_covers_full_inventory_and_explicitly_skips_rust(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.json"
+            matrix = root / "matrix.json"
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(DISCOVERY),
+                    "--root",
+                    str(ROOT.parent),
+                    "--manifest",
+                    str(manifest),
+                    "--matrix",
+                    str(matrix),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            self.assertEqual(payload["schema_version"], 1)
+            self.assertEqual(len(payload["samples"]), 72)
+            self.assertEqual(
+                sum(not value["eligible"] for value in payload["validation"].values()),
+                11,
+            )
+            self.assertEqual(
+                {value["validator_language"] for value in payload["validation"].values() if value["validator_language"]},
+                {"csharp", "java", "python", "typescript"},
+            )
+            self.assertTrue(all(sample["shape"] == "full-fleet" for sample in payload["samples"]))
+            self.assertEqual(json.loads(matrix.read_text(encoding="utf-8"))["include"], [
+                {**sample, **payload["validation"][sample["id"]]} for sample in payload["samples"]
+            ])
     def test_sample_failure_is_a_complete_valid_result(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

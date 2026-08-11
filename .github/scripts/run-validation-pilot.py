@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one curated sample and write its canonical normalized result."""
+"""Run one sample and write its canonical normalized result."""
 
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sample-id", required=True)
     parser.add_argument("--language", required=True)
+    parser.add_argument("--validator-language")
     parser.add_argument("--shape", required=True)
     parser.add_argument("--sample-path", required=True)
     parser.add_argument("--validator", default=".github/scripts/validate-sample.sh")
@@ -39,6 +40,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ref", default=os.environ.get("GITHUB_REF", "local"))
     parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", "local"))
     parser.add_argument("--workflow", default=os.environ.get("GITHUB_WORKFLOW", "validation pilot"))
+    parser.add_argument("--run-l4", action="store_true")
+    parser.add_argument("--skip-reason")
     return parser.parse_args()
 
 
@@ -46,30 +49,37 @@ def main() -> int:
     args = parse_args()
     started_at = utc_now()
     started = time.monotonic()
-    command = [
-        args.bash,
-        args.validator,
-        "--level",
-        "3",
-        "--language",
-        args.language,
-        "--sample-dir",
-        args.sample_path,
-    ]
-    try:
-        completed = subprocess.run(command, capture_output=True, text=True)
-        diagnostic = (
-            "$ " + " ".join(command) + "\n"
-            + completed.stdout
-            + completed.stderr
-        )
-        outcome = OUTCOMES.get(completed.returncode, "infrastructure/error")
-        stage = "L3 validation" if completed.returncode in OUTCOMES else "L3 validation invocation"
-    except (OSError, subprocess.SubprocessError) as exc:
-        completed = None
-        diagnostic = "$ " + " ".join(command) + f"\nrunner error: {exc}\n"
-        outcome = "infrastructure/error"
-        stage = "L3 validation invocation"
+    validator_language = args.validator_language or args.language
+    if args.skip_reason:
+        diagnostic = f"skipped: {args.skip_reason}\n"
+        outcome = "skipped/not-completed"
+        stage = "inventory eligibility"
+    else:
+        command = [
+            args.bash,
+            args.validator,
+            "--level",
+            "3",
+            "--language",
+            validator_language,
+            "--sample-dir",
+            args.sample_path,
+        ]
+        try:
+            completed = subprocess.run(command, capture_output=True, text=True)
+            diagnostic = "$ " + " ".join(command) + "\n" + completed.stdout + completed.stderr
+            outcome = OUTCOMES.get(completed.returncode, "infrastructure/error")
+            stage = "L3 validation" if completed.returncode in OUTCOMES else "L3 validation invocation"
+            if outcome == "passed" and args.run_l4:
+                l4_command = [args.bash, args.validator, "--level", "4", "--sample-dir", args.sample_path]
+                l4 = subprocess.run(l4_command, capture_output=True, text=True)
+                diagnostic += "\n$ " + " ".join(l4_command) + "\n" + l4.stdout + l4.stderr
+                outcome = OUTCOMES.get(l4.returncode, "infrastructure/error")
+                stage = "L4 validation" if l4.returncode in OUTCOMES else "L4 validation invocation"
+        except (OSError, subprocess.SubprocessError) as exc:
+            diagnostic = "$ " + " ".join(command) + f"\nrunner error: {exc}\n"
+            outcome = "infrastructure/error"
+            stage = "L3 validation invocation"
 
     completed_at = utc_now()
     result = {

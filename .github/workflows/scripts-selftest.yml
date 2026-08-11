@@ -24,7 +24,7 @@ on:
       - '.github/workflows/scripts-selftest.yml'
       - '.github/workflows/validation-report.yml'
       - '.github/workflows/validation-pilot.yml'
-      - '.github/validation-pilot-matrix.json'
+      - '.github/scripts/discover-validation-samples.py'
 
 permissions:
   contents: read
