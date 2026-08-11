@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.44.1.10279",
-      "templateHash": "9672416477166736753"
+      "templateHash": "9005518444680591480"
     }
   },
   "parameters": {
@@ -1236,9 +1236,6 @@
           "aiAccountName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-{1}-deployment', variables('accountName'), variables('uniqueSuffix'))), '2025-04-01').outputs.accountName.value]"
           },
-          "location": {
-            "value": "[parameters('location')]"
-          },
           "storageName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', format('dependencies-{0}-deployment', variables('uniqueSuffix'))), '2025-04-01').outputs.azureStorageName.value]"
           },
@@ -1277,17 +1274,10 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "2137547566661638544"
+              "templateHash": "11525768866797919522"
             }
           },
           "parameters": {
-            "location": {
-              "type": "string",
-              "defaultValue": "[resourceGroup().location]",
-              "metadata": {
-                "description": "Azure region for the private endpoints. Defaults to the resource group location for backward compatibility; pass the deployment location so private endpoints are co-located with their target resources when the resource group is in a different region."
-              }
-            },
             "aiAccountName": {
               "type": "string",
               "metadata": {
@@ -1384,7 +1374,7 @@
               "type": "Microsoft.Network/privateEndpoints",
               "apiVersion": "2024-05-01",
               "name": "[format('{0}-private-endpoint', parameters('aiAccountName'))]",
-              "location": "[parameters('location')]",
+              "location": "[resourceGroup().location]",
               "properties": {
                 "subnet": {
                   "id": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('vnetSubscriptionId'), parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('peSubnetName'))]"
@@ -1406,7 +1396,7 @@
               "type": "Microsoft.Network/privateEndpoints",
               "apiVersion": "2024-05-01",
               "name": "[format('{0}-private-endpoint', parameters('storageName'))]",
-              "location": "[parameters('location')]",
+              "location": "[resourceGroup().location]",
               "properties": {
                 "subnet": {
                   "id": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('vnetSubscriptionId'), parameters('vnetResourceGroupName')), 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('peSubnetName'))]"

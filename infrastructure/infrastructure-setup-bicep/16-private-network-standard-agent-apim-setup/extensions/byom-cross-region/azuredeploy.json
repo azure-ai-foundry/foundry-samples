@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.46.1.21595",
-      "templateHash": "10379181251862122786"
+      "templateHash": "12208394913471527489"
     }
   },
   "parameters": {
@@ -350,6 +350,26 @@
     "apimIdParts": "[if(empty(parameters('apiManagementResourceId')), createArray('', '', subscription().subscriptionId, '', resourceGroup().name, '', '', '', 'placeholder'), split(parameters('apiManagementResourceId'), '/'))]"
   },
   "resources": {
+    "apimOutboundSubnet": {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "apiVersion": "2024-05-01",
+      "name": "[format('{0}/{1}', parameters('vnetName'), parameters('apimOutboundSubnetName'))]",
+      "properties": {
+        "addressPrefix": "[parameters('apimOutboundSubnetPrefix')]",
+        "defaultOutboundAccess": false,
+        "delegations": [
+          {
+            "name": "Microsoft.Web/serverFarms",
+            "properties": {
+              "serviceName": "Microsoft.Web/serverFarms"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "vnet"
+      ]
+    },
     "existingApim": {
       "condition": "[not(variables('shouldCreateApim'))]",
       "existing": true,
