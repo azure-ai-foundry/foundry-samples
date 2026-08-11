@@ -33,6 +33,8 @@ DIAGNOSTIC_LIMIT = 240
 DIAGNOSTIC_PATTERNS = (
     re.compile(r"(?:\berror\b|^FAIL:|^ERROR:|^SKIP:|^runner error:|^verdict=)", re.IGNORECASE),
 )
+REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+SHA_PATTERN = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 class ContractError(ValueError):
@@ -184,8 +186,9 @@ def sample_url(record: dict[str, Any]) -> str | None:
     path = record["sample"]["path"]
     if (
         not isinstance(repository, str)
+        or not REPOSITORY_PATTERN.fullmatch(repository)
         or not isinstance(sha, str)
-        or not re.fullmatch(r"[0-9a-f]{7,40}", sha)
+        or not SHA_PATTERN.fullmatch(sha)
     ):
         return None
     return f"https://github.com/{repository}/tree/{sha}/{quote(path, safe='/')}"
@@ -260,11 +263,17 @@ def render(records: list[dict[str, Any]], run_url: str | None, complete: bool) -
     run = next((record.get("run") for record in records if record.get("run")), {})
     if run:
         metadata = f"Run {run.get('run_id')} · attempt {run.get('run_attempt')}"
+        repository = run.get("repository")
         sha = run.get("sha")
-        if isinstance(sha, str):
+        if (
+            isinstance(repository, str)
+            and REPOSITORY_PATTERN.fullmatch(repository)
+            and isinstance(sha, str)
+            and SHA_PATTERN.fullmatch(sha)
+        ):
             metadata += (
                 f" · validated SHA [`{sha[:12]}`]"
-                f"(https://github.com/{run.get('repository')}/commit/{sha})"
+                f"(https://github.com/{repository}/commit/{sha})"
             )
         if run_url:
             metadata += f" · [Workflow run]({run_url})"
@@ -318,8 +327,8 @@ def render(records: list[dict[str, Any]], run_url: str | None, complete: bool) -
         )
     lines.extend(
         [
-            "**Legend:** ✅ passed · ❌ sample failure · ⚠️ infrastructure/error · "
-            "⏭️ skipped/not-completed",
+            f"**Legend:** {OUTCOMES['passed']} · {OUTCOMES['sample failure']} · "
+            f"{OUTCOMES['infrastructure/error']} · {OUTCOMES['skipped/not-completed']}",
             "",
             "Diagnostics are summarized and sanitized. Full logs remain available from "
             "the workflow run, subject to GitHub Actions retention and authentication.",
