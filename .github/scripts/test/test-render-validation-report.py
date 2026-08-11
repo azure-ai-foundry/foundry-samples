@@ -56,21 +56,25 @@ class ReportTests(unittest.TestCase):
             text=True,
         )
 
-    def write_result(self, sample: str, outcome: str = "passed") -> None:
-        sample_id = "a" if sample == SAMPLE_A else "b"
+    def write_result(
+        self,
+        sample: str,
+        outcome: str = "passed",
+        diagnostic_text: str = "diagnostic\n",
+    ) -> None:
+        manifest = json.loads(self.expected.read_text(encoding="utf-8"))
+        sample_definition = next(
+            value for value in manifest["samples"] if value["path"] == sample
+        )
+        sample_id = sample_definition["id"]
         sample_dir = self.results / sample_id
         sample_dir.mkdir()
-        (sample_dir / "diagnostics.log").write_text("diagnostic\n", encoding="utf-8")
+        (sample_dir / "diagnostics.log").write_text(diagnostic_text, encoding="utf-8")
         (sample_dir / "sample-result.json").write_text(
             json.dumps(
                 {
                     "schema_version": 1,
-                    "sample": {
-                        "id": sample_id,
-                        "path": sample,
-                        "language": "python" if sample_id == "a" else "csharp",
-                        "shape": "quickstart",
-                    },
+                    "sample": sample_definition,
                     "outcome": outcome,
                     "completed_stage": "L3 validation",
                     "duration_seconds": 12.5,
@@ -82,7 +86,7 @@ class ReportTests(unittest.TestCase):
                         "workflow": "validation pilot",
                         "run_id": "42",
                         "run_attempt": "1",
-                        "sha": "abc",
+                        "sha": "abcdef0",
                         "ref": "refs/heads/main",
                         "started_at": "2026-08-10T19:22:00Z",
                     },
@@ -99,9 +103,41 @@ class ReportTests(unittest.TestCase):
         body = self.output.read_text(encoding="utf-8")
         self.assertIn("✅ Passed", body)
         self.assertIn("❌ Sample failure", body)
-        self.assertIn("2026-08-10 19:22:33 UTC", body)
-        self.assertIn("Run evidence:", body)
+        self.assertIn("Workflow run", body)
+        self.assertIn("Sample failures (1)", body)
+        self.assertIn("Passed (1)", body)
+        self.assertIn("https://github.com/example/repo/tree/abcdef0", body)
         self.assertEqual(body.count("`samples/"), 2)
+
+    def test_renders_skip_reason_and_sanitized_truncated_excerpt(self) -> None:
+        self.expected.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "samples": [
+                        {"id": "a", "path": SAMPLE_A, "language": "python", "shape": "quickstart"},
+                        {"id": "b", "path": SAMPLE_B, "language": "csharp", "shape": "quickstart"},
+                        {"id": "c", "path": "samples/rust/quickstart/c", "language": "rust", "shape": "quickstart"},
+                        {"id": "d", "path": "samples/typescript/quickstart/d", "language": "typescript", "shape": "quickstart"},
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        self.write_result(SAMPLE_A, "passed")
+        self.write_result(SAMPLE_B, "sample failure", "FAIL: password=secret " + ("x" * 300))
+        self.write_result("samples/rust/quickstart/c", "skipped/not-completed", "skipped: unsupported language: rust\n")
+        self.write_result("samples/typescript/quickstart/d", "infrastructure/error", "runner error: validator unavailable\n")
+        completed = self.run_report()
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        body = self.output.read_text(encoding="utf-8")
+        self.assertIn("Sample failures (1)", body)
+        self.assertIn("Infrastructure/errors (1)", body)
+        self.assertIn("Skipped/not-completed (1)", body)
+        self.assertIn("unsupported language: rust", body)
+        self.assertIn("password=[redacted]", body)
+        self.assertNotIn("password=secret", body)
+        self.assertIn("…", body)
 
     def test_missing_expected_artifact_publishes_partial_summary_and_fails(self) -> None:
         self.write_result(SAMPLE_A)
