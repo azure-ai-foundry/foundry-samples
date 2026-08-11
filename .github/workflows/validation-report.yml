@@ -33,17 +33,25 @@ jobs:
         if: always()
         run: |
           set -uo pipefail
-          python .github/scripts/validate-validation-pilot-results.py \
+          if python .github/scripts/validate-validation-pilot-results.py \
             --manifest "$RUNNER_TEMP/validation-results/${{ inputs.manifest-path }}" \
-            --artifacts "$RUNNER_TEMP/validation-results"
-          completeness_rc=$?
-          python .github/scripts/render-validation-report.py \
+            --artifacts "$RUNNER_TEMP/validation-results"; then
+            completeness_rc=0
+          else
+            completeness_rc=$?
+          fi
+          if python .github/scripts/render-validation-report.py \
             --results-dir "$RUNNER_TEMP/validation-results" \
             --expected-samples "$RUNNER_TEMP/validation-results/${{ inputs.manifest-path }}" \
             --output "$RUNNER_TEMP/validation-report.md" \
-            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          render_rc=$?
-          cat "$RUNNER_TEMP/validation-report.md" >> "$GITHUB_STEP_SUMMARY"
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"; then
+            render_rc=0
+          else
+            render_rc=$?
+          fi
+          if [ -f "$RUNNER_TEMP/validation-report.md" ]; then
+            cat "$RUNNER_TEMP/validation-report.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "completeness_rc=$completeness_rc" >> "$GITHUB_OUTPUT"
           echo "render_rc=$render_rc" >> "$GITHUB_OUTPUT"
           exit 0

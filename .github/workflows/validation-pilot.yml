@@ -132,10 +132,13 @@ jobs:
         run: |
           set -uo pipefail
           manifest="$RUNNER_TEMP/pilot-artifacts/validation-pilot-manifest/validation-manifest.json"
-          python .github/scripts/validate-validation-pilot-results.py \
+          if python .github/scripts/validate-validation-pilot-results.py \
             --manifest "$manifest" \
-            --artifacts "$RUNNER_TEMP/pilot-artifacts"
-          completeness_rc=$?
+            --artifacts "$RUNNER_TEMP/pilot-artifacts"; then
+            completeness_rc=0
+          else
+            completeness_rc=$?
+          fi
           cp "$manifest" "$RUNNER_TEMP/pilot-artifacts/manifest.json"
           exit "$completeness_rc"
       - name: Persist run metadata and normalized summary

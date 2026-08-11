@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 SUPPORTED_LANGUAGES = {
@@ -20,13 +21,21 @@ def sample_id(path: str) -> str:
     return path.removeprefix("samples/").replace("/", "-")
 
 
+def declares_l4(metadata: Path) -> bool:
+    for line in metadata.read_text(encoding="utf-8").splitlines():
+        without_comment = line.split("#", 1)[0].rstrip()
+        if re.match(r"^[ \t]*l4[ \t]*:", without_comment):
+            return True
+    return False
+
+
 def discover(root: Path) -> dict:
     samples = []
     for metadata in sorted(root.glob("samples/**/sample.yaml")):
         path = metadata.parent.relative_to(root).as_posix()
         language = path.split("/")[1]
         validator_language = SUPPORTED_LANGUAGES.get(language)
-        declared_l4 = "l4:" in metadata.read_text(encoding="utf-8").splitlines()
+        declared_l4 = declares_l4(metadata)
         sample = {
             "id": sample_id(path),
             "path": path,

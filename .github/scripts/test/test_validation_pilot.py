@@ -53,10 +53,16 @@ class ValidationPilotTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             payload = json.loads(manifest.read_text(encoding="utf-8"))
             self.assertEqual(payload["schema_version"], 1)
-            self.assertEqual(len(payload["samples"]), 72)
+            sample_metadata = list((ROOT.parent / "samples").glob("**/sample.yaml"))
+            expected_unsupported = sum(
+                path.relative_to(ROOT.parent / "samples").parts[0]
+                not in {"csharp", "java", "python", "typescript", "javascript"}
+                for path in sample_metadata
+            )
+            self.assertEqual(len(payload["samples"]), len(sample_metadata))
             self.assertEqual(
                 sum(not value["eligible"] for value in payload["validation"].values()),
-                11,
+                expected_unsupported,
             )
             self.assertEqual(
                 {value["validator_language"] for value in payload["validation"].values() if value["validator_language"]},
