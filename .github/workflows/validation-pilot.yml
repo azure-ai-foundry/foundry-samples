@@ -27,11 +27,7 @@ jobs:
           python .github/scripts/discover-validation-samples.py \
             --manifest "$RUNNER_TEMP/validation-manifest.json" \
             --matrix "$RUNNER_TEMP/validation-matrix.json" > "$RUNNER_TEMP/discovery.json"
-          {
-            echo 'matrix<<MATRIX'
-            cat "$RUNNER_TEMP/validation-matrix.json"
-            echo MATRIX
-          } >> "$GITHUB_OUTPUT"
+          printf 'matrix=%s\n' "$(cat "$RUNNER_TEMP/validation-matrix.json")" >> "$GITHUB_OUTPUT"
           cat "$RUNNER_TEMP/discovery.json"
       - name: Persist discovered manifest
         uses: actions/upload-artifact@v4
