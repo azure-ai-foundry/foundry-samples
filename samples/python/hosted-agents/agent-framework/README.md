@@ -34,6 +34,7 @@ This directory contains samples that demonstrate how to use the [Agent Framework
 | 19  | [Harness Research](responses/19-harness-research/)                         | A research harness with planning, todos, web search, compaction, file memory, and autonomous execute-mode looping over the Responses protocol.                                                                                                |
 | 20  | [Harness Data Processing](responses/20-harness-data-processing/)           | A file-backed data-analysis harness that auto-runs read-only tools and exposes resumable approval requests for protected writes over the Responses protocol.                                                                                   |
 | 21  | [Harness Scaling Capabilities](responses/21-harness-scaling-capabilities/) | A personal-finance harness that scales with file-based skills, a confined shell, CodeAct, background research agents, and token limits over the Responses protocol.                                                                            |
+| 22  | [Foundry Toolbox MCP Skills](responses/22-foundry-toolbox-mcp-skills/)      | A self-contained agent that discovers MCP-based skills from a Foundry Toolbox (bundled `SKILL.md` sources + `toolbox.yaml`) and exposes them via a skills provider with progressive disclosure (advertise, load).                             |
 
 ### Invocations API
 
