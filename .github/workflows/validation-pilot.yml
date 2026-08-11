@@ -49,6 +49,8 @@ jobs:
       # P4.1 never provisions. Declared L4 checks use the existing warm-project seam;
       # P4.2 owns any future cold-provisioning caller.
       SKIP_PROVISION: ${{ matrix.l4_declared && 'true' || '' }}
+      AZURE_AI_PROJECT_ENDPOINT: ${{ matrix.l4_declared && vars.AZURE_AI_PROJECT_ENDPOINT || '' }}
+      MODEL_DEPLOYMENT: ${{ matrix.l4_declared && vars.MODEL_DEPLOYMENT || '' }}
     strategy:
       fail-fast: false
       max-parallel: 32

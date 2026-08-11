@@ -69,9 +69,33 @@ class ValidationPilotTests(unittest.TestCase):
                 {"csharp", "java", "python", "typescript"},
             )
             self.assertTrue(all(sample["shape"] == "full-fleet" for sample in payload["samples"]))
+            declared_l4_paths = {
+                sample["path"]
+                for sample in payload["samples"]
+                if payload["validation"][sample["id"]]["l4_declared"]
+            }
+            self.assertEqual(
+                declared_l4_paths,
+                {
+                    "samples/csharp/quickstart/responses",
+                    "samples/python/quickstart/responses",
+                },
+            )
             self.assertEqual(json.loads(matrix.read_text(encoding="utf-8"))["include"], [
                 {**sample, **payload["validation"][sample["id"]]} for sample in payload["samples"]
             ])
+
+    def test_workflow_supplies_declared_l4_warm_project_inputs(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "AZURE_AI_PROJECT_ENDPOINT: ${{ matrix.l4_declared && vars.AZURE_AI_PROJECT_ENDPOINT || '' }}",
+            workflow,
+        )
+        self.assertIn(
+            "MODEL_DEPLOYMENT: ${{ matrix.l4_declared && vars.MODEL_DEPLOYMENT || '' }}",
+            workflow,
+        )
+
     def test_sample_failure_is_a_complete_valid_result(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
