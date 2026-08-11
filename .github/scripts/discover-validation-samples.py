@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
+import stat
 from pathlib import Path
+
+import yaml
 
 SUPPORTED_LANGUAGES = {
     "csharp": "csharp",
@@ -17,43 +19,93 @@ SUPPORTED_LANGUAGES = {
 }
 
 
+class DiscoveryError(ValueError):
+    """A sample metadata error that should stop discovery."""
+
+
 def sample_id(path: str) -> str:
     return path.removeprefix("samples/").replace("/", "-")
 
 
-def declares_live_service_validation(metadata: Path) -> bool:
-    for line in metadata.read_text(encoding="utf-8").splitlines():
-        without_comment = line.split("#", 1)[0].rstrip()
-        if re.match(r"^[ \t]*l4[ \t]*:", without_comment):
-            raise ValueError(
-                f"{metadata}: legacy top-level key 'l4' is unsupported; "
-                "rename it to 'live_service_validation'"
-            )
-        if re.match(
-            r"^[ \t]*live_service_validation[ \t]*:", without_comment
-        ):
-            return True
-    return False
+def metadata_path(root: Path, metadata: Path) -> str:
+    return metadata.relative_to(root).as_posix()
+
+
+def validate_metadata_file(root: Path, metadata: Path) -> None:
+    path = metadata_path(root, metadata)
+    try:
+        resolved = metadata.resolve(strict=True)
+        mode = resolved.stat().st_mode
+    except OSError as exc:
+        raise DiscoveryError(f"{path}: could not inspect sample metadata: {exc}") from exc
+
+    if not resolved.is_relative_to(root):
+        raise DiscoveryError(f"{path}: sample metadata resolves outside the repository root")
+    if not stat.S_ISREG(mode):
+        raise DiscoveryError(f"{path}: sample metadata is not a regular file")
+
+
+def live_service_declaration(root: Path, metadata: Path) -> tuple[bool, str]:
+    path = metadata_path(root, metadata)
+    try:
+        contents = metadata.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        return False, f"{path}: could not read sample metadata: {exc}"
+
+    try:
+        document = yaml.safe_load(contents)
+    except yaml.YAMLError as exc:
+        mark = getattr(exc, "problem_mark", None)
+        location = f" at line {mark.line + 1}, column {mark.column + 1}" if mark else ""
+        problem = getattr(exc, "problem", None) or str(exc)
+        return False, f"{path}: invalid YAML{location}: {problem}"
+
+    if isinstance(document, dict) and "l4" in document:
+        raise DiscoveryError(
+            f"{path}: legacy top-level key 'l4' is unsupported; "
+            "rename it to 'live_service_validation'"
+        )
+    return isinstance(document, dict) and "live_service_validation" in document, ""
 
 
 def discover(root: Path) -> dict:
-    samples = []
+    discovered = []
+    paths_by_id = {}
     for metadata in sorted(root.glob("samples/**/sample.yaml")):
+        validate_metadata_file(root, metadata)
         path = metadata.parent.relative_to(root).as_posix()
+        identifier = sample_id(path)
+        if identifier in paths_by_id:
+            raise DiscoveryError(
+                f"{metadata_path(root, metadata)}: duplicate derived sample ID "
+                f"'{identifier}' also produced by {paths_by_id[identifier]}/sample.yaml"
+            )
+        paths_by_id[identifier] = path
+        discovered.append((identifier, path, metadata))
+
+    samples = []
+    for identifier, path, metadata in discovered:
         language = path.split("/")[1]
         validator_language = SUPPORTED_LANGUAGES.get(language)
-        live_service_validation_declared = declares_live_service_validation(metadata)
+        live_service_validation_declared, metadata_error = live_service_declaration(
+            root, metadata
+        )
         sample = {
-            "id": sample_id(path),
+            "id": identifier,
             "path": path,
             "language": language,
             "shape": "full-fleet",
         }
         samples.append(sample)
         sample["validator_language"] = validator_language or ""
-        sample["eligible"] = validator_language is not None
+        sample["eligible"] = validator_language is not None and not metadata_error
         sample["skip_reason"] = (
-            "" if validator_language else f"language '{language}' is not supported by build readiness"
+            metadata_error
+            or (
+                ""
+                if validator_language
+                else f"language '{language}' is not supported by build readiness"
+            )
         )
         sample["live_service_validation_declared"] = live_service_validation_declared
 
@@ -96,7 +148,10 @@ def main() -> int:
     parser.add_argument("--live-service-matrix", type=Path)
     args = parser.parse_args()
 
-    payload = discover(args.root.resolve())
+    try:
+        payload = discover(args.root.resolve())
+    except DiscoveryError as exc:
+        parser.error(str(exc))
     args.manifest.write_text(
         json.dumps(
             {"schema_version": payload["schema_version"], "samples": payload["samples"], "validation": payload["validation"]},
