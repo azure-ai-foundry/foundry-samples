@@ -14,9 +14,9 @@ that run. There is no static matrix to maintain: a new
 
 The current inventory contains 72 samples:
 
-- 61 samples have supported build-readiness validators.
-- 11 Rust samples emit explicit `skipped/not-completed` records because build
-  readiness does not yet support Rust.
+- 53 samples are executable in the current cadence.
+- 19 samples emit explicit `skipped/not-completed` records: 12 have malformed
+  metadata and 7 use unsupported Rust build readiness.
 - JavaScript samples use the existing TypeScript/node validator.
 - Two samples opt in to live-service validation with
   `live_service_validation` metadata.
@@ -33,9 +33,13 @@ warm-project policy. The GitHub environment remains named `L4-validation`
 because that legacy external identifier is part of the Entra OIDC subject; it
 is not a current validation mode name.
 
-Discovery validates sample metadata and fails closed for malformed metadata,
-duplicate identities, or unsafe sample paths. It also rejects the legacy `l4`
-key with migration guidance.
+Discovery uses the pinned
+[`PyYAML`](scripts/requirements.txt) parser for the metadata fields it consumes.
+Unreadable or malformed metadata stays in inventory as an explicit
+`skipped/not-completed` record with an actionable reason. Ambiguous duplicate
+derived IDs and metadata paths that do not resolve to regular files inside the
+repository fail discovery before outputs are constructed. Discovery also
+rejects the legacy `l4` key with migration guidance.
 
 See the [per-sample validation contract](scripts/validate-sample.README.md) for
 the language-by-language build-readiness matrix, metadata contract, and local
@@ -68,10 +72,22 @@ Each run publishes:
   `validation-pilot-run-{run_id}-{run_attempt}` artifact.
 - A same-run summary in the `report / report` job.
 
-Cadence evidence is available in the
-[corrected manual run](https://github.com/microsoft-foundry/foundry-samples/actions/runs/31447067783)
-and the
-[first scheduled run](https://github.com/microsoft-foundry/foundry-samples/actions/runs/31469044031).
+## Interpret the report
+
+The run-scoped report puts records requiring maintainer action first, followed
+by informational skips and a compact passed section. It includes fleet counts,
+links each sample to the validated commit, shows bounded and sanitized
+diagnostic excerpts, and preserves visible skip reasons. Full logs remain in
+the run artifacts.
+
+The authoritative hardened-cadence evidence is
+[run 31649334462](https://github.com/microsoft-foundry/foundry-samples/actions/runs/31649334462):
+all 75 jobs succeeded and the run published 74 artifacts at commit
+`328833f9d39e8e0a80975950cc98dc00d9c63aff`.
+
+This is a current cadence snapshot, not a completed-workstream claim.
+Additional live-service onboarding, cold provisioning, quarantine automation,
+and Rust build-readiness support remain pending.
 
 The implementation and reporting contract are defined in:
 
