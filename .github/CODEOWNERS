@@ -95,3 +95,31 @@
 
 # Python hosted-agents declarative customer support (issue #799)
 /samples/python/hosted-agents/agent-framework/responses/09-declarative-customer-support/ @TaoChenOSU @alliscode @lindazqli
+
+# Python prompt-agents — code-interpreter-custom (issue #822)
+/samples/python/prompt-agents/code-interpreter-custom/ @brandom-msft
+
+# C# hosted-agents BYO invocations hello-world (issues #806, #813)
+/samples/csharp/hosted-agents/bring-your-own/invocations/ @amitbhave10 @dooriya @luyajun0205
+
+# Python hosted-agents agent-framework responses (broader coverage — issue #784)
+# (sub-directories already have finer-grained entries above; this covers remaining subdirs)
+/samples/python/hosted-agents/agent-framework/responses/ @amitbhave10 @giles17 @huimiu
+
+# Python hosted-agents agent-framework agents-in-workflow (issue #709)
+/samples/python/hosted-agents/agent-framework/agents-in-workflow/ @ankitbko @melionel @lusu-msft
+
+# Python hosted-agents agent-framework agent-with-foundry-tools (issues #522, #635)
+/samples/python/hosted-agents/agent-framework/agent-with-foundry-tools/ @melionel @lixiaoli @lusu-msft
+
+# C# hosted-agents agent-framework mcp-tools (issue #642)
+/samples/csharp/hosted-agents/agent-framework/mcp-tools/ @alliscode @ankitbko @therealjohn
+
+# C# hosted-agents agent-framework workflows / AgentThreadAndHITL (issue #547)
+/samples/csharp/hosted-agents/agent-framework/workflows/ @alliscode @ankitbko @therealjohn
+
+# TypeScript samples (issue #734)
+/samples/typescript/ @kuojianlu @sdgilley
+
+# Classic hosted-agents msft-docs-agent (issue #641)
+/samples-classic/python/getting-started-agents/hosted-agents/msft-docs-agent/ @amitbhave10
