@@ -1,0 +1,4 @@
+name: live-service-missing-command
+description: Hermetic live-service fixture with a mapping that omits the required command.
+live_service_validation:
+  required_env: []

@@ -1,45 +1,46 @@
 # Per-sample validation contract
 
-`.github/scripts/validate-sample.sh` validates one sample at either L3 (load/build)
-or L4 (credentialed execution). The default remains L3, so existing callers do not
-need to change.
+`.github/scripts/validate-sample.sh` validates one sample for either build readiness
+or live-service behavior. Build readiness is the default.
 
 ## CLI
 
 ```bash
-# Existing L3 behavior
+# Build readiness (default)
 bash .github/scripts/validate-sample.sh \
   --language python \
   --sample-dir samples/python/quickstart/responses
 
-# Opt-in L4 behavior
+# Opt-in live-service validation
 SKIP_PROVISION=true bash .github/scripts/validate-sample.sh \
-  --level 4 \
+  --mode live-service \
   --sample-dir samples/python/quickstart/responses
 ```
 
-These commands invoke individual validation levels; calling `--level 4` directly
-does not implicitly run L3 first. The repository validation pilot provides the
-end-to-end sequence: every supported sample runs L3, and a sample with an `l4`
-declaration proceeds to L4 only after its L3 check passes. Declaring L4 therefore
-does not opt a sample out of L3.
+These commands invoke individual validation modes; calling `--mode live-service`
+directly does not implicitly run build readiness first. The repository validation
+pilot provides the end-to-end sequence: every supported sample runs build readiness,
+and a sample with a `live_service_validation` declaration proceeds to live-service
+validation only after readiness passes. Declaring live-service validation therefore
+does not opt a sample out of build readiness.
 
 Both modes use the same exit and verdict contract:
 
 | Exit | Verdict | Meaning |
 |---|---|---|
-| `0` | `pass` | The requested check passed. In L4 mode, no declaration is also a clean no-op. |
+| `0` | `pass` | The requested check passed. In live-service mode, no declaration is also a clean no-op. |
 | `1` | `fail` | The sample command/assertion failed. |
-| `2` | `error` | The validator precondition or caller environment is invalid, or an L4 command explicitly reported caller/cloud infrastructure failure. |
+| `2` | `error` | The validator precondition or caller environment is invalid, or a live-service command explicitly reported caller/cloud infrastructure failure. |
 
 See `CLASSIFICATION.md` for the authoritative failure-versus-error rules.
 
-## `sample.yaml` L4 declaration
+## `sample.yaml` live-service declaration
 
-L4 is opt-in. A sample declares it with a top-level `l4` mapping:
+Live-service validation is opt-in. A sample declares it with a top-level
+`live_service_validation` mapping:
 
 ```yaml
-l4:
+live_service_validation:
   command: >-
     python run_sample.py --assert-response
   required_env:
@@ -49,13 +50,13 @@ l4:
 
 The contract is:
 
-- `l4.command` is a required, non-empty shell string. The validator runs it from
+- `live_service_validation.command` is a required, non-empty shell string. The validator runs it from
   the sample directory with Bash and captures/preserves its output.
 - The command owns a strict three-way result: exit `0` means pass, exit `1`
   means the sample/assertion failed, and exit `2` means a known caller/cloud
   infrastructure failure. Any other nonzero exit is conservatively classified
   as sample failure.
-- The validator never infers L4 infrastructure failure from stdout/stderr text.
+- The validator never infers live-service infrastructure failure from stdout/stderr text.
   A broken sample can legitimately print `503 Service Unavailable`, `Bad
   Gateway`, or similar application responses. If a command can distinguish a
   known credential, endpoint, or cloud transport failure, it must normalize
@@ -65,23 +66,27 @@ The contract is:
   interrupted tests, or usage errors. Wrap those commands so only a known
   caller/cloud infrastructure failure exits `2`; normalize other nonzero
   statuses to `1`.
-- `l4.required_env` is optional. When present, it must be a list of valid
+- `live_service_validation.required_env` is optional. When present, it must be a list of valid
   environment-variable names. Every listed variable must be non-empty or the
   validator returns infrastructure error (`2`) before executing sample code.
 - `SKIP_PROVISION` is a reserved caller input and must be set to exactly `true`
-  or `false` whenever L4 is declared. The validator does not override it:
+  or `false` whenever live-service validation is declared. The validator does not override it:
   trusted PR callers can use the warm project with `true`, while the cold
   cadence can use `false`.
 - Authentication and cloud configuration are caller-owned. The command inherits
   the caller's environment and existing CLI/OIDC login. Do not put credentials,
   secrets, resource provisioning, or production mutations in `sample.yaml`.
-- If `l4` is omitted (or `sample.yaml` itself is absent), `--level 4` exits `0`
+- If `live_service_validation` is omitted (or `sample.yaml` itself is absent),
+  `--mode live-service` exits `0`
   without requiring credentials or `SKIP_PROVISION`. It emits
-  `l4_declared=false`; a declared check emits `l4_declared=true`.
-- If `$GITHUB_OUTPUT` is set, `verdict` and `l4_declared` are appended there.
+  `live_service_validation_declared=false`; a declared check emits
+  `live_service_validation_declared=true`.
+- If `$GITHUB_OUTPUT` is set, `verdict` and `live_service_validation_declared`
+  are appended there.
   `--results-dir` continues to write the sample path to
   `passed.txt`, `failed.txt`, or `errored.txt`.
 
-The validator rejects a scalar `l4`, a missing/non-string/empty `command`, a
-non-list `required_env`, invalid variable names, malformed YAML, and missing
-declared environment inputs as infrastructure errors.
+The validator rejects the legacy `l4` key with a migration message. It also rejects
+a scalar `live_service_validation`, a missing/non-string/empty `command`, a non-list
+`required_env`, invalid variable names, malformed YAML, and missing declared
+environment inputs as infrastructure errors.

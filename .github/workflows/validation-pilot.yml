@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      l3_matrix: ${{ steps.discovery.outputs.l3_matrix }}
-      l4_matrix: ${{ steps.discovery.outputs.l4_matrix }}
+      build_readiness_matrix: ${{ steps.discovery.outputs.build_readiness_matrix }}
+      live_service_matrix: ${{ steps.discovery.outputs.live_service_matrix }}
     steps:
       - uses: actions/checkout@v4
       - name: Discover full sample inventory
@@ -28,10 +28,10 @@ jobs:
           python .github/scripts/discover-validation-samples.py \
             --manifest "$RUNNER_TEMP/validation-manifest.json" \
             --matrix "$RUNNER_TEMP/validation-matrix.json" \
-            --l3-matrix "$RUNNER_TEMP/validation-l3-matrix.json" \
-            --l4-matrix "$RUNNER_TEMP/validation-l4-matrix.json" > "$RUNNER_TEMP/discovery.json"
-          printf 'l3_matrix=%s\n' "$(cat "$RUNNER_TEMP/validation-l3-matrix.json")" >> "$GITHUB_OUTPUT"
-          printf 'l4_matrix=%s\n' "$(cat "$RUNNER_TEMP/validation-l4-matrix.json")" >> "$GITHUB_OUTPUT"
+            --build-readiness-matrix "$RUNNER_TEMP/validation-build-readiness-matrix.json" \
+            --live-service-matrix "$RUNNER_TEMP/validation-live-service-matrix.json" > "$RUNNER_TEMP/discovery.json"
+          printf 'build_readiness_matrix=%s\n' "$(cat "$RUNNER_TEMP/validation-build-readiness-matrix.json")" >> "$GITHUB_OUTPUT"
+          printf 'live_service_matrix=%s\n' "$(cat "$RUNNER_TEMP/validation-live-service-matrix.json")" >> "$GITHUB_OUTPUT"
           cat "$RUNNER_TEMP/discovery.json"
       - name: Persist discovered manifest
         uses: actions/upload-artifact@v4
@@ -41,7 +41,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-  validate:
+  build-readiness:
     needs: discover
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 32
-      matrix: ${{ fromJSON(needs.discover.outputs.l3_matrix) }}
+      matrix: ${{ fromJSON(needs.discover.outputs.build_readiness_matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -75,7 +75,7 @@ jobs:
         run: |
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
-      - name: Run normalized sample validation
+      - name: Run normalized build-readiness validation
         if: always()
         run: |
           set -uo pipefail
@@ -102,10 +102,11 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  validate-l4:
+  live-service:
     needs: discover
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Legacy external identifier: renaming it also requires an Entra OIDC subject migration.
     environment: L4-validation
     permissions:
       contents: read
@@ -118,7 +119,7 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 4
-      matrix: ${{ fromJSON(needs.discover.outputs.l4_matrix) }}
+      matrix: ${{ fromJSON(needs.discover.outputs.live_service_matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -133,7 +134,7 @@ jobs:
         run: |
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
-      - name: Install declared L4 Python runtime dependencies
+      - name: Install declared live-service Python runtime dependencies
         if: matrix.validator_language == 'python'
         run: python -m pip install -r "${{ matrix.path }}/requirements.txt"
       - name: Azure login
@@ -142,7 +143,7 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Run normalized L4 sample validation
+      - name: Run normalized live-service validation
         if: always()
         run: |
           set -uo pipefail
@@ -155,7 +156,7 @@ jobs:
             --sample-path "${{ matrix.path }}" \
             --output "$RUNNER_TEMP/pilot-result/sample-result.json" \
             --diagnostic "$RUNNER_TEMP/pilot-result/diagnostics.log" \
-            --run-l4
+            --run-live-service
       - name: Persist sample result and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -167,7 +168,7 @@ jobs:
 
   completeness:
     if: always()
-    needs: [discover, validate, validate-l4]
+    needs: [discover, build-readiness, live-service]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -192,7 +193,7 @@ jobs:
       - name: Persist run metadata and normalized summary
         if: always()
         run: |
-          python -c 'import json,os; from pathlib import Path; p=Path(os.environ["RUNNER_TEMP"])/"pilot-artifacts"/"run-metadata.json"; p.write_text(json.dumps({"schema_version":1,"repository":os.environ["GITHUB_REPOSITORY"],"workflow":os.environ["GITHUB_WORKFLOW"],"run_id":os.environ["GITHUB_RUN_ID"],"run_attempt":os.environ["GITHUB_RUN_ATTEMPT"],"sha":os.environ["GITHUB_SHA"],"ref":os.environ["GITHUB_REF"],"completed_at":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat().replace("+00:00","Z")},indent=2)+"\n")'
+          python -c 'import json,os; from pathlib import Path; p=Path(os.environ["RUNNER_TEMP"])/"pilot-artifacts"/"run-metadata.json"; p.write_text(json.dumps({"schema_version":2,"repository":os.environ["GITHUB_REPOSITORY"],"workflow":os.environ["GITHUB_WORKFLOW"],"run_id":os.environ["GITHUB_RUN_ID"],"run_attempt":os.environ["GITHUB_RUN_ATTEMPT"],"sha":os.environ["GITHUB_SHA"],"ref":os.environ["GITHUB_REF"],"completed_at":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat().replace("+00:00","Z")},indent=2)+"\n")'
         continue-on-error: true
       - name: Upload normalized run
         if: always()

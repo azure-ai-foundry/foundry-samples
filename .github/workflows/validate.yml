@@ -1,18 +1,18 @@
 name: validate
 
-# The REAL PR-triggered L3 "floor" lane (P2.1, ADO 5449695) — distinct from the inert
+# The REAL PR-triggered build-readiness floor lane (P2.1, ADO 5449695) — distinct from the inert
 # scripts-selftest.yml dev harness. It validates every changed sample to Build Readiness
-# Level 3 (Load) using the shared scripts ported in Phase 1.
+# using the shared scripts ported in Phase 1.
 #
 # FORK-SAFE BY CONSTRUCTION (this is the headline property):
 #   - on: pull_request  (NEVER pull_request_target) — so PRs from forks run this with a
 #     read-only GITHUB_TOKEN and NO access to secrets, per GitHub's documented behavior.
-#   - The required `trusted` job ALWAYS runs. Forks execute its credential-free L3 path, then
+#   - The required `trusted` job ALWAYS runs. Forks execute its credential-free readiness path, then
 #     fail explicitly with a promotion-required error. A job-level fork skip is forbidden:
 #     GitHub treats a required check that concludes `skipped` as satisfied.
 #   - `trusted` uses the status-function condition `!cancelled()` so a failed/malformed `detect`
 #     dependency starts the job and fails its first contract-check step instead of skipping open.
-#   - Every credentialed setup/L4 step has an explicit same-repo guard. Fork isolation remains
+#   - Every credentialed live-service step has an explicit same-repo guard. Fork isolation remains
 #     layered: read-only fork token/no secrets/no OIDC issuance + step-level guards.
 #   - The job checks out and EXECUTES untrusted fork code (dotnet build, npm install,
 #     pip install, mvn compile, ...). That is intentional and safe *because* the runner is
@@ -21,7 +21,7 @@ name: validate
 # Frozen constraints honored: no pull_request_target, no trust-scoring, no org-membership
 # API calls, no aggregator/gate-shim job, no `on: paths:` trigger filter. "What changed" is
 # decided IN-JOB by detect-changed-samples.sh and fanned out via needs.*.outputs. The
-# trusted L4 lane (secrets, fork-gated) is the `trusted` job at the BOTTOM of THIS workflow
+# trusted live-service lane (secrets, fork-gated) is the `trusted` job at the BOTTOM of THIS workflow
 # (P2.2, ADO 5449696) — a SINGLE job (never a matrix), so its required-check context is exactly
 # `trusted` (displayed by Actions as `validate / trusted`).
 
@@ -55,7 +55,7 @@ jobs:
         # loud (exit 1) if the git diff itself errors — never a fake empty set.
         run: bash .github/scripts/detect-changed-samples.sh
 
-  # --- Validate each changed sample to L3, one runner per sample ---------------
+  # --- Validate each changed sample for build readiness, one runner per sample -
   validate:
     needs: detect
     if: needs.detect.outputs.has_changes == 'true'   # docs-only PRs skip this job entirely
@@ -134,9 +134,9 @@ jobs:
         if: steps.lang.outputs.language == 'unsupported'
         env:
           SAMPLE: ${{ matrix.sample }}
-        run: echo "::notice::Skipping ${SAMPLE} — language not covered by the L3 floor lane."
+        run: echo "::notice::Skipping ${SAMPLE} — language not covered by build readiness."
 
-      - name: Validate sample (L3 / Load)
+      - name: Validate sample build readiness
         if: steps.lang.outputs.language != 'unsupported'
         env:
           SAMPLE: ${{ matrix.sample }}
@@ -146,33 +146,34 @@ jobs:
         # green on an unresolved run — while the script's log distinguishes them.
         run: bash .github/scripts/validate-sample.sh --language "$LANGUAGE" --sample-dir "$SAMPLE"
 
-  # === P2.2 · ADO 5449696 · the TRUSTED L4 lane ================================
+  # === P2.2 · ADO 5449696 · trusted live-service validation ===================
   # The credentialed counterpart to the floor `validate` job above. It produces the
   # required-merge-gate check context `validate / trusted` (workflow name `validate` + job name
   # `trusted`). FROZEN, non-negotiable properties (violating any is a defect):
   #   - SINGLE JOB, no per-language matrix. A matrix of required checks reinstates the rejected
-  #     aggregator/gate-shim. Speed comes from IN-JOB parallelism (the L3 step backgrounds
+  #     aggregator/gate-shim. Speed comes from IN-JOB parallelism (the readiness step backgrounds
   #     validate-sample.sh per changed sample), never from fan-out into multiple checks.
-  #   - ALWAYS RUNS for every triggered PR. Forks run credential-free L3, then fail in-job with
+  #   - ALWAYS RUNS for every triggered PR. Forks run credential-free readiness, then fail in-job with
   #     a promotion-required error. Never restore a job-level fork/draft `if:`: P3.3 proved that
   #     GitHub treats a required job that concludes `skipped` as satisfying the merge gate.
   #   - FAILS CLOSED when `detect` fails or emits malformed outputs. The exact job-level
   #     `!cancelled()` status condition starts trusted after dependency failure; the FIRST step
   #     validates the dependency result/output contract before checkout or docs-only handling.
   #   - Docs-only PRs SHORT-CIRCUIT before any Azure/secret step (has_changes gate). A docs-only
-  #     same-repo PR yields a PRESENT, PASSING check (correct "no sample owes L4"); every fork
+  #     same-repo PR yields a PRESENT, PASSING check (correct "no sample owes live-service validation"); every fork
   #     yields a PRESENT, FAILING check and requires maintainer promotion.
   #   - Concurrency cancels superseded runs.
-  #   - L4 = the pre-provisioned WARM validation project via SKIP_PROVISION=true (never provisions
+  #   - Live-service validation uses the pre-provisioned WARM project via SKIP_PROVISION=true (never provisions
   #     per PR — cold provisioning is the cadence lane's sole job). OIDC federated login, no stored
-  #     secret. Env L4-validation MUST carry zero protection_rules: because this always-running job
+  #     secret. The legacy external environment identifier L4-validation MUST carry zero
+  #     protection_rules: because this always-running job
   #     binds the environment, an environment reviewer rule would stall a fork instead of failing it.
   trusted:
     needs: detect
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    # Binds the OIDC subject to environment:L4-validation (matches the Azure federated credential)
-    # and scopes vars.AZURE_* to that environment.
+    # Legacy external identifier: renaming it also requires an Entra OIDC subject migration.
+    # It scopes vars.AZURE_* and binds the matching Azure federated credential.
     environment: L4-validation
     # Job-level permissions REPLACE the workflow default for this job: add id-token for OIDC.
     permissions:
@@ -238,12 +239,12 @@ jobs:
       - uses: actions/checkout@v4
 
       # --- Docs-only short-circuit (BEFORE any secret/Azure step) ---------------
-      # If detect found no changed sample, nothing owes L4 → the trusted gate is satisfied. Log and
+      # If detect found no changed sample, nothing owes live-service validation, so the trusted gate is satisfied. Log and
       # let a SAME-REPO job end green WITHOUT touching OIDC/secrets. Forks never short-circuit to
       # success; they reach the explicit promotion failure below.
       - name: Short-circuit docs-only PRs before secrets
         if: needs.detect.outputs.has_changes != 'true' && github.event.pull_request.head.repo.fork != true
-        run: echo "No changed samples (docs-only) -> no sample owes L4 -> trusted gate satisfied. Skipping L3+L4 without touching secrets."
+        run: echo "No changed samples (docs-only) -> no sample owes live-service validation -> trusted gate satisfied. Skipping build readiness and live-service validation without touching secrets."
 
       # --- Derive which toolchains the changed samples actually need ------------
       - name: Derive languages from changed samples
@@ -309,18 +310,18 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           yq --version
 
-      # --- L3 (Load) for EVERY changed sample, IN-JOB PARALLEL (no matrix) ------
+      # --- Build readiness for EVERY changed sample, IN-JOB PARALLEL (no matrix)
       # Single job; concurrency comes from backgrounding validate-sample.sh per sample. GITHUB_OUTPUT
       # is blanked per-invocation so the parallel legs don't race on the shared output file; each
       # leg's verdict is its exit code (0 pass / 1 fail / 2 error). Any fail OR error → job red, and
-      # the default success() gating means L4 below never runs on a red L3.
-      - name: Validate changed samples to L3 (in-job parallel)
+      # the default success() gating means live-service validation never runs after a red result.
+      - name: Validate changed sample build readiness (in-job parallel)
         if: needs.detect.outputs.has_changes == 'true'
         env:
           SAMPLES: ${{ needs.detect.outputs.samples }}
         run: |
           set -uo pipefail
-          mkdir -p _l3
+          mkdir -p _build_readiness
           map_lang() {
             case "$1" in
               csharp)                echo csharp ;;
@@ -339,39 +340,39 @@ jobs:
             safe="$(printf '%s' "$sample" | tr '/ ' '__')"
             n=$((n+1))
             if [ "$lang" = unsupported ]; then
-              echo "::notice::Skipping $sample — language '$dir' not in the frozen L3 set."
-              echo 0 > "_l3/$safe.rc"
-              : > "_l3/$safe.log"
+              echo "::notice::Skipping $sample — language '$dir' not in the build-readiness set."
+              echo 0 > "_build_readiness/$safe.rc"
+              : > "_build_readiness/$safe.log"
               continue
             fi
             (
-              GITHUB_OUTPUT= bash .github/scripts/validate-sample.sh --language "$lang" --sample-dir "$sample" > "_l3/$safe.log" 2>&1
-              echo $? > "_l3/$safe.rc"
+              GITHUB_OUTPUT= bash .github/scripts/validate-sample.sh --language "$lang" --sample-dir "$sample" > "_build_readiness/$safe.log" 2>&1
+              echo $? > "_build_readiness/$safe.rc"
             ) &
           done < <(printf '%s' "$SAMPLES" | jq -r '.[]')
           wait
           pass=0; failed=0; errored=0
-          for rcf in _l3/*.rc; do
+          for rcf in _build_readiness/*.rc; do
             rc="$(cat "$rcf")"
             base="$(basename "$rcf" .rc)"
             echo "----- $base (rc=$rc) -----"
-            cat "_l3/$base.log" 2>/dev/null || true
+            cat "_build_readiness/$base.log" 2>/dev/null || true
             case "$rc" in
               0) pass=$((pass+1)) ;;
-              1) failed=$((failed+1));  echo "::error::L3 FAIL ($base)" ;;
-              2) errored=$((errored+1)); echo "::error::L3 ERROR/infra ($base)" ;;
-              *) errored=$((errored+1)); echo "::error::L3 unexpected rc=$rc ($base)" ;;
+              1) failed=$((failed+1));  echo "::error::BUILD READINESS FAIL ($base)" ;;
+              2) errored=$((errored+1)); echo "::error::BUILD READINESS ERROR/infra ($base)" ;;
+              *) errored=$((errored+1)); echo "::error::BUILD READINESS unexpected rc=$rc ($base)" ;;
             esac
           done
-          echo "L3 summary: total=$n pass=$pass fail=$failed error=$errored"
+          echo "Build-readiness summary: total=$n pass=$pass fail=$failed error=$errored"
           if [ "$failed" -gt 0 ] || [ "$errored" -gt 0 ]; then
-            echo "L3 not green -> trusted gate red; not proceeding to L4."
+            echo "Build readiness not green -> trusted gate red; not proceeding to live-service validation."
             exit 1
           fi
-          echo "L3 green for all $pass changed sample(s)."
+          echo "Build readiness green for all $pass changed sample(s)."
 
       # A fork must produce a terminal FAILURE, never a skipped required check. This step uses a
-      # status function so it still emits the promotion instruction after a broken fork's L3 fails.
+      # status function so it still emits the promotion instruction after a fork's readiness fails.
       - name: Reject fork until maintainer promotion
         if: ${{ !cancelled() && github.event.pull_request.head.repo.fork == true }}
         run: |
@@ -380,11 +381,11 @@ jobs:
             echo "::error::Fork runner unexpectedly received an OIDC request surface; refusing to continue."
             exit 1
           fi
-          echo "::error::Fork PRs cannot satisfy the trusted gate directly. A maintainer must promote this commit to a same-repo branch, where the credentialed L4 path can run."
+          echo "::error::Fork PRs cannot satisfy the trusted gate directly. A maintainer must promote this commit to a same-repo branch, where live-service validation can run."
           exit 1
 
-      # --- L4: reach the WARM project via OIDC (only after L3 green) ------------
-      # Reached only when real samples changed AND L3 passed (default step success() gating). This
+      # --- Reach the warm project via OIDC (only after build readiness is green) -
+      # Reached only when real samples changed and readiness passed. This
       # is the trusted secret boundary: federated OIDC login, no stored secret.
       - name: Azure login via OIDC (no secret)
         if: needs.detect.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork != true
@@ -394,7 +395,7 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: L4 smoke against the warm project (SKIP_PROVISION)
+      - name: Live-service smoke against the warm project (SKIP_PROVISION)
         if: needs.detect.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork != true
         env:
           AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
@@ -412,8 +413,8 @@ jobs:
           echo "HTTP ${HTTP}"
           cat resp.json; echo
           test "${HTTP}" = "200"
-          echo "L4 OK: OIDC + SKIP_PROVISION warm-project reach + least-priv inference all green."
+          echo "LIVE-SERVICE OK: OIDC + SKIP_PROVISION warm-project reach + least-priv inference all green."
 
       - name: Trusted verdict
         if: needs.detect.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork != true
-        run: echo "validate / trusted GREEN — L3 passed for all changed samples AND the L4 warm-project smoke passed."
+        run: echo "validate / trusted GREEN — build readiness passed for all changed samples AND the live-service warm-project smoke passed."

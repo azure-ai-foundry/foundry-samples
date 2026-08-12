@@ -24,7 +24,7 @@ class ReportTests(unittest.TestCase):
         self.expected.write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "samples": [
                         {"id": "a", "path": SAMPLE_A, "language": "python", "shape": "quickstart"},
                         {"id": "b", "path": SAMPLE_B, "language": "csharp", "shape": "quickstart"},
@@ -61,6 +61,7 @@ class ReportTests(unittest.TestCase):
         sample: str,
         outcome: str = "passed",
         diagnostic_text: str = "diagnostic\n",
+        completed_stage: str = "build readiness validation",
     ) -> None:
         manifest = json.loads(self.expected.read_text(encoding="utf-8"))
         sample_definition = next(
@@ -73,10 +74,10 @@ class ReportTests(unittest.TestCase):
         (sample_dir / "sample-result.json").write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
+                    "schema_version": manifest["schema_version"],
                     "sample": sample_definition,
                     "outcome": outcome,
-                    "completed_stage": "L3 validation",
+                    "completed_stage": completed_stage,
                     "duration_seconds": 12.5,
                     "diagnostic_reference": "diagnostics.log",
                     "artifact_reference": f"validation-pilot-{sample_id}",
@@ -146,6 +147,20 @@ class ReportTests(unittest.TestCase):
         body = self.output.read_text(encoding="utf-8")
         self.assertIn("expected result artifact is missing", body)
         self.assertIn("⚠️ Infrastructure/error", body)
+
+    def test_schema_one_stage_names_are_normalized_for_historical_artifacts(self) -> None:
+        manifest = json.loads(self.expected.read_text(encoding="utf-8"))
+        manifest["schema_version"] = 1
+        self.expected.write_text(json.dumps(manifest), encoding="utf-8")
+        self.write_result(SAMPLE_A, completed_stage="L3 validation")
+        self.write_result(SAMPLE_B, completed_stage="L4 validation")
+        completed = self.run_report()
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        body = self.output.read_text(encoding="utf-8")
+        self.assertIn("build readiness validation", body)
+        self.assertIn("live-service validation", body)
+        self.assertNotIn("L3 validation", body)
+        self.assertNotIn("L4 validation", body)
 
     def test_malformed_artifact_publishes_error_row_and_fails(self) -> None:
         bad = self.results / "bad"

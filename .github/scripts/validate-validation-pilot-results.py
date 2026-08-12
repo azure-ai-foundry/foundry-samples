@@ -13,6 +13,7 @@ REQUIRED_FIELDS = {
     "schema_version", "sample", "outcome", "completed_stage", "duration_seconds",
     "diagnostic_reference", "artifact_reference", "completed_at", "run",
 }
+SUPPORTED_SCHEMA_VERSIONS = {1, 2}
 
 
 def main() -> int:
@@ -21,6 +22,13 @@ def main() -> int:
     parser.add_argument("--artifacts", type=Path, required=True)
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+    schema_version = manifest.get("schema_version")
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        print(
+            f"ERROR: unsupported manifest schema_version: {schema_version!r}",
+            file=sys.stderr,
+        )
+        return 1
     expected = {sample["id"]: sample for sample in manifest["samples"]}
     found = {}
     errors = []
@@ -29,7 +37,11 @@ def main() -> int:
             result = json.loads(result_path.read_text(encoding="utf-8"))
             missing = REQUIRED_FIELDS - result.keys()
             sample = result["sample"]
-            if missing or result["schema_version"] != 1 or result["outcome"] not in REQUIRED_OUTCOMES:
+            if (
+                missing
+                or result["schema_version"] != schema_version
+                or result["outcome"] not in REQUIRED_OUTCOMES
+            ):
                 raise ValueError(f"invalid schema or outcome (missing={sorted(missing)})")
             sample_id = sample["id"]
             if sample_id not in expected or sample_id in found:
@@ -53,7 +65,15 @@ def main() -> int:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
     output = args.artifacts / "run-summary.json"
-    output.write_text(json.dumps({"schema_version": 1, "results": found}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output.write_text(
+        json.dumps(
+            {"schema_version": schema_version, "results": found},
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     print(f"validated {len(found)} complete sample results")
     return 0
 

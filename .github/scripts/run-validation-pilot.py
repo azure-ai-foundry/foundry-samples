@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ref", default=os.environ.get("GITHUB_REF", "local"))
     parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", "local"))
     parser.add_argument("--workflow", default=os.environ.get("GITHUB_WORKFLOW", "validation pilot"))
-    parser.add_argument("--run-l4", action="store_true")
+    parser.add_argument("--run-live-service", action="store_true")
     parser.add_argument("--skip-reason")
     return parser.parse_args()
 
@@ -58,8 +58,8 @@ def main() -> int:
         command = [
             args.bash,
             args.validator,
-            "--level",
-            "3",
+            "--mode",
+            "build-readiness",
             "--language",
             validator_language,
             "--sample-dir",
@@ -69,21 +69,46 @@ def main() -> int:
             completed = subprocess.run(command, capture_output=True, text=True)
             diagnostic = "$ " + " ".join(command) + "\n" + completed.stdout + completed.stderr
             outcome = OUTCOMES.get(completed.returncode, "infrastructure/error")
-            stage = "L3 validation" if completed.returncode in OUTCOMES else "L3 validation invocation"
-            if outcome == "passed" and args.run_l4:
-                l4_command = [args.bash, args.validator, "--level", "4", "--sample-dir", args.sample_path]
-                l4 = subprocess.run(l4_command, capture_output=True, text=True)
-                diagnostic += "\n$ " + " ".join(l4_command) + "\n" + l4.stdout + l4.stderr
-                outcome = OUTCOMES.get(l4.returncode, "infrastructure/error")
-                stage = "L4 validation" if l4.returncode in OUTCOMES else "L4 validation invocation"
+            stage = (
+                "build readiness validation"
+                if completed.returncode in OUTCOMES
+                else "build readiness invocation"
+            )
+            if outcome == "passed" and args.run_live_service:
+                live_service_command = [
+                    args.bash,
+                    args.validator,
+                    "--mode",
+                    "live-service",
+                    "--sample-dir",
+                    args.sample_path,
+                ]
+                live_service = subprocess.run(
+                    live_service_command, capture_output=True, text=True
+                )
+                diagnostic += (
+                    "\n$ "
+                    + " ".join(live_service_command)
+                    + "\n"
+                    + live_service.stdout
+                    + live_service.stderr
+                )
+                outcome = OUTCOMES.get(
+                    live_service.returncode, "infrastructure/error"
+                )
+                stage = (
+                    "live-service validation"
+                    if live_service.returncode in OUTCOMES
+                    else "live-service validation invocation"
+                )
         except (OSError, subprocess.SubprocessError) as exc:
             diagnostic = "$ " + " ".join(command) + f"\nrunner error: {exc}\n"
             outcome = "infrastructure/error"
-            stage = "L3 validation invocation"
+            stage = "build readiness invocation"
 
     completed_at = utc_now()
     result = {
-        "schema_version": 1,
+        "schema_version": 2,
         "sample": {
             "id": args.sample_id,
             "path": args.sample_path,

@@ -1,6 +1,0 @@
-name: l4-good
-description: Hermetic L4 fixture proving caller environment and SKIP_PROVISION are inherited.
-l4:
-  command: 'test "$L4_TEST_ENDPOINT" = "https://stub.invalid" && test "$SKIP_PROVISION" = "true"'
-  required_env:
-    - L4_TEST_ENDPOINT

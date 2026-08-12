@@ -1,0 +1,3 @@
+name: live-service-invalid
+description: Hermetic live-service fixture with an invalid scalar declaration.
+live_service_validation: "true"

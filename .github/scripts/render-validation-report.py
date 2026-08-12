@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render a run-scoped summary from validation-pilot v1 result artifacts."""
+"""Render a run-scoped summary from validation-pilot result artifacts."""
 
 from __future__ import annotations
 
@@ -30,6 +30,13 @@ SECTION_LABELS = {
     "skipped/not-completed": "Skipped/not-completed",
 }
 DIAGNOSTIC_LIMIT = 240
+SUPPORTED_SCHEMA_VERSIONS = {1, 2}
+LEGACY_COMPLETED_STAGES = {
+    "L3 validation": "build readiness validation",
+    "L3 validation invocation": "build readiness invocation",
+    "L4 validation": "live-service validation",
+    "L4 validation invocation": "live-service validation invocation",
+}
 DIAGNOSTIC_PATTERNS = (
     re.compile(r"(?:\berror\b|^FAIL:|^ERROR:|^SKIP:|^runner error:|^verdict=)", re.IGNORECASE),
 )
@@ -77,7 +84,7 @@ def load_expected(path: Path) -> list[dict[str, str]]:
     payload = load_json(path, "sample manifest")
     if (
         not isinstance(payload, dict)
-        or payload.get("schema_version") != 1
+        or payload.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS
         or not isinstance(payload.get("samples"), list)
         or not payload["samples"]
     ):
@@ -91,8 +98,12 @@ def load_expected(path: Path) -> list[dict[str, str]]:
 
 def load_record(path: Path, expected: dict[str, str]) -> dict[str, Any]:
     value = load_json(path, f"result artifact {path}")
-    if not isinstance(value, dict) or set(value) != REQUIRED or value.get("schema_version") != 1:
-        raise ContractError("result must be a schema_version 1 object")
+    if (
+        not isinstance(value, dict)
+        or set(value) != REQUIRED
+        or value.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS
+    ):
+        raise ContractError("result must be a supported schema object")
     missing = REQUIRED - value.keys()
     if missing:
         raise ContractError(f"result is missing fields: {sorted(missing)}")
@@ -123,8 +134,12 @@ def load_record(path: Path, expected: dict[str, str]) -> dict[str, Any]:
     diagnostic = path.parent / value["diagnostic_reference"]
     if not diagnostic.is_file():
         raise ContractError(f"missing diagnostic: {diagnostic}")
+    completed_stage = LEGACY_COMPLETED_STAGES.get(
+        value["completed_stage"], value["completed_stage"]
+    )
     return {
         **value,
+        "completed_stage": completed_stage,
         "completed_at": timestamp(value["completed_at"], "completed_at"),
         "diagnostic_path": diagnostic,
     }

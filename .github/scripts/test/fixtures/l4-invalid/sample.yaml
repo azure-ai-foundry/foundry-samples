@@ -1,3 +1,0 @@
-name: l4-invalid
-description: Hermetic L4 fixture with an invalid scalar declaration.
-l4: "true"

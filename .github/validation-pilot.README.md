@@ -6,16 +6,19 @@ generates a deterministic manifest and matrix, and runs with `fail-fast: false`.
 The first full-fleet run should be manually reviewed before the first scheduled
 occurrence.
 
-All supported samples run L3. Declared-L4 samples use a separate credentialed
+All supported samples run build readiness. Samples declaring live-service validation use a separate credentialed
 matrix leg to avoid duplicate validation and unnecessary environment deployment
-records, but that leg still runs L3 first and proceeds to L4 only when L3 passes.
-Declaring L4 never opts a sample out of L3. JavaScript uses the existing
+records, but that leg still runs build readiness first and proceeds to live-service
+validation only when readiness passes. Declaring live-service validation never opts
+a sample out of build readiness. JavaScript uses the existing
 TypeScript/node validator mapping. Rust samples remain in the manifest and emit
 `skipped/not-completed` with an explicit unsupported-language reason.
 
 Each matrix leg persists `sample-result.json` and `diagnostics.log` in a
-versioned artifact. Declared `sample.yaml` L4 commands run through the existing
-`L4-validation` OIDC environment and warm-project seam. P4.1 does not provision
+versioned artifact. Declared `sample.yaml` live-service commands run through the
+existing `L4-validation` OIDC environment and warm-project seam. That environment
+name is a legacy external GitHub/Entra identifier and is not the validation mode
+name. P4.1 does not provision
 resources and does not set a cold-provisioning default.
 
 The result schema remains owned by the producer and includes

@@ -1,6 +1,6 @@
 name: validation report
 
-# Reusable consumer job for validation-pilot v1. The producer owns the schema and
+# Reusable consumer job for validation-pilot schemas 1 and 2. The producer owns the schema and
 # artifact completeness; this workflow only consumes normalized results and diagnostics.
 on:
   workflow_call:

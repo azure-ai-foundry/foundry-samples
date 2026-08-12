@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# validate-sample.sh — reusable single-sample validator (L3 Load or declared L4 execution).
+# validate-sample.sh — reusable single-sample build-readiness or live-service validator.
 #
 # Ported from .azure-pipelines/validation.yml Stage 2, which duplicated the same
 # per-sample body across five per-language jobs (C#, Python, TypeScript, Java, Go).
@@ -12,28 +12,28 @@
 # This script assumes the required toolchain is already on PATH and reports ERROR if not.
 #
 # Usage:
-#   validate-sample.sh [--level 3] --language <csharp|python|typescript|java|go> \
+#   validate-sample.sh [--mode build-readiness] --language <csharp|python|typescript|java|go> \
 #                      --sample-dir <path> [--results-dir <dir>]
-#   validate-sample.sh --level 4 --sample-dir <path> [--results-dir <dir>]
+#   validate-sample.sh --mode live-service --sample-dir <path> [--results-dir <dir>]
 #
 # Verdict / exit codes — the classifier. This split is load-bearing: downstream lanes
 # and the sync gate trust it, and ERROR must NEVER be treated as a sample failure
 # (that is what protects good samples from being quarantined when our infra breaks).
 #
 #   0  PASS   the requested level passed
-#             (L3 commands/default pass; or L4 command passes/none is declared)
+#             (build-readiness commands/default pass; or live-service command passes/none is declared)
 #   1  FAIL   the SAMPLE is broken
-#             (an L3/L4 sample command exits non-zero; or the language default's
+#             (a build-readiness/live-service sample command exits non-zero; or the language default's
 #              compile/build/py_compile exits non-zero, without positive infra evidence)
 #   2  ERROR  OUR INFRA is sick — page us, do not quarantine
 #             PRECONDITION errors (bad/missing args, unknown language, missing sample dir,
 #             unreadable or malformed sample.yaml, a required toolchain binary missing from
 #             PATH, yq unavailable when a sample.yaml must be read), OR a dedicated `pip install` /
-#             `npm install` failure with positive transport evidence, OR an L4 command that
+#             `npm install` failure with positive transport evidence, OR a live-service command that
 #             explicitly reports caller/cloud infrastructure failure with exit 2.
 #
 # failure-vs-error at runtime (honest v1): the two DEDICATED install steps (`pip install`,
-# `npm install`) are inspected for positive transport evidence. Arbitrary L4 output is NEVER
+# `npm install`) are inspected for positive transport evidence. Arbitrary live-service output is NEVER
 # inferred: its command owns normalization to 0=PASS, 1=FAIL, or 2=ERROR; every other nonzero
 # remains FAIL (bias ambiguous->fail, never fail-open). The merged resolve+compile tools
 # (dotnet build, mvn compile, gradle build, go build, npm run build) are NOT inspected in v1.
@@ -41,7 +41,7 @@
 #
 # Outputs:
 #   - prints `verdict=pass|fail|error` on stdout (also appended to $GITHUB_OUTPUT if set)
-#   - in L4 mode, also prints/appends `l4_declared=true|false`
+#   - in live-service mode, also prints/appends `live_service_validation_declared=true|false`
 #   - if --results-dir is given, appends the sample path to
 #     passed.txt | failed.txt | errored.txt in that directory.
 #
@@ -53,20 +53,20 @@ set -uo pipefail
 LANGUAGE=""
 SAMPLE_DIR=""
 RESULTS_DIR=""
-LEVEL="3"
-L4_DECLARED=""
+MODE="build-readiness"
+LIVE_SERVICE_VALIDATION_DECLARED=""
 SAMPLE_YAML_FAIL_STEP=""
 PYTHON_VENV_DIR=""
 
 usage() {
     cat <<'EOF'
 Usage:
-  validate-sample.sh [--level 3] --language <lang> --sample-dir <path> [--results-dir <dir>]
-  validate-sample.sh --level 4 --sample-dir <path> [--results-dir <dir>]
+  validate-sample.sh [--mode build-readiness] --language <lang> --sample-dir <path> [--results-dir <dir>]
+  validate-sample.sh --mode live-service --sample-dir <path> [--results-dir <dir>]
 
-  --level        Validation level: 3 (default) or 4.
+  --mode         Validation mode: build-readiness (default) or live-service.
   --language     One of: csharp | python | typescript | java | go (frozen set).
-                 Required for L3; optional for L4.
+                 Required for build readiness; optional for live-service validation.
   --sample-dir   Path to the single sample directory to validate.
   --results-dir  Optional. Directory to append passed.txt/failed.txt/errored.txt.
 
@@ -81,13 +81,13 @@ EOF
 emit_verdict() {
     # $1 = pass|fail|error, $2 = exit code
     local verdict="$1" code="$2"
-    if [ "$LEVEL" = "4" ] && [ -n "$L4_DECLARED" ]; then
-        echo "l4_declared=${L4_DECLARED}"
+    if [ "$MODE" = "live-service" ] && [ -n "$LIVE_SERVICE_VALIDATION_DECLARED" ]; then
+        echo "live_service_validation_declared=${LIVE_SERVICE_VALIDATION_DECLARED}"
     fi
     echo "verdict=${verdict}"
     if [ -n "${GITHUB_OUTPUT:-}" ]; then
-        if [ "$LEVEL" = "4" ] && [ -n "$L4_DECLARED" ]; then
-            echo "l4_declared=${L4_DECLARED}" >> "$GITHUB_OUTPUT"
+        if [ "$MODE" = "live-service" ] && [ -n "$LIVE_SERVICE_VALIDATION_DECLARED" ]; then
+            echo "live_service_validation_declared=${LIVE_SERVICE_VALIDATION_DECLARED}" >> "$GITHUB_OUTPUT"
         fi
         echo "verdict=${verdict}" >> "$GITHUB_OUTPUT"
     fi
@@ -137,7 +137,7 @@ ensure_yq() {
 #   - a positive match wins even when pip later prints a generic "No matching distribution"
 #     line (pip emits that AFTER exhausting retries against an unreachable index);
 #   - it is scoped to direct `pip install` and `npm install` logs only;
-#   - arbitrary sample/L4 output MUST NOT be passed here;
+#   - arbitrary sample/live-service output MUST NOT be passed here;
 #   - anything unmatched stays FAIL (bias ambiguous->fail, never fail-open to pass);
 #   - EXPECT maintenance as runner pip/npm versions drift their error strings.
 # The full captured log is printed by the caller before classifying, so diagnosis is preserved.
@@ -194,6 +194,9 @@ run_sample_yaml() {
 
     if ! yq eval '.' "$yaml" >/dev/null 2>&1; then
         error "sample.yaml is unreadable or malformed: $yaml"
+    fi
+    if [ "$(yq eval 'has("l4")' "$yaml" 2>/dev/null)" = "true" ]; then
+        error "legacy sample.yaml key 'l4' is unsupported; rename it to 'live_service_validation'"
     fi
 
     local had_cmd=false cmd cmd_type
@@ -364,20 +367,20 @@ cleanup_python_venv() {
     rm -rf "$PYTHON_VENV_DIR"
 }
 
-# --- Part 3: opt-in L4 execution ---------------------------------------------
+# --- Part 3: opt-in live-service validation ---------------------------------
 # Contract:
-#   l4:
+#   live_service_validation:
 #     command: "<credentialed runtime assertion>"
 #     required_env: [OPTIONAL_ENV_NAME, ...]  # optional
 #
 # The caller owns authentication and configuration. This script never provisions, logs in,
 # or invents defaults: it inherits the caller environment and requires the caller to set
 # SKIP_PROVISION to exactly true or false. A missing declaration is a successful no-op.
-run_l4() {
+run_live_service_validation() {
     local yaml="$SAMPLE_DIR/sample.yaml"
     if [ ! -f "$yaml" ]; then
-        L4_DECLARED=false
-        echo "No sample.yaml L4 declaration; nothing owes L4."
+        LIVE_SERVICE_VALIDATION_DECLARED=false
+        echo "No sample.yaml live-service declaration; nothing owes live-service validation."
         pass
     fi
 
@@ -386,71 +389,74 @@ run_l4() {
         error "sample.yaml is unreadable or malformed: $yaml"
     fi
 
-    if [ "$(yq eval 'has("l4")' "$yaml" 2>/dev/null)" != "true" ]; then
-        L4_DECLARED=false
-        echo "No sample.yaml L4 declaration; nothing owes L4."
+    if [ "$(yq eval 'has("l4")' "$yaml" 2>/dev/null)" = "true" ]; then
+        error "legacy sample.yaml key 'l4' is unsupported; rename it to 'live_service_validation'"
+    fi
+    if [ "$(yq eval 'has("live_service_validation")' "$yaml" 2>/dev/null)" != "true" ]; then
+        LIVE_SERVICE_VALIDATION_DECLARED=false
+        echo "No sample.yaml live-service declaration; nothing owes live-service validation."
         pass
     fi
-    L4_DECLARED=true
+    LIVE_SERVICE_VALIDATION_DECLARED=true
 
-    local l4_kind command_tag cmd
-    l4_kind="$(yq eval '.l4 | kind' "$yaml" 2>/dev/null)" ||
-        error "failed to read sample.yaml l4 declaration: $yaml"
-    [ "$l4_kind" = "map" ] ||
-        error "sample.yaml l4 must be a mapping with a string command"
+    local declaration_kind command_tag cmd
+    declaration_kind="$(yq eval '.live_service_validation | kind' "$yaml" 2>/dev/null)" ||
+        error "failed to read sample.yaml live_service_validation declaration: $yaml"
+    [ "$declaration_kind" = "map" ] ||
+        error "sample.yaml live_service_validation must be a mapping with a string command"
 
-    command_tag="$(yq eval '.l4.command | tag' "$yaml" 2>/dev/null)" ||
-        error "failed to read sample.yaml l4.command: $yaml"
+    command_tag="$(yq eval '.live_service_validation.command | tag' "$yaml" 2>/dev/null)" ||
+        error "failed to read sample.yaml live_service_validation.command: $yaml"
     [ "$command_tag" = "!!str" ] ||
-        error "sample.yaml l4.command must be a non-empty string"
-    cmd="$(yq eval '.l4.command' "$yaml" 2>/dev/null)" ||
-        error "failed to read sample.yaml l4.command: $yaml"
+        error "sample.yaml live_service_validation.command must be a non-empty string"
+    cmd="$(yq eval '.live_service_validation.command' "$yaml" 2>/dev/null)" ||
+        error "failed to read sample.yaml live_service_validation.command: $yaml"
     printf '%s' "$cmd" | grep -q '[^[:space:]]' ||
-        error "sample.yaml l4.command must be a non-empty string"
+        error "sample.yaml live_service_validation.command must be a non-empty string"
 
-    if [ "$(yq eval '.l4 | has("required_env")' "$yaml" 2>/dev/null)" = "true" ]; then
+    if [ "$(yq eval '.live_service_validation | has("required_env")' "$yaml" 2>/dev/null)" = "true" ]; then
         local required_env_kind env_count i env_name env_tag
-        required_env_kind="$(yq eval '.l4.required_env | kind' "$yaml" 2>/dev/null)" ||
-            error "failed to read sample.yaml l4.required_env: $yaml"
+        required_env_kind="$(yq eval '.live_service_validation.required_env | kind' "$yaml" 2>/dev/null)" ||
+            error "failed to read sample.yaml live_service_validation.required_env: $yaml"
         [ "$required_env_kind" = "seq" ] ||
-            error "sample.yaml l4.required_env must be a list of environment-variable names"
-        env_count="$(yq eval '.l4.required_env | length' "$yaml" 2>/dev/null)" ||
-            error "failed to read sample.yaml l4.required_env: $yaml"
+            error "sample.yaml live_service_validation.required_env must be a list of environment-variable names"
+        env_count="$(yq eval '.live_service_validation.required_env | length' "$yaml" 2>/dev/null)" ||
+            error "failed to read sample.yaml live_service_validation.required_env: $yaml"
         i=0
         while [ "$i" -lt "$env_count" ]; do
-            env_tag="$(yq eval ".l4.required_env[$i] | tag" "$yaml" 2>/dev/null)" ||
-                error "failed to read sample.yaml l4.required_env[$i]: $yaml"
+            env_tag="$(yq eval ".live_service_validation.required_env[$i] | tag" "$yaml" 2>/dev/null)" ||
+                error "failed to read sample.yaml live_service_validation.required_env[$i]: $yaml"
             [ "$env_tag" = "!!str" ] ||
-                error "sample.yaml l4.required_env[$i] must be a string"
-            env_name="$(yq eval ".l4.required_env[$i]" "$yaml" 2>/dev/null)" ||
-                error "failed to read sample.yaml l4.required_env[$i]: $yaml"
+                error "sample.yaml live_service_validation.required_env[$i] must be a string"
+            env_name="$(yq eval ".live_service_validation.required_env[$i]" "$yaml" 2>/dev/null)" ||
+                error "failed to read sample.yaml live_service_validation.required_env[$i]: $yaml"
             [[ "$env_name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
-                error "sample.yaml l4.required_env[$i] is not a valid environment-variable name: $env_name"
+                error "sample.yaml live_service_validation.required_env[$i] is not a valid environment-variable name: $env_name"
             [ -n "${!env_name:-}" ] ||
-                error "required L4 environment variable is missing or empty: $env_name"
+                error "required live-service environment variable is missing or empty: $env_name"
             i=$((i + 1))
         done
     fi
 
     case "${SKIP_PROVISION:-}" in
         true|false) ;;
-        "") error "SKIP_PROVISION must be set by the L4 caller to true or false" ;;
+        "") error "SKIP_PROVISION must be set by the live-service caller to true or false" ;;
         *) error "SKIP_PROVISION must be exactly true or false (got: $SKIP_PROVISION)" ;;
     esac
 
-    echo "Running L4 command (SKIP_PROVISION=$SKIP_PROVISION): $cmd"
-    local l4log
-    l4log="$(mktemp)" || error "failed to create temporary L4 command log"
-    local l4_rc
-    ( cd "$SAMPLE_DIR" && eval "$cmd" ) >"$l4log" 2>&1
-    l4_rc=$?
-    cat "$l4log"
-    rm -f "$l4log"
-    case "$l4_rc" in
+    echo "Running live-service command (SKIP_PROVISION=$SKIP_PROVISION): $cmd"
+    local live_service_log
+    live_service_log="$(mktemp)" || error "failed to create temporary live-service command log"
+    local live_service_rc
+    ( cd "$SAMPLE_DIR" && eval "$cmd" ) >"$live_service_log" 2>&1
+    live_service_rc=$?
+    cat "$live_service_log"
+    rm -f "$live_service_log"
+    case "$live_service_rc" in
         0) pass ;;
-        1) fail "sample.yaml l4.command reported sample failure (exit 1)" ;;
-        2) error "sample.yaml l4.command reported caller/cloud infrastructure error (exit 2)" ;;
-        *) fail "sample.yaml l4.command exited with unexpected status $l4_rc (classified fail)" ;;
+        1) fail "sample.yaml live_service_validation.command reported sample failure (exit 1)" ;;
+        2) error "sample.yaml live_service_validation.command reported caller/cloud infrastructure error (exit 2)" ;;
+        *) fail "sample.yaml live_service_validation.command exited with unexpected status $live_service_rc (classified fail)" ;;
     esac
 }
 
@@ -468,7 +474,7 @@ python_setup_venv() {
 # --- Argument parsing --------------------------------------------------------
 while [ $# -gt 0 ]; do
     case "$1" in
-        --level)       LEVEL="${2:-}";       shift $(( $# > 1 ? 2 : 1 )) ;;
+        --mode)        MODE="${2:-}";        shift $(( $# > 1 ? 2 : 1 )) ;;
         --language)    LANGUAGE="${2:-}";    shift $(( $# > 1 ? 2 : 1 )) ;;
         --sample-dir)  SAMPLE_DIR="${2:-}";  shift $(( $# > 1 ? 2 : 1 )) ;;
         --results-dir) RESULTS_DIR="${2:-}"; shift $(( $# > 1 ? 2 : 1 )) ;;
@@ -478,29 +484,29 @@ while [ $# -gt 0 ]; do
 done
 
 # --- Guards (ordered so the ERROR tier is provable without any toolchain) -----
-case "$LEVEL" in
-    3|4) ;;
-    "") error "missing value for --level (expected 3 or 4)" ;;
-    *)  error "unsupported validation level '$LEVEL' (expected 3 or 4)" ;;
+case "$MODE" in
+    build-readiness|live-service) ;;
+    "") error "missing value for --mode (expected build-readiness or live-service)" ;;
+    *)  error "unsupported validation mode '$MODE' (expected build-readiness or live-service)" ;;
 esac
 
 [ -n "$SAMPLE_DIR" ] || error "missing required --sample-dir"
 [ -d "$SAMPLE_DIR" ] || error "sample directory not found: $SAMPLE_DIR"
 SAMPLE_DIR="${SAMPLE_DIR%/}"
 
-if [ "$LEVEL" = "3" ] || [ -n "$LANGUAGE" ]; then
+if [ "$MODE" = "build-readiness" ] || [ -n "$LANGUAGE" ]; then
     case "$LANGUAGE" in
         csharp|python|typescript|java|go) ;;
-        "") error "missing required --language for L3" ;;
+        "") error "missing required --language for build readiness" ;;
         *)  error "unsupported language '$LANGUAGE' (frozen set: csharp|python|typescript|java|go)" ;;
     esac
 fi
 
-echo "=== validate-sample: level=L$LEVEL language=${LANGUAGE:-n/a} dir=$SAMPLE_DIR ==="
+echo "=== validate-sample: mode=$MODE language=${LANGUAGE:-n/a} dir=$SAMPLE_DIR ==="
 
-if [ "$LEVEL" = "4" ]; then
-    run_l4
-    error "internal: no L4 verdict emitted"
+if [ "$MODE" = "live-service" ]; then
+    run_live_service_validation
+    error "internal: no live-service verdict emitted"
 fi
 
 # Python creates its isolated venv before the sample.yaml/default branch (ADO parity),

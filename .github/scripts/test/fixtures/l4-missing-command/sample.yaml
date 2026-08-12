@@ -1,4 +1,0 @@
-name: l4-missing-command
-description: Hermetic L4 fixture with a mapping that omits the required command.
-l4:
-  required_env: []
