@@ -18,6 +18,12 @@ SKIP_PROVISION=true bash .github/scripts/validate-sample.sh \
   --sample-dir samples/python/quickstart/responses
 ```
 
+These commands invoke individual validation levels; calling `--level 4` directly
+does not implicitly run L3 first. The repository validation pilot provides the
+end-to-end sequence: every supported sample runs L3, and a sample with an `l4`
+declaration proceeds to L4 only after its L3 check passes. Declaring L4 therefore
+does not opt a sample out of L3.
+
 Both modes use the same exit and verdict contract:
 
 | Exit | Verdict | Meaning |
