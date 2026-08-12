@@ -24,6 +24,25 @@ and a sample with a `live_service_validation` declaration proceeds to live-servi
 validation only after readiness passes. Declaring live-service validation therefore
 does not opt a sample out of build readiness.
 
+## Build readiness by language
+
+If `sample.yaml` declares `build`, `validate`, or `test` commands, the validator
+runs those commands in that order instead of the language default below. The
+first nonzero command fails build readiness.
+
+| Sample language | Default build-readiness checks |
+|---|---|
+| C# | Run `dotnet build` for every `.csproj` in the sample directory. If none exists, report readiness as passed. |
+| Python | Create an isolated virtual environment, install `requirements.txt` when present, and run `python -m py_compile` on top-level `.py` files. |
+| TypeScript | If `package.json` exists, run `npm install` and `npm run build --if-present`. Otherwise, syntax-check top-level `.js` files with `node --check`; top-level `.ts` files have no default check without a package definition. |
+| JavaScript | Use the TypeScript/Node.js validation path described above. |
+| Java | Run `mvn compile` for Maven samples or a Gradle build for Gradle samples, preferring the sample's `gradlew` wrapper. If no supported build file exists, report readiness as passed. |
+| Go | Run `go build ./...` for a module, or build each top-level `.go` file when no `go.mod` exists. |
+| Rust | Not currently supported by build readiness. Discovered Rust samples produce explicit `skipped/not-completed` results. |
+
+These defaults are credential-free readiness checks; they do not assert that a
+sample can successfully call a live service.
+
 Both modes use the same exit and verdict contract:
 
 | Exit | Verdict | Meaning |

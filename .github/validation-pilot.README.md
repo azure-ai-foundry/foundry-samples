@@ -33,14 +33,14 @@ warm-project policy. The GitHub environment remains named `L4-validation`
 because that legacy external identifier is part of the Entra OIDC subject; it
 is not a current validation mode name.
 
-Discovery textually detects the `live_service_validation` key and rejects the
-legacy `l4` key with migration guidance. Do not infer broader YAML integrity,
-duplicate-ID, or path-safety guarantees from discovery until those guardrails
-are implemented.
+Discovery validates sample metadata and fails closed for malformed metadata,
+duplicate identities, or unsafe sample paths. It also rejects the legacy `l4`
+key with migration guidance.
 
 See the [per-sample validation contract](scripts/validate-sample.README.md) for
-metadata and local command examples. The runner modes are
-`--mode build-readiness` and `--mode live-service`.
+the language-by-language build-readiness matrix, metadata contract, and local
+command examples. The runner modes are `--mode build-readiness` and
+`--mode live-service`.
 
 ## Results and artifacts
 
