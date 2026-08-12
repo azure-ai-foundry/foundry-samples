@@ -12,7 +12,7 @@ The daily validation cadence checks every metadata-bearing sample at 07:00 UTC
 and publishes a run-scoped report and diagnostic artifacts. Maintainers can also
 start it manually. See the
 [validation cadence guide](.github/validation-pilot.README.md) for coverage,
-outcomes, artifacts, and current L4 limitations.
+outcomes, artifacts, and live-service behavior.
 
 ## Contributing
 
