@@ -68,11 +68,20 @@ def discover(root: Path) -> dict:
     }
 
 
+def write_matrix(path: Path, samples: list[dict]) -> None:
+    path.write_text(
+        json.dumps({"include": samples}, separators=(",", ":")),
+        encoding="utf-8",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--matrix", type=Path, required=True)
+    parser.add_argument("--l3-matrix", type=Path)
+    parser.add_argument("--l4-matrix", type=Path)
     args = parser.parse_args()
 
     payload = discover(args.root.resolve())
@@ -85,10 +94,17 @@ def main() -> int:
         + "\n",
         encoding="utf-8",
     )
-    args.matrix.write_text(
-        json.dumps({"include": payload["matrix"]}, separators=(",", ":")),
-        encoding="utf-8",
-    )
+    write_matrix(args.matrix, payload["matrix"])
+    if args.l3_matrix:
+        write_matrix(
+            args.l3_matrix,
+            [sample for sample in payload["matrix"] if not sample["l4_declared"]],
+        )
+    if args.l4_matrix:
+        write_matrix(
+            args.l4_matrix,
+            [sample for sample in payload["matrix"] if sample["l4_declared"]],
+        )
     print(json.dumps({"count": len(payload["matrix"]), "matrix": payload["matrix"]}, separators=(",", ":")))
     return 0
 

@@ -17,7 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      matrix: ${{ steps.discovery.outputs.matrix }}
+      l3_matrix: ${{ steps.discovery.outputs.l3_matrix }}
+      l4_matrix: ${{ steps.discovery.outputs.l4_matrix }}
     steps:
       - uses: actions/checkout@v4
       - name: Discover full sample inventory
@@ -26,8 +27,11 @@ jobs:
           set -euo pipefail
           python .github/scripts/discover-validation-samples.py \
             --manifest "$RUNNER_TEMP/validation-manifest.json" \
-            --matrix "$RUNNER_TEMP/validation-matrix.json" > "$RUNNER_TEMP/discovery.json"
-          printf 'matrix=%s\n' "$(cat "$RUNNER_TEMP/validation-matrix.json")" >> "$GITHUB_OUTPUT"
+            --matrix "$RUNNER_TEMP/validation-matrix.json" \
+            --l3-matrix "$RUNNER_TEMP/validation-l3-matrix.json" \
+            --l4-matrix "$RUNNER_TEMP/validation-l4-matrix.json" > "$RUNNER_TEMP/discovery.json"
+          printf 'l3_matrix=%s\n' "$(cat "$RUNNER_TEMP/validation-l3-matrix.json")" >> "$GITHUB_OUTPUT"
+          printf 'l4_matrix=%s\n' "$(cat "$RUNNER_TEMP/validation-l4-matrix.json")" >> "$GITHUB_OUTPUT"
           cat "$RUNNER_TEMP/discovery.json"
       - name: Persist discovered manifest
         uses: actions/upload-artifact@v4
@@ -41,20 +45,12 @@ jobs:
     needs: discover
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: L4-validation
     permissions:
       contents: read
-      id-token: write
-    env:
-      # P4.1 never provisions. Declared L4 checks use the existing warm-project seam;
-      # P4.2 owns any future cold-provisioning caller.
-      SKIP_PROVISION: ${{ matrix.l4_declared && 'true' || '' }}
-      AZURE_AI_PROJECT_ENDPOINT: ${{ matrix.l4_declared && vars.AZURE_AI_PROJECT_ENDPOINT || '' }}
-      MODEL_DEPLOYMENT: ${{ matrix.l4_declared && vars.MODEL_DEPLOYMENT || '' }}
     strategy:
       fail-fast: false
       max-parallel: 32
-      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.discover.outputs.l3_matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -79,13 +75,6 @@ jobs:
         run: |
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
-      - name: Azure login for declared L4
-        if: matrix.l4_declared
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - name: Run normalized sample validation
         if: always()
         run: |
@@ -102,8 +91,6 @@ jobs:
           )
           if [ "${{ matrix.eligible }}" != "true" ]; then
             args+=(--skip-reason "${{ matrix.skip_reason }}")
-          elif [ "${{ matrix.l4_declared }}" = "true" ]; then
-            args+=(--run-l4)
           fi
           python .github/scripts/run-validation-pilot.py "${args[@]}"
       - name: Persist sample result and diagnostics
@@ -115,9 +102,72 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  validate-l4:
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: L4-validation
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # P4.1 never provisions. P4.2 owns any future cold-provisioning caller.
+      SKIP_PROVISION: "true"
+      AZURE_AI_PROJECT_ENDPOINT: ${{ vars.AZURE_AI_PROJECT_ENDPOINT }}
+      MODEL_DEPLOYMENT: ${{ vars.MODEL_DEPLOYMENT }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.discover.outputs.l4_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        if: matrix.validator_language == 'csharp'
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-python@v5
+        if: matrix.validator_language == 'python'
+        with:
+          python-version: '3.12'
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+      - name: Install declared L4 Python runtime dependencies
+        if: matrix.validator_language == 'python'
+        run: python -m pip install -r "${{ matrix.path }}/requirements.txt"
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Run normalized L4 sample validation
+        if: always()
+        run: |
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/pilot-result"
+          python .github/scripts/run-validation-pilot.py \
+            --sample-id "${{ matrix.id }}" \
+            --language "${{ matrix.language }}" \
+            --validator-language "${{ matrix.validator_language }}" \
+            --shape "${{ matrix.shape }}" \
+            --sample-path "${{ matrix.path }}" \
+            --output "$RUNNER_TEMP/pilot-result/sample-result.json" \
+            --diagnostic "$RUNNER_TEMP/pilot-result/diagnostics.log" \
+            --run-l4
+      - name: Persist sample result and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-pilot-${{ matrix.id }}
+          path: ${{ runner.temp }}/pilot-result
+          if-no-files-found: error
+          retention-days: 30
+
   completeness:
     if: always()
-    needs: [discover, validate]
+    needs: [discover, validate, validate-l4]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

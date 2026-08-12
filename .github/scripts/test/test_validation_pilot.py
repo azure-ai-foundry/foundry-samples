@@ -36,6 +36,8 @@ class ValidationPilotTests(unittest.TestCase):
             root = Path(directory)
             manifest = root / "manifest.json"
             matrix = root / "matrix.json"
+            l3_matrix = root / "l3-matrix.json"
+            l4_matrix = root / "l4-matrix.json"
             completed = subprocess.run(
                 [
                     sys.executable,
@@ -46,6 +48,10 @@ class ValidationPilotTests(unittest.TestCase):
                     str(manifest),
                     "--matrix",
                     str(matrix),
+                    "--l3-matrix",
+                    str(l3_matrix),
+                    "--l4-matrix",
+                    str(l4_matrix),
                 ],
                 capture_output=True,
                 text=True,
@@ -84,17 +90,29 @@ class ValidationPilotTests(unittest.TestCase):
             self.assertEqual(json.loads(matrix.read_text(encoding="utf-8"))["include"], [
                 {**sample, **payload["validation"][sample["id"]]} for sample in payload["samples"]
             ])
+            self.assertTrue(
+                all(not sample["l4_declared"] for sample in json.loads(l3_matrix.read_text())["include"])
+            )
+            self.assertEqual(
+                {sample["path"] for sample in json.loads(l4_matrix.read_text())["include"]},
+                declared_l4_paths,
+            )
 
-    def test_workflow_supplies_declared_l4_warm_project_inputs(self) -> None:
+    def test_workflow_isolates_declared_l4_warm_project_jobs(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertEqual(workflow.count("environment: L4-validation"), 1)
+        self.assertIn("matrix: ${{ fromJSON(needs.discover.outputs.l3_matrix) }}", workflow)
+        self.assertIn("matrix: ${{ fromJSON(needs.discover.outputs.l4_matrix) }}", workflow)
         self.assertIn(
-            "AZURE_AI_PROJECT_ENDPOINT: ${{ matrix.l4_declared && vars.AZURE_AI_PROJECT_ENDPOINT || '' }}",
+            "AZURE_AI_PROJECT_ENDPOINT: ${{ vars.AZURE_AI_PROJECT_ENDPOINT }}",
             workflow,
         )
         self.assertIn(
-            "MODEL_DEPLOYMENT: ${{ matrix.l4_declared && vars.MODEL_DEPLOYMENT || '' }}",
+            "MODEL_DEPLOYMENT: ${{ vars.MODEL_DEPLOYMENT }}",
             workflow,
         )
+        self.assertIn('SKIP_PROVISION: "true"', workflow)
+        self.assertIn('python -m pip install -r "${{ matrix.path }}/requirements.txt"', workflow)
 
     def test_sample_failure_is_a_complete_valid_result(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
