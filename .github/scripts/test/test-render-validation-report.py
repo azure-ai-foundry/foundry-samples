@@ -140,6 +140,27 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn("password=secret", body)
         self.assertIn("…", body)
 
+    def test_failure_excerpt_does_not_select_earlier_passing_verdict(self) -> None:
+        self.write_result(SAMPLE_A, "passed")
+        self.write_result(
+            SAMPLE_B,
+            "sample failure",
+            "\n".join(
+                [
+                    "PASS: L3 validation",
+                    "verdict=pass",
+                    "ModuleNotFoundError: No module named 'httpx'",
+                    "FAIL: L4 command reported sample failure",
+                    "verdict=fail",
+                ]
+            ),
+        )
+        completed = self.run_report()
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        body = self.output.read_text(encoding="utf-8")
+        self.assertIn("FAIL: L4 command reported sample failure", body)
+        self.assertNotIn("`verdict=pass`", body)
+
     def test_missing_expected_artifact_publishes_partial_summary_and_fails(self) -> None:
         self.write_result(SAMPLE_A)
         completed = self.run_report()

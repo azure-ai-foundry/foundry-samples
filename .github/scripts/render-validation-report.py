@@ -38,8 +38,9 @@ LEGACY_COMPLETED_STAGES = {
     "L4 validation invocation": "live-service validation invocation",
 }
 DIAGNOSTIC_PATTERNS = (
-    re.compile(r"(?:\berror\b|^FAIL:|^ERROR:|^SKIP:|^runner error:|^verdict=)", re.IGNORECASE),
+    re.compile(r"(?:\berror\b|^FAIL:|^ERROR:|^SKIP:|^runner error:)", re.IGNORECASE),
 )
+VERDICT_PATTERN = re.compile(r"^verdict=", re.IGNORECASE)
 REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{7,40}$")
 
@@ -229,7 +230,10 @@ def diagnostic_excerpt(record: dict[str, Any]) -> str:
                 for line in lines
                 if any(pattern.search(line) for pattern in DIAGNOSTIC_PATTERNS)
             ),
-            lines[0] if lines else "",
+            next(
+                (line for line in reversed(lines) if VERDICT_PATTERN.search(line)),
+                lines[0] if lines else "",
+            ),
         )
     value = re.sub(
         r"(?i)(token|secret|password|api[_ -]?key)(\s*[:=]\s*)\S+",
