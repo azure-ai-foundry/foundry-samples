@@ -21,6 +21,13 @@ jobs:
       live_service_matrix: ${{ steps.discovery.outputs.live_service_matrix }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: .github/scripts/requirements.txt
+      - name: Install validation script dependencies
+        run: python -m pip install -r .github/scripts/requirements.txt
       - name: Discover full sample inventory
         id: discovery
         run: |

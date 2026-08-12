@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -10,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -17,6 +19,12 @@ RUNNER = ROOT / "scripts" / "run-validation-pilot.py"
 DISCOVERY = ROOT / "scripts" / "discover-validation-samples.py"
 COMPLETENESS = ROOT / "scripts" / "validate-validation-pilot-results.py"
 WORKFLOW = ROOT / "workflows" / "validation-pilot.yml"
+SELFTEST_WORKFLOW = ROOT / "workflows" / "scripts-selftest.yml"
+
+DISCOVERY_SPEC = importlib.util.spec_from_file_location("validation_discovery", DISCOVERY)
+assert DISCOVERY_SPEC and DISCOVERY_SPEC.loader
+validation_discovery = importlib.util.module_from_spec(DISCOVERY_SPEC)
+DISCOVERY_SPEC.loader.exec_module(validation_discovery)
 
 
 class ValidationPilotTests(unittest.TestCase):
@@ -34,6 +42,22 @@ class ValidationPilotTests(unittest.TestCase):
     def test_discovery_covers_full_inventory_and_explicitly_skips_rust(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            metadata = [
+                ("csharp", "zeta", "name: zeta\n"),
+                ("java", "alpha", "name: alpha\n"),
+                (
+                    "python",
+                    "beta",
+                    "name: beta\nlive_service_validation:\n  command: \"true\"\n",
+                ),
+                ("typescript", "gamma", "name: gamma\n"),
+                ("javascript", "delta", "name: delta\n"),
+                ("rust", "epsilon", "name: epsilon\n"),
+            ]
+            for language, name, contents in metadata:
+                sample_metadata = root / "samples" / language / name / "sample.yaml"
+                sample_metadata.parent.mkdir(parents=True)
+                sample_metadata.write_text(contents, encoding="utf-8")
             manifest = root / "manifest.json"
             matrix = root / "matrix.json"
             build_readiness_matrix = root / "build-readiness-matrix.json"
@@ -43,7 +67,7 @@ class ValidationPilotTests(unittest.TestCase):
                     sys.executable,
                     str(DISCOVERY),
                     "--root",
-                    str(ROOT.parent),
+                    str(root),
                     "--manifest",
                     str(manifest),
                     "--matrix",
@@ -59,16 +83,22 @@ class ValidationPilotTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             payload = json.loads(manifest.read_text(encoding="utf-8"))
             self.assertEqual(payload["schema_version"], 2)
-            sample_metadata = list((ROOT.parent / "samples").glob("**/sample.yaml"))
-            expected_unsupported = sum(
-                path.relative_to(ROOT.parent / "samples").parts[0]
-                not in {"csharp", "java", "python", "typescript", "javascript"}
-                for path in sample_metadata
-            )
-            self.assertEqual(len(payload["samples"]), len(sample_metadata))
             self.assertEqual(
-                sum(not value["eligible"] for value in payload["validation"].values()),
-                expected_unsupported,
+                [sample["path"] for sample in payload["samples"]],
+                [
+                    "samples/csharp/zeta",
+                    "samples/java/alpha",
+                    "samples/javascript/delta",
+                    "samples/python/beta",
+                    "samples/rust/epsilon",
+                    "samples/typescript/gamma",
+                ],
+            )
+            self.assertTrue(
+                all(
+                    set(sample) == {"id", "path", "language", "shape"}
+                    for sample in payload["samples"]
+                )
             )
             self.assertEqual(
                 {value["validator_language"] for value in payload["validation"].values() if value["validator_language"]},
@@ -84,9 +114,19 @@ class ValidationPilotTests(unittest.TestCase):
             }
             self.assertEqual(
                 declared_live_service_paths,
+                {"samples/python/beta"},
+            )
+            self.assertEqual(
+                payload["validation"]["javascript-delta"]["validator_language"],
+                "typescript",
+            )
+            self.assertEqual(
+                payload["validation"]["rust-epsilon"],
                 {
-                    "samples/csharp/quickstart/responses",
-                    "samples/python/quickstart/responses",
+                    "eligible": False,
+                    "live_service_validation_declared": False,
+                    "skip_reason": "language 'rust' is not supported by build readiness",
+                    "validator_language": "",
                 },
             )
             self.assertEqual(json.loads(matrix.read_text(encoding="utf-8"))["include"], [
@@ -131,6 +171,16 @@ class ValidationPilotTests(unittest.TestCase):
         )
         self.assertIn('SKIP_PROVISION: "true"', workflow)
         self.assertIn('python -m pip install -r "${{ matrix.path }}/requirements.txt"', workflow)
+
+    def test_discovery_jobs_install_pinned_dependencies(self) -> None:
+        for workflow_path in (WORKFLOW, SELFTEST_WORKFLOW):
+            workflow = workflow_path.read_text(encoding="utf-8")
+            self.assertIn("uses: actions/setup-python@v5", workflow)
+            self.assertIn("python-version: '3.12'", workflow)
+            self.assertIn(
+                "python -m pip install -r .github/scripts/requirements.txt",
+                workflow,
+            )
 
     def test_discovery_rejects_legacy_l4_metadata_with_migration_message(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -194,6 +244,65 @@ class ValidationPilotTests(unittest.TestCase):
                     "live_service_validation_declared"
                 ]
             )
+
+    def test_discovery_skips_malformed_yaml_and_continues(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            broken = root / "samples" / "python" / "broken" / "sample.yaml"
+            broken.parent.mkdir(parents=True)
+            broken.write_text("live_service_validation: [\n", encoding="utf-8")
+            valid = root / "samples" / "python" / "valid" / "sample.yaml"
+            valid.parent.mkdir(parents=True)
+            valid.write_text("name: valid\n", encoding="utf-8")
+
+            payload = validation_discovery.discover(root)
+
+            broken_validation = payload["validation"]["python-broken"]
+            self.assertFalse(broken_validation["eligible"])
+            self.assertFalse(
+                broken_validation["live_service_validation_declared"]
+            )
+            self.assertIn(
+                "samples/python/broken/sample.yaml: invalid YAML",
+                broken_validation["skip_reason"],
+            )
+            self.assertTrue(payload["validation"]["python-valid"]["eligible"])
+
+    def test_discovery_marks_unreadable_yaml_with_metadata_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            metadata = root / "samples" / "python" / "unreadable" / "sample.yaml"
+            metadata.parent.mkdir(parents=True)
+            metadata.write_text("name: unreadable\n", encoding="utf-8")
+            with mock.patch.object(
+                Path,
+                "read_text",
+                side_effect=PermissionError("permission denied"),
+            ):
+                payload = validation_discovery.discover(root)
+
+            validation = payload["validation"]["python-unreadable"]
+            self.assertFalse(validation["eligible"])
+            self.assertRegex(
+                validation["skip_reason"],
+                r"samples/python/unreadable/sample\.yaml: could not read",
+            )
+
+    def test_discovery_rejects_duplicate_derived_sample_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "samples" / "python" / "a-b" / "sample.yaml"
+            second = root / "samples" / "python" / "a" / "b" / "sample.yaml"
+            first.parent.mkdir(parents=True)
+            second.parent.mkdir(parents=True)
+            first.write_text("name: first\n", encoding="utf-8")
+            second.write_text("live_service_validation: [\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                validation_discovery.DiscoveryError,
+                "duplicate derived sample ID 'python-a-b'",
+            ):
+                validation_discovery.discover(root)
 
     def test_sample_failure_is_a_complete_valid_result(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
