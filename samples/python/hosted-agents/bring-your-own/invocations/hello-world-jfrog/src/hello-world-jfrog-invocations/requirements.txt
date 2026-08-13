@@ -1,0 +1,12 @@
+aiohttp==3.13.5
+azure-ai-agentserver-invocations==1.0.0b7
+azure-ai-projects==2.0.1
+azure-identity==1.25.3
+
+# azure-ai-projects imports httpx but does not declare it as a dependency.
+# Without this pin the container fails at startup with:
+#   ModuleNotFoundError: No module named 'httpx'
+httpx>=0.27,<1
+
+# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
+debugpy

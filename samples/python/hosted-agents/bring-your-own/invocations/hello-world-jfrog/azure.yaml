@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+# Hello World (Python, Invocations) — image pulled from a private JFrog Artifactory registry.
+#
+# This manifest deploys a PRE-BUILT image that you pushed to JFrog yourself.
+# Because the image already exists, `project` and `language` are intentionally left
+# EMPTY so that azd skips packaging and uses the `image` value as-is.
+#
+# NOTE: azd cannot yet attach the Foundry registry connection that authorizes the
+# pull from JFrog. After `azd deploy`, run `deploy/create-agent-version.ps1` (or the
+# equivalent REST call) to create a version that references the connection.
+# See the README, "The temporary gap", for details.
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: hello-world-jfrog-invocations
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  hello-world-jfrog-invocations:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Invocations Protocol
+        - Bring Your Own
+        - Private Registry
+        - Python
+    # Both MUST be empty for a pre-built image. If you set them, azd tries to
+    # rebuild the app from source and fails with an oryx/builder error.
+    project: ''
+    language: ''
+    # Replace with your own JFrog host, repository, and image tag.
+    image: mytenant.jfrog.io/<repository>/hello-world-jfrog-invocations:<tag>
+    uses:
+      - ai-project
+    kind: hosted
+    name: hello-world-jfrog-invocations
+    displayName: Hello World (Python, Invocations, JFrog)
+    description: Minimal Hello World agent using the Invocations protocol, deployed from a pre-built image hosted in a private JFrog Artifactory registry and pulled using Microsoft Entra workload identity federation.
+    protocols:
+      - protocol: invocations
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry
