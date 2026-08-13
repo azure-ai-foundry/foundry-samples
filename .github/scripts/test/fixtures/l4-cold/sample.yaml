@@ -1,4 +1,0 @@
-name: l4-cold
-description: Hermetic L4 fixture proving the validator preserves cold-cadence semantics.
-l4:
-  command: 'test "$SKIP_PROVISION" = "false"'

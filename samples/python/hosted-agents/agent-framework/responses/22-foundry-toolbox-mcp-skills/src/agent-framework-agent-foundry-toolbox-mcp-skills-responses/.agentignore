@@ -1,0 +1,33 @@
+# Files excluded from direct code deployment packaging (gitignore syntax).
+
+# azd tooling and manifests
+azure.yaml
+agent.yaml
+agent.manifest.yaml
+.agentignore
+
+# Secrets and local configuration
+.env
+.env.*
+.azure/
+.git/
+.vscode/
+
+# Authoring inputs — the deployed agent discovers skills from the toolbox MCP
+# endpoint at runtime, so the SKILL.md sources, toolbox.yaml, and the
+# provisioning hook are not needed in the container.
+skills/
+toolbox.yaml
+hooks/
+
+# Python
+__pycache__/
+.venv/
+venv/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/

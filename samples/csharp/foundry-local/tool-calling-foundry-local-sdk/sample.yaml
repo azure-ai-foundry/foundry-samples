@@ -1,4 +1,0 @@
-name: Tool Calling with Foundry Local SDK (C#)
-description: Use tool calling with native chat completions.
-
-build: "dotnet restore --source https://api.nuget.org/v3/index.json && dotnet build --no-restore --verbosity minimal"

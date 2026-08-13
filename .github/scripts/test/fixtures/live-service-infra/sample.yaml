@@ -1,0 +1,4 @@
+name: live-service-infra
+description: Hermetic live-service fixture whose command normalizes known caller infrastructure failure.
+live_service_validation:
+  command: "echo 'known caller infrastructure failure' >&2; exit 2"

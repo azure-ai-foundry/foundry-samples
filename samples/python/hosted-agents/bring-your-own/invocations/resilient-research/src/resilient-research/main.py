@@ -176,7 +176,16 @@ async def handle_invoke(request: Request) -> Response:
         data = json.loads(body) if body else {}
     except json.JSONDecodeError:
         data = {}
-    topic = str(data.get("topic") or data.get("message") or "").strip()
+    # Accept ``topic`` (the sample's native field) plus the generic ``message``
+    # / ``query`` / ``input`` aliases so the agent also works with the CI
+    # harness's default ``{"query": "..."}`` payload and other generic callers.
+    topic = str(
+        data.get("topic")
+        or data.get("message")
+        or data.get("query")
+        or data.get("input")
+        or ""
+    ).strip()
     if not topic:
         return JSONResponse(
             {"error": "Provide a 'topic' field"},

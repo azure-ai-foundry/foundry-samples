@@ -1,4 +1,0 @@
-name: Tool Calling with Foundry Local Web Server (C#)
-description: Use tool calling with the local OpenAI-compatible web server.
-
-build: "dotnet restore --source https://api.nuget.org/v3/index.json && dotnet build --no-restore --verbosity minimal"

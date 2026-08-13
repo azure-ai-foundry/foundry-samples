@@ -9,7 +9,7 @@
 #
 # Plus, toolchain-free proofs:
 #   - shared run_sample_yaml path: sample.yaml validate:true => pass, :false => fail (needs yq)
-#   - L4 contract: declared pass/fail/error, required environment, and undeclared no-op
+#   - live-service contract: declared pass/fail/error, required environment, and undeclared no-op
 #   - guardrails: unknown language, missing --sample-dir, missing --language => error
 #   - --results-dir plumbing lands each sample path in passed/failed/errored.txt
 #
@@ -93,8 +93,8 @@ check() {
     fi
 }
 
-# check_l4 <desc> <expected_exit> <expected_verdict> <expected_declared> -- <command...>
-check_l4() {
+# check_live_service <desc> <expected_exit> <expected_verdict> <expected_declared> -- <command...>
+check_live_service() {
     local desc="$1" exp_code="$2" exp_verdict="$3" exp_declared="$4"
     shift 4
     [ "$1" = "--" ] && shift
@@ -102,12 +102,12 @@ check_l4() {
     out="$("$@" 2>&1)"
     code=$?
     verdict="$(printf '%s\n' "$out" | sed -n 's/^verdict=\(pass\|fail\|error\)$/\1/p' | tail -1)"
-    declared="$(printf '%s\n' "$out" | sed -n 's/^l4_declared=\(true\|false\)$/\1/p' | tail -1)"
+    declared="$(printf '%s\n' "$out" | sed -n 's/^live_service_validation_declared=\(true\|false\)$/\1/p' | tail -1)"
     if [ "$code" = "$exp_code" ] && [ "$verdict" = "$exp_verdict" ] && [ "$declared" = "$exp_declared" ]; then
-        echo "  PASS  $desc  (exit=$code verdict=$verdict l4_declared=$declared)"
+        echo "  PASS  $desc  (exit=$code verdict=$verdict live_service_validation_declared=$declared)"
         PASS_N=$((PASS_N + 1))
     else
-        echo "  FAIL  $desc  expected exit=$exp_code verdict=$exp_verdict l4_declared=$exp_declared, got exit=$code verdict=${verdict:-<none>} l4_declared=${declared:-<none>}"
+        echo "  FAIL  $desc  expected exit=$exp_code verdict=$exp_verdict live_service_validation_declared=$exp_declared, got exit=$code verdict=${verdict:-<none>} live_service_validation_declared=${declared:-<none>}"
         printf '%s\n' "$out" | sed 's/^/        | /'
         FAIL_N=$((FAIL_N + 1))
     fi
@@ -174,43 +174,45 @@ fi
 
 echo ""
 echo "=============================================================="
-echo " Per-sample L4 declaration contract (toolchain-free; needs yq)"
+echo " Per-sample live-service declaration contract (toolchain-free; needs yq)"
 echo "=============================================================="
 if [ "$YQ_OK" = true ]; then
-    check_l4 "L4 declared command + inherited env -> pass" 0 pass true -- \
-        env "GITHUB_OUTPUT=$OUTPUTS" "SKIP_PROVISION=true" "L4_TEST_ENDPOINT=https://stub.invalid" \
-            bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-good" --results-dir "$RESULTS"
-    check_l4 "L4 cold caller keeps SKIP_PROVISION=false -> pass" 0 pass true -- \
+    check_live_service "live-service declared command + inherited env -> pass" 0 pass true -- \
+        env "GITHUB_OUTPUT=$OUTPUTS" "SKIP_PROVISION=true" "LIVE_SERVICE_TEST_ENDPOINT=https://stub.invalid" \
+            bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-good" --results-dir "$RESULTS"
+    check_live_service "live-service cold caller keeps SKIP_PROVISION=false -> pass" 0 pass true -- \
         env "SKIP_PROVISION=false" \
-            bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-cold" --results-dir "$RESULTS"
-    check_l4 "L4 undeclared -> clean no-op" 0 pass false -- \
+            bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-cold" --results-dir "$RESULTS"
+    check_live_service "live-service undeclared -> clean no-op" 0 pass false -- \
         env "GITHUB_OUTPUT=$OUTPUTS" \
-            bash "$SCRIPT" --level 4 --sample-dir "$FIX/csharp-yaml-good" --results-dir "$RESULTS"
-    check_l4 "L4 explicit exit 1 -> fail" 1 fail true -- \
-        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-fail" --results-dir "$RESULTS"
-    check_l4 "L4 explicit exit 2 -> error" 2 error true -- \
-        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-infra" --results-dir "$RESULTS"
-    check_l4 "L4 exit 1 with transport-like text -> fail" 1 fail true -- \
-        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-transport-like" --results-dir "$RESULTS"
-    check_l4 "L4 unexpected exit 7 -> fail" 1 fail true -- \
-        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-unexpected" --results-dir "$RESULTS"
-    check_l4 "L4 missing required env -> error" 2 error true -- \
-        env -u L4_TEST_ENDPOINT "SKIP_PROVISION=true" \
-            bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-good" --results-dir "$RESULTS"
-    check_l4 "L4 missing SKIP_PROVISION -> error" 2 error true -- \
-        env -u SKIP_PROVISION "L4_TEST_ENDPOINT=https://stub.invalid" \
-            bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-good" --results-dir "$RESULTS"
-    check_l4 "L4 invalid declaration shape -> error" 2 error true -- \
-        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-invalid" --results-dir "$RESULTS"
-    check_l4 "L4 missing command -> error" 2 error true -- \
-        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-missing-command" --results-dir "$RESULTS"
-    check_l4 "L4 invalid required_env -> error" 2 error true -- \
-        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-invalid-env" --results-dir "$RESULTS"
-    check "L4 malformed sample.yaml -> error" 2 error -- \
-        env "SKIP_PROVISION=true" bash "$SCRIPT" --level 4 --sample-dir "$FIX/l4-malformed" --results-dir "$RESULTS"
+            bash "$SCRIPT" --mode live-service --sample-dir "$FIX/csharp-yaml-good" --results-dir "$RESULTS"
+    check_live_service "live-service explicit exit 1 -> fail" 1 fail true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-fail" --results-dir "$RESULTS"
+    check_live_service "live-service explicit exit 2 -> error" 2 error true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-infra" --results-dir "$RESULTS"
+    check_live_service "live-service exit 1 with transport-like text -> fail" 1 fail true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-transport-like" --results-dir "$RESULTS"
+    check_live_service "live-service unexpected exit 7 -> fail" 1 fail true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-unexpected" --results-dir "$RESULTS"
+    check_live_service "live-service missing required env -> error" 2 error true -- \
+        env -u LIVE_SERVICE_TEST_ENDPOINT "SKIP_PROVISION=true" \
+            bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-good" --results-dir "$RESULTS"
+    check_live_service "live-service missing SKIP_PROVISION -> error" 2 error true -- \
+        env -u SKIP_PROVISION "LIVE_SERVICE_TEST_ENDPOINT=https://stub.invalid" \
+            bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-good" --results-dir "$RESULTS"
+    check_live_service "live-service invalid declaration shape -> error" 2 error true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-invalid" --results-dir "$RESULTS"
+    check_live_service "live-service missing command -> error" 2 error true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-missing-command" --results-dir "$RESULTS"
+    check_live_service "live-service invalid required_env -> error" 2 error true -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-invalid-env" --results-dir "$RESULTS"
+    check "live-service malformed sample.yaml -> error" 2 error -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --mode live-service --sample-dir "$FIX/live-service-malformed" --results-dir "$RESULTS"
+    check "legacy l4 declaration -> actionable error" 2 error -- \
+        env "SKIP_PROVISION=true" bash "$SCRIPT" --mode live-service --sample-dir "$FIX/legacy-l4" --results-dir "$RESULTS"
 else
-    echo "  SKIP  L4 contract cases — yq unavailable (BLOCKED-on-env)"
-    SKIP_N=$((SKIP_N + 13))
+    echo "  SKIP  live-service contract cases — yq unavailable (BLOCKED-on-env)"
+    SKIP_N=$((SKIP_N + 14))
 fi
 
 echo ""
@@ -220,9 +222,9 @@ echo "=============================================================="
 check "unknown language -> error"   2 error -- bash "$SCRIPT" --language rust   --sample-dir "$FIX/csharp-good"
 check "missing sample-dir -> error" 2 error -- bash "$SCRIPT" --language csharp --sample-dir "$FIX/does-not-exist"
 check "missing --language -> error" 2 error -- bash "$SCRIPT" --sample-dir "$FIX/csharp-good"
-check "unknown --level -> error" 2 error -- bash "$SCRIPT" --level 5 --sample-dir "$FIX/csharp-good"
-check_l4 "L4 absent sample.yaml -> no-op without yq" 0 pass false -- \
-    env "PATH=$SCRUB_BIN" "$BASH_BIN" "$SCRIPT" --level 4 --sample-dir "$FIX/csharp-good"
+check "unknown --mode -> error" 2 error -- bash "$SCRIPT" --mode unknown --sample-dir "$FIX/csharp-good"
+check_live_service "live-service absent sample.yaml -> no-op without yq" 0 pass false -- \
+    env "PATH=$SCRUB_BIN" "$BASH_BIN" "$SCRIPT" --mode live-service --sample-dir "$FIX/csharp-good"
 
 echo ""
 echo "=============================================================="
@@ -234,16 +236,16 @@ assert_file_has "$RESULTS/errored.txt" "$FIX/csharp-good"
 if [ "$YQ_OK" = true ]; then
     # The yq sample.yaml cases above already appended to passed/failed.txt.
     assert_file_has "$RESULTS/passed.txt" "$FIX/csharp-yaml-good"
-    assert_file_has "$RESULTS/passed.txt" "$FIX/l4-good"
-    assert_file_has "$RESULTS/passed.txt" "$FIX/l4-cold"
-    assert_file_has "$RESULTS/failed.txt" "$FIX/l4-fail"
-    assert_file_has "$RESULTS/errored.txt" "$FIX/l4-infra"
-    assert_file_has "$RESULTS/errored.txt" "$FIX/l4-malformed"
-    assert_file_has "$RESULTS/failed.txt" "$FIX/l4-transport-like"
-    assert_file_has "$RESULTS/failed.txt" "$FIX/l4-unexpected"
+    assert_file_has "$RESULTS/passed.txt" "$FIX/live-service-good"
+    assert_file_has "$RESULTS/passed.txt" "$FIX/live-service-cold"
+    assert_file_has "$RESULTS/failed.txt" "$FIX/live-service-fail"
+    assert_file_has "$RESULTS/errored.txt" "$FIX/live-service-infra"
+    assert_file_has "$RESULTS/errored.txt" "$FIX/live-service-malformed"
+    assert_file_has "$RESULTS/failed.txt" "$FIX/live-service-transport-like"
+    assert_file_has "$RESULTS/failed.txt" "$FIX/live-service-unexpected"
     assert_file_has "$RESULTS/failed.txt" "$FIX/csharp-yaml-broken"
-    assert_file_has "$OUTPUTS" "l4_declared=true"
-    assert_file_has "$OUTPUTS" "l4_declared=false"
+    assert_file_has "$OUTPUTS" "live_service_validation_declared=true"
+    assert_file_has "$OUTPUTS" "live_service_validation_declared=false"
 fi
 
 echo ""

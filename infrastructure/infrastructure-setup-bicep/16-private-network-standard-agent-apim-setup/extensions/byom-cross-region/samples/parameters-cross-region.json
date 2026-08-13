@@ -24,6 +24,12 @@
 
     "connectionName": { "value": "ai-gateway" },
     "inferenceApiVersion": { "value": "2024-10-21" },
+    "enableDirectFoundryConnection": {"value": false},
+    "directFoundryConnectionName": {"value": "foundry-direct"},
+    "enableThirdPartyConnection": {"value": false},
+    "thirdPartyConnectionName": {"value": "third-party-models"},
+    "thirdPartyTargetUrl": {"value": ""},
+    "thirdPartyModels": {"value": []},
     "projectMiClientId": { "value": "00000000-0000-0000-0000-000000000000" }
   }
 }

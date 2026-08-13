@@ -2,7 +2,7 @@
 # Structural regression gate for the single required `trusted` job.
 #
 # Root cause pinned here: a job-level `if:` skip concludes `skipped`, and GitHub treats a
-# skipped required check as satisfied. The job must run and fail forks explicitly after L3.
+# skipped required check as satisfied. The job must run and fail forks explicitly after build readiness.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -97,7 +97,7 @@ expect_count "exactly one trusted job exists" '^  trusted:$' 1
 expect_count "trusted has exactly one job-level condition" '^    if:' 1 "$TMP/trusted-job.yml"
 expect_count "trusted job runs after dependency failure unless cancelled" '^    if: \$\{\{ !cancelled\(\) \}\}$' 1 "$TMP/trusted-job.yml"
 expect_not_has "trusted job has no matrix" '^    (strategy:|matrix:)' "$TRUSTED"
-expect_has "trusted job keeps L4-validation environment" '^    environment: L4-validation$' "$TRUSTED"
+expect_has "trusted job keeps legacy L4-validation environment" '^    environment: L4-validation$' "$TRUSTED"
 expect_not_has "job-level fork skip is absent" 'head\.repo\.fork != true' "$TMP/trusted-job.yml"
 expect_not_has "job-level draft skip is absent" 'pull_request\.draft' "$TMP/trusted-job.yml"
 
@@ -164,23 +164,23 @@ run_contract_case "count mismatch fails closed" 1 success true 2 '["samples/pyth
 extract_step "Short-circuit docs-only PRs before secrets" "$TMP/docs-only.yml"
 expect_has "docs-only success is same-repo guarded" 'head\.repo\.fork != true' "$TMP/docs-only.yml"
 
-extract_step "Validate changed samples to L3 (in-job parallel)" "$TMP/l3.yml"
+extract_step "Validate changed sample build readiness (in-job parallel)" "$TMP/build-readiness.yml"
 extract_step "Reject fork until maintainer promotion" "$TMP/fork-reject.yml"
 expect_has "fork rejection is fork-only" 'head\.repo\.fork == true' "$TMP/fork-reject.yml"
-expect_has "fork rejection runs after an L3 failure" '!cancelled\(\)' "$TMP/fork-reject.yml"
+expect_has "fork rejection runs after a readiness failure" '!cancelled\(\)' "$TMP/fork-reject.yml"
 expect_has "fork rejection checks OIDC request surface" 'ACTIONS_ID_TOKEN_REQUEST_(URL|TOKEN)' "$TMP/fork-reject.yml"
 expect_has "fork rejection emits promotion error" '::error::.*promot' "$TMP/fork-reject.yml"
 expect_has "fork rejection exits non-zero" '^[[:space:]]*exit 1$' "$TMP/fork-reject.yml"
 
-l3_line="$(grep -nF -- '- name: Validate changed samples to L3 (in-job parallel)' "$TRUSTED" | cut -d: -f1)"
+readiness_line="$(grep -nF -- '- name: Validate changed sample build readiness (in-job parallel)' "$TRUSTED" | cut -d: -f1)"
 fork_line="$(grep -nF -- '- name: Reject fork until maintainer promotion' "$TRUSTED" | cut -d: -f1)"
-if [ -n "$l3_line" ] && [ -n "$fork_line" ] && [ "$l3_line" -lt "$fork_line" ]; then
-    pass "credential-free L3 runs before fork rejection"
+if [ -n "$readiness_line" ] && [ -n "$fork_line" ] && [ "$readiness_line" -lt "$fork_line" ]; then
+    pass "credential-free build readiness runs before fork rejection"
 else
-    fail "credential-free L3 must run before fork rejection"
+    fail "credential-free build readiness must run before fork rejection"
 fi
 
-# Any step containing a current credential/L4 marker must carry an explicit same-repo guard.
+# Any step containing a current credential/live-service marker must carry an explicit same-repo guard.
 if awk '
     function flush() {
         if (active && credentialed && !same_repo) {
@@ -195,7 +195,7 @@ if awk '
         credentialed=0
         same_repo=0
     }
-    active && /azure\/login|vars\.AZURE_|az account|get-access-token|L4 smoke/ {
+    active && /azure\/login|vars\.AZURE_|az account|get-access-token|Live-service smoke/ {
         credentialed=1
     }
     active && /head\.repo\.fork != true/ {
@@ -206,9 +206,9 @@ if awk '
         exit bad
     }
 ' "$TRUSTED"; then
-    pass "every credentialed/L4 step has a same-repo guard"
+    pass "every credentialed/live-service step has a same-repo guard"
 else
-    fail "every credentialed/L4 step must have a same-repo guard"
+    fail "every credentialed/live-service step must have a same-repo guard"
 fi
 
 extract_step "Trusted verdict" "$TMP/verdict.yml"

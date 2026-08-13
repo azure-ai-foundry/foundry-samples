@@ -1,4 +1,4 @@
-azure-ai-agentserver-responses==2.0.0b0
+azure-ai-agentserver-responses==2.0.0b1
 # resilient_background / steerable_conversations need core's resilient-task
 # recovery gate (set_resilient_tasks_enabled), added in core 2.0.0b10.
 azure-ai-agentserver-core>=2.0.0b10

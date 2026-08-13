@@ -16,6 +16,9 @@ param projectModelVersion = '2024-11-20'
 param projectModelSkuName = 'GlobalStandard'
 param projectModelCapacity = 30
 
+// Optional temporary SDK caller access. Leave empty for private-only access.
+// param developerIpCidr = '203.0.113.10/32'
+
 // ---------------------------------------------------------------------------
 // VNet
 // ---------------------------------------------------------------------------
@@ -71,10 +74,22 @@ param backendModelDeployments = [
 param connectionName = 'ai-gateway'
 param inferenceApiVersion = '2024-10-21'
 
-// Application (client) ID of the Foundry project's User-Assigned or System-
-// Assigned managed identity. Required so the APIM validate-azure-ad-token
-// policy can verify that incoming tokens were minted by this MI. Look it up
-// after the project MI exists (project Identity blade or `az ad sp show`).
+// Scenario 2: direct connection to the backend Foundry account. Enabling this
+// intentionally enables that account's public endpoint and key authentication.
+param enableDirectFoundryConnection = false
+param directFoundryConnectionName = 'foundry-direct'
+
+// Scenario 3: third-party OpenAI-compatible provider. Keep disabled until the
+// target URL, model metadata, and secure thirdPartyApiKey parameter are supplied.
+param enableThirdPartyConnection = false
+param thirdPartyConnectionName = 'third-party-models'
+param thirdPartyTargetUrl = ''
+param thirdPartyModels = []
+
+// Application (client) ID of the Foundry project's system-assigned managed
+// identity. For the first deployment use this placeholder, resolve the created
+// identity principal to its appId, then redeploy with the same timestamp and
+// resource names. See the README two-pass bootstrap instructions.
 param projectMiClientId = '00000000-0000-0000-0000-000000000000'
 
 // ---------------------------------------------------------------------------

@@ -8,10 +8,6 @@ Get-ChildItem -Path . -Filter "__pycache__" -Recurse -Force -ErrorAction Silentl
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "./.vs" -Recurse -Force -ErrorAction SilentlyContinue
 
-$authorityEndpoint = "https://login.microsoftonline.com/$($env:TENANT_ID)"
-$azureOpenAIEndpoint = "https://$($env:ACCOUNT_NAME).openai.azure.com/"
-
-
 $acrLoginServer = $env:AZURE_CONTAINER_REGISTRY_ENDPOINT
 
 # split the login server to get the registry name
@@ -26,11 +22,6 @@ az acr build `
     --registry $registryName `
     --image $imageName `
     --file "./foundry-infra/Dockerfile" `
-    --build-arg BLUEPRINT_CLIENT_ID=$env:AGENT_IDENTITY_BLUEPRINT_ID `
-    --build-arg AUTHORITY_ENDPOINT=$authorityEndpoint `
-    --build-arg TENANT_ID=$env:TENANT_ID `
-    --build-arg AZURE_OPENAI_ENDPOINT=$azureOpenAIEndpoint `
-    --build-arg MODEL_DEPLOYMENT=$env:MODEL_NAME `
     .
 
 if ($LASTEXITCODE -ne 0) {

@@ -20,7 +20,6 @@ Ensure you have the following installed:
 
 - **Owner** role on the Azure subscription
 - **Azure AI User** or **Cognitive Services User** role at subscription or resource group level
-- **Tenant Admin** role for organization-wide configuration
 
 ---
 
@@ -65,11 +64,11 @@ azd env get-values
 ```
 
 > **📌 What to expect after deployment:**  
-> After `azd provision` completes successfully, you will see the **AgentIdentityBlueprint** in the Agents registry. You will **not** see any agents in the requests tab yet. This is expected behavior - you must first approve the agent blueprint, configure it in Teams Developer Portal, and then create agent instances based on that blueprint.
+> After `azd provision` completes successfully, you will see the **AgentIdentityBlueprint** in the Agents registry. You will **not** see any agent instances yet. This is expected behavior - you must first approve the agent blueprint and then create instances based on it.
 
 ### Step 3: Approve the Agent Blueprint
 
-**Important:** The first step is to approve the **agent blueprint** itself. Agent instances will be created later in Step 5.
+**Important:** The first step is to approve the **agent blueprint** itself. Agent instances will be created in Step 4.
 
 1. Navigate to the [Microsoft 365 admin center](https://admin.cloud.microsoft/?#/agents/all/requested)
 2. Under **Requests**, locate your **agent blueprint**:
@@ -78,26 +77,9 @@ azd env get-values
 3. Click the **Approve request and activate** button to approve the blueprint:
    ![Screenshot of the agent blueprint approval dialog with the 'Approve request and activate' button highlighted](image-1.png)
 
-### Step 4: Configure Teams Integration
+### Step 4: Create Agent Instances
 
-After approving the agent blueprint, configure it in the Teams Developer Portal:
-
-1. Open the [Teams Developer Portal](https://dev.teams.microsoft.com/tools/agent-blueprint) and locate your approved agent blueprint
-    
-   **Note:** Only 100 Agent Blueprints are displayed. If yours isn't visible, click any blueprint to open its details page, then in the browser's address bar replace the blueprint ID portion of the URL with your own Blueprint ID from the previous step (for example: `https://dev.teams.microsoft.com/tools/agent-blueprint/<your-blueprint-id>`).
-   ![Find agent blueprint](image-2.png)
-
-2. Get your Blueprint ID:
-   ```powershell
-   azd env get-values
-   ```
-
-3. Navigate to **Configuration** and add your **Bot ID** (same as Blueprint ID):
-   ![Screenshot showing the Bot ID configuration field in the Teams Developer Portal](image-3.png)
-
-### Step 5: Create Agent Instances
-
-After configuring the agent blueprint in Teams Developer Portal, you can now create agent instances based on your blueprint:
+After approving the agent blueprint, you can create agent instances based on it:
 
 1. In Microsoft Teams, navigate to **Apps** → **Agents for your team**
 2. Find your agent blueprint and create an instance:
@@ -107,7 +89,7 @@ After configuring the agent blueprint in Teams Developer Portal, you can now cre
 
 ## 🏗️ Architecture Overview
 
-This deployment orchestrates five key components to create a fully functional A365 agent:
+This deployment orchestrates four key components to create a fully functional A365 agent:
 
 ### 1️⃣ Creating a Foundry Project
 
@@ -115,34 +97,27 @@ Creates a Foundry project configured to support hosted agents with appropriate p
 
 📚 [Learn more about prerequisites](https://github.com/microsoft/container_agents_docs?tab=readme-ov-file#11---prerequisites)
 
-### 2️⃣ Setting up Azure Bot Service
-
-Azure Bot Service acts as a relay between M365 ecosystem interactions and the Foundry application. The bot is configured with:
-
-- Agent endpoint
-- Agent's blueprint identity as the appId
-
-### 3️⃣ Building a Hosted Agent Docker Image
+### 2️⃣ Building a Hosted Agent Docker Image
 
 Compiles the Python sample into a Docker container and registers it as a hosted agent with the Foundry project.
 
 📚 [Learn more about building agents](https://github.com/microsoft/container_agents_docs?tab=readme-ov-file#14---build-agent-image)
 
-### 4️⃣ Creating the Agent
+### 3️⃣ Creating the Agent
 
-Creates the hosted agent using the Docker image above.
+Creates the hosted agent using the Docker image above. Foundry creates and manages the agent identity blueprint as part of this operation.
 
 📚 [Learn more about agent deployment](https://github.com/microsoft/container_agents_docs?tab=readme-ov-file#step-2-deploy-agent)
 
-### 5️⃣ Publishing to Your Organization
+### 4️⃣ Publishing to Your Organization
 
-Publishes the application to Microsoft 365 via Foundry API, creating a hireable digital worker with:
+Publishes the application to Microsoft 365 via the Foundry API, creating a hireable autopilot agent with:
 
 - Digital worker metadata
 - Agent blueprint ID
-- Digital worker designation
+- Autopilot designation
 
-> **⚠️ Important:** The agent requires [admin approval](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/review-admin-consent-requests#review-and-take-action-on-admin-consent-requests-1) before becoming available for hiring.
+> **⚠️ Important:** An administrator must approve the agent before it becomes available for hiring.
 
 ---
 
@@ -172,4 +147,3 @@ curl -N \
 ## 🤝 Support
 
 For issues or questions, please refer to the official documentation or contact your Azure administrator.
-

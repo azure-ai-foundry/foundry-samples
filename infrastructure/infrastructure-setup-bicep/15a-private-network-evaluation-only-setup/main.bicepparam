@@ -30,6 +30,7 @@ param existingDnsZones = {
   'privatelink.openai.azure.com': ''
   'privatelink.cognitiveservices.azure.com': ''
   'privatelink.blob.core.windows.net': ''
+  'privatelink.azurecr.io': ''
 }
 
 //DNSZones names for validating if they exist
@@ -38,6 +39,7 @@ param dnsZoneNames = [
   'privatelink.openai.azure.com'
   'privatelink.cognitiveservices.azure.com'
   'privatelink.blob.core.windows.net'
+  'privatelink.azurecr.io'
 ]
 
 
