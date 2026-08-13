@@ -1,0 +1,4 @@
+name: "Tutorial: Document Summarizer (C#)"
+description: Summarize documents with AI (tutorial).
+
+build: "dotnet restore --source https://api.nuget.org/v3/index.json && dotnet build --no-restore --verbosity minimal"
