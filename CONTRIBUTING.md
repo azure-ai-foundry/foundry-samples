@@ -1,8 +1,5 @@
 # Contributing to Microsoft Foundry Samples
 
-> [!IMPORTANT]
-> **Transition draft:** These direct-public instructions describe the target contribution path after the public-first cutover. Until this draft pull request is merged, the instructions on the `main` branch remain current. Maintainers must remove this notice only after the cutover gates in the pull request are proven.
-
 This repository contains official Microsoft Foundry documentation samples. Changes are submitted as pull requests directly to this repository.
 
 ## Reporting Issues
@@ -13,27 +10,21 @@ Before starting a substantial change, check for an existing issue. Open one when
 
 ## Contributing Changes
 
-1. **Create a branch.** Contributors with write access can create a branch in this repository. Other contributors should fork the repository and create a branch in their fork.
+Sample contributions are currently limited to Microsoft Foundry teams with permission to create a branch in this repository. Fork pull requests cannot satisfy the intentionally failing `trusted` gate, so sample changes must use a same-repository branch.
+
+1. **Create a branch in this repository.** Use a same-repository branch for all sample changes.
 2. **Make a focused change.** Keep each pull request scoped to one sample, fix, or related set of updates. Follow the conventions in the surrounding sample.
 3. **Respect file ownership.** Review [CODEOWNERS](.github/CODEOWNERS) before editing. The listed owners will be requested when their files are changed.
 4. **Validate locally.** Run the setup, build, test, or sample-specific validation documented by the affected sample. Never commit credentials, local environment files, or generated secrets.
-5. **Open a pull request against `main`.** Explain what changed, why it changed, and the validation you ran. Link the relevant issue when one exists.
+5. **Open a pull request against `main`.** In the pull request description, explain what changed, why it changed, and the local validation you ran. Link the relevant issue when one exists.
 
 ### Pull request checks
 
 Pull requests run repository validation automatically:
 
-- Supported changed samples are detected and validated automatically. Validation coverage varies by language and sample; review the checks reported on your pull request.
-- Fork pull requests run credential-free checks but cannot satisfy the required `trusted` validation directly. A maintainer must promote the exact commit to a same-repository branch.
-- Documentation-only pull requests from same-repository branches satisfy the required check without running sample validation.
-
-Do not add credentials to a pull request or ask for secrets to be exposed to a fork. A maintainer will handle trusted validation when promotion is required.
-
-### Temporary workflow-dependent contributions
-
-Direct public pull requests are the normal contribution path. During the transition, a maintainer may direct a Microsoft contributor to temporary staging for a workflow-dependent change. Use that path only when explicitly requested.
-
-If temporary promotion fails, maintainers use an exact manual public pull request as the fallback. Contributors should not create duplicate publication attempts or alternate versions of the change.
+- The required `trusted` check must pass.
+- Review and address the other checks reported on the pull request.
+- After required checks and review are complete, a maintainer triggers the merge. Pull requests are not merged automatically.
 
 ## Contributor License Agreement
 
