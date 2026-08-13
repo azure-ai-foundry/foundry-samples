@@ -1,0 +1,3 @@
+name: csharp-yaml-good
+description: Fixture that declares a trivial passing validate command (exit 0). Exercises the shared run_sample_yaml path (needs yq, no toolchain).
+validate: "true"

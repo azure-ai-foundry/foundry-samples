@@ -1,0 +1,4 @@
+name: live-service-fail
+description: Hermetic live-service fixture whose sample assertion explicitly reports failure.
+live_service_validation:
+  command: "echo 'sample assertion failed'; exit 1"

@@ -1,0 +1,9 @@
+{
+  "name": "typescript-good",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GOOD TS/JS fixture: npm run build exits 0 -> PASS. No deps so npm install is a no-op.",
+  "scripts": {
+    "build": "node -e \"process.exit(0)\""
+  }
+}

@@ -1,0 +1,3 @@
+name: csharp-yaml-broken
+description: Fixture whose validate command exits non-zero (a broken sample => FAIL). Exercises the shared run_sample_yaml path.
+validate: "false"

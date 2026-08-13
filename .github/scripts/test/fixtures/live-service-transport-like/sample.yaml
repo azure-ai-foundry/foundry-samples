@@ -1,0 +1,4 @@
+name: live-service-transport-like
+description: Transport-like application output must not override an explicit sample failure.
+live_service_validation:
+  command: "echo '503 Service Unavailable: sample response assertion failed' >&2; exit 1"
