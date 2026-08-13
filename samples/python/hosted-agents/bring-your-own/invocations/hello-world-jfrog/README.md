@@ -19,6 +19,12 @@ It shows how Microsoft Foundry pulls a private image using **Microsoft Entra wor
 
 If you don't need a private third-party registry, start with [`hello-world`](../hello-world/) instead — it's simpler and deploys end-to-end with a single `azd deploy`.
 
+> [!NOTE]
+> **Two steps in this guide use the REST API instead of `azd`** — creating the registry connection
+> (Step 4) and creating the agent version that references it (Step 8). This is a **temporary gap in
+> the tooling, not in the service**, and the team is working to make this sample completely
+> deployable via `azd`. See [The temporary gap](#the-temporary-gap) for details.
+
 ## How it works
 
 ```
@@ -131,6 +137,12 @@ JFrog → **Administration** → **General Management** → **Manage Integration
 
 This creates a connection named `jfrog-oidc-registry` containing only non-secret OIDC settings.
 
+> [!NOTE]
+> **Creating the registry connection through the REST API is temporary.** `azd` cannot declare a
+> registry connection today, so this script calls the REST API on your behalf. The team is working
+> to make this completely deployable via `azd` — once that lands, the connection will be declared
+> in `azure.yaml` and this script will no longer be needed.
+
 ✅ Setup is complete and never needs repeating.
 
 ---
@@ -184,6 +196,12 @@ azd deploy
 
 This creates the agent version with `registry_connection_id` set, waits for it to become ready, and routes the endpoint to it.
 
+> [!NOTE]
+> **This REST API step is temporary.** It exists only because `azd deploy` cannot yet attach the
+> registry connection to the agent version. The team is working to make this completely deployable
+> via `azd`; when that ships, Steps 7 and 8 merge into a single `azd deploy` and this script is
+> deleted from the sample.
+
 ## Step 9. Invoke
 
 ```bash
@@ -201,9 +219,9 @@ azd ai agent monitor
 # The temporary gap
 
 > [!NOTE]
-> **The Foundry service fully supports pulling images from private registries such as JFrog.** The gap is only in the tooling: `azd` (and the `azure-ai-projects` SDK) cannot yet express the registry connection reference, so `azure.yaml` alone can't authorize the pull. That's why Step 8 is a separate script.
+> **The Foundry service fully supports pulling images from private registries such as JFrog.** The gap is only in the tooling: `azd` (and the `azure-ai-projects` SDK) cannot yet declare a registry connection or reference one from an agent version, so `azure.yaml` alone can't authorize the pull. That's why Steps 4 and 8 use the REST API.
 >
-> **The team is actively working to make this completely deployable via `azd`.** Once the field lands in the tooling, Steps 7–8 collapse into a single `azd deploy`, the helper script goes away, and `azure.yaml` will simply name the connection.
+> **The team is actively working to make this completely deployable via `azd`.** Once support lands, the connection will be declared in `azure.yaml`, Steps 7–8 collapse into a single `azd deploy`, and both helper scripts go away.
 
 **What's happening under the covers:** the agent version needs this field, which only the REST API accepts today:
 

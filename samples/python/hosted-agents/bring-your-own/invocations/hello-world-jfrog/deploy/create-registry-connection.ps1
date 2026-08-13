@@ -10,6 +10,11 @@
     Never place a JFrog password, API key, reference token, or Docker "auth" value
     in this connection. Foundry exchanges a short-lived Entra token at pull time.
 
+    TEMPORARY: creating this connection through the REST API is a stopgap. azd
+    cannot declare a registry connection today. The team is working to make this
+    completely deployable via azd, after which the connection will be declared in
+    azure.yaml and this script will be removed.
+
 .EXAMPLE
     ./create-registry-connection.ps1 `
         -SubscriptionId  00000000-0000-0000-0000-000000000000 `

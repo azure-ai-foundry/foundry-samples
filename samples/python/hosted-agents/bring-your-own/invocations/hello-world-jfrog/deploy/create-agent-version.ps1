@@ -10,6 +10,10 @@
 
     Run it AFTER `azd deploy` has created the agent.
 
+    TEMPORARY: this REST API step is a stopgap. The team is working to make the
+    sample completely deployable via azd; once registry connections are supported
+    in azure.yaml, `azd deploy` will handle this and the script will be removed.
+
     NOTE: `registry_connection_id` takes the connection NAME, not its full ARM
     resource ID. Passing the ARM ID returns an "invalid_payload" error.
 
