@@ -1,0 +1,45 @@
+# CODEOWNERS for microsoft-foundry/foundry-samples
+# Format: <pattern> <owner> [<owner> ...]
+# Owners are GitHub usernames.
+
+# ── Infrastructure (Bicep & Terraform) ────────────────────────────────────────
+/infrastructure/                                    @kdestin @meerakurup @banibrata-de @Dchillakuru @haflidif
+/infrastructure/infrastructure-setup-terraform/15b-private-network-standard-agent-setup-byovnet/  @kdestin @meerakurup @m-gheini
+/infrastructure/infrastructure-setup-bicep/16-private-network-standard-agent-apim-setup/          @kdestin @meerakurup @m-gheini @banibrata-de
+
+# ── Migration ─────────────────────────────────────────────────────────────────
+/migration/                                         @brandom-msft @nikhowlettMicrosoft
+
+# ── Python Samples ────────────────────────────────────────────────────────────
+/samples/python/hosted-agents/                      @dooriya @therealjohn @lindazqli @mohitpavan
+/samples/python/hosted-agents/langgraph/            @dooriya @eamonoreilly @lindazqli
+/samples/python/prompt-agents/                      @brandom-msft @achauhan-scc
+/samples/python/prompt-agents/code-interpreter-custom/  @brandom-msft
+/samples/python/enterprise-agent-tutorial/          @sdgilley @jonburchel @brandom-msft
+/samples/python/foundry-local/                      @jonburchel @samuel100
+/samples/python/foundry-models/                     @sajagtap
+/samples/python/foundry-autopilot-agent/            @adyada @fosteramanda
+/samples/python/quickstart/                         @sdgilley @brandom-msft
+
+# ── C# Samples ────────────────────────────────────────────────────────────────
+/samples/csharp/hosted-agents/                      @dooriya @therealjohn @lindazqli @mohitpavan
+/samples/csharp/enterprise-agent-tutorial/          @nick863 @sdgilley @brandom-msft
+/samples/csharp/quickstart/                         @nick863 @sdgilley
+/samples/csharp/foundry-local/                      @jonburchel @mohitpavan
+/samples/csharp/foundry-autopilot-agent/            @adyada @fosteramanda
+
+# ── TypeScript Samples ────────────────────────────────────────────────────────
+/samples/typescript/quickstart/                     @glharper @sdgilley
+/samples/typescript/enterprise-agent-tutorial/      @glharper @sdgilley @brandom-msft
+
+# ── JavaScript Samples ────────────────────────────────────────────────────────
+/samples/javascript/                                @jonburchel @samuel100
+
+# ── Java Samples ─────────────────────────────────────────────────────────────
+/samples/java/quickstart/                           @aahill @brandom-msft
+
+# ── Rust Samples ─────────────────────────────────────────────────────────────
+/samples/rust/                                      @jonburchel @samuel100
+
+# ── REST Samples ─────────────────────────────────────────────────────────────
+/samples/REST/                                      @brandom-msft
