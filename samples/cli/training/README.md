@@ -31,4 +31,4 @@ training/
 
 ## Placeholders
 
-Templates use `<user to add>` for fields that depend on the user's workspace or job requirements, such as `identity`, `compute`, `environment`, `instance_type`, `slaTier`, and `priority`. Replace these values before submitting the job.
+Templates use `<user to add>` for fields that depend on the user's workspace or job requirements, such as `identity`, `compute`, and `environment`. Replace these values before submitting the job.
