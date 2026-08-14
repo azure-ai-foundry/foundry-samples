@@ -1,0 +1,24 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+display_name: cli-registered-data-sample
+description: Training job that consumes registered Foundry data assets (azureai:// URIs) and writes a named output asset
+command: python ${{inputs.code_dataset}}/train.py --input-folder ${{inputs.train_data}} --input-file-name "sample.jsonl" --result-file ${{outputs.result_file}}
+identity: <user to add>
+environment: <user to add>
+compute: <user to add>
+resources:
+  instance_count: 1
+inputs:
+  train_data:
+    type: uri_folder
+    path: azureai://accounts/<foundry-account>/projects/<foundry-project>/data/<train-dataset-name>/versions/<version>
+    mode: download
+  code_dataset:
+    type: uri_folder
+    path: azureai://accounts/<foundry-account>/projects/<foundry-project>/data/<code-dataset-name>/versions/<version>
+    mode: download
+outputs:
+  result_file:
+    type: uri_folder
+    asset_name: <output-asset-name>
+    asset_version: "1"
