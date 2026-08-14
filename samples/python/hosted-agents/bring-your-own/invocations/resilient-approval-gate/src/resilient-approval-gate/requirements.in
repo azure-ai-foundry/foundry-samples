@@ -1,0 +1,14 @@
+azure-ai-agentserver-invocations==1.0.0b8
+
+# Core 2.1 removed the TaskContext.metadata API used by this sample.
+azure-ai-agentserver-core==2.0.0
+
+azure-ai-projects==2.0.1
+azure-identity==1.25.3
+
+# azure-ai-projects imports httpx directly, while OpenAI 3 uses httpx2.
+openai<3
+httpx<1
+
+# debugpy enables local debugging with the Foundry Toolkit VS Code extension.
+debugpy
