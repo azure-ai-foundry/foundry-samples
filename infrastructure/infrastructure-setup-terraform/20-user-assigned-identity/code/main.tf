@@ -36,7 +36,12 @@ resource "azurerm_user_assigned_identity" "uai" {
 }
 
 locals {
-  uai_id = var.create_user_assigned_identity ? azurerm_user_assigned_identity.uai[0].id : data.azurerm_user_assigned_identity.existing[0].id
+  uai_id           = var.create_user_assigned_identity ? azurerm_user_assigned_identity.uai[0].id : data.azurerm_user_assigned_identity.existing[0].id
+  uai_principal_id = var.create_user_assigned_identity ? azurerm_user_assigned_identity.uai[0].principal_id : data.azurerm_user_assigned_identity.existing[0].principal_id
+
+  application_insights_name            = coalesce(var.application_insights_name, "${var.ai_foundry_name}-appi")
+  application_insights_connection_name = coalesce(var.application_insights_connection_name, "${local.application_insights_name}-connection")
+  log_analytics_workspace_name         = coalesce(var.log_analytics_workspace_name, substr("${var.ai_foundry_name}-law", 0, 63))
 }
 
 ## Create AI Foundry account with User-Assigned Identity
@@ -84,6 +89,7 @@ resource "azapi_resource" "ai_project" {
 
 ## Deploy model
 resource "azapi_resource" "model_deployment" {
+  count     = var.deploy_model ? 1 : 0
   type      = "Microsoft.CognitiveServices/accounts/deployments@2025-06-01"
   name      = var.model_name
   parent_id = azapi_resource.ai_foundry.id
