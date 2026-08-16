@@ -38,19 +38,19 @@ $agentCreationBody = @{
         protocols = @("activity")
     }
 }
-
+    
 $jsonBody = $agentCreationBody | ConvertTo-Json -Depth 5
 
 Write-Host "Getting access token for https://ai.azure.com ..."
 
-$aiAzureToken = az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv
+$aiAzureToken = az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv --tenant $env:TENANT_ID
 
 Write-Host "Token length: $($aiAzureToken.Length)"
 
 $headers = @{
     "Content-Type" = "application/json"
     "Accept" = "application/json"
-    "Authorization" = "******"
+    "Authorization" = "Bearer $aiAzureToken"
 }
 
 Write-Host "Creating agent version at: $agentUrl"
