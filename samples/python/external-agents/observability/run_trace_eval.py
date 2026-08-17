@@ -1,15 +1,17 @@
 """Run a one-off trace-based evaluation over the registered external
 weather agent and print the per-criterion scores.
 
-The trace-eval surface is currently exposed only via the OpenAI-compatible
-``evals`` API (``azure_ai_source`` / ``azure_ai_traces`` data sources),
-so we go through ``project_client.get_openai_client()`` per the spec.
+The trace-eval surface is exposed via the OpenAI-compatible ``evals`` API
+(``azure_ai_source`` eval group + ``azure_ai_trace_data_source_preview``
+``agent_filter`` data source), so we go through
+``project_client.get_openai_client()`` per the spec.
 """
 
 from __future__ import annotations
 
 import os
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -32,12 +34,7 @@ def main() -> None:
         allow_preview=True,
     )
 
-    # Evaluate the same agent id emitted on gen_ai.agent.id spans.
-    agent = project_client.agents.get(agent_name=AGENT_NAME)
-    otel_agent_id = getattr(agent.versions.latest.definition, "otel_agent_id", None)
-    if not otel_agent_id:
-        raise RuntimeError(f"Agent {AGENT_NAME!r} does not have an otel_agent_id.")
-    print(f"Evaluating traces for agent_id={otel_agent_id} (last {LOOKBACK_HOURS}h)")
+    print(f"Evaluating traces for agent {AGENT_NAME!r} (last {LOOKBACK_HOURS}h)")
 
     openai_client = project_client.get_openai_client()
 
@@ -60,14 +57,24 @@ def main() -> None:
         ],
     )
 
-    # Eval run: score this agent's recent traces.
+    # Eval run: score this agent's recent traces. Uses the
+    # azure_ai_trace_data_source_preview agent_filter shape (agent_name +
+    # Unix window); the older azure_ai_traces data source is being deprecated.
+    now = datetime.now(tz=timezone.utc)
+    start_unix = int((now - timedelta(hours=LOOKBACK_HOURS)).timestamp())
+    end_unix = int(now.timestamp()) + 600  # pad for ingestion lag
     run = openai_client.evals.runs.create(
         eval_id=eval_group.id,
         name=f"{AGENT_NAME}-trace-run",
         data_source={
-            "type": "azure_ai_traces",
-            "agent_id": otel_agent_id,
-            "lookback_hours": LOOKBACK_HOURS,
+            "type": "azure_ai_trace_data_source_preview",
+            "trace_source": {
+                "type": "agent_filter",
+                "agent_name": AGENT_NAME,
+                "start_time": start_unix,
+                "end_time": end_unix,
+                "max_traces": 50,
+            },
         },
     )
     print(f"Created eval run {run.id}; polling for completion...")
