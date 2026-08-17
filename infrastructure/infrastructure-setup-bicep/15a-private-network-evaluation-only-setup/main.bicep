@@ -1,10 +1,13 @@
 /*
 Evaluation-Only Network Secured Setup - main.bicep
 -----------------------------------
-A simplified private-network setup for evaluation scenarios.
-This template does NOT deploy Cosmos DB, AI Search, or project capability host.
-It deploys only the AI Services account, a project with a storage connection,
-a VNet with private endpoints, and the required role assignments.
+A simplified private-network setup for evaluation and data-generation scenarios.
+This template does NOT deploy Cosmos DB or AI Search.
+It deploys the AI Services account, a project with a storage connection,
+a VNet with private endpoints, workspace-based Application Insights (with private
+ingestion via Azure Monitor Private Link Scope) for evaluation/agent tracing, and
+an optional project-level capability host for data-generation workloads that
+use the hosted-agent runtime.
 */
 @description('Location for all resources.')
 @allowed([
@@ -117,6 +120,20 @@ param dnsZoneNames array = [
   'privatelink.blob.core.windows.net'
   'privatelink.azurecr.io'
 ]
+
+@description('Object mapping Azure Monitor private DNS zone names to the resource group of an existing zone, or empty string to create it. Use to bring your own centralized Private DNS Zones (e.g. an Azure Landing Zone connectivity subscription) for evaluation/agent tracing.')
+param existingMonitorDnsZones object = {
+  'privatelink.monitor.azure.com': ''
+  'privatelink.oms.opinsights.azure.com': ''
+  'privatelink.ods.opinsights.azure.com': ''
+  'privatelink.agentsvc.azure-automation.net': ''
+}
+
+@description('Deploy the project-level capability host (Agents kind, no BYO connections). Required for data-generation workloads that use the hosted-agent runtime; not needed for evaluation-only.')
+param deployCapabilityHost bool = true
+
+@description('The name of the project capability host to be created.')
+param projectCapHost string = 'caphostproj'
 
 
 var projectName = toLower('${firstProjectName}${uniqueSuffix}')
@@ -322,5 +339,76 @@ module storageContainersRoleAssignment 'modules-network-secured/blob-storage-con
   }
   dependsOn: [
     storageAccountRoleAssignment
+  ]
+}
+
+/*
+  Application Insights for evaluation and agent tracing (this template ships none by default).
+  Creates a workspace-based Application Insights and connects it to the account so evaluation
+  runs and agents export metrics/results/OpenTelemetry traces here.
+*/
+module applicationInsights 'modules-network-secured/application-insights.bicep' = {
+  name: 'app-insights-${uniqueSuffix}-deployment'
+  params: {
+    location: location
+    suffix: uniqueSuffix
+    aiAccountName: aiAccount.outputs.accountName
+    disablePublicIngestion: true
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+  ]
+}
+
+/*
+  Private trace ingestion path (Azure Monitor Private Link Scope) so ingestion to Application
+  Insights stays on the private link rather than the (disabled) public endpoint.
+*/
+module monitorPrivateLink 'modules-network-secured/monitor-private-link-scope.bicep' = {
+  name: 'monitor-pls-${uniqueSuffix}-deployment'
+  params: {
+    location: location
+    suffix: uniqueSuffix
+    appInsightsId: applicationInsights.outputs.appInsightsId
+    logAnalyticsId: applicationInsights.outputs.logAnalyticsId
+    vnetId: vnet.outputs.virtualNetworkId
+    peSubnetId: vnet.outputs.peSubnetId
+    existingDnsZones: existingMonitorDnsZones
+    dnsZonesSubscriptionId: resolvedDnsZonesSubscriptionId
+  }
+}
+
+/*
+  Grant the project managed identity read access on the Application Insights resource so
+  evaluation can query GenAI trace content back.
+*/
+module applicationInsightsRoleAssignment 'modules-network-secured/application-insights-role-assignment.bicep' = {
+  name: 'app-insights-ra-${uniqueSuffix}-deployment'
+  params: {
+    appInsightsName: applicationInsights.outputs.appInsightsName
+    projectPrincipalId: aiProject.outputs.projectPrincipalId
+  }
+}
+
+/*
+  Optional project-level capability host for data-generation workloads.
+  The account-level capability host is auto-created via the account's
+  networkInjections.scenario='agent' (see ai-account-identity.bicep), so only the
+  project caphost is created here. No BYO connections (no Cosmos DB / AI Search / storage backend).
+  The dependsOn entries are ordering-only: they run the project caphost after the
+  account and project are fully configured, giving the platform time to finish
+  auto-creating the account capability host before the project host binds to it.
+*/
+module addProjectCapabilityHost 'modules-network-secured/add-project-capability-host.bicep' = if (deployCapabilityHost) {
+  name: 'capabilityHost-configuration-${uniqueSuffix}-deployment'
+  params: {
+    accountName: aiAccount.outputs.accountName
+    projectName: aiProject.outputs.projectName
+    projectCapHost: projectCapHost
+  }
+  dependsOn: [
+    privateEndpointAndDNS
+    aiAccountRoleAssignment
+    applicationInsightsRoleAssignment
   ]
 }
