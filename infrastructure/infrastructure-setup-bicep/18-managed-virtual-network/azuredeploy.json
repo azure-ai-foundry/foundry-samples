@@ -812,7 +812,6 @@
                 "networkInjections": [
                   {
                     "scenario": "agent",
-                    "subnetArmId": "",
                     "useMicrosoftManagedNetwork": true
                   }
                 ],
