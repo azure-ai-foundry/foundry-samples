@@ -44,7 +44,10 @@ async def main() -> None:
     agent = Agent(
         client=client,
         name=os.environ.get("AGENT_NAME", "hosted-toolbox-mcp-skills"),
-        instructions="You are a helpful assistant.",
+        instructions=(
+            "You are a customer-support assistant for Contoso Outdoors. "
+            "Before answering customer questions, load and follow the relevant available skills."
+        ),
         tools=toolbox,
         context_providers=[skills_provider],
         # History will be managed by the hosting infrastructure, thus there
