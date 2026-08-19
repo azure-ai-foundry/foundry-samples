@@ -39,7 +39,6 @@ except Exception:  # pragma: no cover - optional dependency
 
 from .agent_interface import AgentInterface
 from .email_channel_compat import is_email_notification
-from .token_cache import get_cached_agentic_token
 
 logger = logging.getLogger(__name__)
 
@@ -190,20 +189,6 @@ class FoundryDigitalWorkerAgent(AgentInterface):
             logger.info("Agent cleanup completed")
         except Exception:
             logger.exception("Cleanup error")
-
-    # ------------------------------------------------------------------
-    # Observability token resolver
-    # ------------------------------------------------------------------
-
-    def token_resolver(self, agent_id: str, tenant_id: str) -> str | None:
-        try:
-            cached_token = get_cached_agentic_token(tenant_id, agent_id)
-            if not cached_token:
-                logger.warning("No cached token for agent %s", agent_id)
-            return cached_token
-        except Exception:
-            logger.exception("Error resolving token")
-            return None
 
     # ------------------------------------------------------------------
     # Message processing

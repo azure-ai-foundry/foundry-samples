@@ -1,0 +1,69 @@
+name: validation report
+
+# Reusable consumer job for validation-pilot schemas 1 and 2. The producer owns the schema and
+# artifact completeness; this workflow only consumes normalized results and diagnostics.
+on:
+  workflow_call:
+    inputs:
+      results-artifact:
+        required: true
+        type: string
+      manifest-path:
+        required: false
+        default: manifest.json
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download normalized result artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.results-artifact }}
+          path: ${{ runner.temp }}/validation-results
+
+      - name: Validate completeness contract
+        id: render
+        if: always()
+        run: |
+          set -uo pipefail
+          if python .github/scripts/validate-validation-pilot-results.py \
+            --manifest "$RUNNER_TEMP/validation-results/${{ inputs.manifest-path }}" \
+            --artifacts "$RUNNER_TEMP/validation-results"; then
+            completeness_rc=0
+          else
+            completeness_rc=$?
+          fi
+          if python .github/scripts/render-validation-report.py \
+            --results-dir "$RUNNER_TEMP/validation-results" \
+            --expected-samples "$RUNNER_TEMP/validation-results/${{ inputs.manifest-path }}" \
+            --output "$RUNNER_TEMP/validation-report.md" \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"; then
+            render_rc=0
+          else
+            render_rc=$?
+          fi
+          if [ -f "$RUNNER_TEMP/validation-report.md" ]; then
+            cat "$RUNNER_TEMP/validation-report.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "completeness_rc=$completeness_rc" >> "$GITHUB_OUTPUT"
+          echo "render_rc=$render_rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Fail incomplete reporting handoff
+        if: always()
+        env:
+          COMPLETENESS_RC: ${{ steps.render.outputs.completeness_rc }}
+          RENDER_RC: ${{ steps.render.outputs.render_rc }}
+        run: |
+          set -euo pipefail
+          if [ "$COMPLETENESS_RC" != "0" ] || [ "$RENDER_RC" != "0" ]; then
+            echo "::error::Validation reporting handoff was incomplete or malformed."
+            exit 1
+          fi

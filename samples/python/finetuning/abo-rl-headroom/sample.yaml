@@ -1,0 +1,5 @@
+name: ABO Editorial-JSON Data Prep for SFT and GRPO (Python)
+description: Convert public Amazon Berkeley Objects listings into aligned easy/hard editorial-JSON train/val/test splits for supervised fine-tuning and reinforcement learning.
+
+build: "pip install -r requirements.txt"
+validate: "python abo_prep.py --selftest"

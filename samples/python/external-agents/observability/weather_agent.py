@@ -44,11 +44,14 @@ use_microsoft_opentelemetry(
     },
 )
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_openai import AzureChatOpenAI
+from opentelemetry import context as otel_context
+from opentelemetry import trace
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from pydantic import BaseModel, SecretStr
 
 
@@ -98,9 +101,15 @@ class AskRequest(BaseModel):
     question: str
 
 
+class ChatRequest(BaseModel):
+    thread_id: str
+    question: str
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.agent = build_agent()
+    app.state.threads = {}
     yield
 
 
@@ -118,6 +127,42 @@ def ask(req: AskRequest):
     result = agent.invoke({"messages": [HumanMessage(content=req.question)]})
     final = result["messages"][-1].content
     return {"agent": AGENT_NAME, "answer": final}
+
+
+@app.post("/chat")
+def chat(req: ChatRequest, request: Request):
+    """Multi-turn endpoint.
+
+    Turns are grouped into a single distributed trace via the W3C
+    ``traceparent`` header supplied by the caller, so every turn of a
+    conversation shares one ``trace_id``. The thread id is additionally
+    surfaced on spans as ``gen_ai.conversation.id`` through the LangChain
+    run metadata the Microsoft distro reads.
+    """
+    agent = app.state.agent
+    history = app.state.threads.setdefault(req.thread_id, [])
+    # Build this turn's input without mutating stored history yet, so a failed
+    # invocation doesn't leave an unanswered user message in the thread.
+    messages = list(history) + [HumanMessage(content=req.question)]
+
+    # Continue the caller's trace when a traceparent is present.
+    ctx = TraceContextTextMapPropagator().extract(dict(request.headers))
+    token = None
+    if trace.get_current_span(ctx).get_span_context().is_valid:
+        token = otel_context.attach(ctx)
+    try:
+        result = agent.invoke(
+            {"messages": messages},
+            config={"metadata": {"thread_id": req.thread_id}},
+        )
+    finally:
+        if token is not None:
+            otel_context.detach(token)
+
+    # Commit the full turn (user + agent messages) only after a successful run.
+    history[:] = result["messages"]
+    final = result["messages"][-1].content
+    return {"agent": AGENT_NAME, "thread_id": req.thread_id, "answer": final}
 
 
 if __name__ == "__main__":

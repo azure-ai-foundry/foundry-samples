@@ -191,7 +191,6 @@ az rest --method PUT \
       "networkInjections": [
         {
           "scenario": "agent",
-          "subnetArmId": "",
           "useMicrosoftManagedNetwork": true
         }
       ],

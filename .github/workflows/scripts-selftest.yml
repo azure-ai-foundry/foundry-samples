@@ -1,0 +1,189 @@
+name: scripts self-test
+
+# Regression CI for the two shell scripts that ARE the public-first validation pipeline:
+#   .github/scripts/validate-sample.sh          — per-language pass(0)/fail(1)/error(2) classifier
+#   .github/scripts/detect-changed-samples.sh   — changed-sample resolver + GH Actions job outputs
+# It runs the harnesses under .github/scripts/test/ whenever the scripts (or their tests) change,
+# so a regression in the validator/detector/harness is caught BEFORE merge.
+#
+# This is SEPARATE, NON-REQUIRED dev-tooling CI — it must never touch, depend on, or gate the
+# production `validate.yml` lanes (`validate` / `validate / trusted`). It is credential-free by
+# construction: permissions is contents:read only, no secrets, no OIDC, no privileged runners.
+# These are pure script tests. Do NOT make any job here a required check and do NOT edit rulesets.
+#
+# Trigger scope: validation scripts, their tests, or the two validation workflow definitions.
+# A normal sample-authoring PR (samples/**, docs, etc.) never triggers it, so there is zero added
+# friction for contributors.
+# No `push:` trigger: PR-time is the gate that matters; `workflow_dispatch` covers manual/backfill.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/scripts/**'
+      - '.github/workflows/validate.yml'
+      - '.github/workflows/scripts-selftest.yml'
+      - '.github/workflows/validation-report.yml'
+      - '.github/workflows/validation-pilot.yml'
+      - '.github/scripts/discover-validation-samples.py'
+
+permissions:
+  contents: read
+
+jobs:
+  # --- Required-gate structure: hermetic Bash assertions, no credentials -------------------------
+  workflow-structure-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: validate.yml trusted-gate structure exit gate
+        run: bash .github/scripts/test/run-workflow-structure-tests.sh
+
+  # --- Detector harness: hermetic (git + coreutils only), runs fully GREEN anywhere --------------
+  detect-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: detect-changed-samples exit gate (resolve/dedupe/walk-up/docs-only/fail-loud)
+        run: bash .github/scripts/test/run-detect-tests.sh
+
+  # --- Validator harness: needs all 5 language toolchains on PATH so run-tests.sh reaches GREEN ---
+  # (exit 0). A missing toolchain would make the harness exit 3 = PARTIAL, which is non-zero and
+  # therefore fails this job — that is the desired behavior: PARTIAL must never masquerade as pass.
+  # `mvn` (Java's build) is preinstalled on ubuntu-latest; the five setup-* steps + yq provide the
+  # rest. The toolchain/yq setup below is reused verbatim from the retired validate-sample-selftest.
+  validate-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Java (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Toolchain versions
+        run: |
+          dotnet --version
+          python --version
+          node --version
+          npm --version
+          java -version
+          go version
+
+      - name: Phase-1 exit gate — all 5 languages, pass(0)/fail(1)/error(2)
+        run: bash .github/scripts/test/run-tests.sh
+
+  # --- Reporting consumer contract tests: fixtures only, no producer coupling ----------------------
+  report-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run normalized-artifact reporting tests
+        run: python .github/scripts/test/test-render-validation-report.py
+
+  validation-pilot-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: .github/scripts/requirements.txt
+      - name: Install validation script dependencies
+        run: python -m pip install -r .github/scripts/requirements.txt
+      - name: Producer contract tests
+        run: python -m unittest discover -s .github/scripts/test -p 'test_validation_pilot.py'
+
+  # --- Plumbing isolation proof: detector outputs cross a REAL job boundary via needs.*.outputs ---
+  # Proves the $GITHUB_OUTPUT -> steps.*.outputs -> job.outputs -> downstream needs.*.outputs chain
+  # in ISOLATION from validate.yml's trust/gate logic (which only exercises it on trusted gated PRs).
+  # Non-empty case only: the docs-only / empty-result emission contract is already pinned hermetically
+  # by run-detect-tests.sh case (h), so re-proving it across a needs boundary adds no unique signal.
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+      count: ${{ steps.detect.outputs.count }}
+      samples: ${{ steps.detect.outputs.samples }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build a deterministic temp scenario and run the detector
+        id: detect
+        run: |
+          set -euo pipefail
+          SCRIPT="$GITHUB_WORKSPACE/.github/scripts/detect-changed-samples.sh"
+          REPO="$(mktemp -d)"
+          cd "$REPO"
+          git init -q
+          git config user.email t@t.test
+          git config user.name test
+          mkdir -p samples/python/quickstart/foo samples/csharp/quickstart/bar
+          printf 'name: foo\n'   > samples/python/quickstart/foo/sample.yaml
+          printf 'print("v1")\n' > samples/python/quickstart/foo/main.py
+          printf 'name: bar\n'   > samples/csharp/quickstart/bar/sample.yaml
+          printf 'x\n'           > samples/csharp/quickstart/bar/Program.cs
+          git add -A >/dev/null
+          git commit -qm base
+          BASE="$(git rev-parse HEAD)"
+          printf 'print("v2")\n' > samples/python/quickstart/foo/main.py
+          printf 'x2\n'          > samples/csharp/quickstart/bar/Program.cs
+          git commit -qam change
+          # Runs with the REAL $GITHUB_OUTPUT -> emits has_changes/count/samples as STEP outputs.
+          bash "$SCRIPT" --base-ref "$BASE"
+
+  consume:
+    needs: detect
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read needs.detect.outputs.* and assert
+        env:
+          HAS_CHANGES: ${{ needs.detect.outputs.has_changes }}
+          COUNT: ${{ needs.detect.outputs.count }}
+          SAMPLES: ${{ needs.detect.outputs.samples }}
+        run: |
+          set -euo pipefail
+          echo "consumed via needs.detect.outputs.*:"
+          echo "  has_changes=$HAS_CHANGES"
+          echo "  count=$COUNT"
+          echo "  samples=$SAMPLES"
+          fail=0
+          [ "$HAS_CHANGES" = "true" ] || { echo "FAIL: has_changes expected true"; fail=1; }
+          [ "$COUNT" = "2" ]          || { echo "FAIL: count expected 2"; fail=1; }
+          expected='["samples/csharp/quickstart/bar","samples/python/quickstart/foo"]'
+          [ "$SAMPLES" = "$expected" ] || { echo "FAIL: samples expected $expected"; fail=1; }
+          if [ "$fail" -ne 0 ]; then
+            echo "needs.*.outputs isolation proof: RED"
+            exit 1
+          fi
+          echo "needs.*.outputs isolation proof: GREEN — downstream job consumed the detected set."

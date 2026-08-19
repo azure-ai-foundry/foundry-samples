@@ -39,7 +39,7 @@ $body = @{
 
 $jsonBody = $body | ConvertTo-Json -Depth 10
 
-$aiAzureToken = az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv
+$aiAzureToken = az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv --tenant $env:TENANT_ID
 
 
 Write-Host "Sending Microsoft 365 publish request to $agentPublishUrl..."
