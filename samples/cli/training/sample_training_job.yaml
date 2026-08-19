@@ -20,3 +20,4 @@ inputs:
 outputs:
   result_file:
     type: uri_folder
+    asset_name: output-result
