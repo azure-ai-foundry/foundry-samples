@@ -1,3 +1,10 @@
+## Repository publication routing
+
+- `microsoft-foundry/foundry-samples` is the sole venue for work intended for publication. Contributions use the normal public pull request path and existing repository checks; a maintainer initiates the merge.
+- Do not redirect contributors to or recreate publishable work in `microsoft-foundry/foundry-samples-pr`.
+- If a contributor lacks the required access to create the appropriate public-repository branch, surface that clearly and direct them to Brandon Miller / Foundry DevX. Do not invent an alternate publication route.
+- Never propose private staging, promotion commands or environments, classifiers, taxonomies, manifests, cross-repo handoff protocols, exception sync, reverse mirror, replay, reseed, `force_full`, or any automated private publication mechanism.
+
 ## Files owned by the AI Platform Docs team
 
 If a file is listed in the CODEOWNERS file with @azure-ai-foundry/ai-platform-docs as the owner, it is owned by the AI Platform Docs team.  For these files:
