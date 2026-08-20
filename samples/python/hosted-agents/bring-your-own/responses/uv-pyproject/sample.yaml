@@ -1,0 +1,11 @@
+name: uv and pyproject hosted agent
+description: A Responses hosted agent that uses uv, pyproject.toml, and a reproducible lockfile.
+
+build: >-
+  python -m pip install --disable-pip-version-check "uv==0.11.7" &&
+  cd src/uv-pyproject-python-responses &&
+  uv sync --python 3.13 --frozen --no-dev --no-install-project
+validate: >-
+  cd src/uv-pyproject-python-responses &&
+  uv run --no-sync python -m py_compile main.py &&
+  uv run --no-sync python -c "import azure.ai.agentserver.responses; import azure.ai.projects; import azure.identity"
