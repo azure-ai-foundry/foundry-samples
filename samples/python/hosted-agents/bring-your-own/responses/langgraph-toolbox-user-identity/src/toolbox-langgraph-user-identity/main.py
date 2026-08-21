@@ -41,9 +41,8 @@ from azure.ai.agentserver.responses import (
     ResponseEventStream,
     ResponsesAgentServerHost,
     ResponsesServerOptions,
-    get_input_expanded,
 )
-from azure.ai.agentserver.responses.models import CreateResponse
+from azure.ai.agentserver.responses.models import CreateResponse, get_input_expanded
 from azure.identity import DefaultAzureCredential
 from langchain_azure_ai.chat_models import AzureAIOpenAIApiChatModel
 from langchain_azure_ai.tools import AzureAIProjectToolbox

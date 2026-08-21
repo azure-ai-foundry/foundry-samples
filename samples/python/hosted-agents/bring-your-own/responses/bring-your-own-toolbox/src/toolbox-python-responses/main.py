@@ -45,8 +45,8 @@ from azure.ai.agentserver.responses import (
     ResponseEventStream,
     ResponsesAgentServerHost,
     ResponsesServerOptions,
-    get_input_expanded,
 )
+from azure.ai.agentserver.responses.models import get_input_expanded
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from azure.ai.projects import AIProjectClient
 
