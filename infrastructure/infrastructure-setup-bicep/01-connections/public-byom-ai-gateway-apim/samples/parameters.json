@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "aiServicesName": { "value": "foundry" },
+    "projectName": { "value": "gateway-project" },
+    "projectDescription": { "value": "Single-project AI Gateway happy path (TC01)." },
+    "projectDisplayName": { "value": "AI Gateway happy path" },
+    "location": { "value": "eastus" },
+
+    "modelName": { "value": "gpt-5.4" },
+    "modelFormat": { "value": "OpenAI" },
+    "modelVersion": { "value": "2026-03-05" },
+    "modelSkuName": { "value": "GlobalStandard" },
+    "modelCapacity": { "value": 40 },
+
+    "apimName": { "value": "" },
+    "publisherEmail": { "value": "platform-eng@contoso.com" },
+    "publisherName": { "value": "Contoso Platform Engineering" },
+
+    "connectionName": { "value": "ai-gateway" },
+    "inferenceApiVersion": { "value": "2024-10-21" },
+
+    "tokensPerMinute": { "value": 1000 },
+    "estimatePromptTokens": { "value": true }
+  }
+}

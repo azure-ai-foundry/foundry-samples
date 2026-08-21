@@ -1,0 +1,12 @@
+{
+  "$schema": "https://aka.ms/azure-quickstart-templates-metadata-schema#",
+  "type": "QuickStart",
+  "itemDisplayName": "AI Gateway happy path (TC01): consume a model via Azure API Management — end to end (no VNet)",
+  "description": "Self-contained, single-project happy path — public, no virtual network required. Creates a Microsoft Foundry account + project (user-assigned identity), deploys a model (default gpt-5.4), fronts it with a public StandardV2 Azure API Management AI Gateway (managed-identity auth), applies an LLM token-limit policy, and adds a Bring-Your-Own-Model connection so a prompt agent consumes the model as <connection>/<model> through the gateway. Everything deploys in one command. Demonstrates the AI Gateway pattern documented at https://learn.microsoft.com/azure/foundry/agents/how-to/ai-gateway.",
+  "summary": "One-command TC01 (no VNet): account + project + model + APIM AI Gateway + token-limit policy + BYOM connection. A user-assigned identity lets APIM pin the project identity in a single deployment; consume the model end to end with a prompt agent through the Responses API.",
+  "githubUsername": "pradeepkintali",
+  "dateUpdated": "2026-08-21",
+  "environments": [
+    "AzureCloud"
+  ]
+}
