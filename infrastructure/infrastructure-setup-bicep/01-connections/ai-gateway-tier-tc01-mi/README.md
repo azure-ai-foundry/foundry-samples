@@ -15,7 +15,7 @@ languages:
 # AI Gateway tier (preview) — TC01: keyless managed-identity model access (Bicep + script)
 
 This is the **keyless** variant of the AI Gateway tier TC01 happy path. It's identical
-to [`../ai-gateway-tier-tc01`](../ai-gateway-tier-tc01/) except the gateway reaches the
+to [`../ai-gateway-tier-tc01-keys`](../ai-gateway-tier-tc01-keys/) except the gateway reaches the
 Foundry model with a **managed identity** instead of a stored API key.
 
 > [!IMPORTANT]
@@ -102,21 +102,48 @@ and [Manage models and tools](https://learn.microsoft.com/azure/api-management/a
    (if it doesn't have one) and grants it the **Foundry User** role on the account, then
    registers `gpt-5.4` as a model.
 
-If you don't have permission to assign roles, an administrator grants the gateway's
-system-assigned identity the **Foundry User** role on the account (use the role's stable
-GUID because the Foundry roles were recently renamed):
+If you don't have permission for the wizard to assign the role, an administrator grants
+the gateway's system-assigned identity the **Foundry User** role on the account. Gather
+the two values first, then assign the role (reference it by its stable GUID — the Foundry
+roles were recently renamed). Requires **Azure CLI 2.57.0+**.
+
+**a. Get the gateway's managed-identity principal ID (from the portal).** In the AI Gateway
+tier portal, open the **Managed identities** page → **Configure identities**, turn on the
+**System-assigned identity**, and copy its **Object (principal) ID**. The tier is
+portal-managed, so this ID comes from the portal, not the Azure CLI.
+
+```bash
+GATEWAY_PRINCIPAL_ID="<object-principal-id-copied-from-the-portal>"
+```
+
+**b. Get the Foundry account resource ID** — the `accountId` output from steps 1–2:
+
+```bash
+BACKEND_RESOURCE_ID=$(az deployment group show -g <your-rg> -n main \
+  --query properties.outputs.accountId.value -o tsv)
+
+# If you didn't keep the deployment, look it up by account name instead:
+# BACKEND_RESOURCE_ID=$(az cognitiveservices account show -g <your-rg> -n <accountName> --query id -o tsv)
+```
+
+**c. Assign the Foundry User role** (`53ca6127-…` = **Foundry User**, formerly Azure AI User):
 
 ```bash
 az role assignment create \
-  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
-  --assignee-object-id <gateway-system-assigned-identity-principal-id> \
+  --assignee-object-id "$GATEWAY_PRINCIPAL_ID" \
   --assignee-principal-type ServicePrincipal \
-  --scope <accountId output>
+  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
+  --scope "$BACKEND_RESOURCE_ID"
 ```
 
-> `53ca6127-db72-4b80-b1b0-d745d6d5456d` is the **Foundry User** role (formerly Azure AI
-> User). Get the gateway's identity principal ID from the gateway resource after you
-> create it.
+**d. Verify** (role assignments can take a few minutes to propagate):
+
+```bash
+az role assignment list \
+  --assignee-object-id "$GATEWAY_PRINCIPAL_ID" \
+  --scope "$BACKEND_RESOURCE_ID" \
+  --output table
+```
 
 ## Step 4 — add a token rate-limit policy (portal)
 
@@ -126,23 +153,30 @@ Verified from [Govern and secure assets](https://learn.microsoft.com/azure/api-m
 2. On **Type**, choose **Token rate limit**.
 3. On **Assets**, select the `gpt-5.4` model.
 4. On **Configure**, set the token allowance (per **minute**, **hour**, or **day**) and the
-   dimension (**caller identity** or **caller IP**). Select **Create**. Over-limit → **HTTP 429**.
+   dimension (**caller identity** or **caller IP**). Choose 100 tokens per minute limit per caller identity. Select **Create**. Over-limit → **HTTP 429**.
 
 ## Step 5 — test the model through the gateway ("Discover")
 
-Get a key and the base URL from the gateway (**Keys** page + gateway **overview** page), then:
+Get a key and the base URL from the gateway (**Keys** page + **Home** page), then:
 
 ```bash
 pip install openai
 
-export AI_GATEWAY_BASE_URL="https://<gateway>.azure-api.net/default/models/openai/v1"
-export AI_GATEWAY_API_KEY="<gateway-key>"
+$env:AI_GATEWAY_BASE_URL="https://<gateway>.azure-api.net/default/models/openai/v1"
+$env:$AI_GATEWAY_API_KEY="<gateway-key>"
 
 # single call — verifies the model answers through the gateway (keyless backend)
-python samples/test-model-via-gateway.py --prompt "Say hello in five words."
+python samples/test-model-via-gateway.py --prompt "What is the meaning of life?" --repeat 16
+```
 
-# burst — exercises the token rate-limit policy (expect HTTP 429 after the budget)
-python samples/test-model-via-gateway.py --repeat 12
+You would see the following message.
+```bash
+...
+[14/16] 429 THROTTLED by the gateway token rate-limit policy.
+[15/16] 429 THROTTLED by the gateway token rate-limit policy.
+[16/16] 429 THROTTLED by the gateway token rate-limit policy.
+
+Done. 14 of 16 calls were throttled by the token rate-limit policy.
 ```
 
 Or open the **Discover** page in the portal and select the model to invoke it in the
