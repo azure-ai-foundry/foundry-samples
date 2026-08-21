@@ -4,8 +4,8 @@
   "parameters": {
     "aiServicesName": { "value": "foundry" },
     "projectName": { "value": "gateway-project" },
-    "projectDescription": { "value": "AI Gateway tier TC01 (keyless MI)." },
-    "projectDisplayName": { "value": "AI Gateway tier TC01 (MI)" },
+    "projectDescription": { "value": "AI Gateway tier TC01 sample." },
+    "projectDisplayName": { "value": "AI Gateway tier TC01" },
     "location": { "value": "eastus2" },
 
     "modelName": { "value": "gpt-5.4" },

@@ -12,11 +12,9 @@ languages:
 - python
 ---
 
-# AI Gateway tier (preview) — TC01: keyless managed-identity model access (Bicep + script)
+# AI Gateway tier (preview) — TC01 (Bicep + script)
 
-This is the **keyless** variant of the AI Gateway tier TC01 happy path. It's identical
-to [`../ai-gateway-tier-tc01-keys`](../ai-gateway-tier-tc01-keys/) except the gateway reaches the
-Foundry model with a **managed identity** instead of a stored API key.
+This is the AI Gateway tier TC01 happy path.
 
 > [!IMPORTANT]
 > The AI Gateway tier is in **public preview**, available only in **East US 2** and
@@ -24,22 +22,6 @@ Foundry model with a **managed identity** instead of a stored API key.
 > standalone portal ([`ai.gateway.azure.com`](https://ai.gateway.azure.com)) — not the
 > published Bicep/ARM reference. So this is a **hybrid**: Bicep provisions the Foundry
 > model; the gateway is created in the portal.
-
-## What "keyless" means here
-
-The AI Gateway tier has two authentication legs — keep them separate:
-
-| Leg | This sample |
-|-----|-------------|
-| **Gateway → Foundry model** (backend) | **Managed identity** — the gateway's **system-assigned** identity + the **Foundry User** role. **No Foundry key is stored.** This is the keyless part. |
-| **Caller → gateway** (client) | Still a gateway **`api-key`** (a runtime access key or the built-in key). The tier always authenticates runtime callers with `api-key`; there is no keyless client option. |
-
-Because the backend is keyless, `main.bicep` sets **`disableLocalAuth: true`** to *enforce*
-that no account key can be used (the key-based sample leaves it `false`).
-
-> [!NOTE]
-> The gateway uses its **system-assigned** managed identity — **no user-assigned identity
-> (UAMI)** is required, which matches the portal import wizard.
 
 ## How this maps to TC01
 
@@ -49,7 +31,7 @@ that no account key can be used (the key-based sample leaves it `false`).
 | 2. Create model | **Bicep** | `main.bicep` deploys the `gpt-5.4` model (local auth disabled). |
 | 3. Create gateway + connect model | **Portal** | Create the gateway, then **Import from Foundry** with **Managed identity**. |
 | 4. Add a policy | **Portal** | Add a **Token rate limit** policy on the model. |
-| 5. Test via "Discover" | **Script** | Run [`samples/test-model-via-gateway.py`](./samples/test-model-via-gateway.py), or use the portal **Discover** playground. |
+| 5. Test via "Discover" | **Script** | Run [`samples/test-model-via-gateway.py`](./samples/test-model-via-gateway.py). |
 
 ## Prerequisites
 
@@ -64,7 +46,7 @@ that no account key can be used (the key-based sample leaves it `false`).
 
 ## Steps 1–2 — deploy the Foundry model (Bicep)
 
-```bash
+```powershell
 az login
 az account set --subscription <subscription-id>
 az group create --name <your-rg> --location eastus2
@@ -75,9 +57,9 @@ az deployment group create \
   --parameters @samples/parameters.json
 ```
 
-Capture the outputs you'll need next:
+Capture the "accountId" which you'll need later as $BACKEND_RESOURCE_ID:
 
-```bash
+```powershell
 az deployment group show -g <your-rg> -n main \
   --query "properties.outputs.{account:accountName.value, accountId:accountId.value, model:modelName.value}" -o jsonc
 ```
@@ -112,23 +94,21 @@ tier portal, open the **Managed identities** page → **Configure identities**, 
 **System-assigned identity**, and copy its **Object (principal) ID**. The tier is
 portal-managed, so this ID comes from the portal, not the Azure CLI.
 
-```bash
-GATEWAY_PRINCIPAL_ID="<object-principal-id-copied-from-the-portal>"
+```powershell
+$env:GATEWAY_PRINCIPAL_ID="<object-principal-id-copied-from-the-portal>"
 ```
 
 **b. Get the Foundry account resource ID** — the `accountId` output from steps 1–2:
 
-```bash
-BACKEND_RESOURCE_ID=$(az deployment group show -g <your-rg> -n main \
+```powershell
+# Please skip this step if you have already assigned $BACKEND_RESOURCE_ID from "accountId" in steps 1–2.
+$env:BACKEND_RESOURCE_ID=$(az deployment group show -g <your-rg> -n main \
   --query properties.outputs.accountId.value -o tsv)
-
-# If you didn't keep the deployment, look it up by account name instead:
-# BACKEND_RESOURCE_ID=$(az cognitiveservices account show -g <your-rg> -n <accountName> --query id -o tsv)
 ```
 
-**c. Assign the Foundry User role** (`53ca6127-…` = **Foundry User**, formerly Azure AI User):
+**c. Assign the Foundry User role** (`53ca6127-db72-4b80-b1b0-d745d6d5456d` = **Foundry User**, formerly Azure AI User):
 
-```bash
+```powershell
 az role assignment create \
   --assignee-object-id "$GATEWAY_PRINCIPAL_ID" \
   --assignee-principal-type ServicePrincipal \
@@ -138,7 +118,7 @@ az role assignment create \
 
 **d. Verify** (role assignments can take a few minutes to propagate):
 
-```bash
+```powershell
 az role assignment list \
   --assignee-object-id "$GATEWAY_PRINCIPAL_ID" \
   --scope "$BACKEND_RESOURCE_ID" \
@@ -159,7 +139,7 @@ Verified from [Govern and secure assets](https://learn.microsoft.com/azure/api-m
 
 Get a key and the base URL from the gateway (**Keys** page + **Home** page), then:
 
-```bash
+```powershell
 pip install openai
 
 $env:AI_GATEWAY_BASE_URL="https://<gateway>.azure-api.net/default/models/openai/v1"
@@ -170,7 +150,7 @@ python samples/test-model-via-gateway.py --prompt "What is the meaning of life?"
 ```
 
 You would see the following message.
-```bash
+```powershell
 ...
 [14/16] 429 THROTTLED by the gateway token rate-limit policy.
 [15/16] 429 THROTTLED by the gateway token rate-limit policy.
@@ -198,6 +178,3 @@ built-in playground.
 - [Quickstart: Create an AI Gateway tier instance](https://learn.microsoft.com/azure/api-management/quickstart-ai-gateway-create)
 - [Govern, secure, and operate](https://learn.microsoft.com/azure/api-management/ai-gateway-govern-secure-assets)
 - [Role-based access control for Microsoft Foundry](https://learn.microsoft.com/azure/foundry/concepts/rbac-foundry) (Foundry User role)
-
-> **Note:** `az bicep build` may surface `BCP081` warnings for the CognitiveServices
-> preview API versions — expected and non-blocking.

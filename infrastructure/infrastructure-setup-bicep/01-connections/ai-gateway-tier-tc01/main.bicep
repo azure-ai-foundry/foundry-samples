@@ -1,32 +1,14 @@
 /*
   ================================================================================
-  main.bicep  — TC01 for the AI Gateway tier (preview), steps 1-2
+  main.bicep  — TC01 for the AI Gateway tier (preview)
   --------------------------------------------------------------------------------
-  Creates the Foundry side of the TC01 happy path so the AI Gateway tier can
-  import the model:
-
-    1. A Microsoft Foundry account (AIServices) + project.
-    2. A gpt-5.4 model deployment on the account.
-
-  Deliberately simple — NO user-assigned identity, NO APIM service, NO XML
-  policies. The AI Gateway tier (https://ai.gateway.azure.com) is a separate,
-  portal-provisioned product; you create the gateway and import this model from
-  its portal (steps 3-4), then test with samples/test-model-via-gateway.py
-  (step 5). See README.md.
-
-  Why local auth stays ENABLED (disableLocalAuth: false):
-    The AI Gateway tier "Import from Foundry" wizard uses KEY-BASED backend
-    authentication by default — it reads the account's API key at import time and
-    sends it in the api-key header to the backend. That requires local (key) auth
-    to be enabled on the account. This is what lets you avoid a managed identity.
-
-  Region: the AI Gateway tier is in public preview only in East US 2 and Sweden
-  Central, so this template restricts the location to those two regions to keep
-  the model co-located with the gateway.
+  The gateway, model import (choose "Managed identity"), and policies are created
+  in the AI Gateway tier portal (https://ai.gateway.azure.com). See README.md.
 
   Verified against:
-    https://learn.microsoft.com/azure/api-management/quickstart-ai-gateway-create
+    https://learn.microsoft.com/azure/api-management/ai-gateway-manage-models-tools
     https://learn.microsoft.com/azure/api-management/ai-gateway-setup
+    https://learn.microsoft.com/azure/foundry/concepts/rbac-foundry
   ================================================================================
 */
 
@@ -43,7 +25,7 @@ param aiServicesName string = 'foundry'
 param projectName string = 'gateway-project'
 
 @description('Project description.')
-param projectDescription string = 'AI Gateway tier TC01 happy path.'
+param projectDescription string = 'AI Gateway tier TC01 sample.'
 
 @description('Project display name.')
 param projectDisplayName string = 'AI Gateway tier TC01'
@@ -82,7 +64,7 @@ var accountName = toLower('${aiServicesName}${uniqueSuffix}')
 
 // ===========================================================================
 // Foundry account (AIServices) — system-assigned identity, NO user-assigned MI.
-// Local auth stays ENABLED so the gateway's key-based Foundry import works.
+// Local auth is DISABLED to enforce keyless (managed-identity) backend access.
 // ===========================================================================
 resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
   name: accountName
@@ -98,7 +80,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
     allowProjectManagement: true
     customSubDomainName: accountName
     publicNetworkAccess: 'Enabled'
-    disableLocalAuth: false
+    disableLocalAuth: true
     networkAcls: {
       defaultAction: 'Allow'
       virtualNetworkRules: []
@@ -146,7 +128,11 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
 }
 
 // ===========================================================================
-// Outputs — use these in the AI Gateway tier "Import from Foundry" wizard
+// Outputs — use these in the AI Gateway tier "Import from Foundry" wizard.
+// After you create the gateway, grant its system-assigned identity the
+// Foundry User role (53ca6127-db72-4b80-b1b0-d745d6d5456d) on accountId; the
+// import wizard does this automatically if you have User Access Administrator
+// or Owner on the account. See README.md.
 // ===========================================================================
 output subscriptionId string = subscription().subscriptionId
 output resourceGroupName string = resourceGroup().name
