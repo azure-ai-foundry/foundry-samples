@@ -1,6 +1,6 @@
-azure-ai-agentserver-invocations==1.0.0b7
+azure-ai-agentserver-invocations==1.1.0b1
 # Keep the 1.0 Invocations SDK on its compatible Core 2.0 line.
-azure-ai-agentserver-core==2.0.0
+azure-ai-agentserver-core==2.1.0b2
 azure-ai-projects==2.0.1
 # azure-ai-projects imports httpx directly, while OpenAI 3 uses httpx2.
 openai<3

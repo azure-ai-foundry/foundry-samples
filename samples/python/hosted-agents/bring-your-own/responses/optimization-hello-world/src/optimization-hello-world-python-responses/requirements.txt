@@ -11,9 +11,9 @@ annotated-types==0.8.0
 anyio==4.14.2
 asgiref==3.12.1
 attrs==26.1.0
-azure-ai-agentserver-core==2.1.0b1
+azure-ai-agentserver-core==2.1.0b2
 azure-ai-agentserver-optimization==1.0.0b1
-azure-ai-agentserver-responses==2.0.0b0
+azure-ai-agentserver-responses==2.1.0b2
 azure-ai-projects==2.0.1
 azure-core==1.41.0
 azure-core-tracing-opentelemetry==1.0.0b13

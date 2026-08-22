@@ -1,4 +1,4 @@
-azure-ai-agentserver-responses==2.0.0b0
+azure-ai-agentserver-responses==2.1.0b2
 langchain-azure-ai>=1.2.3
 langgraph>=1.1.8
 langchain-mcp-adapters>=0.2.2

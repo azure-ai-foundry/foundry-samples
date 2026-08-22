@@ -1,4 +1,4 @@
-azure-ai-agentserver-invocations==1.0.0b8
+azure-ai-agentserver-invocations==1.1.0b1
 
 # azure-identity backs the opt-in startup self-ping loop (authenticated keep-alive).
 azure-identity

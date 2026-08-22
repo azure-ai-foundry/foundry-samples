@@ -1,6 +1,6 @@
 github-copilot-sdk>=0.2.0
 
-azure-ai-agentserver-invocations==1.0.0b7
+azure-ai-agentserver-invocations==1.1.0b1
 azure-identity>=1.17.0
 python-dotenv==1.1.1
 

@@ -1,5 +1,5 @@
 # AgentServer packages release independently; use the latest prerelease for each package.
-azure-ai-agentserver-responses==2.0.0b0
+azure-ai-agentserver-responses==2.1.0b2
 azure-ai-projects==2.0.1
 # azure-ai-projects imports httpx directly, while OpenAI 3 uses httpx2.
 openai<3
