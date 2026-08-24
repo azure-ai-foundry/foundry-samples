@@ -12,6 +12,17 @@ RUN pip install --no-input --upgrade pip && \
     echo "No requirements.txt found"; \
     fi
 
+# Resolve the SDK's pinned CLI runtime at build time instead of on the first
+# invocation. Copy it to a stable path so runtime users do not depend on the
+# build user's cache directory.
+RUN python -m copilot download-runtime && \
+    cli_path="$(find /root/.cache/github-copilot-sdk/cli -type f -name copilot -print -quit)" && \
+    test -n "$cli_path" && \
+    install -m 0755 "$cli_path" /usr/local/bin/copilot && \
+    rm -rf /root/.cache/github-copilot-sdk
+
+ENV COPILOT_CLI_PATH=/usr/local/bin/copilot
+
 EXPOSE 8088
 
 # Precompile Python bytecode at build time so cold starts don't pay for it.
@@ -28,4 +39,3 @@ RUN PYTHONDONTWRITEBYTECODE= python -m compileall -q $(python -c "import sysconf
     PYTHONDONTWRITEBYTECODE= python -m compileall -q .
 
 CMD ["python", "main.py"]
-
