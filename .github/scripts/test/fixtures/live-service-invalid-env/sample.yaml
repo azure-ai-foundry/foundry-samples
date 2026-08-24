@@ -1,0 +1,5 @@
+name: live-service-invalid-env
+description: Hermetic live-service fixture whose required_env field is not a string list.
+live_service_validation:
+  command: "true"
+  required_env: LIVE_SERVICE_TEST_ENDPOINT

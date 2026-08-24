@@ -1,0 +1,220 @@
+name: Daily public validation cadence
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validation-pilot-main
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      build_readiness_matrix: ${{ steps.discovery.outputs.build_readiness_matrix }}
+      live_service_matrix: ${{ steps.discovery.outputs.live_service_matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: .github/scripts/requirements.txt
+      - name: Install validation script dependencies
+        run: python -m pip install -r .github/scripts/requirements.txt
+      - name: Discover full sample inventory
+        id: discovery
+        run: |
+          set -euo pipefail
+          python .github/scripts/discover-validation-samples.py \
+            --manifest "$RUNNER_TEMP/validation-manifest.json" \
+            --matrix "$RUNNER_TEMP/validation-matrix.json" \
+            --build-readiness-matrix "$RUNNER_TEMP/validation-build-readiness-matrix.json" \
+            --live-service-matrix "$RUNNER_TEMP/validation-live-service-matrix.json" > "$RUNNER_TEMP/discovery.json"
+          printf 'build_readiness_matrix=%s\n' "$(cat "$RUNNER_TEMP/validation-build-readiness-matrix.json")" >> "$GITHUB_OUTPUT"
+          printf 'live_service_matrix=%s\n' "$(cat "$RUNNER_TEMP/validation-live-service-matrix.json")" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/discovery.json"
+      - name: Persist discovered manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-pilot-manifest
+          path: ${{ runner.temp }}/validation-manifest.json
+          if-no-files-found: error
+          retention-days: 90
+
+  build-readiness:
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 32
+      matrix: ${{ fromJSON(needs.discover.outputs.build_readiness_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        if: matrix.validator_language == 'csharp'
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-python@v5
+        if: matrix.validator_language == 'python'
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        if: matrix.validator_language == 'typescript'
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v4
+        if: matrix.validator_language == 'java'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install yq
+        if: matrix.eligible
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+      - name: Run normalized build-readiness validation
+        if: always()
+        run: |
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/pilot-result"
+          args=(
+            --sample-id "${{ matrix.id }}"
+            --language "${{ matrix.language }}"
+            --validator-language "${{ matrix.validator_language }}"
+            --shape "${{ matrix.shape }}"
+            --sample-path "${{ matrix.path }}"
+            --output "$RUNNER_TEMP/pilot-result/sample-result.json"
+            --diagnostic "$RUNNER_TEMP/pilot-result/diagnostics.log"
+          )
+          if [ "${{ matrix.eligible }}" != "true" ]; then
+            args+=(--skip-reason "${{ matrix.skip_reason }}")
+          fi
+          python .github/scripts/run-validation-pilot.py "${args[@]}"
+      - name: Persist sample result and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-pilot-${{ matrix.id }}
+          path: ${{ runner.temp }}/pilot-result
+          if-no-files-found: error
+          retention-days: 30
+
+  live-service:
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Legacy external identifier: renaming it also requires an Entra OIDC subject migration.
+    environment: L4-validation
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # P4.1 never provisions. P4.2 owns any future cold-provisioning caller.
+      SKIP_PROVISION: "true"
+      AZURE_AI_PROJECT_ENDPOINT: ${{ vars.AZURE_AI_PROJECT_ENDPOINT }}
+      MODEL_DEPLOYMENT: ${{ vars.MODEL_DEPLOYMENT }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.discover.outputs.live_service_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        if: matrix.validator_language == 'csharp'
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-python@v5
+        if: matrix.validator_language == 'python'
+        with:
+          python-version: '3.12'
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+      - name: Install declared live-service Python runtime dependencies
+        if: matrix.validator_language == 'python'
+        run: python -m pip install -r "${{ matrix.path }}/requirements.txt"
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Run normalized live-service validation
+        if: always()
+        run: |
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/pilot-result"
+          python .github/scripts/run-validation-pilot.py \
+            --sample-id "${{ matrix.id }}" \
+            --language "${{ matrix.language }}" \
+            --validator-language "${{ matrix.validator_language }}" \
+            --shape "${{ matrix.shape }}" \
+            --sample-path "${{ matrix.path }}" \
+            --output "$RUNNER_TEMP/pilot-result/sample-result.json" \
+            --diagnostic "$RUNNER_TEMP/pilot-result/diagnostics.log" \
+            --run-live-service
+      - name: Persist sample result and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-pilot-${{ matrix.id }}
+          path: ${{ runner.temp }}/pilot-result
+          if-no-files-found: error
+          retention-days: 30
+
+  completeness:
+    if: always()
+    needs: [discover, build-readiness, live-service]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: validation-pilot-*
+          path: ${{ runner.temp }}/pilot-artifacts
+      - name: Validate complete normalized result set
+        run: |
+          set -uo pipefail
+          manifest="$RUNNER_TEMP/pilot-artifacts/validation-pilot-manifest/validation-manifest.json"
+          if python .github/scripts/validate-validation-pilot-results.py \
+            --manifest "$manifest" \
+            --artifacts "$RUNNER_TEMP/pilot-artifacts"; then
+            completeness_rc=0
+          else
+            completeness_rc=$?
+          fi
+          cp "$manifest" "$RUNNER_TEMP/pilot-artifacts/manifest.json"
+          exit "$completeness_rc"
+      - name: Persist run metadata and normalized summary
+        if: always()
+        run: |
+          python -c 'import json,os; from pathlib import Path; p=Path(os.environ["RUNNER_TEMP"])/"pilot-artifacts"/"run-metadata.json"; p.write_text(json.dumps({"schema_version":2,"repository":os.environ["GITHUB_REPOSITORY"],"workflow":os.environ["GITHUB_WORKFLOW"],"run_id":os.environ["GITHUB_RUN_ID"],"run_attempt":os.environ["GITHUB_RUN_ATTEMPT"],"sha":os.environ["GITHUB_SHA"],"ref":os.environ["GITHUB_REF"],"completed_at":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat().replace("+00:00","Z")},indent=2)+"\n")'
+        continue-on-error: true
+      - name: Upload normalized run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-pilot-run-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pilot-artifacts
+          if-no-files-found: error
+          retention-days: 90
+
+  report:
+    needs: completeness
+    if: ${{ always() && !cancelled() }}
+    uses: ./.github/workflows/validation-report.yml
+    with:
+      results-artifact: validation-pilot-run-${{ github.run_id }}-${{ github.run_attempt }}
+      manifest-path: manifest.json

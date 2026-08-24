@@ -1,0 +1,4 @@
+name: legacy-l4
+description: Legacy metadata must fail with an actionable migration message.
+l4:
+  command: "true"

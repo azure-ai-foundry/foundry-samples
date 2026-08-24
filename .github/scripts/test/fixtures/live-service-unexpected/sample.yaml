@@ -1,0 +1,4 @@
+name: live-service-unexpected
+description: Unexpected nonzero live-service statuses conservatively classify as sample failure.
+live_service_validation:
+  command: "echo 'unexpected sample command status' >&2; exit 7"
