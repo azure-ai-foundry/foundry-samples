@@ -1,151 +1,96 @@
 ---
-description: Keyless TC01 happy path for the Azure API Management AI Gateway tier (preview). Bicep creates a Foundry account, project, and gpt-5.4 model with local auth disabled; you create the gateway and import the model with Managed identity backend auth (the gateway's system-assigned identity + Foundry User role), add a token rate-limit policy, and test with the included script. No user-assigned identity, no stored Foundry key.
+description: End-to-end TC01 happy path for the Azure API Management AI Gateway tier (preview), all in Bicep. main.bicep creates a Foundry account, project, and gpt-5.4 model, then the AI Gateway (AIGateway SKU) with a Foundry model provider that imports the model over managed identity (keyless), a token-limit policy, a runtime key, and the Foundry User role assignment. Test with the included script.
 page_type: sample
 products:
 - azure
 - azure-resource-manager
 - azure-api-management
-urlFragment: ai-gateway-tier-tc01-mi
+urlFragment: ai-gateway-tier-tc01
 languages:
 - bicep
 - json
 - python
 ---
 
-# AI Gateway tier (preview) — TC01 (Bicep + script)
+# AI Gateway tier (preview) — TC01: end to end in Bicep
 
-This is the AI Gateway tier TC01 happy path.
+One `az deployment group create` provisions the whole TC01 happy path — the Foundry model
+**and** the AI Gateway tier gateway, model import, and token-limit policy. Then a script tests it.
 
 > [!IMPORTANT]
-> The AI Gateway tier is in **public preview**, available only in **East US 2** and
-> **Sweden Central**. The gateway, model import, and policies are managed from the
-> standalone portal ([`ai.gateway.azure.com`](https://ai.gateway.azure.com)) — not the
-> published Bicep/ARM reference. So this is a **hybrid**: Bicep provisions the Foundry
-> model; the gateway is created in the portal.
+> The AI Gateway tier is a **release-gated public preview**. The gateway is
+> `Microsoft.ApiManagement/service` with the **`AIGateway` SKU** (`2025-09-01-preview`) and
+> **deploys only where the SKU is enabled** — currently **East US 2** and **Sweden Central**.
+> `az bicep build` emits **BCP081** warnings for the preview `modelProviders`, `models`, and
+> `apiKeys` types ("does not have types available … will not block deployment") — expected.
+> Pattern from [Azure-Samples/simple-foundry-hosted-agent-python-aigateway](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway).
 
 ## How this maps to TC01
 
-| TC01 step | Where | What you do |
-|-----------|-------|-------------|
-| 1. Create project | **Bicep** | `main.bicep` creates the account + project. |
-| 2. Create model | **Bicep** | `main.bicep` deploys the `gpt-5.4` model (local auth disabled). |
-| 3. Create gateway + connect model | **Portal** | Create the gateway, then **Import from Foundry** with **Managed identity**. |
-| 4. Add a policy | **Portal** | Add a **Token rate limit** policy on the model. |
+| TC01 step | Where | What `main.bicep` does |
+|-----------|-------|------------------------|
+| 1. Create project | **Bicep** | Foundry account + project. |
+| 2. Create model | **Bicep** | `gpt-5.4` model deployment (local auth disabled). |
+| 3. Create gateway + connect model | **Bicep** | AIGateway `service` + Foundry `modelProvider` (managed identity) + Foundry User role for the gateway MI. |
+| 4. Add a policy | **Bicep** | `tokenLimit` policy on the registered model. |
 | 5. Test via "Discover" | **Script** | Run [`samples/test-model-via-gateway.py`](./samples/test-model-via-gateway.py). |
 
 ## Prerequisites
 
 1. **Azure CLI** logged in (`az login`).
-2. Quota for `gpt-5.4` (`GlobalStandard`) in **East US 2** or **Sweden Central**.
-3. Access to the **AI Gateway tier** preview (`ai.gateway.azure.com`, Microsoft Entra ID).
-4. To let the import wizard grant the role for you: **User Access Administrator** or
-   **Owner** on the account. Otherwise assign the role manually (see step 3).
+2. The **`AIGateway` preview enabled** for your subscription in **East US 2** or **Sweden Central** (check `ai.gateway.azure.com`).
+3. Quota for `gpt-5.4` (`GlobalStandard`) in that region.
+4. **Owner** or **User Access Administrator** on the resource group — the template creates a **role assignment** (Foundry User for the gateway's managed identity).
 5. `pip install openai` for the test script.
 
 ---
 
-## Steps 1–2 — deploy the Foundry model (Bicep)
+## Steps 1–4 — deploy everything (Bicep)
+
+Set your inputs once at the top — every command below reuses them:
 
 ```powershell
+$sub = "<subscription-id>"         # your subscription id (GUID)
+$rg  = "<your-rg>"                 # resource group to deploy into
+$loc = "eastus2"                   # eastus2 or swedencentral (AIGateway preview regions)
+
 az login
-az account set --subscription <subscription-id>
-az group create --name <your-rg> --location eastus2
+az account set --subscription $sub
 
-az deployment group create \
-  --resource-group <your-rg> \
-  --template-file main.bicep \
-  --parameters @samples/parameters.json
+az group create --name $rg --location $loc
+az deployment group create --resource-group $rg --template-file main.bicep --parameters "@samples/parameters.json"
 ```
 
-Capture the "accountId" which you'll need later as $BACKEND_RESOURCE_ID:
+The template provisions the account, project, and `gpt-5.4` model (steps 1–2), then the
+AI Gateway (`AIGateway` SKU), the Foundry model provider over **managed identity**, the
+model with a **token-limit policy**, a runtime key, and the **Foundry User** role
+assignment for the gateway's managed identity (steps 3–4).
+
+> [!NOTE]
+> Managed-identity role assignments can take a few minutes to propagate. If the model
+> provider fails to validate on the first run, re-run the same `az deployment group create`.
+
+After it succeeds, load the gateway name, base URL, and a runtime key into the remaining
+variables (these read the deployment outputs, so they run **after** the deploy):
 
 ```powershell
-az deployment group show -g <your-rg> -n main \
-  --query "properties.outputs.{account:accountName.value, accountId:accountId.value, model:modelName.value}" -o jsonc
+$gw = az deployment group show -g $rg -n main --query properties.outputs.gatewayName.value -o tsv
+
+$env:AI_GATEWAY_BASE_URL = az deployment group show -g $rg -n main --query properties.outputs.gatewayModelsBaseUrl.value -o tsv
+$env:AI_GATEWAY_API_KEY  = az rest --method post --url "https://management.azure.com/subscriptions/$sub/resourceGroups/$rg/providers/Microsoft.ApiManagement/service/$gw/apiKeys/default/listSecrets?api-version=2025-09-01-preview" --query primaryKey -o tsv
 ```
 
-## Step 3 — create the gateway and import the model with managed identity (portal)
-
-Verified from the [quickstart](https://learn.microsoft.com/azure/api-management/quickstart-ai-gateway-create)
-and [Manage models and tools](https://learn.microsoft.com/azure/api-management/ai-gateway-manage-models-tools).
-
-**Create the gateway:**
-
-1. Go to [`ai.gateway.azure.com`](https://ai.gateway.azure.com) and sign in with Microsoft Entra ID.
-2. Select **Create gateway**, enter a **Name** (becomes `https://<gateway>.azure-api.net`),
-   choose your **Subscription** and a preview region (**East US 2** or **Sweden Central**), and **Create**.
-
-**Import the model with managed identity:**
-
-1. Open **Models → Add models → Import from Foundry**.
-2. Select the **subscription** and the **Foundry account** from the Bicep outputs.
-3. For **backend authentication**, choose **Managed identity**.
-4. Select **Create/Import**. The wizard enables the gateway's **system-assigned identity**
-   (if it doesn't have one) and grants it the **Foundry User** role on the account, then
-   registers `gpt-5.4` as a model.
-
-If you don't have permission for the wizard to assign the role, an administrator grants
-the gateway's system-assigned identity the **Foundry User** role on the account. Gather
-the two values first, then assign the role (reference it by its stable GUID — the Foundry
-roles were recently renamed). Requires **Azure CLI 2.57.0+**.
-
-**a. Get the gateway's managed-identity principal ID (from the portal).** In the AI Gateway
-tier portal, open the **Managed identities** page → **Configure identities**, turn on the
-**System-assigned identity**, and copy its **Object (principal) ID**. The tier is
-portal-managed, so this ID comes from the portal, not the Azure CLI.
-
-```powershell
-$env:GATEWAY_PRINCIPAL_ID="<object-principal-id-copied-from-the-portal>"
-```
-
-**b. Get the Foundry account resource ID** — the `accountId` output from steps 1–2:
-
-```powershell
-# Please skip this step if you have already assigned $BACKEND_RESOURCE_ID from "accountId" in steps 1–2.
-$env:BACKEND_RESOURCE_ID=$(az deployment group show -g <your-rg> -n main \
-  --query properties.outputs.accountId.value -o tsv)
-```
-
-**c. Assign the Foundry User role** (`53ca6127-db72-4b80-b1b0-d745d6d5456d` = **Foundry User**, formerly Azure AI User):
-
-```powershell
-az role assignment create \
-  --assignee-object-id "$GATEWAY_PRINCIPAL_ID" \
-  --assignee-principal-type ServicePrincipal \
-  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
-  --scope "$BACKEND_RESOURCE_ID"
-```
-
-**d. Verify** (role assignments can take a few minutes to propagate):
-
-```powershell
-az role assignment list \
-  --assignee-object-id "$GATEWAY_PRINCIPAL_ID" \
-  --scope "$BACKEND_RESOURCE_ID" \
-  --output table
-```
-
-## Step 4 — add a token rate-limit policy (portal)
-
-Verified from [Govern and secure assets](https://learn.microsoft.com/azure/api-management/ai-gateway-govern-secure-assets).
-
-1. Open **Policies → Add policy**.
-2. On **Type**, choose **Token rate limit**.
-3. On **Assets**, select the `gpt-5.4` model.
-4. On **Configure**, set the token allowance (per **minute**, **hour**, or **day**) and the
-   dimension (**caller identity** or **caller IP**). Choose 100 tokens per minute limit per caller identity. Select **Create**. Over-limit → **HTTP 429**.
+> The `default` runtime key is created by the template; `listSecrets` returns its
+> `primaryKey`/`secondaryKey`. Or copy a key from the gateway **Keys** page at
+> [`ai.gateway.azure.com`](https://ai.gateway.azure.com). Treat keys as secrets.
 
 ## Step 5 — test the model through the gateway ("Discover")
 
-Get a key and the base URL from the gateway (**Keys** page + **Home** page), then:
+`AI_GATEWAY_BASE_URL` and `AI_GATEWAY_API_KEY` are already set from the step above, so just
+run it — `--repeat` exercises the token-limit policy (expect HTTP 429 after the budget):
 
 ```powershell
 pip install openai
-
-$env:AI_GATEWAY_BASE_URL="https://<gateway>.azure-api.net/default/models/openai/v1"
-$env:$AI_GATEWAY_API_KEY="<gateway-key>"
-
-# single call — verifies the model answers through the gateway (keyless backend)
 python samples/test-model-via-gateway.py --prompt "What is the meaning of life?" --repeat 16
 ```
 
@@ -171,9 +116,13 @@ built-in playground.
 | `location` | `eastus2` | Region — restricted to the tier preview regions (`eastus2`, `swedencentral`). |
 | `modelName` / `modelFormat` / `modelVersion` | `gpt-5.4` / `OpenAI` / `2026-03-05` | Model to deploy and import. |
 | `modelSkuName` / `modelCapacity` | `GlobalStandard` / `40` | Deployment SKU and capacity. `gpt-5.4` may need more — set a value you have quota for (the reference deployment used 681). |
+| `gatewayName` | auto | Globally unique AI Gateway name (`<name>.azure-api.net`). Auto-generated if empty. |
+| `publisherEmail` / `publisherName` | `noreply@example.com` / `AI Gateway TC01` | Required by the API Management service. |
+| `tokensPerMinute` | `100` | Token-limit policy budget per caller identity. Low by default so `--repeat` visibly throttles. |
 
 ## References
 
+- [Azure-Samples/simple-foundry-hosted-agent-python-aigateway](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway) — the Bicep pattern this sample follows
 - [Manage models and tools](https://learn.microsoft.com/azure/api-management/ai-gateway-manage-models-tools) (managed-identity import)
 - [Quickstart: Create an AI Gateway tier instance](https://learn.microsoft.com/azure/api-management/quickstart-ai-gateway-create)
 - [Govern, secure, and operate](https://learn.microsoft.com/azure/api-management/ai-gateway-govern-secure-assets)

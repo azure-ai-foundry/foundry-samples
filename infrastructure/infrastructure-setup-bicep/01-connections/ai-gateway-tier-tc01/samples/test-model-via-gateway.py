@@ -17,11 +17,10 @@ Verified against:
 
 Prerequisites
 -------------
-- You created an AI Gateway tier instance at https://ai.gateway.azure.com (East US 2
-  or Sweden Central) and imported the gpt-5.4 model from your Foundry account with
-  the **Managed identity** backend option. See README.md steps 3-4.
-- You have a key from the gateway **Keys** page - either the built-in key (the one
-  the Discover playground uses) or a runtime access key.
+- You deployed main.bicep, which created the AI Gateway (AIGateway SKU) and imported
+  the gpt-5.4 model over managed identity. See README.md.
+- You have a key from the gateway **Keys** page at https://ai.gateway.azure.com -
+  either the built-in key or the 'default' runtime key the template created.
 - Package:
     pip install openai
 
