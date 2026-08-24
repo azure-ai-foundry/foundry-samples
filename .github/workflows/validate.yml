@@ -1,0 +1,420 @@
+name: validate
+
+# The REAL PR-triggered build-readiness floor lane (P2.1, ADO 5449695) — distinct from the inert
+# scripts-selftest.yml dev harness. It validates every changed sample to Build Readiness
+# using the shared scripts ported in Phase 1.
+#
+# FORK-SAFE BY CONSTRUCTION (this is the headline property):
+#   - on: pull_request  (NEVER pull_request_target) — so PRs from forks run this with a
+#     read-only GITHUB_TOKEN and NO access to secrets, per GitHub's documented behavior.
+#   - The required `trusted` job ALWAYS runs. Forks execute its credential-free readiness path, then
+#     fail explicitly with a promotion-required error. A job-level fork skip is forbidden:
+#     GitHub treats a required check that concludes `skipped` as satisfied.
+#   - `trusted` uses the status-function condition `!cancelled()` so a failed/malformed `detect`
+#     dependency starts the job and fails its first contract-check step instead of skipping open.
+#   - Every credentialed live-service step has an explicit same-repo guard. Fork isolation remains
+#     layered: read-only fork token/no secrets/no OIDC issuance + step-level guards.
+#   - The job checks out and EXECUTES untrusted fork code (dotnet build, npm install,
+#     pip install, mvn compile, ...). That is intentional and safe *because* the runner is
+#     barren: nothing here can exfiltrate a credential, because there is no credential.
+#
+# Frozen constraints honored: no pull_request_target, no trust-scoring, no org-membership
+# API calls, no aggregator/gate-shim job, no `on: paths:` trigger filter. "What changed" is
+# decided IN-JOB by detect-changed-samples.sh and fanned out via needs.*.outputs. The
+# trusted live-service lane (secrets, fork-gated) is the `trusted` job at the BOTTOM of THIS workflow
+# (P2.2, ADO 5449696) — a SINGLE job (never a matrix), so its required-check context is exactly
+# `trusted` (displayed by Actions as `validate / trusted`).
+
+on:
+  pull_request:
+    # `ready_for_review` preserves an explicit re-trigger when a draft is marked ready. The
+    # trusted job also runs on drafts: a job-level draft skip would produce a skipped check.
+    # No `branches:` filter (runs for every PR, incl. those targeting main) and no `paths:`
+    # filter (path detection is data-driven in-job, not a trigger shim).
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  # --- Which samples did this PR touch? (in-job, data-driven) -------------------
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+      count:       ${{ steps.detect.outputs.count }}
+      samples:     ${{ steps.detect.outputs.samples }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # detector diffs origin/<target>..HEAD; needs full history
+      - name: Detect changed samples
+        id: detect
+        # Reads $GITHUB_EVENT_NAME (pull_request) + $GITHUB_BASE_REF (target branch), diffs
+        # scoped to samples/, and emits has_changes/count/samples to $GITHUB_OUTPUT. Fails
+        # loud (exit 1) if the git diff itself errors — never a fake empty set.
+        run: bash .github/scripts/detect-changed-samples.sh
+
+  # --- Validate each changed sample for build readiness, one runner per sample -
+  validate:
+    needs: detect
+    if: needs.detect.outputs.has_changes == 'true'   # docs-only PRs skip this job entirely
+    strategy:
+      fail-fast: false                                # one broken sample must not cancel the rest
+      matrix:
+        sample: ${{ fromJSON(needs.detect.outputs.samples) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive language from sample path
+        id: lang
+        # matrix.sample is an untrusted, PR-controlled path — pass it via env and quote it,
+        # never interpolate ${{ }} straight into the script body (injection-safe).
+        env:
+          SAMPLE: ${{ matrix.sample }}
+        run: |
+          set -euo pipefail
+          rest="${SAMPLE#samples/}"
+          dir="${rest%%/*}"
+          case "$dir" in
+            csharp)     language=csharp ;;
+            python)     language=python ;;
+            typescript) language=typescript ;;
+            javascript) language=typescript ;;   # JS validated via the TS default (node/npm)
+            java)       language=java ;;
+            go)         language=go ;;
+            *)          language=unsupported ;;   # not in the frozen 5-lang set — skip, don't error
+          esac
+          echo "language=$language" >> "$GITHUB_OUTPUT"
+          echo "sample=$SAMPLE  dir=$dir  ->  language=$language"
+
+      # Toolchain setup — GH-native setup-* actions, versions pinned to match the P1.4 audit.
+      # Each installs ONLY for the language this leg actually needs (barren-by-default).
+      - name: Set up .NET
+        if: steps.lang.outputs.language == 'csharp'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Set up Python
+        if: steps.lang.outputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        if: steps.lang.outputs.language == 'typescript'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Java (Temurin)
+        if: steps.lang.outputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Go
+        if: steps.lang.outputs.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install yq
+        if: steps.lang.outputs.language != 'unsupported'
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Skip unsupported language
+        if: steps.lang.outputs.language == 'unsupported'
+        env:
+          SAMPLE: ${{ matrix.sample }}
+        run: echo "::notice::Skipping ${SAMPLE} — language not covered by build readiness."
+
+      - name: Validate sample build readiness
+        if: steps.lang.outputs.language != 'unsupported'
+        env:
+          SAMPLE: ${{ matrix.sample }}
+          LANGUAGE: ${{ steps.lang.outputs.language }}
+        # validate-sample.sh owns the verdict: exit 0 = pass, 1 = sample broken (FAIL),
+        # 2 = infra sick (ERROR). Both 1 and 2 make this leg red — the floor never goes
+        # green on an unresolved run — while the script's log distinguishes them.
+        run: bash .github/scripts/validate-sample.sh --language "$LANGUAGE" --sample-dir "$SAMPLE"
+
+  # === P2.2 · ADO 5449696 · trusted live-service validation ===================
+  # The credentialed counterpart to the floor `validate` job above. It produces the
+  # required-merge-gate check context `validate / trusted` (workflow name `validate` + job name
+  # `trusted`). FROZEN, non-negotiable properties (violating any is a defect):
+  #   - SINGLE JOB, no per-language matrix. A matrix of required checks reinstates the rejected
+  #     aggregator/gate-shim. Speed comes from IN-JOB parallelism (the readiness step backgrounds
+  #     validate-sample.sh per changed sample), never from fan-out into multiple checks.
+  #   - ALWAYS RUNS for every triggered PR. Forks run credential-free readiness, then fail in-job with
+  #     a promotion-required error. Never restore a job-level fork/draft `if:`: P3.3 proved that
+  #     GitHub treats a required job that concludes `skipped` as satisfying the merge gate.
+  #   - FAILS CLOSED when `detect` fails or emits malformed outputs. The exact job-level
+  #     `!cancelled()` status condition starts trusted after dependency failure; the FIRST step
+  #     validates the dependency result/output contract before checkout or docs-only handling.
+  #   - Docs-only PRs SHORT-CIRCUIT before any Azure/secret step (has_changes gate). A docs-only
+  #     same-repo PR yields a PRESENT, PASSING check (correct "no sample owes live-service validation"); every fork
+  #     yields a PRESENT, FAILING check and requires maintainer promotion.
+  #   - Concurrency cancels superseded runs.
+  #   - Live-service validation uses the pre-provisioned WARM project via SKIP_PROVISION=true (never provisions
+  #     per PR — cold provisioning is the cadence lane's sole job). OIDC federated login, no stored
+  #     secret. The legacy external environment identifier L4-validation MUST carry zero
+  #     protection_rules: because this always-running job
+  #     binds the environment, an environment reviewer rule would stall a fork instead of failing it.
+  trusted:
+    needs: detect
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    # Legacy external identifier: renaming it also requires an Entra OIDC subject migration.
+    # It scopes vars.AZURE_* and binds the matching Azure federated credential.
+    environment: L4-validation
+    # Job-level permissions REPLACE the workflow default for this job: add id-token for OIDC.
+    permissions:
+      id-token: write
+      contents: read
+    # Cancel a superseded trusted run when a newer commit lands on the same PR. Scoped to this job
+    # so the floor lane's behavior is untouched.
+    concurrency:
+      group: validate-trusted-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      # Reuse the warm project — never provision per PR (①-guardrail: cold provisioning belongs to
+      # the cadence lane only and must never be "warmed" here for speed).
+      SKIP_PROVISION: "true"
+    steps:
+      # MUST remain first. A failed `needs` job normally skips dependents; the job-level
+      # !cancelled() condition starts trusted, and this contract check turns dependency/output
+      # corruption into a terminal failure before missing values can resemble "docs-only".
+      - name: Validate sample detection contract
+        env:
+          DETECT_RESULT: ${{ needs.detect.result }}
+          HAS_CHANGES: ${{ needs.detect.outputs.has_changes }}
+          COUNT: ${{ needs.detect.outputs.count }}
+          SAMPLES: ${{ needs.detect.outputs.samples }}
+        run: |
+          set -euo pipefail
+          fail_contract() {
+            echo "::error::$1"
+            exit 1
+          }
+
+          if [ "$DETECT_RESULT" != "success" ]; then
+            fail_contract "Sample detection did not succeed (result=${DETECT_RESULT:-missing}); trusted fails closed."
+          fi
+          case "$HAS_CHANGES" in
+            true|false) ;;
+            *) fail_contract "Invalid detect output has_changes='${HAS_CHANGES:-missing}'; expected exactly true or false." ;;
+          esac
+          case "$COUNT" in
+            ''|*[!0-9]*) fail_contract "Invalid detect output count='${COUNT:-missing}'; expected a non-negative integer." ;;
+          esac
+
+          if ! sample_count="$(printf '%s' "$SAMPLES" | jq -er '
+            if type == "array"
+              and all(.[]; type == "string" and startswith("samples/") and length > 8)
+            then length
+            else error("samples must be an array of sample paths")
+            end
+          ')"; then
+            fail_contract "Invalid detect output samples; expected JSON array of paths under samples/."
+          fi
+          if [ "$COUNT" != "$sample_count" ]; then
+            fail_contract "Detect output count=$COUNT does not match samples length=$sample_count."
+          fi
+          if [ "$HAS_CHANGES" = "true" ] && [ "$sample_count" = "0" ]; then
+            fail_contract "Detect output has_changes=true requires at least one sample."
+          fi
+          if [ "$HAS_CHANGES" = "false" ] && [ "$sample_count" != "0" ]; then
+            fail_contract "Detect output has_changes=false requires samples=[] and count=0."
+          fi
+          echo "Detection contract valid: has_changes=$HAS_CHANGES count=$COUNT."
+
+      - uses: actions/checkout@v4
+
+      # --- Docs-only short-circuit (BEFORE any secret/Azure step) ---------------
+      # If detect found no changed sample, nothing owes live-service validation, so the trusted gate is satisfied. Log and
+      # let a SAME-REPO job end green WITHOUT touching OIDC/secrets. Forks never short-circuit to
+      # success; they reach the explicit promotion failure below.
+      - name: Short-circuit docs-only PRs before secrets
+        if: needs.detect.outputs.has_changes != 'true' && github.event.pull_request.head.repo.fork != true
+        run: echo "No changed samples (docs-only) -> no sample owes live-service validation -> trusted gate satisfied. Skipping build readiness and live-service validation without touching secrets."
+
+      # --- Derive which toolchains the changed samples actually need ------------
+      - name: Derive languages from changed samples
+        id: langs
+        if: needs.detect.outputs.has_changes == 'true'
+        env:
+          SAMPLES: ${{ needs.detect.outputs.samples }}   # untrusted JSON array — consumed via env, jq-parsed (never inlined)
+        run: |
+          set -euo pipefail
+          langs="$(printf '%s' "$SAMPLES" | jq -r '.[]' | awk -F/ '{print $2}' | sort -u)"
+          has_csharp=false; has_python=false; has_node=false; has_java=false; has_go=false
+          while IFS= read -r d; do
+            [ -z "$d" ] && continue
+            case "$d" in
+              csharp)                has_csharp=true ;;
+              python)                has_python=true ;;
+              typescript|javascript) has_node=true ;;   # JS validated via the TS default (node/npm)
+              java)                  has_java=true ;;
+              go)                    has_go=true ;;
+            esac
+          done <<< "$langs"
+          {
+            echo "has_csharp=$has_csharp"
+            echo "has_python=$has_python"
+            echo "has_node=$has_node"
+            echo "has_java=$has_java"
+            echo "has_go=$has_go"
+          } >> "$GITHUB_OUTPUT"
+          echo "languages present: $(printf '%s' "$langs" | tr '\n' ' ')"
+
+      # --- Toolchain setup (only what the changed samples need) -----------------
+      - name: Set up .NET
+        if: needs.detect.outputs.has_changes == 'true' && steps.langs.outputs.has_csharp == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Set up Python
+        if: needs.detect.outputs.has_changes == 'true' && steps.langs.outputs.has_python == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Set up Node.js
+        if: needs.detect.outputs.has_changes == 'true' && steps.langs.outputs.has_node == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Set up Java (Temurin)
+        if: needs.detect.outputs.has_changes == 'true' && steps.langs.outputs.has_java == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Go
+        if: needs.detect.outputs.has_changes == 'true' && steps.langs.outputs.has_go == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Install yq
+        if: needs.detect.outputs.has_changes == 'true'
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      # --- Build readiness for EVERY changed sample, IN-JOB PARALLEL (no matrix)
+      # Single job; concurrency comes from backgrounding validate-sample.sh per sample. GITHUB_OUTPUT
+      # is blanked per-invocation so the parallel legs don't race on the shared output file; each
+      # leg's verdict is its exit code (0 pass / 1 fail / 2 error). Any fail OR error → job red, and
+      # the default success() gating means live-service validation never runs after a red result.
+      - name: Validate changed sample build readiness (in-job parallel)
+        if: needs.detect.outputs.has_changes == 'true'
+        env:
+          SAMPLES: ${{ needs.detect.outputs.samples }}
+        run: |
+          set -uo pipefail
+          mkdir -p _build_readiness
+          map_lang() {
+            case "$1" in
+              csharp)                echo csharp ;;
+              python)                echo python ;;
+              typescript|javascript) echo typescript ;;
+              java)                  echo java ;;
+              go)                    echo go ;;
+              *)                     echo unsupported ;;
+            esac
+          }
+          n=0
+          while IFS= read -r sample; do
+            [ -z "$sample" ] && continue
+            dir="$(printf '%s' "$sample" | awk -F/ '{print $2}')"
+            lang="$(map_lang "$dir")"
+            safe="$(printf '%s' "$sample" | tr '/ ' '__')"
+            n=$((n+1))
+            if [ "$lang" = unsupported ]; then
+              echo "::notice::Skipping $sample — language '$dir' not in the build-readiness set."
+              echo 0 > "_build_readiness/$safe.rc"
+              : > "_build_readiness/$safe.log"
+              continue
+            fi
+            (
+              GITHUB_OUTPUT= bash .github/scripts/validate-sample.sh --language "$lang" --sample-dir "$sample" > "_build_readiness/$safe.log" 2>&1
+              echo $? > "_build_readiness/$safe.rc"
+            ) &
+          done < <(printf '%s' "$SAMPLES" | jq -r '.[]')
+          wait
+          pass=0; failed=0; errored=0
+          for rcf in _build_readiness/*.rc; do
+            rc="$(cat "$rcf")"
+            base="$(basename "$rcf" .rc)"
+            echo "----- $base (rc=$rc) -----"
+            cat "_build_readiness/$base.log" 2>/dev/null || true
+            case "$rc" in
+              0) pass=$((pass+1)) ;;
+              1) failed=$((failed+1));  echo "::error::BUILD READINESS FAIL ($base)" ;;
+              2) errored=$((errored+1)); echo "::error::BUILD READINESS ERROR/infra ($base)" ;;
+              *) errored=$((errored+1)); echo "::error::BUILD READINESS unexpected rc=$rc ($base)" ;;
+            esac
+          done
+          echo "Build-readiness summary: total=$n pass=$pass fail=$failed error=$errored"
+          if [ "$failed" -gt 0 ] || [ "$errored" -gt 0 ]; then
+            echo "Build readiness not green -> trusted gate red; not proceeding to live-service validation."
+            exit 1
+          fi
+          echo "Build readiness green for all $pass changed sample(s)."
+
+      # A fork must produce a terminal FAILURE, never a skipped required check. This step uses a
+      # status function so it still emits the promotion instruction after a fork's readiness fails.
+      - name: Reject fork until maintainer promotion
+        if: ${{ !cancelled() && github.event.pull_request.head.repo.fork == true }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::Fork runner unexpectedly received an OIDC request surface; refusing to continue."
+            exit 1
+          fi
+          echo "::error::Fork PRs cannot satisfy the trusted gate directly. A maintainer must promote this commit to a same-repo branch, where live-service validation can run."
+          exit 1
+
+      # --- Reach the warm project via OIDC (only after build readiness is green) -
+      # Reached only when real samples changed and readiness passed. This
+      # is the trusted secret boundary: federated OIDC login, no stored secret.
+      - name: Azure login via OIDC (no secret)
+        if: needs.detect.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork != true
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Live-service smoke against the warm project (SKIP_PROVISION)
+        if: needs.detect.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork != true
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+          MODEL_DEPLOYMENT: gpt-5.4-mini
+        run: |
+          set -euo pipefail
+          echo "SKIP_PROVISION=$SKIP_PROVISION — targeting the pre-provisioned warm project (no azd provision)."
+          az account show -o json
+          TOKEN="$(az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv)"
+          HTTP="$(curl -sS -o resp.json -w '%{http_code}' \
+            "${AZURE_OPENAI_ENDPOINT}/openai/v1/responses" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"model\":\"${MODEL_DEPLOYMENT}\",\"input\":\"Reply with the single word: pong\"}")"
+          echo "HTTP ${HTTP}"
+          cat resp.json; echo
+          test "${HTTP}" = "200"
+          echo "LIVE-SERVICE OK: OIDC + SKIP_PROVISION warm-project reach + least-priv inference all green."
+
+      - name: Trusted verdict
+        if: needs.detect.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork != true
+        run: echo "validate / trusted GREEN — build readiness passed for all changed samples AND the live-service warm-project smoke passed."

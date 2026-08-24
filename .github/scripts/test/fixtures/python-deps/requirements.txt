@@ -1,0 +1,6 @@
+# P1.3 fixture (ADO 5449687): a REAL, normally-resolvable package so that a forced-unreachable
+# index makes pip emit transport evidence AND its misleading "No matching distribution"
+# conclusion — proving transport evidence wins (ERROR). Reused with PIP_NO_INDEX + an empty
+# --find-links to prove an unaccompanied resolution failure stays FAIL. Never actually
+# installed in either case.
+requests

@@ -1,0 +1,9 @@
+{
+  "name": "typescript-broken",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BROKEN TS/JS fixture: npm run build exits non-zero -> FAIL. No deps so the failure is the build step, not dependency resolution.",
+  "scripts": {
+    "build": "node -e \"process.exit(1)\""
+  }
+}

@@ -1,0 +1,14 @@
+# Transient toolchain/build artifacts the harness drops into fixtures when it
+# actually builds them on a real runner (or locally). Nothing generated should
+# be committed — the fixtures are the sources, not their build output.
+bin/
+obj/
+.venv/
+node_modules/
+package-lock.json
+target/
+_results*/
+*.out
+# Go leaves no in-tree binary for `go build ./...`, but guard the single-package form.
+go-good/gogood
+go-broken/gobroken

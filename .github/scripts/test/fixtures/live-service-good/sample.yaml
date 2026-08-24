@@ -1,0 +1,6 @@
+name: live-service-good
+description: Hermetic live-service fixture proving caller environment and SKIP_PROVISION are inherited.
+live_service_validation:
+  command: 'test "$LIVE_SERVICE_TEST_ENDPOINT" = "https://stub.invalid" && test "$SKIP_PROVISION" = "true"'
+  required_env:
+    - LIVE_SERVICE_TEST_ENDPOINT
