@@ -20,6 +20,7 @@ import json
 import os
 import subprocess
 import time
+import uuid
 
 import pytest
 
@@ -179,19 +180,27 @@ def invoke_agent(command: str, delay: int | None = None) -> str:
     token = get_token("https://ai.azure.com")
     url = (f"{FOUNDRY_ENDPOINT}/agents/{AGENT_NAME}"
            f"/endpoint/protocols/openai/responses?api-version={API_VERSION}")
-    r = curl_json("POST", url, token, {"input": command})
+    request_body = {
+        "agent_session_id": f"egress-e2e-{uuid.uuid4().hex}",
+        "input": command,
+        "store": False,
+    }
+    r = curl_json("POST", url, token, request_body)
 
-    if "error" in r:
+    for retry in range(3):
+        if "error" not in r:
+            break
         msg = r["error"].get("message", "")
-        if "429" in msg or "rate_limit" in msg.lower():
-            print("  Rate limited, retrying in 30s...")
-            time.sleep(30)
-            token = get_token("https://ai.azure.com")
-            r = curl_json("POST", url, token, {"input": command})
-            if "error" in r:
-                return f"ERROR: {r['error'].get('message', '?')[:300]}"
-        else:
+        normalized = msg.lower()
+        if "429" not in msg and "rate_limit" not in normalized and "rate limit" not in normalized:
             return f"ERROR: {msg[:300]}"
+        print(f"  Rate limited, retrying in 30s ({retry + 1}/3)...")
+        time.sleep(30)
+        token = get_token("https://ai.azure.com")
+        request_body["agent_session_id"] = f"egress-e2e-{uuid.uuid4().hex}"
+        r = curl_json("POST", url, token, request_body)
+    if "error" in r:
+        return f"ERROR: {r['error'].get('message', '?')[:300]}"
 
     text = ""
     for item in r.get("output", []):
@@ -204,29 +213,6 @@ def invoke_agent(command: str, delay: int | None = None) -> str:
 
 
 # ── Storage helpers (for ManagedIdentityRef tests) ───────────────────────────
-
-def get_project_mi_principal_id() -> str | None:
-    """Discover the Foundry project's system-assigned MI principal ID.
-
-    Reads the Cognitive Services account ARM resource ID from COGSVC_ACCOUNT_ID
-    and queries Azure Resource Manager for its identity.principalId.
-    """
-    # FOUNDRY_ENDPOINT format:
-    #   https://<account>.services.ai.azure.com/api/projects/<project>
-    # COGSVC_ACCOUNT_ID format:
-    #   /subscriptions/.../providers/Microsoft.CognitiveServices/accounts/<account>
-    # The project workspace is a sibling ML resource; try to discover it.
-    try:
-        result = subprocess.check_output(
-            ["az", "resource", "show",
-             "--ids", COGSVC_ACCOUNT_ID,
-             "--query", "identity.principalId", "-o", "tsv"],
-            stderr=subprocess.DEVNULL,
-        ).decode().strip()
-        return result if result and result != "None" else None
-    except subprocess.CalledProcessError:
-        return None
-
 
 def storage_blob_url(path: str = "") -> str:
     """Build an Azure Blob Storage REST API URL."""

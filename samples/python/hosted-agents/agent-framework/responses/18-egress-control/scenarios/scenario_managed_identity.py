@@ -7,16 +7,15 @@ audience and injects it as a header — agent code never handles credentials.
 
 Prerequisites:
     1. A storage account accessible from the sandbox network
-    2. The Foundry project's system-assigned MI must have "Storage Blob Data
+    2. The deployed agent's instance identity must have "Storage Blob Data
        Contributor" (or Reader) on the storage account
     3. A blob container must exist (default: "egress-test")
     4. Set AGENT_STORAGE_ACCOUNT env var to the storage account name
 
 Setup:
-    # Find your project MI principal ID
-    az resource show \\
-      --ids "<COGSVC_ACCOUNT_ID>" \\
-      --query "identity.principalId" -o tsv
+    # Deploy the agent first, then find its instance identity principal ID
+    azd ai agent show --output json \\
+      | jq -r ".instance_identity.principal_id"
 
     # Create storage account + container
     az storage account create -n <name> -g <rg> --sku Standard_LRS
@@ -35,7 +34,6 @@ Run with:
 See conftest.py for required environment variables.
 """
 
-import os
 import time
 
 import pytest
@@ -49,20 +47,6 @@ from conftest import (
     invoke_agent,
 )
 
-# managedIdentityRef token injection is a known limitation (July 2026): the
-# egress proxy accepts the Transform rule but does not yet resolve
-# valueRef.managedIdentityRef to a token. These scenarios are SKIPPED by default
-# so they do not create policies or deploy agent versions for a capability that
-# cannot succeed yet. Set EGRESS_MI_ENABLED to a truthy value (1/true/yes/on)
-# once MI token injection ships to run them.
-_MI_ENABLED = os.getenv("EGRESS_MI_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
-pytestmark = pytest.mark.skipif(
-    not _MI_ENABLED,
-    reason="managedIdentityRef token injection not yet functional (platform "
-           "limitation); set EGRESS_MI_ENABLED=1 to run these scenarios",
-)
-
-
 def _skip_if_no_storage():
     if not AGENT_STORAGE_ACCOUNT:
         pytest.skip("AGENT_STORAGE_ACCOUNT not set — skipping MI tests")
@@ -75,7 +59,7 @@ class TestManagedIdentityStorageAccess:
 
     Creates a policy with a Transform rule that uses managedIdentityRef to
     inject an Authorization header with a token scoped to
-    https://storage.azure.com/.default.  The agent makes a request to the
+    https://storage.azure.com/.  The agent makes a request to the
     storage account's blob REST API and should succeed (200/OK) because the
     proxy acquired and injected the MI token.
     """
@@ -97,8 +81,8 @@ class TestManagedIdentityStorageAccess:
                      {"name": "Authorization", "operation": "Set",
                       "valueRef": {
                           "managedIdentityRef": {
-                              "resource": "https://storage.azure.com/.default",
-                              "format": "Bearer {token}",
+                              "resource": "https://storage.azure.com/",
+                              "format": "Bearer {value}",
                           }
                       }},
                      # Storage REST API requires x-ms-version
@@ -172,8 +156,8 @@ class TestManagedIdentityHostScoping:
                      {"name": "Authorization", "operation": "Set",
                       "valueRef": {
                           "managedIdentityRef": {
-                              "resource": "https://storage.azure.com/.default",
-                              "format": "Bearer {token}",
+                              "resource": "https://storage.azure.com/",
+                              "format": "Bearer {value}",
                           }
                       }},
                  ]}},

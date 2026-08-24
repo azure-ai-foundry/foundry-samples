@@ -575,20 +575,15 @@ azd ai agent invoke "test egress to https://example.com"
 
 This section covers testing `managedIdentityRef` — an egress Transform capability where the proxy injects an Azure AD token, acquired from the agent's managed identity, into outbound requests (so the agent code never handles credentials).
 
-> ⚠️ **Known limitation (July 2026):** `managedIdentityRef` token injection is **not yet functional**. The egress proxy accepts the rule and applies static headers (e.g., `x-ms-version`) correctly, but the dynamic `valueRef.managedIdentityRef` does not yet resolve to a token. Treat this section as a preview of the intended capability; the managed-identity scenarios are skipped by default until platform support ships.
-
-The egress proxy is designed to inject Azure AD tokens from the sandbox's managed identity into outbound requests. The agent code never handles credentials — the proxy acquires a token for the specified resource audience and injects it as a request header.
+The egress proxy injects Azure AD tokens from the deployed agent's instance identity into outbound requests. The agent code never handles credentials — the proxy acquires a token for the specified resource audience and injects it as a request header.
 
 ### Prerequisites
 
-1. **Find your project's MI principal ID:**
+1. **Deploy the agent, then find its instance identity principal ID:**
    ```bash
-   az resource show \
-     --ids "<your-cogsvc-account-arm-id>" \
-     --query "identity.principalId" -o tsv
+   azd ai agent show --output json \
+     | jq -r '.instance_identity.principal_id'
    ```
-
-   Or in the Azure Portal: navigate to your AI Services account → **Identity** → **System assigned** → copy the **Object (principal) ID**.
 
 2. **Create a storage account and container:**
    ```bash
@@ -596,7 +591,7 @@ The egress proxy is designed to inject Azure AD tokens from the sandbox's manage
    az storage container create -n egress-test --account-name myteststorage
    ```
 
-3. **Assign RBAC to the project MI:**
+3. **Assign RBAC to the agent instance identity:**
    ```bash
    az role assignment create \
      --assignee-object-id <principalId> \
@@ -607,7 +602,7 @@ The egress proxy is designed to inject Azure AD tokens from the sandbox's manage
 
 ### Test 16: MI token injection to Azure Blob Storage
 
-Create a policy that injects an MI token scoped to `https://storage.azure.com/.default`:
+Create a policy that injects an MI token for the `https://storage.azure.com/` resource:
 
 ```json
 {
@@ -621,7 +616,8 @@ Create a policy that injects an MI token scoped to `https://storage.azure.com/.d
         "operation": "Set",
         "valueRef": {
           "managedIdentityRef": {
-            "resource": "https://storage.azure.com/.default"
+            "resource": "https://storage.azure.com/",
+            "format": "Bearer {value}"
           }
         }
       },
@@ -698,7 +694,7 @@ docker push "$ACR_SERVER/egress-test-agent:latest"
 | Permission | Scope | Who needs it | Why |
 |-----------|-------|-------------|-----|
 | Cognitive Services Contributor | CogSvc account | Your user | Create/manage egress policies and agent versions |
-| Storage Blob Data Contributor | Storage account | Project MI (system-assigned) | For MI token injection tests (Test 16–17) |
+| Storage Blob Data Contributor | Storage account | Deployed agent instance identity | For MI token injection tests (Test 16–17) |
 | AcrPush | Container Registry | Your user | Push agent images |
 
 ### Common errors
@@ -707,8 +703,10 @@ docker push "$ACR_SERVER/egress-test-agent:latest"
 |-------|-------|-----|
 | `Policy creation failed` | Wrong `basePolicyName` | Use `"Microsoft.DefaultV2"` (not `"Microsoft.Default"`) |
 | `Version not active after 100s` | Image not found in ACR | Verify image digest/tag, check ACR permissions |
-| `429 rate_limit` | Too many LLM calls | Increase `INVOKE_DELAY` env var (default: 15s) |
-| `AuthorizationFailure` on storage | MI lacks RBAC | Assign `Storage Blob Data Contributor` to the project MI |
+| `429 rate_limit` or `rate limit exceeded` | Too many LLM calls | Increase `INVOKE_DELAY` env var (default: 15s); scenario invocations retry transient throttling |
+| `AuthorizationFailure` on storage | Agent identity lacks RBAC | Assign `Storage Blob Data Contributor` to the deployed agent's `instance_identity.principal_id` |
+| `AADSTS500011` for storage | Scope form used as the resource audience | Use `https://storage.azure.com/`, not `https://storage.azure.com/.default` |
+| `InvalidAuthenticationInfo` on storage | Wrong format placeholder | Use `Bearer {value}`; `{token}` is not substituted |
 | Session creation error with audit policy | Missing `ruleType: "Fqdn"` on rules | Every rule must include `"ruleType": "Fqdn"` |
 
 ### Known bugs
@@ -716,7 +714,6 @@ docker push "$ACR_SERVER/egress-test-agent:latest"
 | Bug | Description | Workaround |
 |-----|-------------|------------|
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` null on version update | When updating the guardrail (RAI policy) on an existing agent version, the environment variable may be null at runtime causing the agent to crash. | The agent now defaults to `gpt-4.1` when the env var is missing. If using a different model, set it explicitly in the agent version definition. |
-| `managedIdentityRef` token not injected | The egress proxy accepts the Transform rule but does not yet resolve `valueRef.managedIdentityRef` to a token. Static headers in the same rule (e.g., `x-ms-version`) work correctly. | Known platform limitation (July 2026) — dynamic managed-identity token injection is not yet available. No workaround; the managed-identity scenarios are skipped by default. |
 
 ### Audit mode without OTLP
 

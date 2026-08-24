@@ -43,7 +43,10 @@ pytest scenarios/scenario_advanced.py -v --tb=short
 # Run audit mode scenarios (scenarios 13–15)
 pytest scenarios/scenario_audit.py -v --tb=short
 
-# Run ManagedIdentityRef scenarios (scenarios 16–17) — requires AGENT_STORAGE_ACCOUNT
+# Run ManagedIdentityRef scenarios (scenarios 16–17).
+# Deploy the agent first, grant Storage Blob Data Contributor to the principal
+# returned by `azd ai agent show --output json | jq -r
+# '.instance_identity.principal_id'`, then set AGENT_STORAGE_ACCOUNT.
 export AGENT_STORAGE_ACCOUNT="myteststorage"
 pytest scenarios/scenario_managed_identity.py -v --tb=short
 

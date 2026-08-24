@@ -7,7 +7,7 @@ param basePolicyName string = 'Microsoft.DefaultV2'
 @description('''Name of the policy — from the catalog provisioned below — that is attached to the deployed agent. Its ARM resource ID is exported as RAI_POLICY_ID and consumed by azure.yaml. The agent binds to a SINGLE RAI policy; to combine guardrails, add more rules to that policy rather than attaching more policies.''')
 param agentPolicyName string = 'allow-httpbin'
 
-@description('''Blob storage host used by the managed-identity injection policy, e.g. "mystorage.blob.core.windows.net". Leave empty (default) to skip provisioning the managed-identity policy, which requires the account to have a managed identity with Storage Blob Data RBAC.''')
+@description('''Blob storage host used by the managed-identity injection policy, e.g. "mystorage.blob.core.windows.net". Leave empty (default) to skip provisioning the managed-identity policy, which requires the deployed agent instance identity to have Storage Blob Data RBAC.''')
 param managedIdentityStorageHost string = ''
 
 // ── Egress policy catalog ────────────────────────────────────────────────────
@@ -345,7 +345,7 @@ var corePolicies = [
 ]
 
 // Managed-identity injection — only provisioned when a storage host is supplied,
-// since it requires the account's managed identity to hold Storage Blob Data RBAC.
+// since it requires the deployed agent instance identity to hold Storage Blob Data RBAC.
 var managedIdentityPolicies = empty(managedIdentityStorageHost) ? [] : [
   {
     // Proxy injects a managed-identity bearer token for the storage host only;
@@ -367,8 +367,8 @@ var managedIdentityPolicies = empty(managedIdentityStorageHost) ? [] : [
                 operation: 'Set'
                 valueRef: {
                   managedIdentityRef: {
-                    resource: 'https://storage.azure.com/.default'
-                    format: 'Bearer {token}'
+                    resource: 'https://storage.azure.com/'
+                    format: 'Bearer {value}'
                   }
                 }
               }
