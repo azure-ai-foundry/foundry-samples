@@ -12,13 +12,13 @@ At the checked-out commit, the workflow deterministically discovers every
 that run. There is no static matrix to maintain: a new
 `samples/**/sample.yaml` file is discovered automatically.
 
-The current inventory contains 72 samples:
+The current inventory contains 74 samples:
 
-- 53 samples are executable in the current cadence.
-- 19 samples emit explicit `skipped/not-completed` records: 12 have malformed
-  metadata and 7 use unsupported Rust build readiness.
+- 55 samples are eligible for execution in the current cadence.
+- 19 samples emit explicit `skipped/not-completed` records: 12 have invalid
+  YAML metadata and 7 use unsupported Rust build readiness.
 - JavaScript samples use the existing TypeScript/node validator.
-- Two samples opt in to live-service validation with
+- Two eligible samples opt in to live-service validation with
   `live_service_validation` metadata.
 
 **Build readiness** is credential-free. It uses a sample's declared build,
@@ -81,9 +81,10 @@ diagnostic excerpts, and preserves visible skip reasons. Full logs remain in
 the run artifacts.
 
 The authoritative hardened-cadence evidence is
-[run 31649334462](https://github.com/microsoft-foundry/foundry-samples/actions/runs/31649334462):
-all 75 jobs succeeded and the run published 74 artifacts at commit
-`328833f9d39e8e0a80975950cc98dc00d9c63aff`.
+[run 32821260320](https://github.com/microsoft-foundry/foundry-samples/actions/runs/32821260320):
+all 77 jobs succeeded and the run published 76 artifacts at commit
+`b9b2cdd67efee6287e4b263f83ed45f18fe892be`: 74 per-sample
+artifacts, the generated manifest, and the consolidated run artifact.
 
 This is a current cadence snapshot, not a completed-workstream claim.
 Additional live-service onboarding, cold provisioning, quarantine automation,
