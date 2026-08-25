@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.11'
+name: hello-world-autopilot
+services:
+  hello-world-autopilot:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - Autopilot
+        - Activity Protocol
+        - Microsoft 365
+        - Python
+    project: .
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    kind: hosted
+    name: hello-world-autopilot
+    displayName: Hello World Autopilot
+    description: >
+      Minimal Microsoft 365 Autopilot agent that responds to Teams messages.
+    protocols:
+      - protocol: activity
+        version: 2.0.0
+    agentEndpoint:
+      protocols:
+        - activity
+      authorizationSchemes:
+        - type: BotServiceRbac
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: ENABLE_OBSERVABILITY
+        value: "true"
+      - name: ENABLE_A365_OBSERVABILITY_EXPORTER
+        value: "true"
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
