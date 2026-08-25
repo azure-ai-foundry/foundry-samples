@@ -12,6 +12,8 @@ Before starting a substantial change, check for an existing issue. Open one when
 
 Sample contributions are currently limited to Microsoft Foundry teams with permission to create a branch in this repository. Fork pull requests cannot satisfy the intentionally failing `trusted` gate, so sample changes must use a same-repository branch.
 
+Maintainers may use a separate operator-only bridge for approved internal content. That bridge is not a contributor workflow: do not submit changes through private staging or dispatch publication automation unless a maintainer explicitly directs and operates the exception.
+
 1. **Create a branch in this repository.** Use a same-repository branch for all sample changes.
 2. **Make a focused change.** Keep each pull request scoped to one sample, fix, or related set of updates. Follow the conventions in the surrounding sample.
 3. **Respect file ownership.** Review [CODEOWNERS](.github/CODEOWNERS) before editing. The listed owners will be requested when their files are changed.
