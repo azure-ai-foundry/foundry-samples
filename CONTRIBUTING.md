@@ -12,7 +12,7 @@ Before starting a substantial change, check for an existing issue. Open one when
 
 Sample contributions are currently limited to Microsoft Foundry teams with permission to create a branch in this repository. Fork pull requests cannot satisfy the intentionally failing `trusted` gate, so sample changes must use a same-repository branch.
 
-Maintainers may use a separate operator-only bridge for approved internal content. That bridge is not a contributor workflow: do not submit changes through private staging or dispatch publication automation unless a maintainer explicitly directs and operates the exception.
+Contributors should always submit publishable changes through a public same-repository pull request. Maintainers may independently operate a separate bridge for approved eligible content already in the private repository; contributors must not dispatch it.
 
 1. **Create a branch in this repository.** Use a same-repository branch for all sample changes.
 2. **Make a focused change.** Keep each pull request scoped to one sample, fix, or related set of updates. Follow the conventions in the surrounding sample.
@@ -26,7 +26,7 @@ Pull requests run repository validation automatically:
 
 - The required `trusted` check must pass.
 - Review and address the other checks reported on the pull request.
-- After required checks and review are complete, a maintainer triggers the merge. Pull requests are not merged automatically.
+- Contributor pull requests are not merged automatically; after required checks and review, a maintainer triggers the merge.
 
 ## Contributor License Agreement
 
