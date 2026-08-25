@@ -3,7 +3,8 @@
 - `microsoft-foundry/foundry-samples` is the sole venue for work intended for publication. Contributions use the normal public pull request path and existing repository checks; a maintainer initiates the merge.
 - Do not redirect contributors to or recreate publishable work in `microsoft-foundry/foundry-samples-pr`.
 - If a contributor lacks the required access to create the appropriate public-repository branch, surface that clearly and direct them to Brandon Miller / Foundry DevX. Do not invent an alternate publication route.
-- Never propose private staging, promotion commands or environments, classifiers, taxonomies, manifests, cross-repo handoff protocols, exception sync, reverse mirror, replay, reseed, `force_full`, or any automated private publication mechanism.
+- Do not propose private staging as a contributor path or recreate retired destructive behavior such as reverse mirroring, replay, `force_full`, direct-public-main publication, or unverified reseeding.
+- A manual private-to-public bridge exists only for authorized maintainers handling specifically approved internal content. Do not dispatch that bridge or initiate verified seed recovery without explicit operator authorization; normal publication work still starts as a public pull request.
 
 ## Files owned by the AI Platform Docs team
 
