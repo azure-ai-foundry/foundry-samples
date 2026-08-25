@@ -3,10 +3,10 @@
 """FoundryDigitalWorker — Hello World A365 Agent.
 
 Python port of the C# ``A365AgentApplication`` and
-``ResponsesApiAgentLogicService``. This agent calls the **Azure OpenAI
-Responses API** directly via HTTP (no ``agent_framework`` dependency) and
-passes the MCP server bundle from :file:`ToolingManifest.json` (Mail, Word,
-Excel, PowerPoint, Teams, OneDrive/Sharepoint, Calendar) on every turn.
+``ResponsesApiAgentLogicService``. This agent calls the **Foundry Responses
+API** through ``azure-ai-projects`` and passes the MCP server bundle from
+:file:`ToolingManifest.json` (Mail, Word, Excel, PowerPoint, Teams,
+OneDrive/Sharepoint, Calendar) on every turn.
 
 Notifications from Outlook, Word, Excel, and PowerPoint are routed through
 ``handle_agent_notification_activity`` so the agent can reply with the
@@ -21,16 +21,19 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import quote
 
-import httpx
-from azure.core.credentials import AccessToken
+from azure.ai.projects.aio import AIProjectClient
 from azure.identity.aio import (
     AzureCliCredential,
     DefaultAzureCredential,
     ManagedIdentityCredential,
 )
+from openai import APIStatusError, AsyncOpenAI
 
 from microsoft_agents.hosting.core import Authorization, TurnContext
+
+from .request_correlation import set_current_span_response
 
 try:
     from microsoft_agents_a365.notifications.agent_notification import NotificationTypes
@@ -51,16 +54,9 @@ logger = logging.getLogger(__name__)
 # Matches the C# ResponsesApiAgentLogicServiceFactory.
 MCP_SCOPE = "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1/.default"
 
-# Cognitive Services scope used for the bearer token sent to Azure OpenAI
-# itself (mirrors the DefaultAzureCredential call in the C# implementation).
-AOAI_SCOPE = "https://cognitiveservices.azure.com/.default"
-
-# Responses API version pinned by the C# implementation.
-AOAI_API_VERSION = "2025-03-01-preview"
-
 
 class FoundryDigitalWorkerAgent(AgentInterface):
-    """Foundry A365 digital worker agent that calls Azure OpenAI directly."""
+    """Foundry A365 digital worker agent that calls the Foundry Responses API."""
 
     AGENT_PROMPT = (
         "You are a helpful agent named FoundryDigitalWorker.\n"
@@ -99,59 +95,55 @@ class FoundryDigitalWorkerAgent(AgentInterface):
     def __init__(self) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        self._endpoint = (
-            os.getenv("AzureOpenAIEndpoint") or os.getenv("AZURE_OPENAI_ENDPOINT")
+        self._project_endpoint = (
+            os.getenv("FOUNDRY_PROJECT_ENDPOINT")
+            or os.getenv("AZURE_AI_PROJECT_ENDPOINT")
         )
         self._deployment = (
             os.getenv("ModelDeployment") or os.getenv("AZURE_OPENAI_DEPLOYMENT")
         )
-        if not self._endpoint:
+        if not self._project_endpoint:
             raise ValueError(
-                "AzureOpenAIEndpoint (or AZURE_OPENAI_ENDPOINT) is required"
+                "FOUNDRY_PROJECT_ENDPOINT (or AZURE_AI_PROJECT_ENDPOINT) is required"
             )
         if not self._deployment:
             raise ValueError(
                 "ModelDeployment (or AZURE_OPENAI_DEPLOYMENT) is required"
             )
 
-        self._api_version = os.getenv("AZURE_OPENAI_API_VERSION", AOAI_API_VERSION)
-        self._api_key = os.getenv("AZURE_OPENAI_API_KEY")
         self._instance_client_id = os.getenv("FOUNDRY_AGENT_DEFAULT_INSTANCE_CLIENT_ID")
 
-        self._aoai_credential = self._build_aoai_credential()
-        self._cached_aoai_token: Optional[AccessToken] = None
+        self._credential = self._build_credential()
+        self._project_client = AIProjectClient(
+            endpoint=self._project_endpoint,
+            credential=self._credential,
+        )
+        self._openai_client: AsyncOpenAI = self._project_client.get_openai_client()
 
         self._mcp_servers = self._load_mcp_servers()
-        self._mcp_token_override = os.getenv("BEARER_TOKEN") or None
 
         # Persisted previous_response_id store (mirrors C# behaviour).
         self._response_store_dir = Path.home() / ".a365agent"
 
-        # Shared HTTP client; created lazily on first use.
-        self._http_client: Optional[httpx.AsyncClient] = None
-
         logger.info(
-            "✅ Foundry agent ready (endpoint=%s, deployment=%s, mcp_servers=%d)",
-            self._endpoint,
+            "✅ Foundry agent ready (project_endpoint=%s, deployment=%s, mcp_servers=%d)",
+            self._project_endpoint,
             self._deployment,
             len(self._mcp_servers),
         )
 
-    def _build_aoai_credential(self):
-        if self._api_key:
-            logger.info("Using API key authentication for Azure OpenAI")
-            return None
+    def _build_credential(self):
         if self._instance_client_id:
             logger.info(
-                "Using managed identity (client_id=%s) for Azure OpenAI",
+                "Using managed identity (client_id=%s) for Foundry",
                 self._instance_client_id,
             )
             return ManagedIdentityCredential(client_id=self._instance_client_id)
         try:
-            logger.info("Using DefaultAzureCredential for Azure OpenAI")
+            logger.info("Using DefaultAzureCredential for Foundry")
             return DefaultAzureCredential()
         except Exception:
-            logger.info("Falling back to AzureCliCredential for Azure OpenAI")
+            logger.info("Falling back to AzureCliCredential for Foundry")
             return AzureCliCredential()
 
     def _load_mcp_servers(self) -> list[dict[str, Any]]:
@@ -164,7 +156,29 @@ class FoundryDigitalWorkerAgent(AgentInterface):
         except Exception:
             logger.exception("Failed to parse ToolingManifest.json")
             return []
-        servers = payload.get("mcpServers") or []
+        configured_servers = payload.get("mcpServers") or []
+        servers: list[dict[str, Any]] = []
+        azure_devops_organization = os.getenv(
+            "AZURE_DEVOPS_ORGANIZATION", ""
+        ).strip()
+
+        for configured_server in configured_servers:
+            server = dict(configured_server)
+            url = server.get("url", "")
+            if "{organization}" in url:
+                if not azure_devops_organization:
+                    logger.info(
+                        "Azure DevOps MCP server is disabled. Set "
+                        "AZURE_DEVOPS_ORGANIZATION to enable it."
+                    )
+                    continue
+                url = url.replace(
+                    "{organization}",
+                    quote(azure_devops_organization, safe=""),
+                )
+                server["url"] = url
+            servers.append(server)
+
         logger.info("Loaded %d MCP server(s) from ToolingManifest.json", len(servers))
         return servers
 
@@ -173,19 +187,13 @@ class FoundryDigitalWorkerAgent(AgentInterface):
     # ------------------------------------------------------------------
 
     async def initialize(self) -> None:
-        if self._http_client is None:
-            self._http_client = httpx.AsyncClient(timeout=120.0)
         logger.info("Agent initialized")
 
     async def cleanup(self) -> None:
         try:
-            if self._http_client is not None:
-                await self._http_client.aclose()
-                self._http_client = None
-            if self._aoai_credential is not None:
-                close = getattr(self._aoai_credential, "close", None)
-                if callable(close):
-                    await close()
+            await self._openai_client.close()
+            await self._project_client.close()
+            await self._credential.close()
             logger.info("Agent cleanup completed")
         except Exception:
             logger.exception("Cleanup error")
@@ -548,7 +556,7 @@ Comment text: {comment_snippet}
         return str(value)
 
     # ------------------------------------------------------------------
-    # Azure OpenAI Responses API
+    # Foundry Responses API
     # ------------------------------------------------------------------
 
     async def _invoke_responses_api(
@@ -561,13 +569,10 @@ Comment text: {comment_snippet}
         auth_handler_name: Optional[str],
         context: TurnContext,
     ) -> str:
-        """Call the Azure OpenAI Responses API with the MCP tool bundle.
+        """Call the Foundry Responses API with the MCP tool bundle.
 
         Mirrors :meth:`ResponsesApiAgentLogicService.InvokeResponsesApiAsync`.
         """
-
-        if self._http_client is None:
-            self._http_client = httpx.AsyncClient(timeout=120.0)
 
         mcp_tools = await self._build_mcp_tools(auth, auth_handler_name, context)
         logger.info(
@@ -582,47 +587,40 @@ Comment text: {comment_snippet}
                 previous_response_id,
             )
 
-        request_body: dict[str, Any] = {
+        request_args: dict[str, Any] = {
             "model": self._deployment,
             "instructions": instructions,
             "input": input_text,
             "tools": mcp_tools,
         }
-        if previous_response_id:
-            request_body["previous_response_id"] = previous_response_id
+        if previous_response_id is not None:
+            request_args["previous_response_id"] = previous_response_id
 
-        url = (
-            f"{self._endpoint.rstrip('/')}/openai/responses"
-            f"?api-version={self._api_version}"
-        )
-
-        headers = {"Content-Type": "application/json"}
-        if self._api_key:
-            headers["api-key"] = self._api_key
-        else:
-            token = await self._get_aoai_token()
-            headers["Authorization"] = f"Bearer {token}"
-
-        response = await self._http_client.post(url, json=request_body, headers=headers)
-        if response.status_code >= 400:
+        try:
+            response = await self._openai_client.responses.create(**request_args)
+        except APIStatusError as ex:
             logger.error(
                 "Responses API call failed with status %s: %s",
-                response.status_code,
-                response.text,
+                ex.status_code,
+                ex.response.text,
             )
             return (
                 "I encountered an error processing your request. "
-                f"Status: {response.status_code}"
+                f"Status: {ex.status_code}"
             )
 
-        try:
-            response_json = response.json()
-        except Exception:
-            logger.exception("Failed to parse Responses API response JSON")
-            return ""
-
+        response_json = response.model_dump(mode="json")
         self._save_response_id(conversation_id, response_json)
-        return self._extract_output_text(response_json)
+        output_text = response.output_text or self._extract_output_text(response_json)
+        response_id = response_json.get("id")
+        if not isinstance(response_id, str) or not response_id:
+            logger.warning(
+                "Responses API response did not include an id; "
+                "the trace will not be available for evaluation."
+            )
+            response_id = None
+        set_current_span_response(response_id, output_text)
+        return output_text
 
     async def _build_mcp_tools(
         self,
@@ -633,18 +631,31 @@ Comment text: {comment_snippet}
         if not self._mcp_servers:
             return []
 
-        bearer = await self._acquire_mcp_token(auth, auth_handler_name, context)
-        if not bearer:
-            logger.warning(
-                "No MCP bearer token available; MCP tools will be sent without auth"
-            )
-
         tools: list[dict[str, Any]] = []
+        token_cache: dict[str, str | None] = {}
         for server in self._mcp_servers:
             name = server.get("mcpServerName", "") or server.get("name", "")
             url = server.get("url", "")
             if not url:
                 continue
+
+            token_scope = server.get("tokenScope") or MCP_SCOPE
+            if token_scope not in token_cache:
+                token_cache[token_scope] = await self._acquire_mcp_token(
+                    auth,
+                    auth_handler_name,
+                    context,
+                    scope=token_scope,
+                )
+            bearer = token_cache[token_scope]
+            if not bearer:
+                logger.warning(
+                    "No bearer token available for MCP server %s (scope=%s); "
+                    "the server is likely to reject the request.",
+                    name,
+                    token_scope,
+                )
+
             tool: dict[str, Any] = {
                 "type": "mcp",
                 "server_label": name,
@@ -662,17 +673,16 @@ Comment text: {comment_snippet}
         auth: Authorization,
         auth_handler_name: Optional[str],
         context: TurnContext,
+        *,
+        scope: str,
     ) -> Optional[str]:
-        if self._mcp_token_override:
-            return self._mcp_token_override
-
         if not auth or not auth_handler_name:
             return None
 
         try:
             exchanged = await auth.exchange_token(
                 context,
-                scopes=[MCP_SCOPE],
+                scopes=[scope],
                 auth_handler_id=auth_handler_name,
             )
             token = getattr(exchanged, "token", None) or getattr(
@@ -680,22 +690,11 @@ Comment text: {comment_snippet}
             )
             return token
         except Exception:
-            logger.exception("Failed to acquire MCP bearer token via auth handler")
+            logger.exception(
+                "Failed to acquire MCP bearer token via auth handler (scope=%s)",
+                scope,
+            )
             return None
-
-    async def _get_aoai_token(self) -> str:
-        if self._aoai_credential is None:
-            raise RuntimeError("Azure OpenAI credential not configured")
-
-        # Refresh five minutes before expiry, matching AgentTokenCredential.
-        if self._cached_aoai_token is not None:
-            now_with_buffer = _now_epoch() + 300
-            if self._cached_aoai_token.expires_on > now_with_buffer:
-                return self._cached_aoai_token.token
-
-        token = await self._aoai_credential.get_token(AOAI_SCOPE)
-        self._cached_aoai_token = token
-        return token.token
 
     # ------------------------------------------------------------------
     # previous_response_id persistence

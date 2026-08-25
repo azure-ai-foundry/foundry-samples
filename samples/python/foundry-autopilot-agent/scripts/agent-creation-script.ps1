@@ -6,8 +6,17 @@ $AzureContainerRegistryEndpoint = $env:AZURE_CONTAINER_REGISTRY_ENDPOINT
 
 # Runtime settings injected into the hosted agent container.
 $authorityEndpoint = "https://login.microsoftonline.com/$($env:TENANT_ID)"
-$azureOpenAIEndpoint = "https://$($env:ACCOUNT_NAME).openai.azure.com/"
 $modelDeployment = $env:MODEL_NAME
+
+$runtimeEnvironmentVariables = @{
+    "CONNECTIONS__SERVICE_CONNECTION__SETTINGS__AUTHORITY" = $authorityEndpoint
+    "CONNECTIONS__SERVICE_CONNECTION__SETTINGS__TENANTID"  = $env:TENANT_ID
+    "ModelDeployment"                                      = $modelDeployment
+}
+
+if ($env:AZURE_DEVOPS_ORGANIZATION) {
+    $runtimeEnvironmentVariables["AZURE_DEVOPS_ORGANIZATION"] = $env:AZURE_DEVOPS_ORGANIZATION
+}
 
 $agentUrl = "$($AzureAIProjectEndpoint)/agents/$($AgentName)/versions?api-version=2025-11-15-preview"
 
@@ -17,12 +26,7 @@ $agentCreationBody = @{
         image = "$($AzureContainerRegistryEndpoint)/hello-world-a365-agent:latest"
         cpu = "2"
         memory = "4Gi"
-        environment_variables = @{
-            "CONNECTIONS__SERVICE_CONNECTION__SETTINGS__AUTHORITY" = $authorityEndpoint
-            "CONNECTIONS__SERVICE_CONNECTION__SETTINGS__TENANTID"  = $env:TENANT_ID
-            "AzureOpenAIEndpoint"                                  = $azureOpenAIEndpoint
-            "ModelDeployment"                                      = $modelDeployment
-        }
+        environment_variables = $runtimeEnvironmentVariables
         container_protocol_versions = @(
             @{
                 protocol = "activity_protocol"

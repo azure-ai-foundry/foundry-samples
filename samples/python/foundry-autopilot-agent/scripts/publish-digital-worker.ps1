@@ -27,14 +27,16 @@ $body = @{
     developerWebsiteUrl         = "https://azure.microsoft.com"
     privacyUrl                  = "https://privacy.microsoft.com"
     termsOfUseUrl               = "https://www.microsoft.com/legal/terms-of-use"
-    useAgenticUserTemplate      = $true
-    agenticUserTemplate         = @{
-            Id                         = "digitalWorkerTemplate"
-            File                       = "agenticUserTemplateManifest.json"
-            SchemaVersion              = "0.1.0-preview"
-            AgentIdentityBlueprintId   = $BlueprintClientId
-            CommunicationProtocol      = "activityProtocol"
-    }
+    optionalPermissionScopes    = @(
+        @{
+            resourceAppId              = "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+            scopes                     = @("McpServers.Word.All", "McpServers.Mail.All", "McpServers.OneDriveSharepoint.All", "McpServers.Teams.All", "McpServers.Excel.All", "McpServers.Calendar.All")
+        }
+        @{
+            resourceAppId              = "2a72489c-aab2-4b65-b93a-a91edccf33b8"
+            scopes                     = @("Ado.Mcp.Tools")
+        }
+    )
 }
 
 $jsonBody = $body | ConvertTo-Json -Depth 10

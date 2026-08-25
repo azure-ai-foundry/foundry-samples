@@ -52,6 +52,7 @@ from microsoft_agents_a365.notifications.agent_notification import (
     ChannelId,
 )
 from opentelemetry import propagate, trace
+from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from .agent_interface import AgentInterface, check_agent_inheritance
@@ -107,6 +108,17 @@ logger.info("📝 Logging configured at level %s (from LOG_LEVEL env)", _LOG_LEV
 # ---------------------------------------------------------------------------
 
 
+class _FoundryProjectIdSpanProcessor(SpanProcessor):
+    def __init__(self, project_resource_id: str) -> None:
+        self._project_resource_id = project_resource_id
+
+    def on_start(self, span, parent_context=None) -> None:
+        span.set_attribute(
+            "microsoft.foundry.project.id",
+            self._project_resource_id,
+        )
+
+
 def _configure_key_vault() -> None:
     key_vault_name = os.getenv("KeyVaultName") or os.getenv("KEY_VAULT_NAME")
     if not key_vault_name:
@@ -142,12 +154,33 @@ def _configure_application_insights() -> None:
         return
 
     try:
+        from azure.ai.projects.telemetry import AIProjectInstrumentor
         from azure.monitor.opentelemetry import configure_azure_monitor
         from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
-        configure_azure_monitor(connection_string=conn, sampling_ratio=1.0)
+        os.environ.setdefault("AZURE_EXPERIMENTAL_ENABLE_GENAI_TRACING", "true")
+        os.environ.setdefault(
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "true"
+        )
+        project_resource_id = os.getenv("FOUNDRY_PROJECT_ARM_ID")
+        if not project_resource_id:
+            logger.warning(
+                "FOUNDRY_PROJECT_ARM_ID is not set; spans will not include "
+                "microsoft.foundry.project.id."
+            )
+        span_processors = (
+            [_FoundryProjectIdSpanProcessor(project_resource_id)]
+            if project_resource_id
+            else []
+        )
+        configure_azure_monitor(
+            connection_string=conn,
+            sampling_ratio=1.0,
+            span_processors=span_processors,
+        )
+        AIProjectInstrumentor().instrument()
         HTTPXClientInstrumentor().instrument()
-        logger.info("Application Insights telemetry configured.")
+        logger.info("Application Insights and Foundry GenAI telemetry configured.")
     except Exception:
         logger.exception("Failed to configure Application Insights telemetry.")
 
@@ -479,10 +512,7 @@ class GenericAgentHost:
                 scopes=["5a807f24-c9de-44ee-a3a7-329e88a00ffc/.default"],
             )
 
-        if environ.get("BEARER_TOKEN"):
-            logger.info("🔑 Anonymous dev mode")
-        else:
-            logger.warning("⚠️ No auth env vars; running anonymous")
+        logger.warning("⚠️ No auth env vars; running anonymous")
         return None
 
     # ------------------------------------------------------------------

@@ -62,6 +62,21 @@ After deployment completes, inspect your resource values:
 azd env get-values
 ```
 
+### Optional: Enable the Azure DevOps remote MCP server
+
+The Azure DevOps MCP server is disabled unless an organization is configured. Before
+provisioning, set the organization name without the `https://dev.azure.com/` prefix:
+
+```powershell
+azd env set AZURE_DEVOPS_ORGANIZATION <organization-name>
+```
+
+The agent requests a delegated token for
+`https://mcp.dev.azure.com/.default`. The agent blueprint's Entra application must
+have the `Ado.Mcp.Tools` delegated permission for resource application
+`2a72489c-aab2-4b65-b93a-a91edccf33b8`, and the signed-in user must have access to
+the Azure DevOps organization.
+
 ### Step 3: Tenant Admin Approves the Agent in Microsoft Admin Center
 
 1. Navigate to the [Microsoft 365 admin center](https://admin.cloud.microsoft/?#/agents/all/requested)
@@ -124,7 +139,9 @@ curl -N \
   "https://$ACCOUNT_NAME.services.ai.azure.com/api/projects/$PROJECT_NAME/agents/$AGENT_NAME/sessions/$FOUNDRY_AGENT_SESSION_ID:logstream?api-version=2025-11-15-preview"
 ```
 
-The agent also sends aiohttp requests, outgoing HTTPX dependencies, exceptions, and Python logs to Application Insights. Telemetry emitted while `CloudAdapter` processes an activity shares the `/api/messages` `operation_Id`. Foundry injects `APPLICATIONINSIGHTS_CONNECTION_STRING` into the hosted container. Set the same environment variable when running locally if you want local telemetry in Application Insights.
+The agent sends aiohttp requests, outgoing dependencies, exceptions, Python logs, and GenAI spans to Application Insights. It calls the Responses API through `azure-ai-projects`, whose model-call span includes `gen_ai.operation.name`, `gen_ai.input.messages`, and `gen_ai.output.messages`. The enclosing activity span is named `invoke_agent FoundryDigitalWorker` and includes `gen_ai.operation.name=invoke_agent`, `gen_ai.agent.id`, `microsoft.gen_ai.main_agent.id`, `gen_ai.response.id`, `gen_ai.input.messages`, and `gen_ai.output.messages`. Both agent ID attributes use the `<agentName>:<agentVersion>` format from the Foundry-injected `FOUNDRY_AGENT_NAME` and `FOUNDRY_AGENT_VERSION` environment variables. The `gen_ai.response.id` attribute contains the actual Responses API response ID required by trace-based evaluations. Every exported span includes the `FOUNDRY_PROJECT_ARM_ID` value in the `microsoft.foundry.project.id` custom dimension. Telemetry emitted while `CloudAdapter` processes an activity shares the `/api/messages` `operation_Id`.
+
+Foundry injects `APPLICATIONINSIGHTS_CONNECTION_STRING` into the hosted container. Set the same environment variable when running locally. GenAI tracing and message-content capture are enabled when Application Insights is configured; set `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=false` before startup when message text must not be recorded.
 
 ---
 
