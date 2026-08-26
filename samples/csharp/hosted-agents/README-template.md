@@ -38,12 +38,17 @@ path (`azd` or the VS Code Foundry Toolkit) is listed under its option below.
 
 ### Prerequisites
 
-1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+1. **Azure Developer CLI (`azd`) 1.27.1 or later** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
 2. Install the Foundry extension:
 
    ```bash
    azd ext install microsoft.foundry
    ```
+
+   If the manifest defines service environment variables, use the `env:` map
+   rather than the legacy `environmentVariables` list. This requires `azd`
+   1.27.1+ and `azure.ai.agents` 1.0.0-beta.9+; declare both in
+   `requiredVersions`.
 
 3. Authenticate:
 

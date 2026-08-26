@@ -666,6 +666,10 @@ The `postdeploy` hook assigns the **Playwright Workspace Contributor** RBAC role
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+requiredVersions:
+  azd: '>=1.27.1'
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.9'
 name: bat-python-maf
 services:
   ai-project:
@@ -689,11 +693,9 @@ services:
     protocols:
       - protocol: responses
         version: 2.0.0
-    environmentVariables:
-      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
-        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4.1}
-      - name: TOOLBOX_NAME
-        value: browser-automation-tools
+    env:
+      AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4.1}
+      TOOLBOX_NAME: browser-automation-tools
 hooks:
   postprovision:
     windows:

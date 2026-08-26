@@ -1,8 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
 requiredVersions:
+  azd: '>=1.27.1'
   extensions:
-    azure.ai.agents: '>=1.0.0-beta.4'
+    azure.ai.agents: '>=1.0.0-beta.9'
 name: resilient-research
 services:
   ai-project:
@@ -42,23 +43,17 @@ services:
     protocols:
       - protocol: invocations
         version: 2.0.0
-    environmentVariables:
-      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
-        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    env:
+      AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
       # Pacing is tuned for a quick hosted demo (and to keep CI invocations
       # well within timeout). Raise NUM_PHASES / CALLS_PER_PHASE and the
       # cooldowns to turn this into a genuine long-runner that exercises
       # multi-restart recovery.
-      - name: NUM_PHASES
-        value: "2"
-      - name: CALLS_PER_PHASE
-        value: "2"
-      - name: INTRA_PHASE_COOLDOWN_SEC
-        value: "0"
-      - name: INTER_PHASE_COOLDOWN_SEC
-        value: "0"
-      - name: TARGET_OUTPUT_TOKENS
-        value: "300"
+      NUM_PHASES: "2"
+      CALLS_PER_PHASE: "2"
+      INTRA_PHASE_COOLDOWN_SEC: "0"
+      INTER_PHASE_COOLDOWN_SEC: "0"
+      TARGET_OUTPUT_TOKENS: "300"
     container:
       resources:
         cpu: '1'
