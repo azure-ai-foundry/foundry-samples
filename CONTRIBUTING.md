@@ -1,32 +1,29 @@
 # Contributing to Microsoft Foundry Samples
 
-This repository contains official Microsoft Foundry documentation samples. Changes are submitted as pull requests directly to this repository.
+This repository contains official Microsoft Foundry documentation samples. The contents are published automatically from a private staging repository and are not edited directly here.
 
 ## Reporting Issues
 
 If you find a bug, have a question, or want to suggest an improvement to an existing sample, please [open an issue](https://github.com/microsoft-foundry/foundry-samples/issues/new) on this repository. We welcome feedback from everyone!
 
-Before starting a substantial change, check for an existing issue. Open one when discussion or design agreement would help avoid duplicate work.
+## Contributing Changes (Microsoft Contributors)
 
-## Contributing Changes
+Sample contributions are currently limited to Microsoft Foundry teams.
 
-Sample contributions are currently limited to Microsoft Foundry teams with permission to create a branch in this repository. Fork pull requests cannot satisfy the intentionally failing `trusted` gate, so sample changes must use a same-repository branch.
+All changes — new samples, updates, and bug fixes — are submitted through the private staging repository [`foundry-samples-pr`](https://github.com/microsoft-foundry/foundry-samples-pr). Changes merged there are automatically synced to this public repository on a nightly basis.
 
-Contributors should always submit publishable changes through a public same-repository pull request. Maintainers may independently operate a separate bridge for approved eligible content already in the private repository; contributors must not dispatch it.
+> [!NOTE]
+> The link above will return a **404** until you've completed step 1 below.
 
-1. **Create a branch in this repository.** Use a same-repository branch for all sample changes.
-2. **Make a focused change.** Keep each pull request scoped to one sample, fix, or related set of updates. Follow the conventions in the surrounding sample.
-3. **Respect file ownership.** Review [CODEOWNERS](.github/CODEOWNERS) before editing. The listed owners will be requested when their files are changed.
-4. **Validate locally.** Run the setup, build, test, or sample-specific validation documented by the affected sample. Never commit credentials, local environment files, or generated secrets.
-5. **Open a pull request against `main`.** In the pull request description, explain what changed, why it changed, and the local validation you ran. Link the relevant issue when one exists.
+### How to get started
 
-### Pull request checks
+1. **Join the `microsoft-foundry` GitHub organization.** Navigate to the organization page on the Open Source Management Portal and click **Join**:
 
-Pull requests run repository validation automatically:
+   <https://repos.opensource.microsoft.com/orgs/microsoft-foundry>
 
-- The required `trusted` check must pass.
-- Review and address the other checks reported on the pull request.
-- Contributor pull requests are not merged automatically; after required checks and review, a maintainer triggers the merge.
+2. **Access the staging repository.** Once you've joined the org, you'll be able to view [`foundry-samples-pr`](https://github.com/microsoft-foundry/foundry-samples-pr).
+
+3. **Follow the contributing guide there.** The `foundry-samples-pr` repository has its own [`CONTRIBUTING.md`](https://github.com/microsoft-foundry/foundry-samples-pr/blob/main/CONTRIBUTING.md) with full instructions for setting up write access, creating a branch, and submitting a pull request.
 
 ## Contributor License Agreement
 
@@ -35,3 +32,4 @@ This project requires a Contributor License Agreement (CLA). When you submit a p
 ## Code of Conduct
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information, see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com).
+
