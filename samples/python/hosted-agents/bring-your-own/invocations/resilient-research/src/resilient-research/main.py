@@ -81,9 +81,9 @@ from azure.ai.agentserver.core.tasks import set_resilient_tasks_enabled
 from azure.ai.agentserver.invocations import InvocationAgentServerHost
 
 try:
-    from .agent import deep_research
+    from .agent import deep_research, get_research_state
 except ImportError:  # allows `python app.py` from inside this directory
-    from agent import deep_research
+    from agent import deep_research, get_research_state
 
 logger = logging.getLogger(__name__)
 
@@ -297,15 +297,7 @@ async def handle_get(request: Request) -> Response:
     if info is None:
         return JSONResponse({"error": "Task not found"}, status_code=404)
 
-    # Task metadata (the ctx.metadata namespaces) is persisted in a separate
-    # StateStore item on hosted deployments, so read it through
-    # ``TaskManager.get_task_metadata()`` when available and fall back to the
-    # payload-backed location used by local task providers.
-    get_task_metadata = getattr(mgr, "get_task_metadata", None)
-    if get_task_metadata is not None:
-        metadata = await get_task_metadata(task_id)
-    else:
-        metadata = (info.payload or {}).get("metadata")
+    state = await get_research_state(task_id)
 
     # Map the resilient-task status to the invocations protocol's terminal
     # vocabulary so a polling caller (e.g. `azd ai agent invoke`) knows when
@@ -326,7 +318,7 @@ async def handle_get(request: Request) -> Response:
             "invocation_id": invocation_id,
             "status": invocation_status,
             "task_status": info.status,
-            "metadata": metadata,
+            "state": state,
         }
     )
 

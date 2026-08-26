@@ -30,11 +30,12 @@ State machine::
                                                       ...
                                               (all steps done) ─► RESOLVED (completed)
 
-Why the resilient primitive (vs. hand-rolled JSON state): the ``@multi_turn_task``
-framework persists the chain's input and metadata to a task store and, after a
-container restart / OOM kill / redeploy, **re-invokes the same turn with the same
-input** (``ctx.entry_mode == "recovered"``). The long ``EXECUTING`` phase — the
-part most likely to be interrupted — resumes from its last checkpoint. See the
+Why the resilient primitive (vs. hand-rolled task recovery): the
+``@multi_turn_task`` framework persists the chain's input and, after a container
+restart / OOM kill / redeploy, **re-invokes the same turn with the same input**
+(``ctx.entry_mode == "recovered"``). Application checkpoints live in a
+``FoundryStateStore``. The long ``EXECUTING`` phase — the part most likely to be
+interrupted — resumes from its last checkpoint. See the
 `Resilient Task Developer Guide
 <https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/agentserver/azure-ai-agentserver-core/docs/tasks-guide.md>`__.
 
@@ -94,10 +95,12 @@ from typing import Any
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from azure.ai.agentserver.core.storage import FoundryStateStore
 from azure.ai.agentserver.core.tasks import (
     TaskConflictError,
     TaskContext,
     multi_turn_task,
+    set_resilient_tasks_enabled,
 )
 from azure.ai.agentserver.core.tasks._manager import get_task_manager
 from azure.ai.agentserver.invocations import InvocationAgentServerHost
@@ -339,6 +342,21 @@ async def _execute_step(step: dict[str, Any], ctx: TaskContext[dict]) -> str:
     return f"done: {step['action']}"
 
 
+def _job_store_name(task_id: str) -> str:
+    return f"invocations/resilient-approval-gate/{task_id}"
+
+
+async def _get_job_store(task_id: str) -> FoundryStateStore:
+    return await FoundryStateStore.get_or_create(
+        _job_store_name(task_id),
+        description="State for the resilient approval-gate invocation sample",
+    )
+
+
+async def _save_job(store: FoundryStateStore, job: dict[str, Any]) -> None:
+    await store.set_item("state", job)
+
+
 # ---------------------------------------------------------------------------
 # Resilient chain — one @multi_turn_task per job (task_id == job session).
 # ---------------------------------------------------------------------------
@@ -346,52 +364,63 @@ async def _execute_step(step: dict[str, Any], ctx: TaskContext[dict]) -> str:
 async def approval_workflow(ctx: TaskContext[dict]) -> dict[str, Any]:
     """One resilient chain per job. Each POST runs this from the top.
 
-    The default metadata namespace holds the per-invocation result the HTTP
-    ``GET`` handler polls. The ``"job"`` namespace holds cross-turn state — the
-    goal, the plan, per-step results, execution watermark, and at-most-once
-    tokens — that must survive both the human wait and any crash.
+    A task-scoped ``FoundryStateStore`` item holds the per-invocation result the
+    HTTP ``GET`` handler polls and the cross-turn job state that must survive
+    both the human wait and any crash.
     """
 
     data = ctx.input
     invocation_id: str = data.get("invocation_id", ctx.input_id)
     action = str(data.get("action", "plan")).lower()
-    job = ctx.metadata("job")
+    store = await _get_job_store(ctx.task_id)
+    async with store:
+        item = await store.get_item("state")
+        job = dict(item.value) if item is not None and isinstance(item.value, dict) else {}
+        job["invocation_id"] = invocation_id
+        job["status"] = "running"
+        await _save_job(store, job)
 
-    ctx.metadata["invocation_id"] = invocation_id
-    ctx.metadata["status"] = "running"
-    await ctx.metadata.flush()
+        if ctx.entry_mode == "recovered":
+            logger.warning("Recovered job %s mid-turn (phase=%s)", ctx.task_id, job.get("phase"))
 
-    if ctx.entry_mode == "recovered":
-        logger.warning("Recovered job %s mid-turn (phase=%s)", ctx.task_id, job.get("phase"))
+        if action == "plan":
+            return await _do_plan(ctx, store, job, data)
+        if action in ("approve_plan", "edit_plan"):
+            return await _begin_execution(ctx, store, job, data)
+        if action == "approve_action":
+            return await _resume_execution(ctx, store, job, approved=True)
+        if action == "reject_action":
+            return await _resume_execution(ctx, store, job, approved=False)
+        if action == "reject":
+            job["phase"] = "resolved"
+            await _save_job(store, job)
+            return await _complete(store, job, {"status": "rejected", "note": "Plan rejected by human."})
 
-    if action == "plan":
-        return await _do_plan(ctx, job, data)
-    if action in ("approve_plan", "edit_plan"):
-        return await _begin_execution(ctx, job, data)
-    if action == "approve_action":
-        return await _resume_execution(ctx, job, approved=True)
-    if action == "reject_action":
-        return await _resume_execution(ctx, job, approved=False)
-    if action == "reject":
-        job["phase"] = "resolved"
-        await job.flush()
-        return await _complete(ctx, {"status": "rejected", "note": "Plan rejected by human."})
-
-    return await _complete(ctx, {"status": "error", "message": f"Unknown action: {action}"})
+        return await _complete(store, job, {"status": "error", "message": f"Unknown action: {action}"})
 
 
-async def _do_plan(ctx: TaskContext[dict], job: Any, data: dict[str, Any]) -> dict[str, Any]:
+async def _do_plan(
+    ctx: TaskContext[dict],
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    data: dict[str, Any],
+) -> dict[str, Any]:
     """Turn 1: generate the plan, then suspend for human approval."""
 
     if job.get("phase") in ("executing", "awaiting_action_approval"):
         return await _complete(
-            ctx,
+            store,
+            job,
             {"status": job.get("phase"), "note": "Job already in progress.", "plan": job.get("plan")},
         )
 
     goal = str(data.get("goal", "")).strip()
     if not goal:
-        return await _complete(ctx, {"status": "error", "message": "goal is required for action=plan."})
+        return await _complete(
+            store,
+            job,
+            {"status": "error", "message": "goal is required for action=plan."},
+        )
 
     plan = await _generate_plan(goal)
     job["goal"] = goal
@@ -399,10 +428,11 @@ async def _do_plan(ctx: TaskContext[dict], job: Any, data: dict[str, Any]) -> di
     job["results"] = []
     job["completed_steps"] = 0
     job["phase"] = "awaiting_plan_approval"
-    await job.flush()
+    await _save_job(store, job)
 
     return await _complete(
-        ctx,
+        store,
+        job,
         {
             "status": "awaiting_plan_approval",
             "goal": goal,
@@ -412,14 +442,23 @@ async def _do_plan(ctx: TaskContext[dict], job: Any, data: dict[str, Any]) -> di
     )
 
 
-async def _begin_execution(ctx: TaskContext[dict], job: Any, data: dict[str, Any]) -> dict[str, Any]:
+async def _begin_execution(
+    ctx: TaskContext[dict],
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    data: dict[str, Any],
+) -> dict[str, Any]:
     """Turn 2: accept (or replace) the plan and run the execution loop."""
 
     if job.get("phase") not in ("awaiting_plan_approval", None):
         # Idempotent: an approve replayed after execution started just continues.
         if job.get("phase") in ("executing", "awaiting_action_approval"):
-            return await _run_execution(ctx, job)
-        return await _complete(ctx, {"status": "error", "message": "No plan awaiting approval."})
+            return await _run_execution(ctx, store, job)
+        return await _complete(
+            store,
+            job,
+            {"status": "error", "message": "No plan awaiting approval."},
+        )
 
     if str(data.get("action")).lower() == "edit_plan":
         edited = data.get("plan")
@@ -432,21 +471,32 @@ async def _begin_execution(ctx: TaskContext[dict], job: Any, data: dict[str, Any
 
     job["approver"] = data.get("approver", "unknown")
     job["phase"] = "executing"
-    await job.flush()
-    return await _run_execution(ctx, job)
+    await _save_job(store, job)
+    return await _run_execution(ctx, store, job)
 
 
-async def _resume_execution(ctx: TaskContext[dict], job: Any, *, approved: bool) -> dict[str, Any]:
+async def _resume_execution(
+    ctx: TaskContext[dict],
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    *,
+    approved: bool,
+) -> dict[str, Any]:
     """Later turns: apply the human's decision on the pending irreversible step."""
 
     if job.get("phase") != "awaiting_action_approval":
-        return await _complete(ctx, {"status": "error", "message": "No action awaiting confirmation."})
+        return await _complete(
+            store,
+            job,
+            {"status": "error", "message": "No action awaiting confirmation."},
+        )
 
     if not approved:
         job["phase"] = "resolved"
-        await job.flush()
+        await _save_job(store, job)
         return await _complete(
-            ctx,
+            store,
+            job,
             {
                 "status": "resolved",
                 "outcome": "stopped",
@@ -459,11 +509,15 @@ async def _resume_execution(ctx: TaskContext[dict], job: Any, *, approved: bool)
     # Human confirmed — mark the pending step cleared for execution, then continue.
     job["confirmed_step"] = job.get("pending_step_index")
     job["phase"] = "executing"
-    await job.flush()
-    return await _run_execution(ctx, job)
+    await _save_job(store, job)
+    return await _run_execution(ctx, store, job)
 
 
-async def _run_execution(ctx: TaskContext[dict], job: Any) -> dict[str, Any]:
+async def _run_execution(
+    ctx: TaskContext[dict],
+    store: FoundryStateStore,
+    job: dict[str, Any],
+) -> dict[str, Any]:
     """The long-running loop. Resumes from the checkpoint on recovery."""
 
     plan: list[dict[str, Any]] = job.get("plan", [])
@@ -474,13 +528,14 @@ async def _run_execution(ctx: TaskContext[dict], job: Any) -> dict[str, Any]:
         step = plan[idx]
 
         # Gate: an irreversible step needs an explicit confirmation turn, unless
-        # the human already confirmed *this* index (survives crashes via metadata).
+        # the human already confirmed *this* index in the durable state store.
         if step.get("irreversible") and job.get("confirmed_step") != idx:
             job["pending_step_index"] = idx
             job["phase"] = "awaiting_action_approval"
-            await job.flush()
+            await _save_job(store, job)
             return await _complete(
-                ctx,
+                store,
+                job,
                 {
                     "status": "awaiting_action_approval",
                     "next_step": {"index": idx, **step},
@@ -490,7 +545,7 @@ async def _run_execution(ctx: TaskContext[dict], job: Any) -> dict[str, Any]:
                 },
             )
 
-        outcome = await _execute_step_once(ctx, job, idx, step)
+        outcome = await _execute_step_once(ctx, store, job, idx, step)
         results.append({"index": idx, "action": step["action"], "outcome": outcome, "at": _now_iso()})
         job["results"] = results
 
@@ -499,12 +554,13 @@ async def _run_execution(ctx: TaskContext[dict], job: Any) -> dict[str, Any]:
         job["completed_steps"] = completed
         job.pop("confirmed_step", None)
         job.pop("pending_step_index", None)
-        await job.flush()
+        await _save_job(store, job)
 
     job["phase"] = "resolved"
-    await job.flush()
+    await _save_job(store, job)
     return await _complete(
-        ctx,
+        store,
+        job,
         {
             "status": "resolved",
             "outcome": "completed",
@@ -515,7 +571,13 @@ async def _run_execution(ctx: TaskContext[dict], job: Any) -> dict[str, Any]:
     )
 
 
-async def _execute_step_once(ctx: TaskContext[dict], job: Any, idx: int, step: dict[str, Any]) -> str:
+async def _execute_step_once(
+    ctx: TaskContext[dict],
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    idx: int,
+    step: dict[str, Any],
+) -> str:
     """Execute a step **at most once** across crashes (§6.2 of the tasks guide).
 
     For irreversible steps we reserve an idempotency token and flush it BEFORE
@@ -533,7 +595,7 @@ async def _execute_step_once(ctx: TaskContext[dict], job: Any, idx: int, step: d
         if key not in tokens:
             tokens[key] = uuid.uuid4().hex
             job["step_tokens"] = tokens
-            await job.flush()
+            await _save_job(store, job)
         # Real impl: pass tokens[key] as an idempotency_key to the external API.
         logger.info("Executing irreversible step %d with token %s", idx, tokens[key])
 
@@ -541,19 +603,23 @@ async def _execute_step_once(ctx: TaskContext[dict], job: Any, idx: int, step: d
 
     done[key] = outcome
     job["step_outcomes"] = done
-    await job.flush()
+    await _save_job(store, job)
     return outcome
 
 
 # ---------------------------------------------------------------------------
 # Small helpers
 # ---------------------------------------------------------------------------
-async def _complete(ctx: TaskContext[dict], result: dict[str, Any]) -> dict[str, Any]:
-    """Publish the per-invocation result to the default namespace, then return."""
+async def _complete(
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    """Publish the per-invocation result for polling, then return."""
 
-    ctx.metadata["status"] = "completed"
-    ctx.metadata["output"] = result
-    await ctx.metadata.flush()
+    job["status"] = "completed"
+    job["output"] = result
+    await _save_job(store, job)
     return result
 
 
@@ -574,6 +640,8 @@ async def _sleep_or_defer(ctx: TaskContext[dict], seconds: float) -> None:
 # ---------------------------------------------------------------------------
 # Server + HTTP handlers
 # ---------------------------------------------------------------------------
+# Core 2.1 requires applications using durable tasks to opt in before startup.
+set_resilient_tasks_enabled(True)
 app = InvocationAgentServerHost(openapi_spec=OPENAPI_SPEC)
 
 # In-memory convenience index so GET works with just an invocation_id while the
@@ -637,12 +705,16 @@ async def handle_invoke(request: Request) -> Response:
 
 
 async def _read_job_metadata(task_id: str) -> dict[str, Any] | None:
-    """Read the default-namespace metadata the handler publishes for polling."""
+    """Read the application-owned state the handler publishes for polling."""
 
-    info = await get_task_manager().provider.get(task_id)
+    manager = get_task_manager()
+    info = await manager.provider.get(task_id)
     if info is None:
         return None
-    return (info.payload or {}).get("metadata") or {}
+    store = await _get_job_store(task_id)
+    async with store:
+        item = await store.get_item("state")
+    return dict(item.value) if item is not None and isinstance(item.value, dict) else {}
 
 
 @app.get_invocation_handler
@@ -681,6 +753,9 @@ async def cancel_invocation(request: Request) -> Response:
         return JSONResponse({"error": "Provide ?agent_session_id=<id> to locate the job."}, status_code=404)
 
     await approval_workflow.delete(task_id)
+    store = await _get_job_store(task_id)
+    async with store:
+        await store.delete()
     return JSONResponse({"invocation_id": invocation_id, "status": "cancelled"})
 
 

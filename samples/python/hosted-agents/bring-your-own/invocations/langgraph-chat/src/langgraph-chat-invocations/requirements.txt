@@ -1,9 +1,116 @@
-azure-ai-agentserver-invocations==1.0.0b7
-azure-identity==1.25.3
-langgraph==1.1.8
-langgraph-prebuilt==1.0.10
-langchain-core==1.3.0
-langchain-azure-ai[opentelemetry]>=1.2.3
-
-# debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
-debugpy
+# Fully resolved with uv for Python 3.12; direct dependencies are marked below.
+aiohappyeyeballs==2.7.1   # via aiohttp
+aiohttp==3.14.3           # via azure-ai-agentserver-core, azure-ai-agentserver-invocations, langchain-azure-ai, microsoft-opentelemetry
+aiosignal==1.4.0          # via aiohttp
+annotated-types==0.8.0    # via pydantic
+anyio==4.14.2             # via httpx, langsmith, openai, starlette
+asgiref==3.12.1           # via opentelemetry-instrumentation-asgi
+attrs==26.1.0             # via aiohttp
+azure-ai-agentserver-core==2.1.0  # via azure-ai-agentserver-invocations
+azure-ai-agentserver-invocations==1.1.0  # direct
+azure-ai-contentsafety==1.0.0  # via langchain-azure-ai
+azure-ai-contentunderstanding==1.1.0  # via langchain-azure-ai
+azure-ai-projects==2.4.0  # via langchain-azure-ai
+azure-common==1.1.28      # via azure-search-documents
+azure-core==1.41.0        # via azure-ai-agentserver-core, azure-ai-contentsafety, azure-ai-contentunderstanding, azure-ai-projects, azure-core-tracing-opentelemetry, azure-identity, azure-monitor-opentelemetry, azure-monitor-opentelemetry-exporter, azure-search-documents, azure-storage-blob, langchain-azure-ai, microsoft-opentelemetry, msrest
+azure-core-tracing-opentelemetry==1.0.0b13  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+azure-identity==1.25.3    # via azure-ai-agentserver-core, azure-ai-projects, azure-monitor-opentelemetry-exporter, langchain-azure-ai, direct
+azure-monitor-opentelemetry==1.8.9  # via langchain-azure-ai
+azure-monitor-opentelemetry-exporter==1.0.0b56  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+azure-search-documents==11.6.0  # via langchain-azure-ai
+azure-storage-blob==12.30.0  # via azure-ai-projects
+certifi==2026.7.22        # via httpcore, httpx, msrest, requests
+cffi==2.1.1               # via cryptography
+charset-normalizer==3.4.9  # via requests
+cryptography==50.0.0      # via azure-identity, azure-storage-blob, msal, pyjwt
+debugpy==1.8.21           # direct
+distro==1.9.0             # via langsmith, openai
+frozenlist==1.8.0         # via aiohttp, aiosignal
+googleapis-common-protos==1.75.1  # via opentelemetry-exporter-otlp-proto-http
+h11==0.16.0               # via httpcore, hypercorn, wsproto
+h2==4.4.1                 # via hypercorn
+hpack==4.2.0              # via h2
+httpcore==1.0.9           # via httpx
+httpx==0.28.1             # via langgraph-sdk, langsmith, openai
+hypercorn==0.18.0         # via azure-ai-agentserver-core
+hyperframe==6.1.0         # via h2
+idna==3.18                # via anyio, httpx, requests, yarl
+isodate==0.7.2            # via azure-ai-agentserver-core, azure-ai-contentsafety, azure-ai-contentunderstanding, azure-ai-projects, azure-search-documents, azure-storage-blob, msrest
+jiter==0.16.0             # via openai
+jsonpatch==1.33           # via langchain-core
+jsonpointer==3.1.1        # via jsonpatch
+langchain==1.2.15         # via langchain-azure-ai
+langchain-azure-ai==1.2.3  # direct
+langchain-core==1.3.0     # via langchain, langchain-openai, langgraph, langgraph-checkpoint, langgraph-prebuilt, direct
+langchain-openai==1.2.0   # via langchain-azure-ai
+langgraph==1.1.8          # via langchain, langchain-azure-ai, direct
+langgraph-checkpoint==4.2.0  # via langgraph, langgraph-prebuilt
+langgraph-prebuilt==1.0.10  # via langgraph, direct
+langgraph-sdk==0.3.15     # via langgraph
+langsmith==0.10.17        # via langchain-core
+microsoft-opentelemetry==1.3.7  # via azure-ai-agentserver-core
+msal==1.37.0              # via azure-identity, msal-extensions
+msal-extensions==1.3.1    # via azure-identity
+msrest==0.7.1             # via azure-monitor-opentelemetry-exporter
+multidict==6.7.1          # via aiohttp, yarl
+numpy==2.4.6              # via langchain-azure-ai, direct
+oauthlib==3.3.1           # via requests-oauthlib
+openai==2.53.0            # via azure-ai-projects, langchain-openai
+opentelemetry-api==1.43.0  # via azure-ai-agentserver-core, azure-core-tracing-opentelemetry, azure-monitor-opentelemetry-exporter, langchain-azure-ai, microsoft-opentelemetry, opentelemetry-exporter-otlp-proto-http, opentelemetry-instrumentation, opentelemetry-instrumentation-asgi, opentelemetry-instrumentation-dbapi, opentelemetry-instrumentation-django, opentelemetry-instrumentation-fastapi, opentelemetry-instrumentation-flask, opentelemetry-instrumentation-httpx, opentelemetry-instrumentation-logging, opentelemetry-instrumentation-openai-agents-v2, opentelemetry-instrumentation-openai-v2, opentelemetry-instrumentation-psycopg2, opentelemetry-instrumentation-requests, opentelemetry-instrumentation-threading, opentelemetry-instrumentation-urllib, opentelemetry-instrumentation-urllib3, opentelemetry-instrumentation-wsgi, opentelemetry-sdk, opentelemetry-semantic-conventions, opentelemetry-util-genai
+opentelemetry-exporter-otlp-proto-common==1.43.0  # via opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-http==1.43.0  # via microsoft-opentelemetry
+opentelemetry-instrumentation==0.64b0  # via langchain-azure-ai, microsoft-opentelemetry, opentelemetry-instrumentation-asgi, opentelemetry-instrumentation-dbapi, opentelemetry-instrumentation-django, opentelemetry-instrumentation-fastapi, opentelemetry-instrumentation-flask, opentelemetry-instrumentation-httpx, opentelemetry-instrumentation-logging, opentelemetry-instrumentation-openai-agents-v2, opentelemetry-instrumentation-openai-v2, opentelemetry-instrumentation-psycopg2, opentelemetry-instrumentation-requests, opentelemetry-instrumentation-threading, opentelemetry-instrumentation-urllib, opentelemetry-instrumentation-urllib3, opentelemetry-instrumentation-wsgi, opentelemetry-util-genai
+opentelemetry-instrumentation-asgi==0.64b0  # via opentelemetry-instrumentation-fastapi
+opentelemetry-instrumentation-dbapi==0.64b0  # via opentelemetry-instrumentation-psycopg2
+opentelemetry-instrumentation-django==0.64b0  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+opentelemetry-instrumentation-fastapi==0.64b0  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+opentelemetry-instrumentation-flask==0.64b0  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+opentelemetry-instrumentation-httpx==0.64b0  # via microsoft-opentelemetry
+opentelemetry-instrumentation-logging==0.64b0  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+opentelemetry-instrumentation-openai-agents-v2==0.1.0  # via microsoft-opentelemetry
+opentelemetry-instrumentation-openai-v2==2.3b0  # via microsoft-opentelemetry
+opentelemetry-instrumentation-psycopg2==0.64b0  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+opentelemetry-instrumentation-requests==0.64b0  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+opentelemetry-instrumentation-threading==0.64b0  # via langchain-azure-ai
+opentelemetry-instrumentation-urllib==0.64b0  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+opentelemetry-instrumentation-urllib3==0.64b0  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+opentelemetry-instrumentation-wsgi==0.64b0  # via opentelemetry-instrumentation-django, opentelemetry-instrumentation-flask
+opentelemetry-proto==1.43.0  # via opentelemetry-exporter-otlp-proto-common, opentelemetry-exporter-otlp-proto-http
+opentelemetry-resource-detector-azure==0.1.5  # via azure-monitor-opentelemetry, microsoft-opentelemetry
+opentelemetry-sdk==1.43.0  # via azure-ai-agentserver-core, azure-monitor-opentelemetry, azure-monitor-opentelemetry-exporter, microsoft-opentelemetry, opentelemetry-exporter-otlp-proto-http, opentelemetry-resource-detector-azure, opentelemetry-semantic-conventions-ai
+opentelemetry-semantic-conventions==0.64b0  # via langchain-azure-ai, opentelemetry-instrumentation, opentelemetry-instrumentation-asgi, opentelemetry-instrumentation-dbapi, opentelemetry-instrumentation-django, opentelemetry-instrumentation-fastapi, opentelemetry-instrumentation-flask, opentelemetry-instrumentation-httpx, opentelemetry-instrumentation-logging, opentelemetry-instrumentation-openai-agents-v2, opentelemetry-instrumentation-openai-v2, opentelemetry-instrumentation-requests, opentelemetry-instrumentation-urllib, opentelemetry-instrumentation-urllib3, opentelemetry-instrumentation-wsgi, opentelemetry-sdk, opentelemetry-semantic-conventions-ai, opentelemetry-util-genai
+opentelemetry-semantic-conventions-ai==0.4.16  # via langchain-azure-ai
+opentelemetry-util-genai==0.3b0  # via microsoft-opentelemetry, opentelemetry-instrumentation-openai-agents-v2
+opentelemetry-util-http==0.64b0  # via opentelemetry-instrumentation-asgi, opentelemetry-instrumentation-django, opentelemetry-instrumentation-fastapi, opentelemetry-instrumentation-flask, opentelemetry-instrumentation-httpx, opentelemetry-instrumentation-requests, opentelemetry-instrumentation-urllib, opentelemetry-instrumentation-urllib3, opentelemetry-instrumentation-wsgi
+orjson==3.11.9            # via langgraph-sdk, langsmith
+ormsgpack==1.12.2         # via langgraph-checkpoint
+packaging==26.3           # via langchain-core, langsmith, opentelemetry-instrumentation, opentelemetry-instrumentation-flask
+priority==2.0.0           # via hypercorn
+propcache==0.5.2          # via aiohttp, yarl
+protobuf==7.35.1          # via googleapis-common-protos, opentelemetry-proto
+psutil==7.2.2             # via azure-monitor-opentelemetry-exporter
+pycparser==3.0            # via cffi
+pydantic==2.13.4          # via langchain, langchain-core, langgraph, langsmith, openai
+pydantic-core==2.46.4     # via pydantic
+pyjwt==2.13.0             # via microsoft-opentelemetry, msal
+pyyaml==6.0.3             # via langchain-core
+regex==2026.7.19          # via tiktoken
+requests==2.34.2          # via azure-core, langsmith, microsoft-opentelemetry, msal, msrest, opentelemetry-exporter-otlp-proto-http, requests-oauthlib, requests-toolbelt, tiktoken
+requests-oauthlib==2.0.0  # via msrest
+requests-toolbelt==1.0.0  # via langsmith
+six==1.17.0               # via langchain-azure-ai
+sniffio==1.3.1            # via langsmith, openai
+starlette==1.6.0          # via azure-ai-agentserver-core
+tenacity==9.1.4           # via langchain-core
+tiktoken==0.13.0          # via langchain-openai
+tqdm==4.70.0              # via openai
+typing-extensions==4.16.0  # via aiohttp, aiosignal, anyio, azure-ai-contentunderstanding, azure-ai-projects, azure-core, azure-identity, azure-search-documents, azure-storage-blob, langchain-core, langsmith, openai, opentelemetry-api, opentelemetry-exporter-otlp-proto-http, opentelemetry-sdk, opentelemetry-semantic-conventions, pydantic, pydantic-core, starlette, typing-inspection
+typing-inspection==0.4.3  # via pydantic
+urllib3==2.7.0            # via requests
+uuid-utils==0.17.0        # via langchain-core, langsmith
+websockets==17.0.1        # via langsmith
+wrapt==1.17.3             # via langchain-azure-ai, microsoft-opentelemetry, opentelemetry-instrumentation, opentelemetry-instrumentation-dbapi, opentelemetry-instrumentation-httpx, opentelemetry-instrumentation-threading, opentelemetry-instrumentation-urllib3
+wsproto==1.3.2            # via hypercorn
+xxhash==3.8.1             # via langgraph, langsmith
+yarl==1.24.5              # via aiohttp
+zstandard==0.25.0         # via langsmith

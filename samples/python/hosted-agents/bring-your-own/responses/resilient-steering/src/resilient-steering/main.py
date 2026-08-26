@@ -22,8 +22,8 @@ Recovery strategy here is deliberately **naive**: this handler wraps a
 non-deterministic upstream (an LLM) and does NOT checkpoint partial output, so
 recovery needs no special code — every entry builds a fresh stream and re-runs
 the turn from scratch. The fresh ``response.in_progress`` (empty output) is the
-client-visible reset. A ``turn_count`` watermark on
-``context.conversation_chain_metadata`` survives crashes and turn boundaries.
+client-visible reset. A ``turn_count`` watermark in a conversation-scoped
+``FoundryStateStore`` survives crashes and turn boundaries.
 
 The LLM here is simulated so the sample runs offline with no credentials;
 replace ``_simulate_llm_stream`` with a real model call to make it live.
@@ -56,6 +56,8 @@ import asyncio
 import logging
 import os
 
+from azure.ai.agentserver.core.storage import FoundryStateStore
+from azure.ai.agentserver.core.tasks import set_resilient_tasks_enabled
 from azure.ai.agentserver.responses import (
     CreateResponse,
     ResponseContext,
@@ -63,7 +65,6 @@ from azure.ai.agentserver.responses import (
     ResponsesAgentServerHost,
     ResponsesServerOptions,
 )
-from azure.ai.agentserver.core.tasks import set_resilient_tasks_enabled
 
 logger = logging.getLogger("resilient-steering")
 
@@ -130,10 +131,26 @@ async def handler(
 
     yield stream.emit_in_progress()
 
-    # Cross-turn state: bump the turn counter. This survives crashes and turn
-    # boundaries since it lives on ``context.conversation_chain_metadata``.
-    turn_count = int(context.conversation_chain_metadata.get("turn_count", 0)) + 1
-    context.conversation_chain_metadata["turn_count"] = turn_count
+    # Cross-turn state lives in an explicit application-owned State Store.
+    store = await FoundryStateStore.get_or_create(
+        context.conversation_chain_id,
+        description="State for the resilient steering response sample",
+    )
+    async with store:
+        item = await store.get_item("state")
+        state = (
+            dict(item.value)
+            if item is not None and isinstance(item.value, dict)
+            else {}
+        )
+        if state.get("last_response_id") != context.response_id:
+            await store.set_item(
+                "state",
+                {
+                    "turn_count": int(state.get("turn_count", 0)) + 1,
+                    "last_response_id": context.response_id,
+                },
+            )
 
     # Optional local shutdown simulation.
     shutdown_timer: asyncio.Task | None = None

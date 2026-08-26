@@ -1,4 +1,5 @@
-azure-ai-agentserver-responses==2.0.0b0
+azure-ai-agentserver-responses==2.1.0
+azure-ai-agentserver-core==2.1.0
 langchain-azure-ai>=1.2.3
 langgraph>=1.1.8
 langchain-mcp-adapters>=0.2.2
@@ -13,6 +14,8 @@ python-dotenv==1.1.1
 starlette<1.0.0
 aiohttp
 pydantic-core<2.46.0
+# NumPy 2.5 does not publish wheels for the repository's Python 3.11 validation runtime.
+numpy<2.5
 
 # debugpy enables local debugging of this agent with the Foundry Toolkit VS Code extension.
 debugpy
