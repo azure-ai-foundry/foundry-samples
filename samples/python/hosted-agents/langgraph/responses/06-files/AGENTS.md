@@ -4,7 +4,7 @@ This project is a **Microsoft Foundry hosted agent** — a containerized AI agen
 
 ## Key files
 
-- `Dockerfile` — container definition
+- `src/langgraph-files-responses/Dockerfile` — container definition
 
 ## Development workflow
 

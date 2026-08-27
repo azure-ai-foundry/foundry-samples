@@ -119,6 +119,12 @@ azd ai agent invoke "Find the quarterly report under \`{cwd}/resources\` and tel
   python -m pip install --upgrade pip
   ```
 
+- Change to the agent source directory before installing dependencies:
+
+  ```bash
+  cd src/langgraph-files-responses
+  ```
+
 - Install dependencies in the virtual environment. One transitive dependency ships as a pre-release, so pre-releases must be allowed when using `uv`:
 
   ```bash
@@ -137,12 +143,13 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 ### Or run manually, then open the Inspector
 
 1. Set the required environment variables (including `TOOLBOX_NAME`), and sign in to Azure with the Azure CLI (`az login`).
-2. Start the agent: `python main.py` (listens on `http://localhost:8088`).
+2. From `src/langgraph-files-responses`, start the agent: `python main.py`
+   (listens on `http://localhost:8088`).
 3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
 
 ### Deploy to Foundry
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `azure.yaml` to auto-populate settings.
 2. If prompted, complete **Foundry Project Setup** to select subscription and project.
 3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
 4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
@@ -153,7 +160,7 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 After deploying the agent to Foundry, uploaded session files are mounted into the agent's working directory, where the same local tools can read them. Upload a file to the current session with:
 
 ```bash
-azd ai agent files upload -f resources/contoso_q1_2026_report.txt
+azd ai agent files upload -f src/langgraph-files-responses/resources/contoso_q1_2026_report.txt
 ```
 
 Then ask the agent about it:

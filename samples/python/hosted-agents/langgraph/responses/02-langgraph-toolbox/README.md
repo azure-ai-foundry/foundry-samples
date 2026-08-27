@@ -8,19 +8,17 @@ A [LangGraph](https://langchain-ai.github.io/langgraph/) ReAct agent wired to a 
 - A Microsoft Foundry project
 - Azure CLI installed and logged in (`az login`)
 
-The sample bundles a [`toolbox.yaml`](src/toolbox-langgraph/toolbox.yaml) that defines the tools. Neither tool requires a secret, so there's nothing extra to configure before you provision.
+The sample bundles a [`toolbox.yaml`](src/toolbox-langgraph/toolbox.yaml) that defines the tools. Neither tool requires a secret. Create the toolbox from this file before running the agent.
 
 ## Creating a Foundry Toolbox
 
-The sample bundles a [`toolbox.yaml`](src/toolbox-langgraph/toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
+Create the toolbox manually from the sample root:
 
 ```bash
-azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
+azd ai toolbox create my-toolbox --from-file ./src/toolbox-langgraph/toolbox.yaml
 ```
 
 You can also create a Foundry Toolbox in the Foundry portal. Read more about it [in the Foundry toolbox documentation](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/toolbox).
-
-> If you set up a project with this sample and provision the resources using `azd provision`, the toolbox declared in [`azure.yaml`](azure.yaml) (named `my-toolbox` with `web_search` and the Microsoft Learn MCP server) is created automatically.
 
 > [!NOTE]
 > This sample identifies the toolbox by name (`TOOLBOX_NAME`) and always consumes its current default version. The `AzureAIProjectToolbox` helper builds the MCP endpoint from the toolbox name, so it can't pin the agent to a specific toolbox version. When you publish a new default version, the agent picks it up automatically.
@@ -77,11 +75,15 @@ azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/m
 
 ### Provision Azure resources (if needed)
 
-If you don't already have a Foundry project, model deployment, and toolbox, provision them. `azd provision` creates the toolbox (`my-toolbox` by default) referenced by `TOOLBOX_NAME`:
+If you don't already have a Foundry project and model deployment, provision them:
 
 ```bash
 azd provision
 ```
+
+If `my-toolbox` does not already exist, create it with the command in
+[Creating a Foundry Toolbox](#creating-a-foundry-toolbox) before running
+`azd deploy`.
 
 ### Run the agent locally
 
@@ -150,6 +152,12 @@ azd ai agent invoke "How do I create a Foundry project with the Azure CLI?"
   python -m pip install --upgrade pip
   ```
 
+- Change to the agent source directory before installing dependencies:
+
+  ```bash
+  cd src/toolbox-langgraph
+  ```
+
 - Install dependencies in the virtual environment. One transitive dependency ships as a pre-release, so pre-releases must be allowed when using `uv`:
 
   ```bash
@@ -168,12 +176,13 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 ### Or run manually, then open the Inspector
 
 1. Set the required environment variables (including `TOOLBOX_NAME`), and sign in to Azure with the Azure CLI (`az login`).
-2. Start the agent: `python main.py` (listens on `http://localhost:8088`).
+2. From `src/toolbox-langgraph`, start the agent: `python main.py`
+   (listens on `http://localhost:8088`).
 3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
 
 ### Deploy to Foundry
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `azure.yaml` to auto-populate settings.
 2. If prompted, complete **Foundry Project Setup** to select subscription and project.
 3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
 4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.
@@ -183,7 +192,9 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 
 ### Agent starts but returns no tools
 
-Check that the toolbox exists in your Foundry project and that `TOOLBOX_NAME` matches its name. `my-toolbox` is the default name provisioned by `azd up` against [azure.yaml](azure.yaml).
+Check that the toolbox exists in your Foundry project and that `TOOLBOX_NAME`
+matches its name. The sample uses `my-toolbox` by default; create it separately
+as described in [Creating a Foundry Toolbox](#creating-a-foundry-toolbox).
 
 ### OAuth consent required
 
