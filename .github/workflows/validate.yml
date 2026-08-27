@@ -164,7 +164,7 @@ jobs:
   #     yields a PRESENT, FAILING check and requires maintainer promotion.
   #   - Concurrency cancels superseded runs.
   #   - Live-service validation uses the pre-provisioned WARM project via SKIP_PROVISION=true (never provisions
-  #     per PR — cold provisioning is the cadence lane's sole job). OIDC federated login, no stored
+  #     per PR). Cold provisioning is not yet delivered. OIDC federated login, no stored
   #     secret. The legacy external environment identifier L4-validation MUST carry zero
   #     protection_rules: because this always-running job
   #     binds the environment, an environment reviewer rule would stall a fork instead of failing it.
@@ -185,8 +185,7 @@ jobs:
       group: validate-trusted-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     env:
-      # Reuse the warm project — never provision per PR (①-guardrail: cold provisioning belongs to
-      # the cadence lane only and must never be "warmed" here for speed).
+      # Reuse the warm project — never provision per PR. Cold provisioning remains future work.
       SKIP_PROVISION: "true"
     steps:
       # MUST remain first. A failed `needs` job normally skips dependents; the job-level

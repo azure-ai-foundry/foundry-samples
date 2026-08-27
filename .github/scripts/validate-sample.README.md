@@ -24,6 +24,27 @@ and a sample with a `live_service_validation` declaration proceeds to live-servi
 validation only after readiness passes. Declaring live-service validation therefore
 does not opt a sample out of build readiness.
 
+## Build readiness
+
+The validator supports `csharp`, `python`, `typescript`, `java`, and `go`.
+Workflow callers map JavaScript samples to `typescript`.
+
+If `sample.yaml` declares `build`, `validate`, or `test`, the validator runs
+each non-empty command in that order and stops at the first failure. Declared
+commands take precedence over the language default.
+
+| Language | Default when no commands are declared |
+|---|---|
+| C# | Run `dotnet build --verbosity minimal` for every top-level `.csproj`; pass when none exists. |
+| Python | Create and activate a temporary `.venv` in the sample directory, install `requirements.txt` when present, run `python -m py_compile` for each top-level `.py`, and remove the virtual environment on exit. |
+| TypeScript / JavaScript | With `package.json`, run `npm install --no-audit --no-fund` and `npm run build --if-present`. Without it, run `node --check` for top-level `.js`; top-level `.ts` files have no default compile step. |
+| Java | Run `mvn compile -q` for `pom.xml`, or a Gradle build for `build.gradle`/`build.gradle.kts`, preferring `./gradlew` before a system `gradle`; pass when neither build file exists. |
+| Go | Run `go build ./...` with `go.mod`, otherwise build each top-level `.go`; pass when no top-level `.go` exists. |
+
+Rust is not supported. The full-fleet cadence currently enables C#, Java,
+Python, TypeScript, and JavaScript; Go remains available to local and
+pull-request callers but is not enabled by cadence discovery.
+
 Both modes use the same exit and verdict contract:
 
 | Exit | Verdict | Meaning |
@@ -34,9 +55,9 @@ Both modes use the same exit and verdict contract:
 
 See `CLASSIFICATION.md` for the authoritative failure-versus-error rules.
 
-## `sample.yaml` live-service declaration
+## `sample.yaml` Live-service declaration
 
-Live-service validation is opt-in. A sample declares it with a top-level
+Live-service validation is opt-in and sample-owned. A sample declares it with a top-level
 `live_service_validation` mapping:
 
 ```yaml
@@ -70,9 +91,10 @@ The contract is:
   environment-variable names. Every listed variable must be non-empty or the
   validator returns infrastructure error (`2`) before executing sample code.
 - `SKIP_PROVISION` is a reserved caller input and must be set to exactly `true`
-  or `false` whenever live-service validation is declared. The validator does not override it:
-  trusted PR callers can use the warm project with `true`, while the cold
-  cadence can use `false`.
+  or `false` whenever live-service validation is declared. The validator
+  passes it through but never provisions resources itself. Current repository
+  workflows use the warm project with `true`; cold provisioning and a caller
+  policy for `false` are not yet delivered.
 - Authentication and cloud configuration are caller-owned. The command inherits
   the caller's environment and existing CLI/OIDC login. Do not put credentials,
   secrets, resource provisioning, or production mutations in `sample.yaml`.
@@ -90,3 +112,17 @@ The validator rejects the legacy `l4` key with a migration message. It also reje
 a scalar `live_service_validation`, a missing/non-string/empty `command`, a non-list
 `required_env`, invalid variable names, malformed YAML, and missing declared
 environment inputs as infrastructure errors.
+
+## Caller responsibilities
+
+Local callers must install the language toolchain and Bash. Install `yq` when
+the sample has `sample.yaml`; repository workflows pin `yq` 4.44.3. Callers
+also own authentication, environment variables, and the decision to use a warm
+or future cold environment. The validator does not log in, create cloud
+resources, or infer credentials.
+
+The pull-request workflow runs Build readiness for changed supported samples
+and uses the existing warm project for its required `trusted` check. The daily
+cadence discovers the full metadata-bearing inventory and publishes normalized
+results as described in the
+[daily validation guide](../validation-pilot.README.md).

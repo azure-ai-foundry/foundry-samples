@@ -1,21 +1,24 @@
 # Sample validator classification contract
 
 Authoritative `failure`-vs-`error` contract for `.github/scripts/validate-sample.sh`.
-The public-first validation pipeline — and specifically the quarantine loop (P4.4) —
-**keys on this contract**. Read this before changing the classifier or anything that
-consumes its verdict.
+Current workflows and reports key on this contract. Planned reaction and
+quarantine automation must preserve it, but that automation is not yet
+delivered. Read this before changing the classifier or anything that consumes
+its verdict.
 
 ## Exit contract (three-way, load-bearing)
 
 | Exit | Verdict | Meaning | Downstream action |
 |------|---------|---------|-------------------|
 | `0`  | `pass`  | The requested mode passed: build readiness builds/compiles, or the declared live-service command exited 0. Live-service validation with no declaration is also a successful no-op. | none |
-| `1`  | `fail`  | **The SAMPLE is broken**, or a runtime failure we cannot positively attribute to our infra. | P4.4 may count a strike / quarantine (advisory-first). |
-| `2`  | `error` | **OUR INFRA is sick** — a precondition error, a dedicated dependency install with positively-identified transport failure, or a live-service command explicitly reporting caller/cloud infrastructure failure with exit 2. | Page us. **P4.4 must NEVER count or quarantine on `error`.** |
+| `1`  | `fail`  | **The SAMPLE is broken**, or a runtime failure we cannot positively attribute to our infra. | Inspect the sample output. Future reaction automation may treat this as sample-owned. |
+| `2`  | `error` | **OUR INFRA is sick** — a precondition error, a dedicated dependency install with positively-identified transport failure, or a live-service command explicitly reporting caller/cloud infrastructure failure with exit 2. | Inspect the workflow or caller environment. Future reaction automation must not count this against a sample. |
 
-The split is a safety interlock. A real breakage mislabeled `error` hides broken code forever
-(there is no counter behind `error`). A transient infra blip mislabeled `failure` risks
-quarantining a healthy sample. Both directions are dangerous; keep the split honest.
+The split is a safety interlock for current reports and future reaction
+automation. A real breakage mislabeled `error` hides broken code from
+sample-owned reporting. A transient infrastructure issue mislabeled `failure`
+could make future automation act on a healthy sample. Both directions are
+dangerous; keep the split honest.
 
 ## What is `error` (exit 2)
 
@@ -59,9 +62,9 @@ exit `2`; output text is not interpreted. When we genuinely cannot tell an infra
 sample break, we bias to **`failure`**.
 
 Rationale — *recourse asymmetry*, not "strikes are cheap":
-- A false `error` has **no counter**: it silently hides real breakage forever.
-- A false `failure` is recoverable: P4.4 runs advisory-first, quarantine is strike-based, and a
-  human reviews before a sample moves.
+- A false `error` can silently hide real sample breakage.
+- A false `failure` is visible for human review. Any future quarantine mechanism
+  must be advisory-first and require review before a sample moves.
 - We keep the transport allow-list **narrow** so false `failure`s stay rare in the first place —
   we do not lean on the strike mechanism to absorb sloppiness (infra outages are correlated and
   can survive multiple runs).
