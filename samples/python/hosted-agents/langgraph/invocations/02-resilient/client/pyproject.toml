@@ -1,0 +1,12 @@
+[project]
+name = "resilient-invocations-client"
+version = "0.1.0"
+description = "Textual client for the resilient invocations sample"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.0",
+    "azure-ai-projects>=2.3.0",
+    "azure-identity>=1.25.1",
+    "openai>=2.44.0",
+    "textual>=5.0.0",
+]
