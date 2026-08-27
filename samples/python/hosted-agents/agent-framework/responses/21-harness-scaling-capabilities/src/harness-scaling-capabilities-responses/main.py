@@ -33,6 +33,7 @@ Authentication:
 """
 
 import asyncio
+import logging
 import os
 import shutil
 import uuid
@@ -70,6 +71,9 @@ from pydantic import Field
 from subprocess_script_runner import subprocess_script_runner
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 _SAMPLE_DIR = Path(__file__).resolve().parent
 _PACKAGED_WORKING_DIR = _SAMPLE_DIR / "working"
@@ -196,9 +200,11 @@ async def _build_skills_provider(stack: AsyncExitStack) -> SkillsProvider:
     if toolbox_url:
         session = await _connect_foundry_toolbox(stack, toolbox_url)
         sources.append(MCPSkillsSource(client=session))
-        print("Foundry skills enabled (Toolbox MCP).")
+        logger.info("Foundry skills enabled (Toolbox MCP).")
     else:
-        print("Foundry skills disabled. Set FOUNDRY_TOOLBOX_MCP_SERVER_URL to enable them.")
+        logger.info(
+            "Foundry skills disabled. Set FOUNDRY_TOOLBOX_MCP_SERVER_URL to enable them."
+        )
 
     source: SkillsSource = sources[0] if len(sources) == 1 else AggregatingSkillsSource(sources)
     # The source auto-approves skill operations through the console's session-bound approval
@@ -308,7 +314,7 @@ def _build_agent(client: FoundryChatClient, skills_provider: SkillsProvider) -> 
     # CodeAct: a sandboxed Python interpreter the model can write and run code in to crunch numbers.
     # Monty is a pure, cross-platform interpreter, so it needs no extra setup.
     context_providers: list[Any] = [MontyCodeActProvider(approval_mode="never_require")]
-    print("CodeAct enabled (Monty).")
+    logger.info("CodeAct enabled (Monty).")
 
     # Turn the chat client into a harness agent with Post 3's four "scaling" capabilities: skills
     # (our own provider), background agents, a confined shell, and CodeAct. Read-only file tools are

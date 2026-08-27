@@ -19,6 +19,7 @@ Conversation state is managed server-side by the platform via
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 
 import httpx
@@ -32,6 +33,9 @@ from langchain_azure_ai.agents.hosting import ResponsesHostServer
 from langchain_azure_ai.chat_models import AzureAIOpenAIApiChatModel
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 _AZURE_AI_SCOPE = "https://ai.azure.com/.default"
 
@@ -83,12 +87,13 @@ async def _load_toolbox_tools() -> list[BaseTool]:
         }
     )
     tools = await client.get_tools()
-    print(
-        f"Loaded {len(tools)} delegation tool(s) from toolbox "
-        f"'{os.environ['TOOLBOX_NAME']}':"
+    logger.info(
+        "Loaded %d tool(s) from Foundry Toolbox '%s' for A2A delegation:",
+        len(tools),
+        os.environ["TOOLBOX_NAME"],
     )
     for t in tools:
-        print(f"  - {t.name}")
+        logger.info("Loaded delegation tool: %s", t.name)
     return tools
 
 

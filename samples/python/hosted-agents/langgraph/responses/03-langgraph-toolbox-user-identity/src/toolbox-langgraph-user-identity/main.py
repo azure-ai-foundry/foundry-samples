@@ -17,6 +17,7 @@ surfaces the consent URL through a tool message instead of crashing the turn.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 from collections.abc import AsyncIterator
@@ -34,6 +35,9 @@ from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 _AZURE_AI_SCOPE = "https://ai.azure.com/.default"
 
@@ -149,11 +153,15 @@ def _sanitize_tool_schema(tool: BaseTool) -> None:
 async def _load_toolbox_tools() -> list[BaseTool]:
     toolbox = AzureAIProjectToolbox(toolbox_name=os.environ["TOOLBOX_NAME"])
     tools = await toolbox.get_tools()
-    print(f"Loaded {len(tools)} tool(s) from Foundry Toolbox '{toolbox.toolbox_name}':")
+    logger.info(
+        "Loaded %d tool(s) from Foundry Toolbox '%s':",
+        len(tools),
+        toolbox.toolbox_name,
+    )
     for tool in tools:
         _sanitize_tool_schema(tool)
         tool.handle_tool_error = _consent_aware_error_handler
-        print(f"  - {tool.name}")
+        logger.info("Loaded toolbox tool: %s", tool.name)
     return tools
 
 

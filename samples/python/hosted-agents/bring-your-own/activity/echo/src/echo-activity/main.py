@@ -71,5 +71,5 @@ async def on_error(context, error):
 
 
 if __name__ == "__main__":
-    print("Starting simple echo agent (bring-your-own) ...")
+    logger.info("Starting simple echo agent (bring-your-own) ...")
     host.run()

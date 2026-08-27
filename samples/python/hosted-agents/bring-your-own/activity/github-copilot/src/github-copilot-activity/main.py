@@ -235,6 +235,6 @@ async def on_error(context, error):
 
 
 if __name__ == "__main__":
-    print("Starting the GitHub Copilot SDK agent ...")
+    logger.info("Starting the GitHub Copilot SDK agent ...")
     host.run()
 

@@ -59,6 +59,18 @@ onboarding checklist](../../../internal/tools/samples-hosted-agents/README.md).
 Run both the documented `validate` and protocol-aware `plan` commands before
 submitting changes.
 
+## Runtime logging
+
+Use the standard `logging` module for diagnostics emitted by a running hosted
+agent. Prefer `logger.info()`, `logger.warning()`, and `logger.exception()` over
+`print()` when output must be observable while the long-running process remains
+alive; Python stdout may remain buffered in hosted containers.
+
+Use `print()` only when stdout is intentionally part of a CLI, provisioning
+script, local test utility, or tool-result contract. If stdout is required from a
+long-running process, flush it explicitly. E2E log assertions must target a
+deliberate sample-owned log event, not mutable framework or dependency wording.
+
 ## README conventions
 
 Most samples follow the shared template,

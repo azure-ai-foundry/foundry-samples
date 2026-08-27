@@ -17,6 +17,7 @@ MCP tool. When the toolbox returns an OAuth consent error (MCP code
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 from typing import Any, AsyncIterator
@@ -34,6 +35,9 @@ from langchain_azure_ai.agents.hosting import ResponsesHostServer
 from langchain_azure_ai.tools import AzureAIProjectToolbox
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 _AZURE_AI_SCOPE = "https://ai.azure.com/.default"
 
@@ -151,11 +155,15 @@ def _sanitize_tool_schema(tool: BaseTool) -> None:
 async def _load_toolbox_tools() -> list[BaseTool]:
     toolbox = AzureAIProjectToolbox(toolbox_name=os.environ["TOOLBOX_NAME"])
     tools = await toolbox.get_tools()
-    print(f"Loaded {len(tools)} tool(s) from Foundry Toolbox '{toolbox.toolbox_name}':")
+    logger.info(
+        "Loaded %d tool(s) from Foundry Toolbox '%s':",
+        len(tools),
+        toolbox.toolbox_name,
+    )
     for t in tools:
         _sanitize_tool_schema(t)
         t.handle_tool_error = _consent_aware_error_handler
-        print(f"  - {t.name}")
+        logger.info("Loaded toolbox tool: %s", t.name)
     return tools
 
 
