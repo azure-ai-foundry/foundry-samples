@@ -153,15 +153,14 @@ jobs:
   #   - SINGLE JOB, no per-language matrix. A matrix of required checks reinstates the rejected
   #     aggregator/gate-shim. Speed comes from IN-JOB parallelism (the readiness step backgrounds
   #     validate-sample.sh per changed sample), never from fan-out into multiple checks.
-  #   - ALWAYS RUNS for every triggered PR. Forks run credential-free readiness, then fail in-job with
-  #     a promotion-required error. Never restore a job-level fork/draft `if:`: P3.3 proved that
+  #   - ALWAYS RUNS for every triggered PR. Affected-sample forks run credential-free readiness, then
+  #     fail in-job with a promotion-required error. Never restore a job-level fork/draft `if:`: P3.3 proved that
   #     GitHub treats a required job that concludes `skipped` as satisfying the merge gate.
   #   - FAILS CLOSED when `detect` fails or emits malformed outputs. The exact job-level
   #     `!cancelled()` status condition starts trusted after dependency failure; the FIRST step
   #     validates the dependency result/output contract before checkout or docs-only handling.
-  #   - Docs-only PRs SHORT-CIRCUIT before any Azure/secret step (has_changes gate). A docs-only
-  #     same-repo PR yields a PRESENT, PASSING check (correct "no sample owes live-service validation"); every fork
-  #     yields a PRESENT, FAILING check and requires maintainer promotion.
+  #   - Docs-only PRs SHORT-CIRCUIT before any Azure/secret step (has_changes gate) and yield a
+  #     PRESENT, PASSING check for both forks and same-repo PRs (correct "no sample owes live-service validation").
   #   - Concurrency cancels superseded runs.
   #   - Live-service validation uses the pre-provisioned WARM project via SKIP_PROVISION=true (never provisions
   #     per PR). Cold provisioning is not yet delivered. OIDC federated login, no stored
@@ -238,11 +237,10 @@ jobs:
       - uses: actions/checkout@v4
 
       # --- Docs-only short-circuit (BEFORE any secret/Azure step) ---------------
-      # If detect found no changed sample, nothing owes live-service validation, so the trusted gate is satisfied. Log and
-      # let a SAME-REPO job end green WITHOUT touching OIDC/secrets. Forks never short-circuit to
-      # success; they reach the explicit promotion failure below.
+      # If detect found no changed sample, nothing owes live-service validation, so the trusted gate is satisfied.
+      # Log and let either a fork or same-repo job end green WITHOUT touching OIDC/secrets.
       - name: Short-circuit docs-only PRs before secrets
-        if: needs.detect.outputs.has_changes != 'true' && github.event.pull_request.head.repo.fork != true
+        if: needs.detect.outputs.has_changes != 'true'
         run: echo "No changed samples (docs-only) -> no sample owes live-service validation -> trusted gate satisfied. Skipping build readiness and live-service validation without touching secrets."
 
       # --- Derive which toolchains the changed samples actually need ------------
@@ -370,10 +368,10 @@ jobs:
           fi
           echo "Build readiness green for all $pass changed sample(s)."
 
-      # A fork must produce a terminal FAILURE, never a skipped required check. This step uses a
-      # status function so it still emits the promotion instruction after a fork's readiness fails.
+      # An affected-sample fork must produce a terminal FAILURE, never a skipped required check.
+      # This step uses a status function so it still emits the promotion instruction after readiness fails.
       - name: Reject fork until maintainer promotion
-        if: ${{ !cancelled() && github.event.pull_request.head.repo.fork == true }}
+        if: ${{ !cancelled() && needs.detect.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork == true }}
         run: |
           set -euo pipefail
           if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then

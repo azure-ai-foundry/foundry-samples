@@ -2,7 +2,8 @@
 # Structural regression gate for the single required `trusted` job.
 #
 # Root cause pinned here: a job-level `if:` skip concludes `skipped`, and GitHub treats a
-# skipped required check as satisfied. The job must run and fail forks explicitly after build readiness.
+# skipped required check as satisfied. The job must run and fail affected-sample forks explicitly
+# after build readiness while allowing a valid empty detector result to pass for every PR origin.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -162,10 +163,12 @@ run_contract_case "false with samples fails closed" 1 success false 1 '["samples
 run_contract_case "count mismatch fails closed" 1 success true 2 '["samples/python/foo"]'
 
 extract_step "Short-circuit docs-only PRs before secrets" "$TMP/docs-only.yml"
-expect_has "docs-only success is same-repo guarded" 'head\.repo\.fork != true' "$TMP/docs-only.yml"
+expect_has "docs-only success requires an empty detector result" 'needs\.detect\.outputs\.has_changes != .true.' "$TMP/docs-only.yml"
+expect_not_has "docs-only success is not restricted by PR origin" 'head\.repo\.fork' "$TMP/docs-only.yml"
 
 extract_step "Validate changed sample build readiness (in-job parallel)" "$TMP/build-readiness.yml"
 extract_step "Reject fork until maintainer promotion" "$TMP/fork-reject.yml"
+expect_has "fork rejection requires affected samples" 'needs\.detect\.outputs\.has_changes == .true.' "$TMP/fork-reject.yml"
 expect_has "fork rejection is fork-only" 'head\.repo\.fork == true' "$TMP/fork-reject.yml"
 expect_has "fork rejection runs after a readiness failure" '!cancelled\(\)' "$TMP/fork-reject.yml"
 expect_has "fork rejection checks OIDC request surface" 'ACTIONS_ID_TOKEN_REQUEST_(URL|TOKEN)' "$TMP/fork-reject.yml"
