@@ -18,6 +18,15 @@ if ($env:AZURE_DEVOPS_ORGANIZATION) {
     $runtimeEnvironmentVariables["AZURE_DEVOPS_ORGANIZATION"] = $env:AZURE_DEVOPS_ORGANIZATION
 }
 
+$agentEndpoint = @{
+    protocols = @("activity")
+    protocol_configuration = @{
+        activity = @{
+            enable_m365_public_endpoint = $true
+        }
+    }
+}
+
 $agentUrl = "$($AzureAIProjectEndpoint)/agents/$($AgentName)/versions?api-version=2025-11-15-preview"
 
 $agentCreationBody = @{
@@ -38,9 +47,8 @@ $agentCreationBody = @{
         enableVnextExperience = "true"
     }
     description = "Foundry autopilot."
-    agent_endpoint = @{
-        protocols = @("activity")
-    }
+    agent_endpoint = $agentEndpoint
+    digital_worker_type = "m365"
 }
     
 $jsonBody = $agentCreationBody | ConvertTo-Json -Depth 5
@@ -55,6 +63,7 @@ $headers = @{
     "Content-Type" = "application/json"
     "Accept" = "application/json"
     "Authorization" = "Bearer $aiAzureToken"
+    "Foundry-Features" = "DigitalWorker=V1Preview"
 }
 
 Write-Host "Creating agent version at: $agentUrl"
@@ -150,13 +159,11 @@ else {
 }
 
 $patchUrl = "$($AzureAIProjectEndpoint)/agents/$($AgentName)?api-version=2025-11-15-preview"
+$agentEndpoint["authorization_schemes"] = @(
+    @{ "type" = "BotServiceRbac" }
+)
 $patchBody = @{
-    agent_endpoint = @{
-        protocols = @("activity")
-        authorization_schemes = @(
-            @{ "type" = "BotServiceRbac" }
-        )
-    }
+    agent_endpoint = $agentEndpoint
 } | ConvertTo-Json -Depth 5
 
 Write-Host "Patching agent endpoint at: $patchUrl"

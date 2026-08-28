@@ -13,10 +13,20 @@ param cognitiveServicesSku string = 'S0'
 param containerRegistrySku string = 'Basic'
 
 // Cognitive Services account properties
+@allowed([
+  'Enabled'
+  'Disabled'
+])
 param publicNetworkAccess string = 'Enabled'
 
 param modelName string
 param modelVersion string
+
+@description('Name of the Log Analytics workspace')
+param logAnalyticsName string
+
+@description('Name of the Application Insights component')
+param applicationInsightsName string
 
 // Cognitive Services Account
 resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
@@ -113,9 +123,40 @@ resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-
   }
 }
 
+module monitoring 'monitoring.bicep' = {
+  name: 'monitoring-deployment'
+  params: {
+    logAnalyticsName: logAnalyticsName
+    applicationInsightsName: applicationInsightsName
+    location: location
+    tags: tags
+    projectPrincipalId: project.identity.principalId
+  }
+}
+
+resource appInsightsConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-09-01' = {
+  parent: project
+  name: applicationInsightsName
+  properties: {
+    category: 'AppInsights'
+    target: monitoring.outputs.id
+    #disable-next-line BCP036
+    authType: 'ProjectManagedIdentity'
+    isSharedToAll: false
+    metadata: {
+      ApiType: 'Azure'
+      ResourceId: monitoring.outputs.id
+      ApplicationInsightsConnectionString: monitoring.outputs.connectionString
+    }
+  }
+}
 
 output acrloginServer string = containerRegistry.properties.loginServer
 
 output foundryProjectEndpoint string = project.properties.endpoints['AI Foundry API']
 
 output foundryProjectPrincipalId string = project.identity.principalId
+
+output applicationInsightsConnectionString string = monitoring.outputs.connectionString
+
+output applicationInsightsResourceId string = monitoring.outputs.id

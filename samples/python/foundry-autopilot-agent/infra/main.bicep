@@ -29,9 +29,22 @@ param containerRegistryName string = '${environmentName}acr'
 @description('SKU of Cognitive Services account')
 param cognitiveServicesSku string = 'S0'
 
+@description('Controls public network access for the Foundry account')
+@allowed([
+  'Enabled'
+  'Disabled'
+])
+param publicNetworkAccess string = 'Enabled'
+
 @description('SKU of Container Registry')
 @allowed(['Basic', 'Standard', 'Premium'])
 param containerRegistrySku string = 'Basic'
+
+@description('Name of the Log Analytics workspace')
+param logAnalyticsName string = '${environmentName}-logs'
+
+@description('Name of the Application Insights component')
+param applicationInsightsName string = '${environmentName}-appi'
 
 param agentName string = '${environmentName}-autopilot-agent'
 
@@ -66,9 +79,12 @@ module project 'modules/project.bicep' = {
     location: location
     tags: tags
     cognitiveServicesSku: cognitiveServicesSku
+    publicNetworkAccess: publicNetworkAccess
     containerRegistrySku: containerRegistrySku
     modelName: modelName
     modelVersion: modelVersion
+    logAnalyticsName: logAnalyticsName
+    applicationInsightsName: applicationInsightsName
   }
 }
 
@@ -98,3 +114,9 @@ output TENANT_ID string = tenant().tenantId
 output PROJECT_PRINCIPAL_ID string = project.outputs.foundryProjectPrincipalId
 
 output MODEL_NAME string = modelName
+
+output PUBLIC_NETWORK_ACCESS string = publicNetworkAccess
+
+output APPLICATIONINSIGHTS_CONNECTION_STRING string = project.outputs.applicationInsightsConnectionString
+
+output APPLICATIONINSIGHTS_RESOURCE_ID string = project.outputs.applicationInsightsResourceId
