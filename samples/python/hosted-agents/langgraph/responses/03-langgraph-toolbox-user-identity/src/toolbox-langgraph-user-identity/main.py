@@ -47,7 +47,8 @@ mail, calendar, and GitHub tools through Foundry Toolbox.
 Use a tool whenever the request depends on the user's data. Summarize only the
 information needed to answer the request. When a tool returns source URLs,
 include a brief "Sources" section listing the titles and URLs you used. Do not
-invent citations.
+invent citations. If OAuth consent is required, return the complete consent URL
+verbatim so the user can authorize the connection.
 """
 
 
@@ -71,20 +72,30 @@ def _build_chat_model() -> ChatOpenAI:
 
 # ── OAuth consent handling ───────────────────────────────────────────
 _CONSENT_ERROR_CODE = -32006
-_CONSENT_HOST = "consent.azure-apim.net"
+_CONSENT_HOSTS = ("consent.azure-apim.net", "consent.azure-apihub.net")
+
+
+def _is_consent_host(host: str | None) -> bool:
+    return bool(
+        host
+        and any(
+            host == consent_host or host.endswith(f".{consent_host}")
+            for consent_host in _CONSENT_HOSTS
+        )
+    )
 
 
 def _contains_consent_host(text: str) -> bool:
     for token in re.findall(r"https?://[^\s'\"<>]+", text):
         host = urlparse(token).hostname
-        if host and (host == _CONSENT_HOST or host.endswith(f".{_CONSENT_HOST}")):
+        if _is_consent_host(host):
             return True
     return False
 
 
 def _extract_consent_url(text: str) -> str | None:
     for candidate in re.findall(r"https?://[^\s)>\]\"']+", text):
-        if urlparse(candidate).hostname == _CONSENT_HOST:
+        if _is_consent_host(urlparse(candidate).hostname):
             return candidate
     return None
 

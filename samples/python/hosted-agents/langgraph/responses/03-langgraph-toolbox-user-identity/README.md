@@ -127,9 +127,9 @@ GitHub connection uses Foundry-managed OAuth2. A user may need to grant consent
 before a tool can access their data.
 
 When the Foundry MCP gateway returns consent error `-32006`, the agent responds
-with a URL on `consent.azure-apim.net`. Open that URL, complete the consent
-flow, and retry the request. The implementation accepts only URLs whose host is
-exactly `consent.azure-apim.net`.
+with a URL on `consent.azure-apim.net` or a regional
+`*.consent.azure-apihub.net` host. Open that URL, complete the consent flow, and
+retry the request.
 
 ## Configuration
 
@@ -145,7 +145,12 @@ exactly `consent.azure-apim.net`.
 ### The agent reports that consent is required
 
 Open the returned consent URL, authorize the connection, and retry the same
-request.
+request in a fresh session:
+
+```bash
+azd ai agent invoke --new-session --new-conversation \
+  "Summarize my upcoming calendar events."
+```
 
 ### The agent loads no tools
 

@@ -4,6 +4,9 @@
   "parameters": {
     "accountName": {
       "value": "${AZURE_AI_ACCOUNT_NAME}"
+    },
+    "resourceGroupName": {
+      "value": "${AZURE_FOUNDRY_RESOURCE_GROUP}"
     }
   }
 }
