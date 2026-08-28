@@ -14,12 +14,14 @@ This directory contains samples that demonstrate how to use [LangGraph](https://
 | 6   | [Files](responses/06-files/)                                          | A LangGraph agent with local filesystem tools and a Foundry-Toolbox `code_interpreter`, demonstrating session-uploaded file handling.                                                    |
 | 7   | [Human-in-the-Loop](responses/07-human-in-the-loop/)                  | A LangGraph `StateGraph` that drafts a proposal and pauses for human review via `langgraph.types.interrupt`, serialized as `mcp_approval_request` + `function_call` output items.        |
 | 8   | [Observability](responses/08-observability/)                          | A LangGraph agent with GenAI OpenTelemetry tracing enabled via `enable_auto_tracing()`, emitting spans, metrics, and logs to Application Insights.                                       |
+| 10  | [Run](responses/10-run/)                                              | A minimal configuration-driven LangGraph agent hosted over the Responses protocol with the `langchain_azure_ai.agents.hosting.run` entrypoint.                                         |
 
 ### Invocations API
 
 | #   | Sample                                          | Description                                                                                                                                          |
 | --- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | [Chat](invocations/01-langgraph-chat/)          | A minimal LangGraph agent with two local tools, demonstrating session state via `agent_session_id` (URL param / `x-agent-session-id` response header) backed by a LangGraph checkpointer. |
+| 3   | [Run](invocations/03-run/)                      | A minimal configuration-driven LangGraph agent hosted over the Invocations protocol with the `langchain_azure_ai.agents.hosting.run` entrypoint and in-process `MemorySaver` state. |
 
 ### Agent-to-Agent (A2A)
 
