@@ -13,43 +13,11 @@ services:
         model:
           format: OpenAI
           name: gpt-5.4-mini
-          version: '2026-03-17'
+          version: "2026-03-17"
         sku:
           name: GlobalStandard
           capacity: 10
-  langchain-azure-resilient-invocations:
-    host: azure.ai.agent
-    metadata:
-      tags:
-        - AI Agent Hosting
-        - Invocations Protocol
-        - LangGraph
-        - LangChain
-        - Long-Running
-        - Resilient Tasks
-        - Human-in-the-Loop
-        - Python
-    project: src/langchain-azure-resilient-invocations
-    language: python
-    codeConfiguration:
-      runtime: python_3_13
-      entryPoint: main.py
-    uses:
-      - ai-project
-    kind: hosted
-    name: langchain-azure-resilient-invocations
-    displayName: LangGraph Resilient (Invocations)
-    description: Resilient LangGraph trip-planning agent with crash simulation.
-    protocols:
-      - protocol: invocations
-        version: 2.0.0
-    env:
-      STEERABLE_CONVERSATIONS: 'false'
-      AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
-    container:
-      resources:
-        cpu: "0.5"
-        memory: 1Gi
+
   langchain-azure-resilient-invocations-steerable:
     host: azure.ai.agent
     metadata:
@@ -78,7 +46,7 @@ services:
       - protocol: invocations
         version: 2.0.0
     env:
-      STEERABLE_CONVERSATIONS: 'true'
+      STEERABLE_CONVERSATIONS: "true"
       AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
     container:
       resources:

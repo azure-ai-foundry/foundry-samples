@@ -333,7 +333,7 @@ azd env select <environment-name>
 Import `.env` into the selected `azd` environment:
 
 ```powershell
-azd env set --file .\.env
+azd env set --file .\src\langchain-azure-resilient-responses\.env
 ```
 
 To create a new Foundry project and the model declared in `azure.yaml`, provision
