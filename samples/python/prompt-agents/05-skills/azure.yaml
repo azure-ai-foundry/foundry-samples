@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
-name: prompt-agent-basic
+name: prompt-agent-skills
 services:
   ai-project:
     host: azure.ai.project
@@ -13,15 +13,23 @@ services:
         sku:
           name: GlobalStandard
           capacity: 10
-  prompt-agent-basic:
+  travel-guide:
+    host: azure.ai.skill
+    uses:
+      - ai-project
+    archive: ./skills/travel-guide
+  prompt-agent-skills:
     host: azure.ai.agent
     project: .
     uses:
       - ai-project
+      - travel-guide
     kind: prompt
-    name: prompt-agent-basic
-    description: A basic prompt agent.
+    name: prompt-agent-skills
+    description: A prompt agent backed by a file-based skill.
     model: gpt-5.4-mini
-    instructions: You are a helpful, friendly assistant. Answer questions clearly and concisely.
+    instructions: >-
+      You are a helpful travel assistant. Use the travel-guide skill whenever the user asks for a
+      city travel guide, itinerary, or trip plan.
 infra:
   provider: microsoft.foundry

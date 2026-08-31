@@ -1,6 +1,6 @@
 # Prompt Agent with Function Tools
 
-A prompt agent that declares **client-executed function tools** (`get_weather`, `convert_currency`) in [`agent.yaml`](./agent.yaml). `type: function` declares the schema only — the model emits a tool call and your application executes it and returns the result.
+A prompt agent that declares **client-executed function tools** (`get_weather`, `convert_currency`) in [`azure.yaml`](./azure.yaml). `type: function` declares the schema only; the model emits a tool call and your application executes it and returns the result.
 
 ## Deploy
 
@@ -9,10 +9,13 @@ azd up
 azd ai agent invoke "What is the weather in Seattle in celsius?"
 ```
 
-## Managed Harness Agent
+## GitHub Copilot Harness
 
-Supported. To run this as a Managed Harness Agent, add one line to [`agent.yaml`](./agent.yaml):
+Supported with non-strict function tools. To use the GitHub Copilot harness, add this block to the agent service in [`azure.yaml`](./azure.yaml):
 
 ```yaml
-harness: github-copilot
+harness:
+  type: github_copilot_preview
 ```
+
+Also set `strict: false` on each function tool. Strict function mode is not supported by the GitHub Copilot harness.

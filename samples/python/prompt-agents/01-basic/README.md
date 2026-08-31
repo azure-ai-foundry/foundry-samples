@@ -1,6 +1,6 @@
 # Basic Prompt Agent
 
-The minimal prompt agent: a model plus instructions, defined in [`agent.yaml`](./agent.yaml) and [`instructions.md`](./instructions.md). No tools, files, or skills.
+The minimal prompt agent: a model plus inline instructions, defined in [`azure.yaml`](./azure.yaml). No tools or skills.
 
 ## Deploy
 
@@ -9,10 +9,11 @@ azd up
 azd ai agent invoke "Hi"
 ```
 
-## Managed Harness Agent
+## GitHub Copilot Harness
 
-Supported. To run this as a Managed Harness Agent, add one line to [`agent.yaml`](./agent.yaml):
+Supported. To use the GitHub Copilot harness, add this block to the agent service in [`azure.yaml`](./azure.yaml):
 
 ```yaml
-harness: github-copilot
+harness:
+  type: github_copilot_preview
 ```
