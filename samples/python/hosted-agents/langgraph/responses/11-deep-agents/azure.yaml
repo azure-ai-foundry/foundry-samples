@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  azd: '>=1.27.1'
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.9'
+name: langgraph-deep-agents
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.6-terra
+        model:
+          format: OpenAI
+          name: gpt-5.6-terra
+          version: '2026-07-09'
+        sku:
+          name: GlobalStandard
+          capacity: 375
+  deep-agents-tools:
+    host: azure.ai.toolbox
+    uses:
+      - ai-project
+    tools:
+      - type: web_search
+        name: web_search
+  langgraph-deep-agents:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - LangGraph
+        - LangChain
+        - Deep Agents
+        - Multi-Agent
+        - Python
+    project: src/langgraph-deep-agents
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+      - deep-agents-tools
+    kind: hosted
+    name: langgraph-deep-agents
+    displayName: LangGraph Deep Agents (Responses)
+    description: 'A Deep Agents web research assistant hosted on Foundry over the Responses protocol. Demonstrates planning, Foundry web search, state-backed working files, and focused subagent delegation.'
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    env:
+      AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      TOOLBOX_NAME: deep-agents-tools
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry
