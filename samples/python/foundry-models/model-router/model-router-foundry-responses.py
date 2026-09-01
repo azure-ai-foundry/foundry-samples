@@ -27,8 +27,8 @@ from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 
-# Load environment variables from .env in the repo root
-load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=True)
+# Load environment variables from .env beside this script
+load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 project_endpoint = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
 deployment = os.environ["MODEL_DEPLOYMENT_NAME"]
@@ -43,7 +43,7 @@ with (
         model=deployment,
         input="In one sentence, name the most popular tourist destination in Seattle.",
     )
-# </foundry_responses>
+    # </foundry_responses>
 
     print("--- Foundry Responses SDK Output ---")
     print(f"Routed to model: {response.model}")

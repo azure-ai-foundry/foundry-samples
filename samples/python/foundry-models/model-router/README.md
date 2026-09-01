@@ -7,9 +7,10 @@ Model Router is a deployable AI chat model in Azure AI Foundry that **automatica
 ## Examples
 
 | Folder | API | Auth | Description |
-|--------|-----|------|-------------|
-| [`chat-completions/`](chat-completions/) | Chat Completions | API Key | Basic single-prompt chat completion via `AzureOpenAI` client |
-| [`foundry-responses-sdk/`](foundry-responses-sdk/) | Foundry SDK | Entra ID | Uses `AIProjectClient` → `get_openai_client()` → Responses API |
+| ------ | --- | ---- | ----------- |
+| [`chat-completions/`](./model-router-chat-completions.py) | Chat Completions | API Key | Basic single-prompt chat completion via `AzureOpenAI` client |
+| [`model-router-chat-completions-observability.py`](./model-router-chat-completions-observability.py) | Chat Completions | API Key | Displays the selected model, routing mode, attempts, latency, and status for each routing decision |
+| [`foundry-responses-sdk/`](./model-router-foundry-responses.py) | Foundry SDK | Entra ID | Uses `AIProjectClient` → `get_openai_client()` → Responses API |
 
 ## Prerequisites
 
@@ -59,11 +60,17 @@ Model Router is a deployable AI chat model in Azure AI Foundry that **automatica
 python model-router-chat-completions.py
 ```
 
+### Chat Completions Observability
+
+```bash
+python model-router-chat-completions-observability.py
+```
+
 ### Foundry Responses SDK (Entra ID)
 
 ```bash
 az login
-python model-router-foundry-responses-sdk.py
+python model-router-foundry-responses.py
 ```
 
 ## What to Expect

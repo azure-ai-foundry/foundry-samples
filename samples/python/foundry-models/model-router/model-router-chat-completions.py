@@ -22,8 +22,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 
-# Load environment variables from .env in the repo root
-load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=True)
+# Load environment variables from .env beside this script
+load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]
 api_key = os.environ["AZURE_OPENAI_API_KEY"]
