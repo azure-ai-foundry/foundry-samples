@@ -66,6 +66,47 @@ python model-router-chat-completions.py
 python model-router-chat-completions-observability.py
 ```
 
+#### Model Selection Details
+
+This sample reads `response.model_selection_details`. The code inside the `<response_observability_extract>` tags parses that response fragment to print the routing mode, routing latency, and each model attempt.
+
+The following JSON shows the `model_selection_details` fragment parsed by that code when the router falls back from one model to another:
+
+```json
+{
+   "model_selection_details": {
+      "model_router_details": {
+         "mode": "balanced",
+         "routing_trace": [
+            {
+               "latency_ms": 19,
+               "attempts": [
+                  {
+                     "model": "example-model-a",
+                     "result": {
+                        "status": 404,
+                        "error": {
+                           "code": "NotFound",
+                           "message": "The request failed."
+                        }
+                     }
+                  },
+                  {
+                     "model": "example-model-b",
+                     "result": {
+                        "status": 200
+                     }
+                  }
+               ]
+            }
+         ]
+      }
+   }
+}
+```
+
+This payload is illustrative. The selected models, number of attempts, errors, latency, and preview response schema can vary by request and service version.
+
 ### Foundry Responses SDK (Entra ID)
 
 ```bash
