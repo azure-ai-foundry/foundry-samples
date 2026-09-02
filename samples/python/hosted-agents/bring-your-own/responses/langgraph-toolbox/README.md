@@ -135,7 +135,7 @@ See the [full installation docs](https://learn.microsoft.com/azure/developer/azu
 #   azd ext uninstall azure.ai.toolboxes
 
 # Install the unified bundle (provides azd ai agent, connection, inspector,
-# project, routine, skill, and toolbox). Requires azd 1.25 or later.
+# project, routine, skill, and toolbox). Requires azd 1.27.1 or later.
 azd ext install microsoft.foundry
 ```
 
@@ -166,7 +166,7 @@ against an existing project, you can instead create the same toolbox from the
 bundled [`toolbox.yaml`](src/toolbox-langgraph/toolbox.yaml):
 
 ```bash
-azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
+azd ai toolbox create my-toolbox --from-file ./src/toolbox-langgraph/toolbox.yaml
 ```
 
 The first version becomes the default automatically. Manage with `azd ai toolbox list`, `azd ai toolbox show my-toolbox`, `azd ai toolbox version list my-toolbox`, and `azd ai toolbox delete my-toolbox --force`.
