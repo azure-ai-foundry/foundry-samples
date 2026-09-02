@@ -53,6 +53,7 @@ Before deploying, you can customize:
 #### Deploy
 
 ```powershell
+azd env set PUBLIC_NETWORK_ACCESS Enabled
 azd provision
 ```
 

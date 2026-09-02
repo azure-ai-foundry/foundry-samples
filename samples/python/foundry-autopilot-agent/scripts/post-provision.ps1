@@ -1,7 +1,16 @@
 #!/usr/bin/env pwsh
+
+if ($env:SKIP_POSTPROVISION -eq "true") {
+    Write-Host "Skipping post-provision data-plane operations because SKIP_POSTPROVISION=true."
+    return
+}
+
 Write-Host "Starting post-provision script..."
 
 Write-Host "Resources were deployed to: location $env:LOCATION subscriptionId $env:SUBSCRIPTION_ID agentName $env:AGENT_NAME"
+
+Write-Host "===============Stopping Active Agent Sessions==============="
+& "$PSScriptRoot/stop-agent-sessions.ps1"
 
 # Write-Host "===============Building and pushing Docker image==============="
 & "$PSScriptRoot/build-docker-image-acr.ps1"

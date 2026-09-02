@@ -12,13 +12,6 @@ param cognitiveServicesSku string = 'S0'
 @allowed(['Basic', 'Standard', 'Premium'])
 param containerRegistrySku string = 'Basic'
 
-// Cognitive Services account properties
-@allowed([
-  'Enabled'
-  'Disabled'
-])
-param publicNetworkAccess string = 'Enabled'
-
 param modelName string
 param modelVersion string
 
@@ -28,23 +21,8 @@ param logAnalyticsName string
 @description('Name of the Application Insights component')
 param applicationInsightsName string
 
-// Cognitive Services Account
-resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
+resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' existing = {
   name: accountName
-  location: location
-  tags: tags
-  kind: 'AIServices'
-  sku: {
-    name: cognitiveServicesSku
-  }
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    customSubDomainName: accountName
-    publicNetworkAccess: publicNetworkAccess
-    allowProjectManagement: true
-  }
 }
 
 // Cognitive Services Project (child resource)
@@ -112,7 +90,7 @@ resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-
   parent: account
   sku: {
     name: 'GlobalStandard'
-    capacity: 10
+    capacity: 5
   }
   properties: {
     model: {
