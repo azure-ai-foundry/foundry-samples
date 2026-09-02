@@ -8,8 +8,8 @@ one into a separate runtime directory under ``downloaded_skills/``, and wires
 that directory into a :class:`SkillsProvider` so the agent advertises the
 skills to the model and loads them on demand (progressive disclosure).
 
-Upload the skills to Foundry once with ``provision_skills.py`` before running
-this sample.
+The declared ``azure.ai.skill`` services upload the skills during deployment.
+For workflows without ``azd deploy``, use ``provision_skills.py`` first.
 """
 
 import asyncio
@@ -17,6 +17,7 @@ import io
 import logging
 import os
 import shutil
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import Final
@@ -30,11 +31,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Runtime directory where skills downloaded from Foundry are unpacked.
-# Kept separate from the static ``skills/`` source folder so the two never
-# get confused: the source folder is the input to ``provision_skills.py``
-# and the runtime folder is the output of this script's bootstrap step.
-DOWNLOADED_SKILLS_DIR: Final = Path(__file__).parent / "downloaded_skills"
+# Hosted containers mount the app dir read-only, so unpack to temp.
+# Keep this distinct from the static skills/ source folder.
+DOWNLOADED_SKILLS_DIR: Final = (
+    Path(tempfile.gettempdir()) / "downloaded_skills"
+)
 
 logger = logging.getLogger(__name__)
 

@@ -17,6 +17,14 @@ services:
         sku:
           name: GlobalStandard
           capacity: 10
+      - name: text-embedding-3-small
+        model:
+          format: OpenAI
+          name: text-embedding-3-small
+          version: '1'
+        sku:
+          name: GlobalStandard
+          capacity: 10
   agent-framework-agent-foundry-memory-responses:
     host: azure.ai.agent
     metadata:
@@ -41,10 +49,21 @@ services:
         version: 2.0.0
     env:
       AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
-      MEMORY_STORE_NAME: ${MEMORY_STORE_NAME}
+      AZURE_AI_EMBEDDING_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_EMBEDDING_MODEL_DEPLOYMENT_NAME=text-embedding-3-small}
+      MEMORY_STORE_NAME: ${MEMORY_STORE_NAME=agent_framework_memory}
     container:
       resources:
         cpu: '0.5'
         memory: 1Gi
+hooks:
+  postprovision:
+    posix:
+      shell: sh
+      run: src/agent-framework-agent-foundry-memory-responses/hooks/postprovision.sh
+      interactive: true
+    windows:
+      shell: pwsh
+      run: src/agent-framework-agent-foundry-memory-responses/hooks/postprovision.ps1
+      interactive: true
 infra:
   provider: microsoft.foundry

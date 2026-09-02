@@ -40,7 +40,9 @@ The memory store embeds and retrieves memories through the project's inference e
 
 ## Option 1: Azure Developer CLI (`azd`)
 
-With the bundled `postprovision` hook, a single `azd provision` creates the Foundry Memory Store and sets `MEMORY_STORE_NAME` for you.
+The manifest declares the chat and embedding deployments, and the bundled
+`postprovision` hook creates the Foundry Memory Store after `azd provision`.
+It also sets `MEMORY_STORE_NAME` for you.
 
 ### 1. Install prerequisites
 
@@ -64,42 +66,32 @@ mkdir my-memory-agent && cd my-memory-agent
 azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/13-foundry-memory/azure.yaml
 ```
 
-Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` will guide you through creating one. Initializing also sets the selected project as the active project, and copies this sample's files into a new service directory `src/<agent-name>/` — including [`provision_memory_store.py`](src/agent-framework-agent-foundry-memory-responses/provision_memory_store.py) and the [`hooks/`](hooks/) scripts.
+Follow the prompts to configure your Foundry project. If you don't have an
+existing Foundry project, `azd ai agent init` will guide you through creating
+one. Initializing also sets the selected project as the active project and
+copies this sample's files into a new service directory `src/<agent-name>/`,
+including [`provision_memory_store.py`](src/agent-framework-agent-foundry-memory-responses/provision_memory_store.py)
+and the [`hooks/`](hooks/) scripts.
 
-### 3. Enable one-command provisioning (`postprovision` hook)
+### 3. Provision
 
-Wire the bundled hook into the `azure.yaml` that `azd ai agent init` generated, so the memory store is created automatically every time you run `azd provision`. `postprovision` must be registered at the **top level** of `azure.yaml` (service-scoped hooks only support the package/deploy lifecycle), and the `run:` path must point at the hook inside the generated service directory. Add this top-level block, replacing `<agent-name>` with the service folder `azd ai agent init` created under `src/`:
-
-```yaml
-hooks:
-  postprovision:
-    posix:
-      shell: sh
-      run: ./src/<agent-name>/hooks/postprovision.sh
-    windows:
-      shell: pwsh
-      run: ./src/<agent-name>/hooks/postprovision.ps1
-```
-
-The hook ([`hooks/postprovision.sh`](hooks/postprovision.sh) / [`hooks/postprovision.ps1`](hooks/postprovision.ps1)) runs everything the [manual steps](#provision-manually-without-the-hook) below would, in one shot. It locates its own directory, so it works no matter where `azd` runs it from.
-
-### 4. Provision
-
-Point the hook at an embedding model deployment in your Foundry project (it powers the store's semantic memory, not the agent at runtime), then provision:
+The manifest includes the `gpt-5.4-mini` chat deployment and the
+`text-embedding-3-small` embedding deployment. The embedding deployment powers
+the store's semantic memory, not the agent at runtime:
 
 ```bash
-azd env set AZURE_AI_EMBEDDING_MODEL_DEPLOYMENT_NAME "text-embedding-3-small"
 azd provision
 ```
 
-`azd provision` creates (or reuses) your Foundry project and chat model deployment, then the `postprovision` hook:
+`azd provision` creates (or reuses) your Foundry project and both model
+deployments, then the registered `postprovision` hook:
 
 1. Runs [`provision_memory_store.py`](src/agent-framework-agent-foundry-memory-responses/provision_memory_store.py) to create the Foundry Memory Store (user-profile capability enabled, chat-summary disabled) and verifies it on the service.
-2. Sets `MEMORY_STORE_NAME` so the agent reads and writes that store. It persists the name both to the `azd` environment (for `azd ai agent run`) and into the agent service in `azure.yaml` (so `azd deploy` ships it to the container — `azd ai agent init` resolves `${MEMORY_STORE_NAME}` to an empty value at init time, before the store name is known).
+2. Sets `MEMORY_STORE_NAME` in the `azd` environment so the agent reads and writes that store.
 
 > The hook defaults `MEMORY_STORE_NAME` to `agent_framework_memory`. To use a different name, set it first: `azd env set MEMORY_STORE_NAME "<your-store-name>"`.
 
-### 5. Run the agent locally
+### 4. Run the agent locally
 
 ```bash
 azd ai agent run
@@ -115,7 +107,7 @@ In a separate terminal, from the project directory:
 azd ai agent invoke --local "Hi, my name is Alex and I'm vegetarian."
 ```
 
-### Deploy to Foundry
+### 5. Deploy to Foundry
 
 ```bash
 azd deploy
@@ -125,7 +117,7 @@ For the full deployment guide, see [Deploy a hosted agent](https://learn.microso
 
 The deployed agent's Managed Identity needs **Azure AI User** on the Foundry project to read and write memories at runtime. The `postprovision` hook already created the memory store against that same project.
 
-### Invoke the deployed agent
+### 6. Invoke the deployed agent
 
 ```bash
 azd ai agent invoke "Do you remember my name and what I like to eat?"
