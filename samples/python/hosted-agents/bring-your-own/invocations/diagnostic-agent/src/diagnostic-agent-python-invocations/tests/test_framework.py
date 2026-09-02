@@ -83,6 +83,17 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(r.to_dict(include_evidence=False)["evidence"], {})
 
 
+class ProbeContextTests(unittest.TestCase):
+    def test_resolvers_default_is_azure_dns(self):
+        ctx = _ctx()
+        self.assertEqual(ctx.resolvers_extra, ["168.63.129.16"])
+        self.assertIn("168.63.129.16", ctx.all_resolvers)
+
+    def test_resolvers_empty_list_disables_default(self):
+        ctx = _ctx(resolvers=[])
+        self.assertEqual(ctx.resolvers_extra, [])
+
+
 class RegistryRunnerTests(unittest.TestCase):
     def setUp(self):
         self._saved = list(registry._REGISTRY)

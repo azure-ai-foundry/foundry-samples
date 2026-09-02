@@ -30,6 +30,12 @@ _DEFAULT_PUBLIC_HOSTS = [
     "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
 ]
 
+# Azure platform DNS (Azure-provided VirtualIP). Queried by default alongside the
+# system resolvers so a private-zone linkage gap shows up as a per-resolver
+# disagreement without the caller having to opt in. Pass ``"resolvers": []`` to
+# compare against the system resolvers only.
+_DEFAULT_RESOLVERS = ["168.63.129.16"]
+
 _MAX_DNS_PROPAGATION_DURATION_SEC = 120.0
 _MIN_DNS_PROPAGATION_INTERVAL_SEC = 0.1
 
@@ -76,7 +82,9 @@ class ProbeContext:
         sys_resolvers = (
             net_probe.parse_resolv_conf().get("nameservers", []) if net_probe is not None else []
         )
-        resolvers_extra = spec.get("resolvers") or []
+        resolvers_extra = spec.get("resolvers")
+        if resolvers_extra is None:
+            resolvers_extra = list(_DEFAULT_RESOLVERS)
         all_resolvers = list(dict.fromkeys(list(sys_resolvers) + list(resolvers_extra)))
 
         public_hosts = spec.get("public_hosts")

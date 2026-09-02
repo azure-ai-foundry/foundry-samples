@@ -29,7 +29,7 @@ POST body contract (all fields optional)::
       "hosts":            ["<acr>.azurecr.io", "<acct>.services.ai.azure.com"],
       "public_hosts":     ["https://management.azure.com/"],
       "direct_targets":   ["10.0.1.9:443"],         // reachability WITHOUT DNS
-      "resolvers":        ["168.63.129.16"],        // extra DNS servers to compare
+      "resolvers":        ["168.63.129.16"],        // extra DNS servers to compare (default: Azure DNS; [] = system only)
       "record_types":     ["A", "AAAA"],
       "raw_dns":          true,                     // automate dig per resolver x type
       "dns_attempts":     20,                       // repeat each query -> intermittency

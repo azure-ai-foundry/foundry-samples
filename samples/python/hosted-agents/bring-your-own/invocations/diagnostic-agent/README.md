@@ -191,7 +191,7 @@ All fields are optional:
 |---|---|---|
 | `hosts` | `[]` | List of FQDNs. For each, runs raw DNS (dig) + DNS → TCP/443 → TLS/443 → HTTPS GET. For `*.azurecr.io` and `*.data.azurecr.io` hosts, the GET path is `/v2/` (returns 401 with `Www-Authenticate` when reachable). For all other hosts, GET path is `/`. |
 | `public_hosts` | small built-in list | Full URLs. HTTPS-GET only — no DNS/TCP/TLS breakdown. Pass `[]` to skip. |
-| `resolvers` | *(system)* | **Extra** DNS servers to query alongside the ones in `/etc/resolv.conf`. Add `168.63.129.16` (or the platform default) to expose a private-zone linkage gap as a per-resolver disagreement. |
+| `resolvers` | `["168.63.129.16"]` | **Extra** DNS servers to query alongside the ones in `/etc/resolv.conf`. Defaults to Azure platform DNS (`168.63.129.16`) so a private-zone linkage gap shows up as a per-resolver disagreement out of the box. Pass `[]` to compare against the system resolvers only. |
 | `record_types` | `["A","AAAA"]` | Record types queried per resolver by the raw DNS client. |
 | `raw_dns` | `true` | Automate `dig <type> @<resolver>` for every (resolver × record type): reports the real rcode (SERVFAIL/REFUSED/NXDOMAIN/NODATA/timeout), the CNAME chain, latency, and cross-resolver disagreement. Runs **even when `getaddrinfo` fails** (the EAI_AGAIN case). |
 | `dns_attempts` | `1` | Repeat each raw DNS query N times to expose **intermittency**. Reports per-resolver `timeout_rate`, `successes/attempts`, and min/max/avg latency; classifies `DNS_INTERMITTENT` / `DNS_OK_PRIVATE_INTERMITTENT` when some attempts answer and others time out. On any UDP timeout it also probes **TCP/53** and flags `DNS_UDP_DROP_TCP_OK` (EDNS/MTU fragmentation). |
