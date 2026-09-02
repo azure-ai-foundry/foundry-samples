@@ -50,13 +50,10 @@ sessions after a code deployment:
 ..\scripts\stop-agent-sessions.ps1 -AgentName hello-world-autopilot
 ```
 
-Use this sample's metadata when publishing:
+Publish using the metadata declared in `azure.yaml`:
 
 ```powershell
-python ..\scripts\publish_autopilot.py `
-  --display-name "Hello World Autopilot" `
-  --short-description "A minimal Microsoft 365 Autopilot agent." `
-  --full-description "A Microsoft Foundry agent that responds to Teams messages."
+azd ai agent publish
 ```
 
 ## Observability

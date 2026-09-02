@@ -17,8 +17,8 @@ and observability.
   `AZURE_SUBSCRIPTION_ID`, `AZURE_LOCATION`, `AZURE_AI_PROJECT_ID`,
   `FOUNDRY_PROJECT_ENDPOINT`, and `AZURE_AI_MODEL_DEPLOYMENT_NAME`. The sample
   has no infrastructure service and does not use `azd provision` or `azd up`.
-- Microsoft 365 publication is an explicit, separate action performed with the
-  shared `../scripts/publish_autopilot.py` command and sample-specific metadata.
+- Microsoft 365 publication is an explicit, separate action performed with
+  `azd ai agent publish` using sample-specific metadata from `azure.yaml`.
 - Microsoft OpenTelemetry is initialized before the application imports. It
   exports to Azure Monitor when Foundry injects
   `APPLICATIONINSIGHTS_CONNECTION_STRING`, and exports Agent 365 telemetry
@@ -26,7 +26,7 @@ and observability.
 
 ## Key files
 
-- `azure.yaml` - hosted-agent service and direct code deployment
+- `azure.yaml` - hosted-agent service, direct code deployment, and publication metadata
 - `main.py` - direct code deployment entry point
 - `agent/app.py` - Teams handlers, Foundry model call, and server setup
 - `agent/activity_routing.py` - selectors for supported Teams conversations
@@ -34,7 +34,6 @@ and observability.
   Monitor and Agent 365
 - `agent/traceback_suppression.py` - suppression for expected connector failures
 - `../README.md` - shared deployment, permission, publication, and approval flow
-- `../scripts/publish_autopilot.py` - shared Microsoft 365 Autopilot publisher
 - `../scripts/stop-agent-sessions.ps1` - stops active hosted-agent sessions after
   deploying updated code
 - `requirements.txt` - Python runtime dependencies
@@ -55,9 +54,8 @@ identify an existing project with both `AZURE_AI_PROJECT_ID` and
 region in `AZURE_LOCATION`. Neither project identifier can currently be
 substituted into an `azure.ai.project.endpoint` field because the project
 provider reads that field before azd environment expansion. Keep Microsoft 365
-publication as a separate invocation of
-`../scripts/publish_autopilot.py`; deploying code must not automatically publish
-a new Microsoft 365 app version.
+publication as a separate `azd ai agent publish` invocation; deploying code
+must not automatically publish a new Microsoft 365 app version.
 
 ## Microsoft Foundry Skill
 

@@ -2,7 +2,7 @@
 
 requiredVersions:
   extensions:
-    azure.ai.agents: '>=1.0.0-beta.11'
+    azure.ai.agents: '>=1.0.0-beta.13'
 name: hello-world-autopilot
 services:
   hello-world-autopilot:
@@ -26,11 +26,25 @@ services:
     protocols:
       - protocol: activity
         version: 2.0.0
-    agentEndpoint:
-      protocols:
-        - activity
-      authorizationSchemes:
-        - type: BotServiceRbac
+    activity:
+      useCase: digital_worker
+      publish:
+        publishScope: tenant
+        canRespondWithoutMention: true
+        appVersion: 1.0.0
+        agentDisplayName: Hello World Autopilot
+        shortDescription: A minimal Microsoft 365 Autopilot agent.
+        fullDescription: >
+          A Microsoft Foundry agent that responds to Teams messages.
+        developerName: Microsoft
+        developerWebsiteUrl: https://www.microsoft.com
+        privacyUrl: https://privacy.microsoft.com
+        termsOfUseUrl: https://www.microsoft.com/legal/terms-of-use
+        agenticUserTemplate:
+          id: digitalWorkerTemplate
+          file: agenticUserTemplateManifest.json
+          schemaVersion: 0.1.0-preview
+          communicationProtocol: activityProtocol
     environmentVariables:
       - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
         value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}

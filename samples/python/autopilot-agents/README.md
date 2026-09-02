@@ -29,10 +29,11 @@ Cloud operations require the following access:
   license.
 - **Create or use an instance in Teams:** A Microsoft 365 license, an approved
   blueprint, and access allowed by the tenant's app policies.
-- **Enable Agent 365 telemetry:** Admin consent for
-  `Agent365.Observability.OtelWrite` and inheritance from the managed agent
-  identity blueprint. A tenant administrator must grant consent using the
-  organization's standard admin-consent process.
+- **Enable Agent 365 telemetry:** Native publication applies the configured
+  default permissions to the managed agent identity blueprint. A tenant
+  administrator may still need to grant consent for
+  `Agent365.Observability.OtelWrite` using the organization's standard
+  admin-consent process.
 
 If a sample provisions Azure resources or an Azure Bot Service resource, it can
 require broader permissions than this direct-code-deployment workflow. Follow
@@ -54,9 +55,9 @@ do not include `Microsoft.BotService/*`.
 Install or update the Foundry agent extension:
 
 ```powershell
-azd extension install azure.ai.agents
+azd ext install azure.ai.agents
 # If it is already installed:
-azd extension upgrade azure.ai.agents
+azd ext upgrade azure.ai.agents
 ```
 
 ## Sign in
@@ -96,27 +97,18 @@ is not the intended target.
 ## Publish to Microsoft 365
 
 Publication is normally needed only for the initial Microsoft 365 app or when
-its manifest, metadata, or other publication-owned configuration changes. From
-the sample directory, run the shared publisher with the sample's metadata:
+its manifest, metadata, or other publication-owned configuration changes.
+Publication metadata is declared in the sample's `azure.yaml`. From the sample
+directory, run:
 
 ```powershell
-python ..\scripts\publish_autopilot.py `
-  --display-name "<display-name>" `
-  --short-description "<short-description>" `
-  --full-description "<full-description>"
+azd ai agent publish
 ```
 
-The publisher:
-
-1. Reads the single deployed agent name and version from the active `azd`
-   environment.
-2. Retrieves that version's blueprint identity from the Foundry project data
-   plane.
-3. Submits a tenant-scoped Microsoft 365 Autopilot publication.
-
-Use `--help` to see optional developer URLs, mention behavior, a project
-directory override, and an explicit Microsoft 365 app version. By default, a
-numeric hosted-agent version `N` becomes app version `1.0.N`.
+The command reads the tenant-scoped Autopilot configuration from
+`activity.publish` in `azure.yaml`. To change publication metadata, edit that
+block and run the command again. For a one-time override, the command supports
+`--display-name` and `--app-version`.
 
 ## Approve and create an instance
 
@@ -139,23 +131,23 @@ telemetry to Agent 365 requires permission
 `Agent365.Observability.OtelWrite` on resource application
 `9b975845-388f-4429-889e-eab1ef63949c`.
 
-For an agentic user, permission readiness has two independent requirements:
+For an agentic user, `azd ai agent publish` applies the service-configured
+default permission scopes to the Foundry managed agent identity blueprint and
+preserves the mandatory Agent 365 trace permission. Customers should not PATCH
+the blueprint as part of the normal deployment or publication workflow.
 
-1. A tenant administrator grants admin consent to the **blueprint application
-   ID** for the delegated permission using the organization's standard
-   admin-consent process. The request must identify the blueprint application
-   ID, the resource application ID above, and scope
-   `Agent365.Observability.OtelWrite`.
-2. The Foundry managed agent identity blueprint marks the permission
-   inheritable. Use the project's complete permission-orchestration script when
-   one exists. A blueprint PATCH replaces the inheritable scope list for that
-   resource, so read and preserve existing scopes rather than sending only the
-   new scope.
+A tenant administrator may still need to grant consent to the **blueprint
+application ID** for the delegated permission using the organization's standard
+admin-consent process. The request must identify the blueprint application ID,
+the resource application ID above, and scope
+`Agent365.Observability.OtelWrite`.
 
-Verify both the complete inheritable scope set and the tenant admin-consent
-grant. After inheritance is confirmed, existing agentic-user identities receive
-the permission the next time they mint a token for the resource; no AU
-recreation, update, redeployment, or re-mint is required.
+The current native publish command does not expose optional permission-scope
+selection. Permission updates are additive/default-oriented: omitting a
+previously granted optional scope does not reliably revoke it or remove its
+resource application. After consent and inheritance are confirmed, existing
+agentic-user identities receive the permission the next time they mint a token
+for the resource; no AU recreation or redeployment is required.
 
 For a hosted-agent application identity instead of an agentic user, follow
 [Grant Agent 365 observability permissions](https://learn.microsoft.com/azure/foundry/agents/how-to/grant-agent-365-permissions).
