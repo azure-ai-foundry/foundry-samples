@@ -1,5 +1,5 @@
 agent-framework-foundry
-agent-framework-foundry-hosting>=1.0.0a260630
+agent-framework-foundry-hosting>=1.0.0b260813
 azure-ai-projects
 # azure-ai-projects imports httpx directly, while OpenAI 3 uses httpx2.
 openai<3

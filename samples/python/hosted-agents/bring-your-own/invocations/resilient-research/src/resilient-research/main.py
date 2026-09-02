@@ -45,6 +45,9 @@ the framework re-invokes ``deep_research`` with
 from disk so reconnecting subscribers (including the original POST-
 SSE client if it reattaches via GET) see the pre-crash events plus
 a fresh ``type: "recovered"`` marker plus the post-crash continuation.
+Before a completed turn is durably marked by the framework, its
+checkpoint is replaced with a durable terminal marker; recovery
+consumes that marker without rerunning the turn.
 
 Steering: a new POST while a turn is running enqueues the input as a
 steering input — the agent winds down the current turn at the next
@@ -81,9 +84,13 @@ from azure.ai.agentserver.core.tasks import set_resilient_tasks_enabled
 from azure.ai.agentserver.invocations import InvocationAgentServerHost
 
 try:
-    from .agent import deep_research
+    from .agent import (
+        deep_research,
+        get_research_state,
+        get_research_terminal_status,
+    )
 except ImportError:  # allows `python app.py` from inside this directory
-    from agent import deep_research
+    from agent import deep_research, get_research_state, get_research_terminal_status
 
 logger = logging.getLogger(__name__)
 
@@ -297,38 +304,33 @@ async def handle_get(request: Request) -> Response:
     if info is None:
         return JSONResponse({"error": "Task not found"}, status_code=404)
 
-    # Task metadata (the ctx.metadata namespaces) is persisted in a separate
-    # StateStore item on hosted deployments, so read it through
-    # ``TaskManager.get_task_metadata()`` when available and fall back to the
-    # payload-backed location used by local task providers.
-    get_task_metadata = getattr(mgr, "get_task_metadata", None)
-    if get_task_metadata is not None:
-        metadata = await get_task_metadata(task_id)
+    state = await get_research_state(invocation_id)
+    terminal = await get_research_terminal_status(invocation_id)
+    if terminal is None:
+        invocation_status = "running"
     else:
-        metadata = (info.payload or {}).get("metadata")
+        invocation_status = terminal.get("status")
+        if invocation_status == "suspended":
+            # Accept markers from older sample versions.
+            invocation_status = "completed"
+        if invocation_status not in ("completed", "failed", "cancelled"):
+            logger.error(
+                "Invalid terminal status %r for invocation %s",
+                invocation_status,
+                invocation_id,
+            )
+            invocation_status = "failed"
 
-    # Map the resilient-task status to the invocations protocol's terminal
-    # vocabulary so a polling caller (e.g. `azd ai agent invoke`) knows when
-    # the invocation is done. A multi-turn task reports "suspended" once the
-    # current turn finishes — which, for one invocation, means the work is
-    # complete; surface that as "completed" so pollers stop.
-    _STATUS_MAP = {
-        "in_progress": "running",
-        "suspended": "completed",
-        "completed": "completed",
-        "failed": "failed",
-        "cancelled": "cancelled",
+    response: dict[str, Any] = {
+        "task_id": task_id,
+        "invocation_id": invocation_id,
+        "status": invocation_status,
+        "task_status": info.status,
+        "state": state,
     }
-    invocation_status = _STATUS_MAP.get(info.status, info.status)
-    return JSONResponse(
-        {
-            "task_id": task_id,
-            "invocation_id": invocation_id,
-            "status": invocation_status,
-            "task_status": info.status,
-            "metadata": metadata,
-        }
-    )
+    if terminal is not None and terminal.get("error") is not None:
+        response["error"] = terminal["error"]
+    return JSONResponse(response)
 
 
 @app.cancel_invocation_handler

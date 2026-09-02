@@ -13,7 +13,7 @@ asgiref==3.12.1
 attrs==26.1.0
 azure-ai-agentserver-core==2.1.0
 azure-ai-agentserver-invocations==1.1.0
-azure-ai-agentserver-responses==2.2.0b1
+azure-ai-agentserver-responses==2.1.0
 azure-ai-contentsafety==1.0.0
 azure-ai-contentunderstanding==1.2.0b3
 azure-ai-projects==2.4.0

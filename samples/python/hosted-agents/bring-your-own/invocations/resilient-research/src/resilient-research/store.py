@@ -1,22 +1,14 @@
-"""Checkpoint store for in-flight LLM content.
-
-``ctx.metadata`` on the resilient-task primitive is a *small-watermark*
-store, not a bulk-data store (see ``core/docs/tasks-guide.md``
-§"Persistence Model"). For anything heavier than a few bytes — e.g.
-the partially-streamed text of the current phase's in-flight subcall
-chain — the application keeps its own checkpoint store and holds only a
-*reference* (the per-turn ``invocation_id``) in metadata.
+"""Checkpoint store for resilient research application state.
 
 This checkpoint store is backed by the **Foundry StateStore**
 (:class:`FoundryStateStore`) when ``FOUNDRY_PROJECT_ENDPOINT`` is
-configured — i.e. hosted deployments and real local runs — so the
-in-flight text survives container restarts through the same durable,
-platform-managed store used for other agent state. When no endpoint is
-configured (the offline demo mode), it falls back to an atomic local-file
-store so the sample still runs with no credentials.
+configured, so application state survives container restarts. When no
+endpoint is configured (the offline demo mode), it falls back to atomic
+local files so the sample still runs with no credentials.
 
-Both backings expose the same tiny async interface — ``get`` / ``put`` /
-``delete`` keyed by ``invocation_id``.
+Each invocation has one item containing its phase watermarks, in-flight
+text, or terminal status. The item uses the durable-task recovery lifetime
+so recovery data cannot expire before the task does.
 """
 
 from __future__ import annotations
@@ -27,15 +19,12 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-# One store per agent for its in-flight research checkpoints. Item keys are the
-# per-turn invocation ids; items expire after an hour so abandoned checkpoints
-# do not accumulate.
-_STORE_NAME = "research-checkpoints"
-_ITEM_TTL_SECONDS = 3600
+_INVOCATION_STORE_NAME = "research-invocations"
+_INVOCATION_ITEM_TTL_SECONDS = 30 * 24 * 60 * 60
 
 
 class CheckpointStore:
-    """Durable key->text checkpoint store (StateStore-backed, file fallback)."""
+    """Durable invocation checkpoint store with a local-file fallback."""
 
     def __init__(self, base_dir: Path) -> None:
         self._base = base_dir
@@ -46,43 +35,91 @@ class CheckpointStore:
         self._store: Any = None
 
     async def _state_store(self) -> Any:
-        """Lazily resolve (or create) the Foundry StateStore for this agent."""
+        """Lazily resolve the invocation state store."""
         if self._store is None:
             from azure.ai.agentserver.core.storage import (  # pylint: disable=import-outside-toplevel
                 FoundryStateStore,
             )
 
             self._store = await FoundryStateStore.get_or_create(
-                _STORE_NAME,
-                item_ttl_seconds=_ITEM_TTL_SECONDS,
+                _INVOCATION_STORE_NAME,
+                item_ttl_seconds=_INVOCATION_ITEM_TTL_SECONDS,
             )
         return self._store
 
-    async def get(self, key: str) -> str:
-        """Return the stored text, or empty string if absent."""
+    async def _get_item(self, key: str) -> Any:
         if self._use_state_store:
             store = await self._state_store()
             item = await store.get_item(key)
-            if item is None:
-                return ""
-            value = item.value or {}
-            return str(value.get("text", ""))
+            return item.value if item is not None else None
 
         path = self._path(key)
         if not path.exists():
-            return ""
+            return None
         return json.loads(path.read_text(encoding="utf-8"))
 
-    async def put(self, key: str, value: str) -> None:
-        """Store *value* under *key* (create-or-replace)."""
+    async def _set_item(self, key: str, value: Any) -> None:
         if self._use_state_store:
             store = await self._state_store()
-            # StateStore item values are JSON objects, so wrap the text.
-            await store.set_item(key, {"text": value})
+            await store.set_item(key, value)
             return
 
+        await self._write_local(key, value)
+
+    async def get_checkpoint(self, invocation_id: str) -> dict[str, Any]:
+        """Return one invocation's combined recovery record."""
+        value = await self._get_item(invocation_id)
+        return dict(value) if isinstance(value, dict) else {}
+
+    async def get_state(self, invocation_id: str) -> dict[str, Any]:
+        """Return an invocation's application watermarks."""
+        checkpoint = await self.get_checkpoint(invocation_id)
+        state = checkpoint.get("state")
+        return dict(state) if isinstance(state, dict) else {}
+
+    async def put_checkpoint(
+        self,
+        invocation_id: str,
+        state: dict[str, Any],
+        text: str,
+    ) -> None:
+        """Replace an invocation's watermarks and text in one write."""
+        await self._set_item(
+            invocation_id,
+            {
+                "state": dict(state),
+                "text": text,
+            },
+        )
+
+    async def get_terminal_status(
+        self,
+        invocation_id: str,
+    ) -> dict[str, Any] | None:
+        """Return an invocation's terminal marker, if present."""
+        checkpoint = await self.get_checkpoint(invocation_id)
+        marker = checkpoint.get("terminal_status")
+        return dict(marker) if isinstance(marker, dict) else None
+
+    async def put_terminal_status(
+        self,
+        invocation_id: str,
+        status: str,
+        error: dict[str, Any] | None = None,
+    ) -> None:
+        """Replace an invocation's checkpoint with one terminal marker."""
+        marker: dict[str, Any] = {"status": status}
+        if error is not None:
+            marker["error"] = error
+        await self._set_item(invocation_id, {"terminal_status": marker})
+
+    async def _write_local(self, key: str, value: Any) -> None:
         target = self._path(key)
-        fd, tmp = tempfile.mkstemp(dir=str(self._base), prefix=f"{key}_", suffix=".tmp")
+        fd, tmp = tempfile.mkstemp(
+            dir=str(self._base),
+            prefix=f"{key}_",
+            suffix=".tmp",
+        )
         try:
             with open(fd, "w", encoding="utf-8") as fh:
                 json.dump(value, fh)
@@ -91,24 +128,5 @@ class CheckpointStore:
             Path(tmp).unlink(missing_ok=True)
             raise
 
-    async def delete(self, key: str) -> None:
-        """Remove *key* if present; no-op otherwise."""
-        if self._use_state_store:
-            from azure.ai.agentserver.core.storage import (  # pylint: disable=import-outside-toplevel
-                FoundryStorageNotFoundError,
-            )
-
-            store = await self._state_store()
-            try:
-                await store.delete_item(key)
-            except FoundryStorageNotFoundError:
-                pass
-            return
-
-        path = self._path(key)
-        if path.exists():
-            path.unlink()
-
     def _path(self, key: str) -> Path:
         return self._base / f"{key}.json"
-

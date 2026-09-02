@@ -15,26 +15,22 @@ gap, no duplicate cursor value.
 Per the resilient-task primitive's persistence model (see the
 `Resilient Task Developer Guide
 <https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/agentserver/azure-ai-agentserver-core/docs/tasks-guide.md>`__),
-``ctx.metadata`` is a *small-watermark* store — never a bulk-data store.
-This handler keeps only three small integer watermarks in ``ctx.metadata``
-(``completed_phases``, ``in_progress_phase``, ``completed_subcalls``)
-and parks the in-flight subcall text (potentially several KB) in a
-separate file-backed :class:`CheckpointStore` keyed by the per-turn
-``invocation_id``. The checkpoint-store entry, the wire stream, and
-the metadata watermarks are all reset together at every turn-
-completion boundary (normal completion AND wind-down-via-suspend) so
-the next turn — steered re-entry or otherwise — starts cleanly. We
-explicitly do NOT reset on crash paths: the watermarks left behind
-are exactly what the recovery re-entry needs to resume mid-turn.
+the handler persists its phase and sub-call watermarks explicitly in
+``FoundryStateStore`` through :class:`CheckpointStore`. The phase
+watermarks and in-flight sub-call text share one invocation-keyed item.
+At a turn-completion boundary, that item is replaced with a terminal
+marker so a crash before the framework commits the turn cannot restart
+completed work. We explicitly do NOT reset on crash paths: the checkpoint
+left behind is exactly what the recovery re-entry needs to resume mid-turn.
 
 Steering is transparent: a new POST while a turn is running enqueues
 the input on the framework's steering queue and sets ``ctx.cancel``.
 The handler observes the cancel at the next checkpoint, winds down
 via `return None` ,
 and the framework re-enters the body with the new ``ctx.input``.
-Because state was cleared at suspend, the re-entered handler naturally
-starts the new topic at phase 0 — no ``is_steered_turn`` check needed
-in handler code.
+Because each turn gets a new invocation id, the re-entered handler
+naturally starts the new topic at phase 0. No ``is_steered_turn`` check
+is needed in handler code.
 
 Input schema: ``{"topic": str, "invocation_id": str}``
 
@@ -150,6 +146,18 @@ _CHECKPOINT_DIR = Path.home() / ".agentserver" / "_checkpoints"
 _checkpoint_store = CheckpointStore(_CHECKPOINT_DIR)
 
 
+async def get_research_state(invocation_id: str) -> dict[str, Any]:
+    """Return an invocation's durable application watermarks for polling."""
+    return await _checkpoint_store.get_state(invocation_id)
+
+
+async def get_research_terminal_status(
+    invocation_id: str,
+) -> dict[str, Any] | None:
+    """Return an invocation's durable terminal status for polling."""
+    return await _checkpoint_store.get_terminal_status(invocation_id)
+
+
 # --- Research phase plan ---------------------------------------------------
 
 PHASE_TITLES = [
@@ -216,31 +224,34 @@ def _phase_title(i: int) -> str:
 EmitFn = Callable[[dict], Awaitable[None]]
 
 
-async def _finish_turn(stream: Any, ctx: TaskContext, inv_id: str) -> None:
+class _RecoveredTerminalFailure(RuntimeError):
+    """Marks a recovery entry whose prior turn had already failed."""
+
+
+async def _finish_turn(
+    stream: Any,
+    inv_id: str,
+    *,
+    status: str,
+    error: dict[str, Any] | None = None,
+) -> None:
     """Tear down per-turn resources at every non-crash exit.
 
     Steered re-entries, operator cancels, timeouts, and normal
     completions all flow through here. We:
 
-    1. Close the wire stream so SSE subscribers see the terminator
-       before the framework reports the turn as suspended / completed.
-    2. Wipe ``ctx.metadata`` watermarks so the NEXT turn — steered
-       re-entry on the same task, or a fresh ``start()`` — naturally
-       starts at phase 0 without any "is this a steered turn?"
-       branching.
-    3. Delete this invocation's checkpoint-store entry so disk
-       usage doesn't grow with completed turns.
+    1. Replace the combined checkpoint with a terminal marker.
+    2. Close the wire stream so SSE subscribers see the terminator
+       before the framework reports the turn as suspended / failed.
 
-    We explicitly do NOT call this on crash paths: the wire stream
-    must stay OPEN (per the orchestrator's
-    ``leave_stream_open_for_recovery`` contract) and the watermarks
-    must remain so the recovery re-entry can resume mid-turn.
+    The next turn gets a new invocation id and therefore starts with an
+    empty checkpoint. We explicitly do NOT call this on crash paths: the
+    wire stream must stay OPEN (per the orchestrator's
+    ``leave_stream_open_for_recovery`` contract) and the checkpoint must
+    remain so the recovery re-entry can resume mid-turn.
     """
+    await _checkpoint_store.put_terminal_status(inv_id, status, error)
     await stream.close()
-    ctx.metadata.pop("completed_phases", None)
-    ctx.metadata.pop("in_progress_phase", None)
-    ctx.metadata.pop("completed_subcalls", None)
-    await _checkpoint_store.delete(inv_id)
 
 
 @multi_turn_task(name="deep_research", steerable=True)
@@ -248,13 +259,12 @@ async def deep_research(ctx: TaskContext[dict]) -> None:
     """Long-running deep-research task: crash-resilient, steerable.
 
     Checkpointing is **per subcall**, not just per phase. After each
-    LLM subcall finishes we (a) advance the three small integer
-    watermarks on ``ctx.metadata`` and (b) write the in-flight phase
-    text to the file-backed checkpoint store keyed by the
-    per-invocation id. On recovery we resume the in-progress phase at
-    the next un-finished subcall, re-using the text we had streamed
-    before the crash — so the worst case is one wasted subcall (the
-    one that was actively streaming when the container died).
+    LLM subcall finishes we advance the application watermarks and write
+    the in-flight phase text to the checkpoint store. On recovery we
+    resume the in-progress phase at the next un-finished subcall, re-using
+    the text we had streamed before the crash — so the worst case is one
+    wasted subcall (the one that was actively streaming when the container
+    died).
 
     The body returns ``None`` on normal completion (and also on the
     steered-wind-down path — bare ``return`` is the
@@ -265,6 +275,20 @@ async def deep_research(ctx: TaskContext[dict]) -> None:
     """
     topic: str = ctx.input["topic"]
     inv_id: str = ctx.input["invocation_id"]
+
+    checkpoint = await _checkpoint_store.get_checkpoint(inv_id)
+    terminal_status = checkpoint.get("terminal_status")
+    if isinstance(terminal_status, dict):
+        stream = await streams.get_or_create(inv_id)
+        await stream.close()
+        status = terminal_status.get("status")
+        if status == "failed":
+            error = terminal_status.get("error") or {}
+            message = str(error.get("message") or "The recovered turn failed.")
+            raise _RecoveredTerminalFailure(message)
+        if status not in ("completed", "cancelled", "suspended"):
+            raise RuntimeError(f"Unknown terminal status: {status!r}")
+        return None
 
     stream = await streams.get_or_create(inv_id)
     # On crash recovery, last_cursor() returns the highest
@@ -280,7 +304,11 @@ async def deep_research(ctx: TaskContext[dict]) -> None:
     await _emit_run_start(emit, ctx, topic=topic)
 
     try:
-        completed: int = ctx.metadata.get("completed_phases", 0)
+        state_value = checkpoint.get("state")
+        state = dict(state_value) if isinstance(state_value, dict) else {}
+        checkpoint_text = checkpoint.get("text", "")
+        checkpoint_text = checkpoint_text if isinstance(checkpoint_text, str) else ""
+        completed = int(state.get("completed_phases", 0) or 0)
 
         if ctx.entry_mode == "recovered" and completed > 0:
             await emit(
@@ -311,14 +339,22 @@ async def deep_research(ctx: TaskContext[dict]) -> None:
                 }
             )
 
-            await _run_phase(emit, ctx, inv_id, phase_idx, topic, title)
+            await _run_phase(
+                emit,
+                ctx,
+                state,
+                inv_id,
+                phase_idx,
+                topic,
+                title,
+                checkpoint_text=checkpoint_text,
+            )
 
             # --- PHASE-COMPLETE CHECKPOINT ---
-            ctx.metadata["completed_phases"] = phase_idx + 1
-            ctx.metadata["in_progress_phase"] = None
-            ctx.metadata["completed_subcalls"] = 0
-            await _checkpoint_store.delete(inv_id)
-            await ctx.metadata.flush()
+            state["completed_phases"] = phase_idx + 1
+            state["in_progress_phase"] = None
+            state["completed_subcalls"] = 0
+            await _checkpoint_store.put_checkpoint(inv_id, state, "")
 
             phase_duration = round(time.monotonic() - phase_started_mono, 1)
             await emit(
@@ -356,11 +392,8 @@ async def deep_research(ctx: TaskContext[dict]) -> None:
                 "phases_completed": NUM_PHASES,
             }
         )
-        # Normal completion: close stream + wipe watermarks + clear
-        # checkpoint entry. Skipped on crash (the handler exits via an
-        # exception and the orchestrator's leave_stream_open_for_recovery
-        # path keeps the stream open for the next-lifetime recovery).
-        await _finish_turn(stream, ctx, inv_id)
+        # Normal completion replaces the checkpoint with a terminal marker.
+        await _finish_turn(stream, inv_id, status="completed")
     except Exception as exc:  # pylint: disable=broad-except
         # Logical-failure path: a downstream call (e.g. the LLM) raised.
         # Emit a terminal SSE frame so subscribers fast-fail instead of
@@ -386,7 +419,15 @@ async def deep_research(ctx: TaskContext[dict]) -> None:
                     "server_uptime_sec": _server_uptime_sec(),
                 }
             )
-            await _finish_turn(stream, ctx, inv_id)
+            await _finish_turn(
+                stream,
+                inv_id,
+                status="failed",
+                error={
+                    "type": type(exc).__name__,
+                    "message": str(exc)[:2000],
+                },
+            )
         except Exception:  # pylint: disable=broad-except
             # If terminal-frame emission itself fails (e.g. stream is
             # already gone) we still want to surface the original task
@@ -421,12 +462,11 @@ async def _wind_down(
 ):
     """Cooperative wind-down at a phase boundary.
 
-    Tears down per-turn resources (stream close + metadata wipe +
-    checkpoint-store clear) via :func:`_finish_turn` BEFORE the handler
-    returns. The multi-turn ``return`` is the
-    implicit-suspend signal — so the SSE subscriber observes a clean
-    terminator before the framework reports the turn as suspended, and
-    the steered re-entry (or any future ``start()``) finds metadata wiped.
+    Replaces the invocation checkpoint with a terminal marker and closes
+    the stream via :func:`_finish_turn` BEFORE the handler returns. The
+    multi-turn ``return`` is the implicit-suspend signal, so the SSE
+    subscriber observes a clean terminator before the framework reports
+    the turn as suspended. The next invocation starts with a new record.
     """
     if ctx.timeout_exceeded:
         cause = "timeout"
@@ -447,7 +487,21 @@ async def _wind_down(
         }
     )
 
-    await _finish_turn(stream, ctx, inv_id)
+    terminal_status = "failed" if ctx.timeout_exceeded else "cancelled"
+    terminal_error = (
+        {
+            "type": "TimeoutError",
+            "message": "The research turn exceeded its time limit.",
+        }
+        if ctx.timeout_exceeded
+        else None
+    )
+    await _finish_turn(
+        stream,
+        inv_id,
+        status=terminal_status,
+        error=terminal_error,
+    )
     # multi-turn `return` is the implicit-suspend signal.
     # The chain stays alive across turns; ctx.suspend() is not part of
     # the public surface.
@@ -489,30 +543,31 @@ async def _cooldown(
 async def _run_phase(
     emit: EmitFn,
     ctx: TaskContext,
+    state: dict[str, Any],
     inv_id: str,
     phase_idx: int,
     topic: str,
     phase_title: str,
+    *,
+    checkpoint_text: str,
 ) -> None:
     """Run the sub-call loop for one phase.
 
     Checkpoints after each completed subcall so a crash mid-phase
     recovers at the next un-finished subcall (loses at most the one
-    that was actively streaming). The in-flight phase text lives in
-    the file-backed checkpoint store keyed by ``inv_id``; the
-    subcall index lives in ``ctx.metadata`` as a small watermark.
+    that was actively streaming). The in-flight phase text and subcall
+    index live together in the invocation checkpoint.
     """
-    in_progress = ctx.metadata.get("in_progress_phase")
+    in_progress = state.get("in_progress_phase")
     if in_progress == phase_idx:
-        start_sub = int(ctx.metadata.get("completed_subcalls", 0) or 0)
-        current_text = await _checkpoint_store.get(inv_id)
+        start_sub = int(state.get("completed_subcalls", 0) or 0)
+        current_text = checkpoint_text
     else:
         start_sub = 0
         current_text = ""
-        ctx.metadata["in_progress_phase"] = phase_idx
-        ctx.metadata["completed_subcalls"] = 0
-        await _checkpoint_store.delete(inv_id)
-        await ctx.metadata.flush()
+        state["in_progress_phase"] = phase_idx
+        state["completed_subcalls"] = 0
+        await _checkpoint_store.put_checkpoint(inv_id, state, current_text)
 
     for sub_idx in range(start_sub, CALLS_PER_PHASE):
         role_name, role_prompt = _SUB_CALL_ROLES[sub_idx]
@@ -556,9 +611,8 @@ async def _run_phase(
 
         current_text = sub_text
 
-        await _checkpoint_store.put(inv_id, current_text)
-        ctx.metadata["completed_subcalls"] = sub_idx + 1
-        await ctx.metadata.flush()
+        state["completed_subcalls"] = sub_idx + 1
+        await _checkpoint_store.put_checkpoint(inv_id, state, current_text)
 
         if sub_idx + 1 < CALLS_PER_PHASE and INTRA_PHASE_COOLDOWN_SEC > 0:
             await _cooldown(

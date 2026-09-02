@@ -9,7 +9,7 @@ Two opt-in options drive the behavior (both default to `False`):
 - **`resilient_background=True`** — a `store=true, background=true` response survives process crashes. The framework persists handler progress and re-invokes the handler on the next process start if a prior attempt did not reach a terminal event.
 - **`steerable_conversations=True`** — a client can POST a new turn on an in-flight conversation. The running handler is woken via the cancellation signal (distinguished by `context.pending_input_count > 0`), winds the current turn down cleanly, and the framework re-invokes with the new input.
 
-Recovery here is deliberately **naive**: the handler wraps a non-deterministic upstream (an LLM) and does **not** checkpoint partial output, so recovery needs no special code — every entry builds a fresh stream and re-runs the turn from scratch. The fresh `response.in_progress` (empty output) is the client-visible reset. A `turn_count` watermark on `context.conversation_chain_metadata` survives crashes and turn boundaries.
+Recovery here is deliberately **naive**: the handler wraps a non-deterministic upstream (an LLM) and does **not** checkpoint partial output, so recovery needs no special code — every entry builds a fresh stream and re-runs the turn from scratch. The fresh `response.in_progress` (empty output) is the client-visible reset. A `turn_count` watermark in `FoundryStateStore`, keyed by `context.conversation_chain_id`, survives crashes and turn boundaries.
 
 The LLM is **simulated** so the sample runs offline with no credentials — replace `_simulate_llm_stream` with a real model call to make it live.
 

@@ -9,7 +9,7 @@ The agent runs a multi-phase deep-research plan. Each phase issues several strea
 It showcases four capabilities that matter for autonomous hosted agents:
 
 - **Long-running autonomous work** — a plan of many streaming LLM sub-calls that runs on its own.
-- **Crash resilience** — per-sub-call watermarks in `ctx.metadata` plus a file-backed checkpoint store; on restart the framework re-invokes the interrupted turn with `ctx.entry_mode == "recovered"` and the handler resumes from the last completed sub-call (worst case: one wasted sub-call, the one actively streaming when the process died).
+- **Crash resilience** — per-sub-call watermarks and in-flight text share one application-owned `FoundryStateStore` item with retention matching task recovery; on restart the framework re-invokes the interrupted turn with `ctx.entry_mode == "recovered"` and the handler resumes from the last completed sub-call (worst case: one wasted sub-call, the one actively streaming when the process died).
 - **Resumable streaming** — events persist to disk; a client that disconnects can reconnect via `GET` with `?last_event_id=N` and receive the pre-crash events, a `recovered` marker, and the post-crash continuation.
 - **Steering** — POST a new topic while a run is in progress and the current turn winds down cleanly at the next checkpoint; the framework re-enters with the new topic.
 
@@ -44,6 +44,10 @@ Each turn is one resilient task per session (`task_id = research-<session_id>`);
 | `GET /invocations/{invocation_id}` with `Accept: text/event-stream` | Stream the turn's events; `?last_event_id=N` resumes after a disconnect. |
 | `GET /invocations/{invocation_id}?agent_session_id=<id>` | JSON snapshot of the task's current status/payload. |
 | `POST /invocations/{invocation_id}/cancel?agent_session_id=<id>` | Cooperatively cancel the running task. |
+
+Polling reports `running`, `completed`, `failed`, or `cancelled` from the
+invocation's durable terminal marker. It does not infer an older invocation's
+result from the shared multi-turn task status.
 
 ## Option 1: Azure Developer CLI (`azd`)
 
@@ -81,7 +85,7 @@ curl -X POST "http://localhost:8088/invocations?agent_session_id=research-1" \
   -d '{"topic": "quantum error correction"}'
 # -> 202 {"status": "started", "invocation_id": "<inv>", ...}
 curl "http://localhost:8088/invocations/<inv>?agent_session_id=research-1"
-# -> {"status": "in_progress", "payload": {...}}
+# -> {"status": "running", "state": {...}}
 
 # Reconnect a dropped stream, skipping events already seen.
 curl -N "http://localhost:8088/invocations/<inv>?agent_session_id=research-1&last_event_id=42" \
@@ -172,7 +176,7 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 | --- | --- |
 | `src/resilient-research/main.py` | HTTP host — wires the resilient task to the invocations protocol (POST-SSE, GET-SSE/poll, cancel) and bootstraps file-backed streaming. |
 | `src/resilient-research/agent.py` | The `@multi_turn_task` research handler — phases, streaming sub-calls, per-sub-call checkpointing, cooperative wind-down. |
-| `src/resilient-research/store.py` | Minimal file-backed checkpoint store for in-flight phase text (bulk data lives here, not in `ctx.metadata`). |
+| `src/resilient-research/store.py` | Minimal `FoundryStateStore`-backed persistence for invocation checkpoints and terminal markers, with a local-file fallback. |
 
 ## Troubleshooting
 
