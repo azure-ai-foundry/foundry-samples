@@ -1,7 +1,7 @@
 import { DefaultAzureCredential } from "@azure/identity";
 import { AIProjectClient } from "@azure/ai-projects";
 
-// Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+// Format: "https://resource_name.services.ai.azure.com/api/projects/project_name"
 const PROJECT_ENDPOINT = "your_project_endpoint";
 
 async function main(): Promise<void> {

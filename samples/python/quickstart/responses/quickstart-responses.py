@@ -3,7 +3,7 @@ import os
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 
-# Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+# Format: "https://resource_name.services.ai.azure.com/api/projects/project_name"
 PROJECT_ENDPOINT = os.getenv("AZURE_AI_PROJECT_ENDPOINT", "your_project_endpoint")
 MODEL_DEPLOYMENT = os.getenv("MODEL_DEPLOYMENT", "gpt-5-mini")
 

@@ -3,7 +3,7 @@ using Azure.AI.Projects;
 using Azure.AI.Projects.Agents;
 using Azure.AI.Extensions.OpenAI;
 
-// Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+// Format: "https://resource_name.services.ai.azure.com/api/projects/project_name"
 var ProjectEndpoint = "your_project_endpoint";
 var AgentName = "your_agent_name";
 

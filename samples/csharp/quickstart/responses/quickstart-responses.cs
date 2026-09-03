@@ -5,7 +5,7 @@ using OpenAI.Responses;
 
 #pragma warning disable OPENAI001
 
-// Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+// Format: "https://resource_name.services.ai.azure.com/api/projects/project_name"
 var projectEndpoint = Environment.GetEnvironmentVariable("AZURE_AI_PROJECT_ENDPOINT") ?? "your_project_endpoint";
 var modelDeployment = Environment.GetEnvironmentVariable("MODEL_DEPLOYMENT") ?? "gpt-5-mini";
 
