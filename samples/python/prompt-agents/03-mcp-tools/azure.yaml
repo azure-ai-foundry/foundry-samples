@@ -13,19 +13,11 @@ services:
         sku:
           name: GlobalStandard
           capacity: 10
-  learn-mcp-conn:
-    host: azure.ai.connection
-    uses:
-      - ai-project
-    category: RemoteTool
-    target: https://learn.microsoft.com/api/mcp
-    authType: None
   prompt-agent-mcp-tools:
     host: azure.ai.agent
     project: .
     uses:
       - ai-project
-      - learn-mcp-conn
     kind: prompt
     name: prompt-agent-mcp-tools
     description: A prompt agent that calls tools on a remote MCP server.
@@ -37,7 +29,6 @@ services:
       - type: mcp
         server_label: microsoft-learn
         server_url: https://learn.microsoft.com/api/mcp
-        require_approval: always
-        project_connection_id: learn-mcp-conn
+        require_approval: never
 infra:
   provider: microsoft.foundry

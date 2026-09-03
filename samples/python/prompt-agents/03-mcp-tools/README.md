@@ -1,6 +1,6 @@
 # Prompt Agent with MCP Tools
 
-A prompt agent that calls tools on a remote [MCP](https://modelcontextprotocol.io/) server. The agent and its `azure.ai.connection` sibling in [`azure.yaml`](./azure.yaml) point at the public **Microsoft Learn** MCP server. `require_approval: always` asks for approval before each call; set it to `never` for unattended use.
+A prompt agent that calls the public **Microsoft Learn** [MCP](https://modelcontextprotocol.io/) server without authentication. The tool is configured for unattended use in [`azure.yaml`](./azure.yaml).
 
 ## Deploy
 
