@@ -4,7 +4,9 @@
 
 This sample demonstrates a **long-running, crash-resilient human-in-the-loop** agent built with [azure-ai-agentserver-invocations](https://pypi.org/project/azure-ai-agentserver-invocations/) on top of the resilient `@multi_turn_task` primitive from [azure-ai-agentserver-core](https://pypi.org/project/azure-ai-agentserver-core/). The agent plans a goal with Azure OpenAI, **gates the plan on human approval**, executes it step by step, and **gates every irreversible step on a second human confirmation** — performing each irreversible action *exactly once*, even across container restarts.
 
-Unlike a synchronous "generate a proposal and approve it" flow, the work here is genuinely long-running: the execution phase runs autonomously and can span container evictions, OOM kills, and redeployments. Task state is persisted to a resilient task store, so an interrupted run **resumes from its last checkpoint** — it never restarts from scratch and never repeats a completed irreversible step.
+Unlike a synchronous "generate a proposal and approve it" flow, the work here is genuinely long-running: the execution phase runs autonomously and can span container evictions, OOM kills, and redeployments. The framework persists task lifecycle state, while application checkpoints are stored explicitly in `FoundryStateStore`, so an interrupted run **resumes from its last checkpoint** — it never restarts from scratch and never repeats a completed irreversible step.
+
+The sample explicitly enables the resilient task subsystem with `set_resilient_tasks_enabled(True)`, as required by AgentServer Core 2.1 and later.
 
 This pattern fits workflows where an agent should **act autonomously but never cross a dangerous line without a human** — provisioning infrastructure, publishing or sending communications, tagging a release, or applying irreversible changes.
 
@@ -22,7 +24,7 @@ This pattern fits workflows where an agent should **act autonomously but never c
 ```
 
 1. **Submit a goal** via `POST /invocations` with `{"action": "plan", "goal": "..."}` — the agent decomposes it into an ordered plan, flags which steps are **irreversible**, and pauses with status `awaiting_plan_approval`.
-2. **The agent pauses** — the chain suspends. The human can return minutes, hours, or days later; the plan is persisted in the task store, not process memory.
+2. **The agent pauses** — the chain suspends. The human can return minutes, hours, or days later; the plan is persisted in `FoundryStateStore`, not process memory.
 3. **Approve the plan** via `{"action": "approve_plan"}` (or `edit_plan` with a revised `plan`, or `reject`). The agent begins executing, **checkpointing after every step**.
 4. **Confirm each irreversible step** — before any irreversible action the agent suspends again with status `awaiting_action_approval`. Send `{"action": "approve_action"}` to run it exactly once, or `{"action": "reject_action"}` to halt.
 5. **Poll status** via `GET /invocations/{invocation_id}?agent_session_id=<id>` — every POST returns `202` immediately; poll for the current status and output.
