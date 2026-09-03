@@ -1,0 +1,12 @@
+{
+  "$schema": "https://aka.ms/azure-quickstart-templates-metadata-schema#",
+  "type": "QuickStart",
+  "itemDisplayName": "Network-secured AI Gateway tier (preview) — self-contained (Path B)",
+  "description": "The VNet (Path B) variant of 01-connections/ai-gateway-tier. Self-contained and one-shot: a single deployment stands up the full template 16 private-network standard-agent foundation (VNet, private Foundry account + project, Cosmos/Search/Storage with private endpoints and DNS, capability host) AND a private hub Foundry account (publicNetworkAccess disabled) with a gpt-5.4 model behind an AI Gateway tier instance (Microsoft.ApiManagement/service, AIGateway SKU, 2025-09-01-preview) that is inbound-public + outbound-VNet-integrated: the gateway endpoint stays reachable by the managed Agent Service inference plane while it reaches the private hub account over the VNet. Includes the Foundry managed-identity model provider, a token-limit policy, a runtime key, the gateway managed identity's Foundry User role, and the ModelGateway 'Admin-connected models' connection on the project. Deploys in one AIGateway preview region (East US 2 / Sweden Central). An agent references the model as <connectionName>/<modelName> via the Responses API.",
+  "summary": "Self-contained network-secured AI Gateway tier (Path B). One deployment: the full private standard-agent foundation (VNet, private account + project, Cosmos/Search/Storage, capability host) plus a private hub account + gpt-5.4 model + private endpoint + AIGateway (virtualNetworkType External + outbound VNet integration, public inbound) + Foundry managed-identity provider + token-limit policy + runtime key + ModelGateway ApiKey connection on the project.",
+  "githubUsername": "mohammadsheraj",
+  "dateUpdated": "2026-09-02",
+  "environments": [
+    "AzureCloud"
+  ]
+}

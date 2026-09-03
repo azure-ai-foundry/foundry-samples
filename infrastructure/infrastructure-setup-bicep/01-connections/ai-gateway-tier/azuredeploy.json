@@ -1,0 +1,345 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.46.1.21595",
+      "templateHash": "2257742962386746331"
+    }
+  },
+  "parameters": {
+    "aiServicesName": {
+      "type": "string",
+      "defaultValue": "hub",
+      "maxLength": 40,
+      "metadata": {
+        "description": "Base name for the hub Foundry account. A short unique suffix is appended."
+      }
+    },
+    "projectName": {
+      "type": "string",
+      "defaultValue": "hub-project",
+      "metadata": {
+        "description": "Name of the hub project created under the account (the admin workspace that owns the model)."
+      }
+    },
+    "projectDescription": {
+      "type": "string",
+      "defaultValue": "AI Gateway tier hub: owns the model behind the centralized gateway.",
+      "metadata": {
+        "description": "Hub project description."
+      }
+    },
+    "projectDisplayName": {
+      "type": "string",
+      "defaultValue": "AI Gateway tier hub",
+      "metadata": {
+        "description": "Hub project display name."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "eastus2",
+      "metadata": {
+        "description": "Region for the account, project, and model. Defaults to eastus2; can differ from gatewayLocation (e.g. a CI region)."
+      }
+    },
+    "gatewayLocation": {
+      "type": "string",
+      "defaultValue": "eastus2",
+      "allowedValues": [
+        "eastus2",
+        "swedencentral"
+      ],
+      "metadata": {
+        "description": "Region for the AI Gateway tier (AIGateway SKU), release-gated to eastus2 / swedencentral. Separate from location so the account and model can deploy in another region while the gateway stays supported."
+      }
+    },
+    "modelName": {
+      "type": "string",
+      "defaultValue": "gpt-5.4",
+      "metadata": {
+        "description": "Model to deploy. The AI Gateway tier imports this deployment and callers reference it by this name in the request \"model\" field."
+      }
+    },
+    "modelFormat": {
+      "type": "string",
+      "defaultValue": "OpenAI",
+      "metadata": {
+        "description": "Model format. Example: OpenAI."
+      }
+    },
+    "modelVersion": {
+      "type": "string",
+      "defaultValue": "2026-03-05",
+      "metadata": {
+        "description": "Model version. Ensure this version is available in your region: az cognitiveservices account list-models."
+      }
+    },
+    "modelSkuName": {
+      "type": "string",
+      "defaultValue": "GlobalStandard",
+      "metadata": {
+        "description": "Model deployment SKU name. Example: GlobalStandard."
+      }
+    },
+    "modelCapacity": {
+      "type": "int",
+      "defaultValue": 1,
+      "metadata": {
+        "description": "Model deployment capacity in thousands of TPM. Defaults to 1 (sample-friendly); raise it for real gpt-5.4 workloads to a value your subscription has quota for."
+      }
+    },
+    "gatewayName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Globally unique AI Gateway name. Resolves to <name>.azure-api.net. Leave empty to auto-generate."
+      }
+    },
+    "publisherEmail": {
+      "type": "string",
+      "defaultValue": "noreply@example.com",
+      "metadata": {
+        "description": "Publisher email required by the API Management service at create time."
+      }
+    },
+    "publisherName": {
+      "type": "string",
+      "defaultValue": "AI Gateway tier hub",
+      "metadata": {
+        "description": "Publisher organization name required by the API Management service at create time."
+      }
+    },
+    "tokensPerMinute": {
+      "type": "int",
+      "defaultValue": 100,
+      "metadata": {
+        "description": "Tokens-per-minute budget enforced on the model by the gateway token-limit policy. Low by default so a burst test visibly throttles (HTTP 429)."
+      }
+    }
+  },
+  "variables": {
+    "uniqueSuffix": "[substring(uniqueString(format('{0}', resourceGroup().id)), 0, 4)]",
+    "accountName": "[toLower(format('{0}{1}', parameters('aiServicesName'), variables('uniqueSuffix')))]",
+    "effectiveGatewayName": "[if(empty(parameters('gatewayName')), format('aigw{0}', variables('uniqueSuffix')), parameters('gatewayName'))]",
+    "foundryUserRoleId": "53ca6127-db72-4b80-b1b0-d745d6d5456d"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[variables('accountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "S0"
+      },
+      "kind": "AIServices",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "allowProjectManagement": true,
+        "customSubDomainName": "[variables('accountName')]",
+        "publicNetworkAccess": "Enabled",
+        "disableLocalAuth": true,
+        "networkAcls": {
+          "defaultAction": "Allow",
+          "virtualNetworkRules": [],
+          "ipRules": []
+        }
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2024-10-01",
+      "name": "[format('{0}/{1}', variables('accountName'), parameters('modelName'))]",
+      "sku": {
+        "capacity": "[parameters('modelCapacity')]",
+        "name": "[parameters('modelSkuName')]"
+      },
+      "properties": {
+        "model": {
+          "name": "[parameters('modelName')]",
+          "format": "[parameters('modelFormat')]",
+          "version": "[parameters('modelVersion')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}', variables('accountName'), parameters('projectName'))]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "description": "[parameters('projectDescription')]",
+        "displayName": "[parameters('projectDisplayName')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('accountName'), parameters('modelName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ApiManagement/service",
+      "apiVersion": "2025-09-01-preview",
+      "name": "[variables('effectiveGatewayName')]",
+      "location": "[parameters('gatewayLocation')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "sku": {
+        "name": "AIGateway",
+        "capacity": 1
+      },
+      "properties": {
+        "publisherEmail": "[parameters('publisherEmail')]",
+        "publisherName": "[parameters('publisherName')]"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', variables('accountName')), resourceId('Microsoft.ApiManagement/service', variables('effectiveGatewayName')), variables('foundryUserRoleId'))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ApiManagement/service', variables('effectiveGatewayName')), '2025-09-01-preview', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('foundryUserRoleId'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]",
+        "[resourceId('Microsoft.ApiManagement/service', variables('effectiveGatewayName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ApiManagement/service/workspaces/modelProviders",
+      "apiVersion": "2025-09-01-preview",
+      "name": "[format('{0}/{1}/{2}', variables('effectiveGatewayName'), 'default', 'foundry')]",
+      "properties": {
+        "kind": "Foundry",
+        "displayName": "Foundry",
+        "foundry": {
+          "endpoint": "[if(endsWith(reference(resourceId('Microsoft.CognitiveServices/accounts', variables('accountName')), '2025-04-01-preview').endpoint, '/'), reference(resourceId('Microsoft.CognitiveServices/accounts', variables('accountName')), '2025-04-01-preview').endpoint, format('{0}/', reference(resourceId('Microsoft.CognitiveServices/accounts', variables('accountName')), '2025-04-01-preview').endpoint))]",
+          "resourceIds": [
+            "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]"
+          ],
+          "authentication": {
+            "kind": "ManagedIdentity",
+            "managedIdentity": {
+              "resource": "https://cognitiveservices.azure.com/"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]",
+        "[resourceId('Microsoft.ApiManagement/service', variables('effectiveGatewayName'))]",
+        "[extensionResourceId(resourceId('Microsoft.CognitiveServices/accounts', variables('accountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.CognitiveServices/accounts', variables('accountName')), resourceId('Microsoft.ApiManagement/service', variables('effectiveGatewayName')), variables('foundryUserRoleId')))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('accountName'), parameters('modelName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ApiManagement/service/workspaces/modelProviders/models",
+      "apiVersion": "2025-09-01-preview",
+      "name": "[format('{0}/{1}/{2}/{3}', variables('effectiveGatewayName'), 'default', 'foundry', parameters('modelName'))]",
+      "properties": {
+        "displayName": "[parameters('modelName')]",
+        "apiFormat": "OpenAIChatCompletions",
+        "supportedEndpoints": [
+          "/openai/v1/chat/completions",
+          "/openai/v1/responses"
+        ],
+        "deployment": {
+          "resourceId": "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('accountName'), parameters('modelName'))]",
+          "modelName": "[parameters('modelName')]",
+          "modelVersion": "[parameters('modelVersion')]"
+        },
+        "policies": [
+          {
+            "type": "tokenLimit",
+            "period": "minute",
+            "count": "[parameters('tokensPerMinute')]",
+            "counterKey": "Identity"
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ApiManagement/service/workspaces/modelProviders', variables('effectiveGatewayName'), 'default', 'foundry')]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('accountName'), parameters('modelName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ApiManagement/service/apiKeys",
+      "apiVersion": "2025-09-01-preview",
+      "name": "[format('{0}/{1}', variables('effectiveGatewayName'), 'default')]",
+      "properties": {
+        "displayName": "AI Gateway tier hub runtime key"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ApiManagement/service', variables('effectiveGatewayName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "subscriptionId": {
+      "type": "string",
+      "value": "[subscription().subscriptionId]"
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[resourceGroup().name]"
+    },
+    "accountName": {
+      "type": "string",
+      "value": "[variables('accountName')]"
+    },
+    "accountId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]"
+    },
+    "projectName": {
+      "type": "string",
+      "value": "[parameters('projectName')]"
+    },
+    "gatewayName": {
+      "type": "string",
+      "value": "[variables('effectiveGatewayName')]"
+    },
+    "gatewayModelsBaseUrl": {
+      "type": "string",
+      "value": "[format('{0}/default/models/openai/v1', reference(resourceId('Microsoft.ApiManagement/service', variables('effectiveGatewayName')), '2025-09-01-preview').gatewayUrl)]"
+    },
+    "modelName": {
+      "type": "string",
+      "value": "[parameters('modelName')]"
+    },
+    "modelVersion": {
+      "type": "string",
+      "value": "[parameters('modelVersion')]"
+    },
+    "modelFormat": {
+      "type": "string",
+      "value": "[parameters('modelFormat')]"
+    },
+    "gatewayPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ApiManagement/service', variables('effectiveGatewayName')), '2025-09-01-preview', 'full').identity.principalId]"
+    },
+    "location": {
+      "type": "string",
+      "value": "[parameters('location')]"
+    },
+    "gatewayLocation": {
+      "type": "string",
+      "value": "[parameters('gatewayLocation')]"
+    }
+  }
+}
