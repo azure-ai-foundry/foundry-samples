@@ -5,7 +5,7 @@ using OpenAI.Responses;
 
 #pragma warning disable OPENAI001
 
-// Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+// Format: "https://resource_name.services.ai.azure.com/api/projects/project_name"
 var ProjectEndpoint = "your_project_endpoint";
 
 // Create project client to call Foundry API

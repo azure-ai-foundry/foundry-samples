@@ -2,7 +2,7 @@ from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import PromptAgentDefinition
 
-# Format: "https://resource_name.ai.azure.com/api/projects/project_name"
+# Format: "https://resource_name.services.ai.azure.com/api/projects/project_name"
 PROJECT_ENDPOINT = "your_project_endpoint"
 AGENT_NAME = "your_agent_name"
 
@@ -16,7 +16,7 @@ project = AIProjectClient(
 agent = project.agents.create_version(
     agent_name=AGENT_NAME,
     definition=PromptAgentDefinition(
-        model="gpt-5-mini",  # supports all Foundry direct models"
+        model="gpt-5-mini",  # supports all Foundry direct models
         instructions="You are a helpful assistant that answers general questions",
     ),
 )
