@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  azd: '>=1.27.1'
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.9'
+name: github-copilot-responses-voicelive
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  github-copilot-responses-voicelive:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - GitHub Copilot SDK
+        - Responses Protocol
+        - VoiceLive
+        - Bring Your Own
+        - Python
+      voiceLiveCompatible: 'true'
+    project: src/github-copilot-responses-voicelive
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: github-copilot-responses-voicelive
+    displayName: GitHub Copilot SDK (Python, Responses, VoiceLive)
+    description: A voice-friendly hosted agent that uses the GitHub Copilot SDK with a Foundry BYOK model and streams Responses protocol status and text events.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    env:
+      # BYOK Foundry is the default. To use the GitHub Copilot model instead,
+      # comment this variable and configure GITHUB_TOKEN.
+      AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      # GITHUB_TOKEN: ${GITHUB_TOKEN}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry
