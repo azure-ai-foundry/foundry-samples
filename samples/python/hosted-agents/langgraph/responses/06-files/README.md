@@ -25,7 +25,7 @@ See [main.py](src/langgraph-files-responses/main.py) for the full implementation
 
 ### Agent Hosting
 
-The compiled graph is hosted with `ResponsesHostServer`, which exposes the OpenAI-compatible Responses endpoint at `/responses` and handles conversation history, streaming lifecycle events, and tool-call surfacing automatically.
+The async graph factory is registered in `langgraph.json` and loaded by `langchain_azure_ai.agents.hosting.run`, which exposes the OpenAI-compatible Responses endpoint at `/responses` and handles conversation history, streaming lifecycle events, and tool-call surfacing automatically.
 
 ## Option 1: Azure Developer CLI (`azd`)
 
@@ -143,7 +143,7 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 ### Or run manually, then open the Inspector
 
 1. Set the required environment variables (including `TOOLBOX_NAME`), and sign in to Azure with the Azure CLI (`az login`).
-2. From `src/langgraph-files-responses`, start the agent: `python main.py`
+2. From `src/langgraph-files-responses`, start the agent: `python -m langchain_azure_ai.agents.hosting.run --protocol responses`
    (listens on `http://localhost:8088`).
 3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
 

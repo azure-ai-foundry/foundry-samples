@@ -6,8 +6,10 @@ agent that runs in Foundry Agent Service over the Responses protocol.
 ## Key files
 
 - `azure.yaml` - Foundry services and deployment configuration.
-- `src/langchain-azure-resilient-responses/main.py` - Agent graph, tools,
-  checkpointing, and host startup.
+- `src/langchain-azure-resilient-responses/main.py` - Exported agent graph,
+  tools, and checkpointing.
+- `src/langchain-azure-resilient-responses/langgraph.json` - Graph entrypoint
+  configuration.
 - `src/langchain-azure-resilient-responses/requirements.in` - Direct agent
   dependencies.
 - `src/langchain-azure-resilient-responses/Dockerfile` - Container definition.

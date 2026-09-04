@@ -1,6 +1,7 @@
-azure-ai-agentserver-responses==2.1.0
-azure-ai-agentserver-invocations==1.1.0
+azure-ai-agentserver-responses==2.1.0b2
+azure-ai-agentserver-invocations==1.1.0b1
 langchain-azure-ai[hosting]>=1.2.9
+azure-ai-contentunderstanding>=1.2.0b2
 azure-ai-projects
 # azure-ai-projects imports httpx directly, while OpenAI 3 uses httpx2.
 openai<3

@@ -39,7 +39,7 @@ services:
     language: python
     codeConfiguration:
       runtime: python_3_13
-      entryPoint: main.py
+      entryPoint: '-m langchain_azure_ai.agents.hosting.run --protocol responses'
     uses:
       - ai-project
       - agent-tools

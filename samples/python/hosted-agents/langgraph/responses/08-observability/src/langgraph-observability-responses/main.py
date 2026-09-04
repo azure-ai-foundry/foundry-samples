@@ -2,9 +2,8 @@
 
 """LangGraph chat agent with OpenTelemetry tracing (Responses protocol).
 
-Hosts a LangGraph agent built with `langchain.agents.create_agent` on
-Foundry over the Responses protocol, using
-`langchain_azure_ai.agents.hosting.ResponsesHostServer`, with
+Exports a LangGraph agent for the configuration-driven
+`langchain_azure_ai.agents.hosting.run` entrypoint, with
 GenAI span emission enabled via
 `langchain_azure_ai.callbacks.tracers.enable_auto_tracing`.
 
@@ -32,7 +31,6 @@ from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
-from langchain_azure_ai.agents.hosting import ResponsesHostServer
 from langchain_azure_ai.callbacks.tracers import enable_auto_tracing
 
 load_dotenv()
@@ -79,22 +77,15 @@ def _build_chat_model() -> ChatOpenAI:
     )
 
 
-# ── Entrypoint ───────────────────────────────────────────────────────
-def main() -> None:
+def create_graph():
+    """Configure tracing and create the graph loaded by the hosting entrypoint."""
     # Enable GenAI OpenTelemetry tracing for every LangGraph node, LLM
     # call, and tool invocation. Configuration is driven by environment
     # variables — see this sample's README for the full list.
     enable_auto_tracing()
 
-    graph = create_agent(
+    return create_agent(
         _build_chat_model(),
         tools=[get_current_time, calculator],
         system_prompt="You are a friendly assistant. Keep your answers brief.",
     )
-
-    port = int(os.environ.get("PORT", "8088"))
-    ResponsesHostServer(graph).run(port=port)
-
-
-if __name__ == "__main__":
-    main()

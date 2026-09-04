@@ -39,7 +39,7 @@ following the `azd` or VS Code steps below.
 
 ### Toolbox tool loading
 
-[`langchain_azure_ai.tools.AzureAIProjectToolbox`](https://github.com/langchain-ai/langchain-azure/blob/main/libs/azure-ai/langchain_azure_ai/tools/_toolbox.py) opens an MCP session against the toolbox endpoint, authenticates with `DefaultAzureCredential`, sanitizes tool schemas, and returns standard LangChain `BaseTool` instances. Tools are loaded **lazily** (once, on the first request) and reused for all subsequent turns; each tool invocation opens its own short-lived MCP session.
+[`langchain_azure_ai.tools.AzureAIProjectToolbox`](https://github.com/langchain-ai/langchain-azure/blob/main/libs/azure-ai/langchain_azure_ai/tools/_toolbox.py) opens an MCP session against the toolbox endpoint, authenticates with `DefaultAzureCredential`, sanitizes tool schemas, and returns standard LangChain `BaseTool` instances. The async graph factory loads the tools once when the hosting entrypoint starts; each tool invocation opens its own short-lived MCP session.
 
 ### LangGraph Agent
 
@@ -55,7 +55,10 @@ Some MCP servers return tools with malformed JSON schemas (e.g. `object`-type sc
 
 ### Agent Hosting
 
-The compiled graph is hosted with `ResponsesHostServer`, which exposes the OpenAI-compatible Responses endpoint at `/responses` and handles conversation history, streaming lifecycle events, and tool-call surfacing automatically.
+`langchain_azure_ai.agents.hosting.run` loads the graph factory from
+`langgraph.json` and exposes the OpenAI-compatible Responses endpoint at
+`/responses`. It handles conversation history, streaming lifecycle events, and
+tool-call surfacing automatically.
 
 See [main.py](src/toolbox-langgraph/main.py) for the full implementation.
 
@@ -212,7 +215,8 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 ### Or run manually, then open the Inspector
 
 1. Set the required environment variables (including `TOOLBOX_NAME`), and sign in to Azure with the Azure CLI (`az login`).
-2. From `src/toolbox-langgraph`, start the agent: `python main.py`
+2. From `src/toolbox-langgraph`, start the agent:
+   `python -m langchain_azure_ai.agents.hosting.run --protocol responses`
    (listens on `http://localhost:8088`).
 3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
 

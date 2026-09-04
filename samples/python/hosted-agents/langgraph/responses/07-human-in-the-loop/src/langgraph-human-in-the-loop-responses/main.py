@@ -2,9 +2,8 @@
 
 """LangGraph human-in-the-loop agent (Responses protocol).
 
-Hosts a LangGraph ``StateGraph`` on Foundry over the Responses
-protocol, using
-`langchain_azure_ai.agents.hosting.ResponsesHostServer`. The
+Exports a LangGraph ``StateGraph`` for the configuration-driven
+`langchain_azure_ai.agents.hosting.run` entrypoint. The
 graph drafts a proposal in response to the user's task and pauses for
 human review via ``langgraph.types.interrupt``. Each pause is
 serialized to the wire as the standard OpenAI ``mcp_approval_request``
@@ -44,8 +43,6 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.types import Command, interrupt
 from typing_extensions import TypedDict
-
-from langchain_azure_ai.agents.hosting import ResponsesHostServer
 
 load_dotenv()
 
@@ -134,13 +131,6 @@ def _build_graph(model: ChatOpenAI):
     return builder.compile(checkpointer=InMemorySaver())
 
 
-# ── Entrypoint ───────────────────────────────────────────────────────
-def main() -> None:
-    graph = _build_graph(_build_chat_model())
-
-    port = int(os.environ.get("PORT", "8088"))
-    ResponsesHostServer(graph).run(port=port)
-
-
-if __name__ == "__main__":
-    main()
+def create_graph():
+    """Create the human-in-the-loop graph loaded by the hosting entrypoint."""
+    return _build_graph(_build_chat_model())

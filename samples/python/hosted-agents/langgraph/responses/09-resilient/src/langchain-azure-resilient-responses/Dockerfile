@@ -14,4 +14,4 @@ RUN python -m pip install --upgrade pip && \
 
 EXPOSE 8088
 
-CMD ["python", "main.py"]
+CMD ["python", "-m", "langchain_azure_ai.agents.hosting.run", "--protocol", "responses", "--option", "resilient_background=true", "--option", "steerable_conversations=true"]

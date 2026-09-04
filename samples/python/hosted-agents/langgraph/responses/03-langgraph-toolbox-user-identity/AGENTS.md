@@ -4,7 +4,9 @@ This project is a **Microsoft Foundry hosted agent** — a containerized AI agen
 
 ## Key files
 
-- `Dockerfile` — container definition
+- `src/toolbox-langgraph-user-identity/main.py` — async graph factory and Toolbox setup
+- `src/toolbox-langgraph-user-identity/langgraph.json` — graph entrypoint configuration
+- `src/toolbox-langgraph-user-identity/Dockerfile` — container definition
 
 ## Development workflow
 
@@ -18,6 +20,8 @@ azd ai agent invoke "your message"         # Invoke the deployed agent
 ```
 
 ## Microsoft Foundry Skill
+
+This project was built with the microsoft-foundry skill. Before working on or answering questions about Foundry agents, read that skill first.
 
 Install the **Microsoft Foundry Skill** for guided deployment, evaluation, and troubleshooting workflows.
 

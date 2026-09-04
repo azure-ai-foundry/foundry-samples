@@ -39,15 +39,15 @@ tools, and hosting configuration.
 
 Recovery depends on two persistent layers: Agent Server stores the durable
 response and replayable events, while the LangGraph checkpointer stores
-workflow state. Hosted runs use `FoundryCheckpointSaver` with Foundry State
-Store; local runs use `AsyncSqliteSaver`. Both modes retain graph state across
-a process restart.
+workflow state. `FoundryCheckpointSaver` uses Foundry State Store when hosted
+and automatically falls back to a file-backed local state store. Both modes
+retain graph state across a process restart.
 
 ### Agent hosting
 
-`ResponsesHostServer` exposes the OpenAI-compatible `/responses` endpoint and
-supports background execution, stored-response retrieval, replayable SSE
-streaming, cancellation, and optional active-turn steering. The host maps the
+`langchain_azure_ai.agents.hosting.run` loads the graph from `langgraph.json`
+and exposes the OpenAI-compatible `/responses` endpoint. The configured server
+options enable background recovery and active-turn steering. The host maps the
 conversation ID to the LangGraph thread and uses `previous_response_id` to
 continue the latest completed checkpoint.
 
@@ -132,7 +132,9 @@ and Python extensions. Install the agent dependencies and start the host:
 ```bash
 cd src/langchain-azure-resilient-responses
 python -m pip install -r requirements.txt
-python main.py
+python -m langchain_azure_ai.agents.hosting.run --protocol responses \
+  --option resilient_background=true \
+  --option steerable_conversations=true
 ```
 
 Then open **Agent Inspector** in VS Code
@@ -170,9 +172,8 @@ Call simulate_crash, recover, and report the result.
 The tool terminates the host on its first execution. Restart the host with the
 same command before the client timeout expires. The CUI retrieves the same
 stored response, resumes after its last SSE cursor, and restores the graph from
-`checkpoints.sqlite`; do not submit the original request again. By default,
-Agent Server uses `~/.agentserver` and LangGraph uses
-`src/langchain-azure-resilient-responses/checkpoints.sqlite`.
+the local state store; do not submit the original request again. By default,
+Agent Server and LangGraph persist local state beneath `~/.agentserver`.
 
 The same flow works against a deployed Foundry agent:
 
@@ -284,14 +285,12 @@ and use durable stores for any additional application state.
 | Variable                         | Default          | Purpose                                                                                |
 | -------------------------------- | ---------------- | -------------------------------------------------------------------------------------- |
 | `PORT`                           | `8088`           | HTTP port for the agent host.                                                          |
-| `AGENTSERVER_STATE_ROOT`         | `~/.agentserver` | Local durable task, response, and replay-stream state. Reuse it across local restarts. |
-| `STEERABLE_CONVERSATIONS`        | `false`          | Advertise and enable active-turn steering.                                             |
+| `AGENTSERVER_STATE_ROOT`         | `~/.agentserver` | Local durable task, response, replay-stream, and LangGraph checkpoint state.           |
 | `FOUNDRY_PROJECT_ENDPOINT`       | None             | Required Foundry project endpoint.                                                     |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | None             | Required Foundry model deployment name.                                                |
 
 Hosted checkpoint items use Foundry State Store's default 30-day sliding TTL.
-Local checkpoints remain in
-`src/langchain-azure-resilient-responses/checkpoints.sqlite`.
+Local checkpoints remain beneath `${AGENTSERVER_STATE_ROOT}/state_stores`.
 
 ## Deploying the Agent to Foundry
 

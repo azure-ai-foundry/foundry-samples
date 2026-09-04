@@ -2,9 +2,8 @@
 
 """LangGraph multi-turn chat agent with local tools (Responses protocol).
 
-Hosts a LangGraph agent built with `langchain.agents.create_agent` on
-Foundry over the Responses protocol, using
-`langchain_azure_ai.agents.hosting.ResponsesHostServer`.
+Exports a LangGraph agent for the configuration-driven
+`langchain_azure_ai.agents.hosting.run` entrypoint.
 
 Conversation state is managed server-side by the platform via
 `previous_response_id` — no application-side session storage is needed.
@@ -22,8 +21,6 @@ from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
-
-from langchain_azure_ai.agents.hosting import ResponsesHostServer
 
 load_dotenv()
 
@@ -66,16 +63,7 @@ def _build_chat_model() -> ChatOpenAI:
     )
 
 
-# ── Entrypoint ───────────────────────────────────────────────────────
-def main() -> None:
-    graph = create_agent(
-        _build_chat_model(),
-        tools=[get_current_time, calculator],
-    )
-
-    port = int(os.environ.get("PORT", "8088"))
-    ResponsesHostServer(graph).run(port=port)
-
-
-if __name__ == "__main__":
-    main()
+graph = create_agent(
+    _build_chat_model(),
+    tools=[get_current_time, calculator],
+)

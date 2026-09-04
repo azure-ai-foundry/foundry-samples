@@ -18,4 +18,4 @@ EXPOSE 8088
 RUN PYTHONDONTWRITEBYTECODE= python -m compileall -q $(python -c "import sysconfig as s; print(s.get_paths()['stdlib'], s.get_paths()['purelib'])") || true; \
     PYTHONDONTWRITEBYTECODE= python -m compileall -q .
 
-CMD ["python", "main.py"]
+CMD ["python", "-m", "langchain_azure_ai.agents.hosting.run", "--protocol", "responses"]

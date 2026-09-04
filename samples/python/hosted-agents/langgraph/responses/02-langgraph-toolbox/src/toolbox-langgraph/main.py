@@ -2,10 +2,9 @@
 
 """LangGraph toolbox agent with Foundry Toolbox tools (Responses protocol).
 
-Hosts a LangGraph agent built with `langchain.agents.create_agent` on
-Foundry over the Responses protocol, using
-`langchain_azure_ai.agents.hosting.ResponsesHostServer`. Tools are loaded
-at startup from a Foundry Toolbox via
+Exports a LangGraph agent built with `langchain.agents.create_agent` for the
+configuration-driven `langchain_azure_ai.agents.hosting.run` entrypoint.
+Tools are loaded at startup from a Foundry Toolbox via
 `langchain_azure_ai.tools.AzureAIProjectToolbox`.
 
 The toolbox exposes `web_search` plus a connection-backed GitHub Copilot
@@ -16,14 +15,12 @@ MCP tool. When the toolbox returns an OAuth consent error (MCP code
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import re
-from typing import Any, AsyncIterator
+from typing import Any
 from urllib.parse import urlparse
 
-from azure.ai.agentserver.responses import CreateResponse, ResponseContext
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from dotenv import load_dotenv
@@ -31,7 +28,6 @@ from langchain.agents import create_agent
 from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 
-from langchain_azure_ai.agents.hosting import ResponsesHostServer
 from langchain_azure_ai.tools import AzureAIProjectToolbox
 
 load_dotenv()
@@ -167,44 +163,8 @@ async def _load_toolbox_tools() -> list[BaseTool]:
     return tools
 
 
-# ── Lazy host ────────────────────────────────────────────────────────
-# Load tools on the first request so /readiness returns 200 before
-# Foundry's session manager times out waiting for the container.
-class _LazyToolboxHostServer(ResponsesHostServer):
-    def __init__(self, chat_model: ChatOpenAI) -> None:
-        super().__init__(create_agent(chat_model, tools=[], system_prompt=SYSTEM_PROMPT))
-        self._chat_model = chat_model
-        self._ready_lock = asyncio.Lock()
-        self._ready = False
-
-    async def _ensure_real_graph(self) -> None:
-        if self._ready:
-            return
-        async with self._ready_lock:
-            if self._ready:
-                return
-            tools = await _load_toolbox_tools()
-            self._graph = create_agent(
-                self._chat_model, tools=tools, system_prompt=SYSTEM_PROMPT
-            )
-            self._ready = True
-
-    async def handle_create(
-        self,
-        request: CreateResponse,
-        context: ResponseContext,
-        cancellation_signal: asyncio.Event,
-    ) -> AsyncIterator[Any]:
-        await self._ensure_real_graph()
-        async for event in super().handle_create(request, context, cancellation_signal):
-            yield event
-
-
-# ── Entrypoint ───────────────────────────────────────────────────────
-def main() -> None:
-    port = int(os.environ.get("PORT", "8088"))
-    _LazyToolboxHostServer(_build_chat_model()).run(port=port)
-
-
-if __name__ == "__main__":
-    main()
+# ── Graph factory ────────────────────────────────────────────────────
+async def create_graph():
+    """Load Toolbox tools and create the graph used by the hosting entrypoint."""
+    tools = await _load_toolbox_tools()
+    return create_agent(_build_chat_model(), tools=tools, system_prompt=SYSTEM_PROMPT)

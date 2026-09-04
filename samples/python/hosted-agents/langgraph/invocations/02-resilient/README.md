@@ -39,9 +39,9 @@ tools, and hosting configuration.
 
 Recovery depends on two persistent layers: Agent Server stores the durable
 invocation and protocol events, while the LangGraph checkpointer stores
-workflow state. Hosted runs use `FoundryCheckpointSaver` with Foundry State
-Store; local runs use `AsyncSqliteSaver`. Both modes retain graph state across
-a process restart.
+workflow state. `FoundryCheckpointSaver` uses Foundry State Store when hosted
+and automatically falls back to a file-backed local state store. Both modes
+retain graph state across a process restart.
 
 ### Agent hosting
 
@@ -170,10 +170,9 @@ Call simulate_crash, recover, and report the result.
 
 The tool terminates the host on its first execution. Restart the host with the
 same command before the client timeout expires. The CUI polls the same
-invocation and the graph resumes from its SQLite checkpoint; do not submit the
-original request again. By default, Agent Server uses `~/.agentserver` and
-LangGraph uses
-`src/langchain-azure-resilient-invocations/checkpoints.sqlite`.
+invocation and the graph resumes from its local checkpoint; do not submit the
+original request again. By default, Agent Server and LangGraph persist local
+state beneath `~/.agentserver`.
 
 The same flow works against a deployed Foundry agent:
 
@@ -285,16 +284,14 @@ and use durable stores for any additional application state.
 
 | Variable                         | Default              | Purpose                                                                                   |
 | -------------------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
-| `PORT`                           | `8088`               | HTTP port for the agent host.                                                             |
-| `AGENTSERVER_STATE_ROOT`         | `~/.agentserver`     | Local durable task, invocation, and protocol-event state. Reuse it across local restarts. |
-| `CHECKPOINT_DB`                  | `checkpoints.sqlite` | Local LangGraph checkpoint database. Ignored when hosted on Foundry.                      |
-| `STEERABLE_CONVERSATIONS`        | `false`              | Enable server-side active-turn steering support.                                          |
-| `FOUNDRY_PROJECT_ENDPOINT`       | None                 | Required Foundry project endpoint.                                                        |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | None                 | Required Foundry model deployment name.                                                   |
+| `PORT`                           | `8088`           | HTTP port for the agent host.                                                     |
+| `AGENTSERVER_STATE_ROOT`         | `~/.agentserver` | Local durable task, invocation, protocol-event, and LangGraph checkpoint state.   |
+| `STEERABLE_CONVERSATIONS`        | `false`          | Enable server-side active-turn steering support.                                  |
+| `FOUNDRY_PROJECT_ENDPOINT`       | None             | Required Foundry project endpoint.                                                |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | None             | Required Foundry model deployment name.                                           |
 
 Hosted checkpoint items use Foundry State Store's default 30-day sliding TTL.
-Local checkpoints remain in the configured SQLite database under the agent
-application directory by default.
+Local checkpoints remain beneath `${AGENTSERVER_STATE_ROOT}/state_stores`.
 
 ## Deploying the Agent to Foundry
 

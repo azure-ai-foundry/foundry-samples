@@ -13,15 +13,13 @@ Graph shape::
 Optional environment variables:
 
     PORT               optional, defaults to 8088
-    CHECKPOINT_DB      optional path to the local LangGraph checkpoint SQLite
-                       file, defaults to ``checkpoints.sqlite``.
     STEERABLE_CONVERSATIONS optional boolean (default false) controlling
                             whether newer turns can steer active conversations.
     FOUNDRY_PROJECT_ENDPOINT required project endpoint for the model.
     AZURE_AI_MODEL_DEPLOYMENT_NAME required model deployment name.
 
-Foundry-hosted runs persist LangGraph checkpoints in Foundry State Store.
-Local runs use SQLite so graph state survives a process restart.
+``FoundryCheckpointSaver`` persists LangGraph checkpoints in Foundry State Store
+when hosted and automatically uses a local file-backed store otherwise.
 
 Run::
 
@@ -51,7 +49,6 @@ import os
 import signal
 from typing import Annotated, Any, TypedDict
 
-from azure.ai.agentserver.core import AgentConfig
 from azure.ai.agentserver.responses import ResponsesServerOptions
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
@@ -65,7 +62,6 @@ from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolM
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
@@ -99,7 +95,6 @@ def _install_otel_langgraph_callback_compatibility() -> None:
 
 
 _AZURE_AI_SCOPE = "https://ai.azure.com/.default"
-_CHECKPOINT_DB = os.environ.get("CHECKPOINT_DB") or "checkpoints.sqlite"
 _FOUNDRY_CHECKPOINT_STORE_PREFIX = "langchain-azure/resilient-invocations"
 _SENSITIVE_TOOLS = {"book_trip"}
 _SYSTEM_PROMPT = """You are a concise trip-planning assistant.
@@ -320,19 +315,13 @@ async def amain() -> None:
         resilient_background=True,
         steerable_conversations=env_bool("STEERABLE_CONVERSATIONS"),
     )
-    model = build_real_model()
-    checkpointer_context = (
-        FoundryCheckpointSaver(
-            store_name_prefix=_FOUNDRY_CHECKPOINT_STORE_PREFIX,
-            user_isolation=True,
-        )
-        if AgentConfig.from_env().is_hosted
-        else AsyncSqliteSaver.from_conn_string(_CHECKPOINT_DB)
+    checkpointer = FoundryCheckpointSaver(
+        store_name_prefix=_FOUNDRY_CHECKPOINT_STORE_PREFIX,
+        user_isolation=True,
     )
-    async with checkpointer_context as checkpointer:
-        graph = build_graph(checkpointer, model)
-        server = InvocationsHostServer(graph, options=options)
-        await server.run_async(port=int(os.environ.get("PORT", "8088")))
+    graph = build_graph(checkpointer, build_real_model())
+    server = InvocationsHostServer(graph, options=options)
+    await server.run_async(port=int(os.environ.get("PORT", "8088")))
 
 
 if __name__ == "__main__":
