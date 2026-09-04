@@ -1,0 +1,5 @@
+name: Session Configuration hosted agent
+description: A Responses hosted agent demonstrating sessionConfiguration.idleTimeoutSeconds in azure.yaml.
+
+build: "pip install -r requirements.txt"
+validate: "python -m py_compile *.py"

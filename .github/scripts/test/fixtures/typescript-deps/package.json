@@ -1,0 +1,12 @@
+{
+  "name": "typescript-deps",
+  "version": "1.0.0",
+  "private": true,
+  "description": "P1.3 fixture (ADO 5449687): declares a dependency so `npm install` must contact the registry. Pointed at a forced-unreachable registry to prove a transport failure classifies as ERROR (exit 2), never FAIL.",
+  "dependencies": {
+    "is-odd": "3.0.1"
+  },
+  "scripts": {
+    "build": "node -e \"process.exit(0)\""
+  }
+}

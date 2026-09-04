@@ -1,14 +1,8 @@
 /*
   vnet-with-backend-subnet.bicep
   ------------------------------
-  Thin extension of template 16's network module that adds a THIRD subnet
-  (backend-pe) to host the cross-region private endpoint to the backend
-  Foundry account. Everything else (agent-subnet delegation, pe-subnet,
-  existing-vnet support) is inherited from template 16.
-
-  This module is intentionally a wrapper instead of a fork — it keeps
-  template 16's behavior the source of truth for the project-side VNet,
-  and only adds the new backend-pe subnet on top of it.
+  Creates all extension-owned subnets in one VNet update for new networks.
+  Existing customer VNets retain additive child-subnet updates.
 */
 
 @description('Azure region for the VNet (must equal the project region).')
@@ -41,13 +35,86 @@ param peSubnetPrefix string = ''
 param backendPeSubnetName string = 'backend-pe'
 param backendPeSubnetPrefix string
 
-// Delegate base VNet + agent-subnet + pe-subnet to template 16's module.
-module baseVnet '../../../modules-network-secured/network-agent-vnet.bicep' = {
+@description('Subnet name and CIDR for APIM Standard v2 outbound integration.')
+param apimOutboundSubnetName string = 'apim-outbound'
+param apimOutboundSubnetPrefix string
+
+var vnetAddress = empty(vnetAddressPrefix) ? '192.168.0.0/16' : vnetAddressPrefix
+var agentSubnetAddress = empty(agentSubnetPrefix) ? cidrSubnet(vnetAddress, 24, 0) : agentSubnetPrefix
+var peSubnetAddress = empty(peSubnetPrefix) ? cidrSubnet(vnetAddress, 24, 1) : peSubnetPrefix
+
+resource apimOutboundNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = if (!useExistingVnet) {
+  name: '${apimOutboundSubnetName}-nsg'
+  location: location
+}
+
+resource newVnet 'Microsoft.Network/virtualNetworks@2024-05-01' = if (!useExistingVnet) {
+  name: vnetName
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: [vnetAddress]
+    }
+    subnets: [
+      {
+        name: agentSubnetName
+        properties: {
+          addressPrefix: agentSubnetAddress
+          delegations: [
+            {
+              name: 'Microsoft.app/environments'
+              properties: {
+                serviceName: 'Microsoft.App/environments'
+              }
+            }
+          ]
+        }
+      }
+      {
+        name: peSubnetName
+        properties: {
+          addressPrefix: peSubnetAddress
+          privateEndpointNetworkPolicies: 'Disabled'
+          defaultOutboundAccess: false
+        }
+      }
+      {
+        name: backendPeSubnetName
+        properties: {
+          addressPrefix: backendPeSubnetPrefix
+          privateEndpointNetworkPolicies: 'Disabled'
+          defaultOutboundAccess: false
+        }
+      }
+      {
+        name: apimOutboundSubnetName
+        properties: {
+          addressPrefix: apimOutboundSubnetPrefix
+          networkSecurityGroup: {
+            id: apimOutboundNsg.id
+          }
+          defaultOutboundAccess: false
+          delegations: [
+            {
+              name: 'Microsoft.Web/serverFarms'
+              properties: {
+                serviceName: 'Microsoft.Web/serverFarms'
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+
+module existingVnet '../../../modules-network-secured/network-agent-vnet.bicep' = if (useExistingVnet) {
   name: 'base-vnet-${vnetName}-deployment'
+  scope: resourceGroup(existingVnetSubscriptionId, existingVnetResourceGroupName)
   params: {
     location: location
     vnetName: vnetName
-    useExistingVnet: useExistingVnet
+    useExistingVnet: true
     existingVnetSubscriptionId: existingVnetSubscriptionId
     existingVnetResourceGroupName: existingVnetResourceGroupName
     agentSubnetName: agentSubnetName
@@ -58,33 +125,33 @@ module baseVnet '../../../modules-network-secured/network-agent-vnet.bicep' = {
   }
 }
 
-// Add the backend-pe subnet to whatever VNet we ended up with. Using an
-// independent subnet resource so we do not race with the parent vnet
-// module on subnet collection writes.
-resource backendPeSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
-  name: '${vnetName}/${backendPeSubnetName}'
-  properties: {
-    addressPrefix: backendPeSubnetPrefix
-    privateEndpointNetworkPolicies: 'Disabled'
-    // The backend-pe subnet only hosts the cross-region private endpoint
-    // into the backend Foundry account; nothing in it ever initiates
-    // outbound traffic. Disabling default outbound access avoids relying
-    // on the deprecated implicit egress path and complies with subscription
-    // guardrails requiring defaultOutboundAccess=false on every subnet.
-    defaultOutboundAccess: false
+module existingExtensionSubnets 'existing-vnet-extension-subnets.bicep' = if (useExistingVnet) {
+  name: 'extension-subnets-${vnetName}-deployment'
+  scope: resourceGroup(existingVnetSubscriptionId, existingVnetResourceGroupName)
+  params: {
+    location: location
+    vnetName: vnetName
+    backendPeSubnetName: backendPeSubnetName
+    backendPeSubnetPrefix: backendPeSubnetPrefix
+    apimOutboundSubnetName: apimOutboundSubnetName
+    apimOutboundSubnetPrefix: apimOutboundSubnetPrefix
   }
   dependsOn: [
-    baseVnet
+    existingVnet
   ]
 }
 
-output virtualNetworkName string = baseVnet.outputs.virtualNetworkName
-output virtualNetworkId string = baseVnet.outputs.virtualNetworkId
-output virtualNetworkResourceGroup string = baseVnet.outputs.virtualNetworkResourceGroup
-output virtualNetworkSubscriptionId string = baseVnet.outputs.virtualNetworkSubscriptionId
-output agentSubnetId string = baseVnet.outputs.agentSubnetId
-output agentSubnetName string = baseVnet.outputs.agentSubnetName
-output peSubnetId string = baseVnet.outputs.peSubnetId
-output peSubnetName string = baseVnet.outputs.peSubnetName
-output backendPeSubnetId string = backendPeSubnet.id
+var newVnetId = resourceId('Microsoft.Network/virtualNetworks', vnetName)
+var effectiveVnetId = useExistingVnet ? existingVnet.outputs.virtualNetworkId : newVnetId
+
+output virtualNetworkName string = useExistingVnet ? existingVnet.outputs.virtualNetworkName : vnetName
+output virtualNetworkId string = effectiveVnetId
+output virtualNetworkResourceGroup string = useExistingVnet ? existingVnet.outputs.virtualNetworkResourceGroup : resourceGroup().name
+output virtualNetworkSubscriptionId string = useExistingVnet ? existingVnet.outputs.virtualNetworkSubscriptionId : subscription().subscriptionId
+output agentSubnetId string = useExistingVnet ? existingVnet.outputs.agentSubnetId : '${newVnetId}/subnets/${agentSubnetName}'
+output agentSubnetName string = agentSubnetName
+output peSubnetId string = useExistingVnet ? existingVnet.outputs.peSubnetId : '${newVnetId}/subnets/${peSubnetName}'
+output peSubnetName string = peSubnetName
+output backendPeSubnetId string = useExistingVnet ? existingExtensionSubnets.outputs.backendPeSubnetId : '${newVnetId}/subnets/${backendPeSubnetName}'
 output backendPeSubnetName string = backendPeSubnetName
+output apimOutboundSubnetId string = useExistingVnet ? existingExtensionSubnets.outputs.apimOutboundSubnetId : '${newVnetId}/subnets/${apimOutboundSubnetName}'

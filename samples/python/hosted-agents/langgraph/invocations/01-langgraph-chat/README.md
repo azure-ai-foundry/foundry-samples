@@ -17,7 +17,7 @@ See [main.py](src/langgraph-chat-invocations/main.py) for the full implementatio
 
 ### Agent Hosting
 
-The compiled graph is hosted with `InvocationsHostServer`, which exposes the Invocations endpoint at `/invocations` and supports both non-streaming (single JSON response) and streaming (`{"stream": true}` SSE token deltas) modes.
+The exported graph is registered in `langgraph.json` and loaded by `langchain_azure_ai.agents.hosting.run`, which exposes the Invocations endpoint at `/invocations` and supports both non-streaming (single JSON response) and streaming (`{"stream": true}` SSE token deltas) modes.
 
 Multi-turn continuity is provided by the LangGraph `MemorySaver` checkpointer: the host wires the resolved `agent_session_id` into `RunnableConfig.configurable.thread_id`, so each session's history is preserved across turns. Replace `MemorySaver` with a durable checkpointer (Redis, Cosmos DB, etc.) for production.
 
@@ -150,7 +150,7 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 ### Or run manually, then open the Inspector
 
 1. Set the required environment variables and sign in to Azure with the Azure CLI (`az login`).
-2. Start the agent: `python main.py` (listens on `http://localhost:8088`).
+2. Start the agent: `python -m langchain_azure_ai.agents.hosting.run --protocol invocations` (listens on `http://localhost:8088`).
 3. Command Palette (`Ctrl+Shift+P`) → **Foundry Toolkit: Open Agent Inspector**, then send a message to test.
 
 ### Deploy to Foundry

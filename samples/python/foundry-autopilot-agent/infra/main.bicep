@@ -29,32 +29,67 @@ param containerRegistryName string = '${environmentName}acr'
 @description('SKU of Cognitive Services account')
 param cognitiveServicesSku string = 'S0'
 
+@description('Controls public network access for the Foundry account')
+@allowed([
+  'Enabled'
+  'Disabled'
+])
+param publicNetworkAccess string = 'Enabled'
+
+@description('Name of the Foundry workload spoke virtual network')
+param virtualNetworkName string = '${environmentName}-spoke-vnet'
+
+@description('Address prefix for the Foundry workload spoke virtual network')
+param spokeVirtualNetworkAddressPrefix string = '10.0.0.0/16'
+
+@description('Address prefix for the hosted agent subnet')
+param agentSubnetAddressPrefix string = '10.0.0.0/24'
+
+@description('Address prefix for the private endpoint subnet')
+param privateEndpointSubnetAddressPrefix string = '10.0.1.0/24'
+
+@description('Address prefix for optional workload virtual machines')
+param virtualMachineSubnetAddressPrefix string = '10.0.2.0/24'
+
+@description('Name of the hub virtual network')
+param hubVirtualNetworkName string = '${environmentName}-hub-vnet'
+
+@description('Address prefix for the hub virtual network')
+param hubVirtualNetworkAddressPrefix string = '10.1.0.0/16'
+
+@description('Address prefix for the AzureFirewallSubnet. Must be /26 or larger.')
+param azureFirewallSubnetAddressPrefix string = '10.1.0.0/26'
+
+@description('Name of the Azure Firewall')
+param firewallName string = '${environmentName}-firewall'
+
+@description('Name of the Azure Firewall policy')
+param firewallPolicyName string = '${environmentName}-firewall-policy'
+
+@description('Name of the route table applied to the workload spoke subnets')
+param spokeRouteTableName string = '${environmentName}-spoke-route-table'
+
 @description('SKU of Container Registry')
 @allowed(['Basic', 'Standard', 'Premium'])
 param containerRegistrySku string = 'Basic'
 
-param agentName string = 'foundry-autopilot-agent'
+@description('Name of the Log Analytics workspace')
+param logAnalyticsName string = '${environmentName}-logs'
 
-param maibName string = '${agentName}-maib'
+@description('Name of the Application Insights component')
+param applicationInsightsName string = '${environmentName}-appi'
+
+param agentName string = '${environmentName}-autopilot-agent'
 
 // =================================================================================================
-// Bot Service module parameters
+// Model deployment parameters
 // =================================================================================================
-
-@description('Name of the Bot Service')
-param botName string = '${agentName}-bot'
-
-@description('Display name of the bot')
-param botDisplayName string = '${agentName} Bot'
-
-@description('SKU of the Bot Service')
-param botServiceSku string = 'F0'
 
 @description('Model name')
-param modelName string = 'gpt-chat-latest'
+param modelName string = 'gpt-5-mini'
 
 @description('Model version')
-param modelVersion string = '2026-05-28'
+param modelVersion string = '2025-08-07'
 
 // =================================================================================================
 // Common parameters
@@ -67,7 +102,37 @@ param tags object = {}
 // Module deployments
 // =================================================================================================
 
-// 1. Deploy the project module (Cognitive Services account, project, and Container Registry)
+module publicAccount 'modules/public-account.bicep' = if (publicNetworkAccess == 'Enabled') {
+  name: 'public-account-deployment'
+  params: {
+    accountName: accountName
+    location: location
+    tags: tags
+    cognitiveServicesSku: cognitiveServicesSku
+  }
+}
+
+module privateNetworking 'modules/private-networking.bicep' = if (publicNetworkAccess == 'Disabled') {
+  name: 'private-networking-deployment'
+  params: {
+    accountName: accountName
+    location: location
+    tags: tags
+    cognitiveServicesSku: cognitiveServicesSku
+    virtualNetworkName: virtualNetworkName
+    spokeVirtualNetworkAddressPrefix: spokeVirtualNetworkAddressPrefix
+    agentSubnetAddressPrefix: agentSubnetAddressPrefix
+    privateEndpointSubnetAddressPrefix: privateEndpointSubnetAddressPrefix
+    virtualMachineSubnetAddressPrefix: virtualMachineSubnetAddressPrefix
+    hubVirtualNetworkName: hubVirtualNetworkName
+    hubVirtualNetworkAddressPrefix: hubVirtualNetworkAddressPrefix
+    azureFirewallSubnetAddressPrefix: azureFirewallSubnetAddressPrefix
+    firewallName: firewallName
+    firewallPolicyName: firewallPolicyName
+    spokeRouteTableName: spokeRouteTableName
+  }
+}
+
 module project 'modules/project.bicep' = {
   name: 'project-deployment'
   params: {
@@ -80,43 +145,12 @@ module project 'modules/project.bicep' = {
     containerRegistrySku: containerRegistrySku
     modelName: modelName
     modelVersion: modelVersion
-  }
-}
-
-// 2. Create deployment script UMI and grant roles on RG.
-module deploymentScriptUmi 'modules/deployment-script-umi.bicep' = {
-  name: 'deployment-script-umi'
-  dependsOn: [
-    project
-  ]
-}
-
-// 3. Create managed agent identity blueprint using a deployment script as that is a dataplane operation.
-module deploymentScriptAgent 'modules/maib-creation-script.bicep' = {
-  name: 'maib-creation-script'
-  params: {
-    uamiResourceId: deploymentScriptUmi.outputs.uamiResourceId
-    azureAIProjectEndpoint: project.outputs.foundryProjectEndpoint
-    maibName: maibName
+    logAnalyticsName: logAnalyticsName
+    applicationInsightsName: applicationInsightsName
   }
   dependsOn: [
-    deploymentScriptUmi
-  ]
-}
-
-
-// 4. Deploy the bot service module
-module botService 'modules/botservice.bicep' = {
-  name: 'botservice-deployment'
-  params: {
-    botName: botName
-    displayName: botDisplayName
-    msaAppId: deploymentScriptAgent.outputs.blueprintClientId
-    endpoint: 'https://${accountName}.services.ai.azure.com/api/projects/${projectName}/agents/${agentName}/endpoint/protocols/activityProtocol?api-version=2025-05-15-preview'
-    botServiceSku: botServiceSku
-  }
-  dependsOn: [
-    deploymentScriptAgent
+    publicAccount
+    privateNetworking
   ]
 }
 
@@ -128,9 +162,6 @@ module botService 'modules/botservice.bicep' = {
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = project.outputs.acrloginServer
 
 output AZURE_AI_PROJECT_ENDPOINT string = project.outputs.foundryProjectEndpoint
-
-@description('Agent identity blueprint ID')
-output AGENT_IDENTITY_BLUEPRINT_ID string = deploymentScriptAgent.outputs.blueprintClientId
 
 output SUBSCRIPTION_ID string = subscription().subscriptionId
 
@@ -148,6 +179,26 @@ output TENANT_ID string = tenant().tenantId
 
 output PROJECT_PRINCIPAL_ID string = project.outputs.foundryProjectPrincipalId
 
-output MAIB_NAME string = maibName
-
 output MODEL_NAME string = modelName
+
+output PUBLIC_NETWORK_ACCESS string = publicNetworkAccess
+
+output VIRTUAL_NETWORK_ID string = publicNetworkAccess == 'Disabled' ? privateNetworking!.outputs.virtualNetworkId : ''
+
+output HUB_VIRTUAL_NETWORK_ID string = publicNetworkAccess == 'Disabled' ? privateNetworking!.outputs.hubVirtualNetworkId : ''
+
+output AZURE_FIREWALL_ID string = publicNetworkAccess == 'Disabled' ? privateNetworking!.outputs.firewallId : ''
+
+output AZURE_FIREWALL_PRIVATE_IP string = publicNetworkAccess == 'Disabled' ? privateNetworking!.outputs.firewallPrivateIpAddress : ''
+
+output SPOKE_ROUTE_TABLE_ID string = publicNetworkAccess == 'Disabled' ? privateNetworking!.outputs.spokeRouteTableId : ''
+
+output AGENT_SUBNET_ID string = publicNetworkAccess == 'Disabled' ? privateNetworking!.outputs.agentSubnetId : ''
+
+output VIRTUAL_MACHINE_SUBNET_ID string = publicNetworkAccess == 'Disabled' ? privateNetworking!.outputs.virtualMachineSubnetId : ''
+
+output PRIVATE_ENDPOINT_ID string = publicNetworkAccess == 'Disabled' ? privateNetworking!.outputs.privateEndpointId : ''
+
+output APPLICATIONINSIGHTS_CONNECTION_STRING string = project.outputs.applicationInsightsConnectionString
+
+output APPLICATIONINSIGHTS_RESOURCE_ID string = project.outputs.applicationInsightsResourceId

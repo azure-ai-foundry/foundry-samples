@@ -18,6 +18,8 @@ No Cosmos DB or AI Search private endpoints are created.
 */
 
 // Resource names and identifiers
+@description('Azure region for the private endpoints. Defaults to the resource group location for backward compatibility; pass the deployment location so private endpoints are co-located with their target resources when the resource group is in a different region.')
+param location string = resourceGroup().location
 @description('Name of the AI Foundry account')
 param aiAccountName string
 @description('Name of the storage account')
@@ -77,7 +79,7 @@ resource peSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' existin
 
 resource aiAccountPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: '${aiAccountName}-private-endpoint'
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: { id: peSubnet.id }
     privateLinkServiceConnections: [
@@ -96,7 +98,7 @@ resource aiAccountPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01
 
 resource storagePrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: '${storageName}-private-endpoint'
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: { id: peSubnet.id }
     privateLinkServiceConnections: [

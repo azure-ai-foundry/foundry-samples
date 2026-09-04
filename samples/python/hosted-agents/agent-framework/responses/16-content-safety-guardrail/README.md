@@ -9,10 +9,28 @@ The agent itself is the basic `FoundryChatClient` agent served via `ResponsesHos
 ```yaml
 policies:
   - type: rai_policy
-    rai_policy_name: /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<account>/raiPolicies/<policy-name>
+    raiPolicyName: /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<account>/raiPolicies/<policy-name>
 ```
 
-The platform applies that policy to the agent at runtime. When you omit the `policies` block, the agent deploys without a content safety guardrail. When you include the `policies` block but omit `rai_policy_name`, the platform applies the default policy, `Microsoft.DefaultV2`. For a conceptual overview, see [Add a content safety guardrail to a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/add-hosted-agent-guardrails).
+The platform applies that policy to the agent at runtime. Omit the `policies` block entirely to deploy the agent without a content safety guardrail.
+
+`raiPolicyName` is **required** on every `rai_policy` entry. If you declare the entry and leave the name off, `azd` rejects the deployment during packaging:
+
+```text
+policies[0] of type 'rai_policy' requires a policy name
+```
+
+To use the built-in default policy, give its full ARM resource ID with `Microsoft.DefaultV2` as the policy name, scoped to the account that hosts your agent.
+
+For a conceptual overview, see [Add a content safety guardrail to a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/add-hosted-agent-guardrails).
+
+> [!WARNING]
+> Don't rely on deploy-time validation to catch a bad policy ID. On many subscriptions an agent that
+> points at a policy that doesn't exist — including the `<subscription-id>`/`<policy-name>` placeholder
+> that ships in [azure.yaml](azure.yaml) — deploys successfully and reports `active`, but **no content
+> filtering is applied**: the guardrail fails open and harmful prompts reach the agent. Always replace
+> the placeholder with a real policy ID and run [Verify the guardrail](#verify-the-guardrail) before you
+> rely on this agent's content safety.
 
 ## Prerequisites
 
@@ -31,7 +49,7 @@ The platform applies that policy to the agent at runtime. When you omit the `pol
 
 ## Configure the guardrail
 
-Set `rai_policy_name` to your RAI policy's full ARM resource ID in [azure.yaml](azure.yaml). Use the full ARM resource ID, not the bare policy name.
+Set `raiPolicyName` to your RAI policy's full ARM resource ID in [azure.yaml](azure.yaml). Use the full ARM resource ID, not the bare policy name.
 
 ## Option 1: Azure Developer CLI (`azd`)
 
@@ -48,7 +66,7 @@ azd ai agent init -m https://github.com/microsoft-foundry/foundry-samples/blob/m
 Follow the prompts to configure your Foundry project and model deployment. If you don't have an existing Foundry project, `azd ai agent init` guides you through creating one.
 
 > [!NOTE]
-> After init, confirm that `rai_policy_name` in the generated `azure.yaml` holds your policy's full ARM resource ID.
+> After init, confirm that `raiPolicyName` in the generated `azure.yaml` holds your policy's full ARM resource ID.
 
 ### Provision Azure resources (if needed)
 
@@ -59,7 +77,7 @@ azd provision
 ```
 
 > [!IMPORTANT]
-> If you provisioned a new Foundry project, it doesn't have your RAI policy yet. Before you deploy, [create an RAI policy](https://learn.microsoft.com/en-us/azure/foundry/guardrails/how-to-create-guardrails) on the provisioned account, then set `rai_policy_name` in the generated `azure.yaml` to that policy's full ARM resource ID. Deploying with a placeholder or nonexistent policy ID fails.
+> If you provisioned a new Foundry project, it doesn't have your RAI policy yet. Before you deploy, [create an RAI policy](https://learn.microsoft.com/en-us/azure/foundry/guardrails/how-to-create-guardrails) on the provisioned account, then set `raiPolicyName` in the generated `azure.yaml` to that policy's full ARM resource ID. Deploying with the placeholder or a nonexistent policy ID **may not fail** — on many subscriptions the agent deploys with no effective guardrail.
 
 ### Deploy to Foundry
 
@@ -108,7 +126,7 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 
 ### Deploy to Foundry
 
-1. Set `rai_policy_name` in `azure.yaml` to your policy's full ARM resource ID.
+1. Set `raiPolicyName` in `azure.yaml` to your policy's full ARM resource ID.
 2. Run **Foundry Toolkit: Deploy Hosted Agent** and follow the wizard to deploy.
 
 ## Verify the guardrail
@@ -127,7 +145,19 @@ A prompt that passes the policy returns `HTTP 200` with the agent's response. A 
 }
 ```
 
-If a violating prompt isn't blocked, confirm that the policy referenced by `rai_policy_name` is configured to filter the relevant content category and severity.
+If a violating prompt isn't blocked, check in this order:
+
+1. `raiPolicyName` names a policy that **actually exists** on your account. A nonexistent policy (including the shipped placeholder) fails open with no error. List the policies on your account and confirm the final segment of `raiPolicyName` matches one of them:
+
+   ```bash
+   az rest --method get \
+     --url "https://management.azure.com/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<account>/raiPolicies?api-version=2024-10-01" \
+     --query "value[].name" -o tsv
+   ```
+
+1. The policy is configured to filter the relevant content category and severity, with `source: Prompt` for input-stage filtering.
+
+The guardrail applies to streaming requests too. With `"stream": true`, a violating prompt is rejected with the same `HTTP 400` before any SSE event is emitted.
 
 ## Next steps
 

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "projectResourceId": {
+      "value": "/subscriptions/<spoke-sub>/resourceGroups/<spoke-rg>/providers/Microsoft.CognitiveServices/accounts/<account>/projects/<project>"
+    },
+    "gatewayModelsBaseUrl": {
+      "value": "https://<gateway>.azure-api.net/default/models/openai/v1"
+    },
+    "connectionName": { "value": "ai-gateway" },
+    "modelName": { "value": "gpt-5.4" },
+    "modelVersion": { "value": "2026-03-05" },
+    "modelFormat": { "value": "OpenAI" },
+    "authHeaderName": { "value": "api-key" },
+    "isSharedToAll": { "value": true }
+  }
+}

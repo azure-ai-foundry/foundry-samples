@@ -30,6 +30,7 @@ param existingDnsZones = {
   'privatelink.openai.azure.com': ''
   'privatelink.cognitiveservices.azure.com': ''
   'privatelink.blob.core.windows.net': ''
+  'privatelink.azurecr.io': ''
 }
 
 //DNSZones names for validating if they exist
@@ -38,7 +39,22 @@ param dnsZoneNames = [
   'privatelink.openai.azure.com'
   'privatelink.cognitiveservices.azure.com'
   'privatelink.blob.core.windows.net'
+  'privatelink.azurecr.io'
 ]
+
+// Azure Monitor private DNS zones for private Application Insights ingestion.
+// Provide a resource group name to reuse an existing (e.g. centralized ALZ) zone, or leave empty to create new.
+param existingMonitorDnsZones = {
+  'privatelink.monitor.azure.com': ''
+  'privatelink.oms.opinsights.azure.com': ''
+  'privatelink.ods.opinsights.azure.com': ''
+  'privatelink.agentsvc.azure-automation.net': ''
+}
+
+// Project-level capability host (Agents kind). Set true for data-generation workloads that use
+// the hosted-agent runtime; false for evaluation-only deployments.
+param deployCapabilityHost = true
+param projectCapHost = 'caphostproj'
 
 
 // Network configuration (behavior depends on `existingVnetResourceId`)

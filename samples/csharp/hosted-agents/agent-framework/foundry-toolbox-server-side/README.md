@@ -6,11 +6,23 @@ An agent that consumes a Foundry Toolbox as **server-side tools**. The Agent Fra
 
 ## Creating a Foundry Toolbox
 
-You can create a Foundry Toolbox by code. Refer to this sample for an example: [Foundry Toolbox CRUD Sample](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/samples/hosted_agents/sample_toolboxes_crud.py).
+To use your own tools, choose the tool type and authentication mode from the table below, then follow the linked guide to configure that tool in your toolbox.
 
-You can also create a Foundry Toolbox in the Foundry portal. Read more about it [in the Foundry toolbox documentation](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/toolbox).
+To run this sample as provided, skip the table and continue with the [setup steps](#prerequisites). The sample's [`azure.yaml`](azure.yaml) already defines an `agent-tools` toolbox with `web_search` and `code_interpreter`; `azd provision` creates it for you.
 
-> If you set up a project with this sample and provision the resources using `azd provision`, a Foundry Toolbox will be created with the tools declared in [`azure.yaml`](azure.yaml) — by default, `code_interpreter` (server-side code execution) plus an `mcp` tool pointing at the public `https://gitmcp.io/Azure/azure-rest-api-specs` MCP server. Swap either out for any other toolbox tool type that fits your scenario.
+### Toolbox tool types
+
+| Type | Variant | Description | Guide |
+|------|---------|-------------|-------|
+| **Built-in** | Web search, code interpreter, ... | Ready-to-use tools hosted by Foundry with no external MCP server to connect. | [Built-in tools guide](../../../../python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS/tools/built-in-tools.md) |
+| **MCP** | Unauthenticated | Anonymous — you provide nothing. | [Setup guide](../../../../python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-unauthenticated.md) |
+| **MCP** | Key-based | A shared static key you provide as a header (e.g. `Authorization: Bearer <token>`). | [Setup guide](../../../../python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-key-auth.md) |
+| **MCP** | Microsoft Entra<br>(Agent Identity / Project Managed Identity) | • Accesses MCP as the **agent/project** itself.<br>• Need grant the agent/project's identity access on the MCP.<br>• No user sign-in or consent. | [Setup guide](../../../../python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-microsoft-entra.md) |
+| **MCP** | OAuth Identity Passthrough | • Accesses MCP as the signed-in **user**.<br>• Need register the OAuth app.<br>• User consents on first use. | [Setup guide](../../../../python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-oauth-custom.md) |
+| **MCP - Foundry Catalog** | OAuth Identity Passthrough<br>(Managed) | • Accesses MCP as the signed-in **user**.<br>• No OAuth app to set up — Foundry uses its own.<br>• User consents on first use.<br>• Only some catalog MCP support it. | [Setup guide](../../../../python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-oauth-managed.md) |
+| **MCP - Foundry Catalog** | OAuth Identity Passthrough<br>(User Entra Token) | • Accesses MCP as the signed-in **user**.<br>• No OAuth app to set up — Foundry uses its own.<br>• No user consent needed.<br>• Only some catalog MCP support it. | [Setup guide](../../../../python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-user-entra-token.md) |
+| **OpenAPI** | External REST API | Any REST API with an OpenAPI 3.x spec. | [Setup guide](../../../../python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS/tools/openapi.md) |
+| **A2A** | Remote agent (Agent-to-Agent) | Call another remote agent. | [Setup guide](../../../../python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS/tools/a2a.md) |
 
 ## Prerequisites
 
@@ -22,7 +34,7 @@ You can also create a Foundry Toolbox in the Foundry portal. Read more about it 
 
 ### Prerequisites
 
-1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.27.1 or later)
 2. Install the Foundry extension:
 
    ```bash
@@ -49,6 +61,8 @@ Follow the prompts to configure your Foundry project and model deployment. If yo
 ### Provision Azure resources (if needed)
 
 If you don't already have a Foundry project, model deployment, and toolbox, provision them:
+
+To use a tool type that is not included in this sample, follow its setup guide in the [Toolbox tool types](#toolbox-tool-types) table above and update `azure.yaml` before provisioning.
 
 ```bash
 azd provision
@@ -101,6 +115,18 @@ azd ai agent invoke "What tools do you have?"
 1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
 2. [C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension.
 3. Command Palette (`Ctrl+Shift+P`) → **C#: Check Workspace Requirements** to confirm the toolchain is ready.
+
+### Create a toolbox
+
+The toolbox must exist in your Foundry project before you run the agent. This sample expects a toolbox named **`agent-tools`**. Create it with the VS Code Foundry Toolkit extension:
+
+1. In the **Foundry Toolkit** view (signed in), open **Tool Catalog** → **Catalog** tab → **Toolboxes** → **Create Your Toolbox**.
+
+   Or, if you're reading this README in VS Code, directly click [[Create in VS Code]](vscode://ms-windows-ai-studio.windows-ai-studio/open_tools).
+2. In the **Included** panel, click **+ Add ▾** → **Add tools** to open the **Select a tool** dialog. To run this sample as provided, add **Web Search** and **Code Interpreter**. To use different tools, follow the tool's **Guide** in the [Toolbox tool types](#toolbox-tool-types) table above.
+3. Follow the configuration dialog to add each tool.
+4. Back on **Build a Custom Toolbox**, name the toolbox **`agent-tools`**, then click **Publish**. The toolbox appears on the **Toolboxes** tab.
+5. When you configure the agent below, set `TOOLBOX_NAME=agent-tools` in `.env`. If you publish the toolbox under a different name, use that name instead.
 
 ### Run and debug the agent
 

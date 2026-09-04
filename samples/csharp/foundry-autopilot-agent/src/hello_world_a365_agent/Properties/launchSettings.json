@@ -8,8 +8,6 @@
         "applicationUrl": "http://localhost:6280",
         "environmentVariables": {
           "ASPNETCORE_ENVIRONMENT": "Development",
-          "EnableKairoTracing": "true",
-          "KairoAppInsightsConnectionString": "",
           "MCP_PLATFORM_ENDPOINT": "https://agent365.svc.cloud.microsoft"
         }
       },
@@ -20,8 +18,6 @@
         "applicationUrl": "https://localhost:7268;http://localhost:6280",
         "environmentVariables": {
           "ASPNETCORE_ENVIRONMENT": "Development",
-          "EnableKairoTracing": "true",
-          "KairoAppInsightsConnectionString": "",
           "MCP_PLATFORM_ENDPOINT": "https://agent365.svc.cloud.microsoft"
         }
       }

@@ -1,0 +1,228 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://aka.ms/foundry-samples/diagnostic-agent/report.schema.json",
+    "title": "Diagnostic Agent Report",
+    "description": "Response envelope returned by the diagnostic agent. Every probe emits the same ProbeResult shape under results[]; summary is a probe-agnostic rollup.",
+    "type": "object",
+    "required": [
+        "schema_version",
+        "status",
+        "results",
+        "summary"
+    ],
+    "properties": {
+        "schema_version": {
+            "type": "integer",
+            "const": 1
+        },
+        "status": {
+            "type": "string",
+            "description": "Did the AGENT run cleanly? ok normally, partial if any probe crashed (status=error), handler_error on a last-chance failure. Always HTTP 200 regardless.",
+            "enum": [
+                "ok",
+                "partial",
+                "handler_error"
+            ]
+        },
+        "agent_session_id": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "invocation_id": {
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "timestamp_utc": {
+            "type": "string"
+        },
+        "elapsed_ms": {
+            "type": "number"
+        },
+        "summary": {
+            "type": "object",
+            "required": [
+                "status",
+                "probes_run"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "The DIAGNOSTIC verdict across all findings (worst probe status).",
+                    "enum": [
+                        "ok",
+                        "warn",
+                        "fail",
+                        "error",
+                        "skipped"
+                    ]
+                },
+                "targets_failed": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "findings_by_severity": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "top_findings": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "probe": {
+                                "type": "string"
+                            },
+                            "code": {
+                                "type": "string"
+                            },
+                            "severity": {
+                                "type": "string"
+                            },
+                            "message": {
+                                "type": "string"
+                            },
+                            "target": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "probes_run": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "probes_errored": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "results": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/probeResult"
+            }
+        },
+        "error": {
+            "type": "object",
+            "description": "Present only when status=handler_error.",
+            "properties": {
+                "type": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "traceback": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "definitions": {
+        "probeResult": {
+            "type": "object",
+            "description": "The uniform envelope every probe emits.",
+            "required": [
+                "probe",
+                "probe_version",
+                "status",
+                "target",
+                "findings",
+                "metrics"
+            ],
+            "properties": {
+                "probe": {
+                    "type": "string",
+                    "description": "Namespaced probe id, e.g. 'dns.parallel'. Group related probes under a namespace.",
+                    "pattern": "^[a-z0-9_]+\\.[a-z0-9_]+$"
+                },
+                "probe_version": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string",
+                    "description": "The probe's own verdict. 'error' = the probe itself crashed; 'fail' = it found a real problem.",
+                    "enum": [
+                        "ok",
+                        "warn",
+                        "fail",
+                        "error",
+                        "skipped"
+                    ]
+                },
+                "target": {
+                    "type": "object",
+                    "description": "What this result is about (e.g. {host}, {url}, {target}, {kind})."
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "findings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/finding"
+                    }
+                },
+                "metrics": {
+                    "type": "object",
+                    "description": "Flat numeric map for dashboards/time-series."
+                },
+                "evidence": {
+                    "type": "object",
+                    "description": "Verbose raw detail; empty when include_evidence is false."
+                },
+                "elapsed_ms": {
+                    "type": "number"
+                }
+            }
+        },
+        "finding": {
+            "type": "object",
+            "required": [
+                "code",
+                "severity",
+                "message"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "Stable machine-readable finding code, e.g. 'GAI_FAIL_RAW_OK'."
+                },
+                "severity": {
+                    "type": "string",
+                    "enum": [
+                        "info",
+                        "warning",
+                        "error",
+                        "critical"
+                    ]
+                },
+                "message": {
+                    "type": "string"
+                },
+                "remediation": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            }
+        }
+    }
+}

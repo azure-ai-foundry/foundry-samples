@@ -1,0 +1,4 @@
+name: live-service-cold
+description: Hermetic live-service fixture proving the validator preserves cold-cadence semantics.
+live_service_validation:
+  command: 'test "$SKIP_PROVISION" = "false"'

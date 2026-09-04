@@ -57,12 +57,6 @@ from azure.ai.agentserver.responses import (
     ResponsesServerOptions,
     TextResponse,
 )
-from azure.ai.agentserver.responses.models import (
-    MessageContentInputTextContent,
-    MessageContentOutputTextContent,
-)
-
-
 # ── Configuration ────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
 
@@ -151,12 +145,12 @@ def _history_to_langchain_messages(history: list) -> list:
     """Convert responses-protocol history items to LangChain messages."""
     messages = []
     for item in history:
-        if hasattr(item, "content") and item.content:
-            for content in item.content:
-                if isinstance(content, MessageContentOutputTextContent) and content.text:
-                    messages.append(AIMessage(content=content.text))
-                elif isinstance(content, MessageContentInputTextContent) and content.text:
-                    messages.append(HumanMessage(content=content.text))
+        for content in item.get("content") or []:
+            text = content.get("text")
+            if content.get("type") == "output_text" and text:
+                messages.append(AIMessage(content=text))
+            elif content.get("type") == "input_text" and text:
+                messages.append(HumanMessage(content=text))
     return messages
 
 

@@ -1,0 +1,1 @@
+test egress to https://httpbin.org/get

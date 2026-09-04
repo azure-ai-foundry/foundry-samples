@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "projectResourceId": {
+      "value": "/subscriptions/YOUR-SUBSCRIPTION-ID/resourceGroups/YOUR-RG/providers/Microsoft.CognitiveServices/accounts/YOUR-FOUNDRY-ACCOUNT-NAME/projects/YOUR-PROJECT-NAME"
+    },
+    "backendAccountName": { "value": "YOUR-BACKEND-FOUNDRY-ACCOUNT-NAME" },
+    "backendRegion": { "value": "eastus2" },
+    "projectMiClientId": { "value": "00000000-0000-0000-0000-000000000000" },
+
+    "apimName": { "value": "apim-aigw-byom-public" },
+    "publisherEmail": { "value": "platform-eng@contoso.com" },
+    "publisherName": { "value": "Contoso Platform Engineering" },
+
+    "connectionName": { "value": "ai-gateway" },
+    "inferenceApiVersion": { "value": "2024-10-21" },
+    "backendModelDeployments": {
+      "value": [
+        { "name": "gpt-4o", "format": "OpenAI", "version": "2024-11-20" }
+      ]
+    }
+  }
+}

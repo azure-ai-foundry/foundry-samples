@@ -1,0 +1,20 @@
+# Local virtualenv
+.venv/
+__pycache__/
+
+# Local secrets
+.env
+!.env.example
+
+# Local LangGraph checkpoints
+checkpoints.sqlite
+checkpoints.sqlite-*
+
+# Local Agent Server state
+.agentserver/
+
+# Temp/install logs
+*.log
+
+# In-place azd state
+.azure/

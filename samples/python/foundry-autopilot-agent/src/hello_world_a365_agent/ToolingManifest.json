@@ -35,6 +35,13 @@
 			"url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools",
 			"scope": "McpServers.Calendar.All",
 			"audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+		},
+		{
+			"mcpServerName": "azure-devops",
+			"url": "https://mcp.dev.azure.com/{organization}",
+			"scope": "Ado.Mcp.Tools",
+			"audience": "2a72489c-aab2-4b65-b93a-a91edccf33b8",
+			"tokenScope": "https://mcp.dev.azure.com/.default"
 		}
 	]
 }

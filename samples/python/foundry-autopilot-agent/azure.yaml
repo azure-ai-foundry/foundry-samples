@@ -1,6 +1,12 @@
 name: foundry-a365
 
 hooks:
+  preprovision:
+    shell: pwsh
+    run: ./scripts/register-resource-providers.ps1
+    interactive: false
+    continueOnError: false
+
   postprovision:
     shell: pwsh
     run: ./scripts/post-provision.ps1

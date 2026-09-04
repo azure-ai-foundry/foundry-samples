@@ -20,11 +20,6 @@ from azure.ai.agentserver.responses import (
     ResponsesAgentServerHost,
     TextResponse,
 )
-from azure.ai.agentserver.responses.models import (
-    MessageContentInputTextContent,
-    MessageContentOutputTextContent,
-)
-
 # Build an AsyncOpenAI client using Entra ID
 _token_provider = get_bearer_token_provider(
     DefaultAzureCredential(), "https://ai.azure.com/.default"
@@ -55,14 +50,15 @@ def _build_input_items(current_input: str, history: list) -> list[dict[str, str]
     """Build openai-agents input from Responses protocol history items."""
     items: list[dict[str, str]] = []
     for item in history:
-        content = getattr(item, "content", None)
+        content = item.get("content")
         if not content:
             continue
         for part in content:
-            if isinstance(part, MessageContentOutputTextContent) and part.text:
-                items.append({"role": "assistant", "content": part.text})
-            elif isinstance(part, MessageContentInputTextContent) and part.text:
-                items.append({"role": "user", "content": part.text})
+            text = part.get("text")
+            if part.get("type") == "output_text" and text:
+                items.append({"role": "assistant", "content": text})
+            elif part.get("type") == "input_text" and text:
+                items.append({"role": "user", "content": text})
 
     items.append({"role": "user", "content": current_input})
     return items

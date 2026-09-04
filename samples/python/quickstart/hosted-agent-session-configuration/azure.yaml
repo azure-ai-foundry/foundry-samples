@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.11'
+name: hosted-agent-session-configuration
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  hosted-agent-session-configuration:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Session Configuration
+        - Python
+    project: src/hosted-agent-session-configuration
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: hosted-agent-session-configuration
+    displayName: Session Configuration (Python, Responses)
+    description: Demonstrates configuring sessionConfiguration.idleTimeoutSeconds on a hosted agent to control how long a session stays alive after the last user interaction.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    # Controls how long a session stays alive after the last user interaction
+    # before it is automatically terminated.
+    #   Minimum: 300  (5 minutes)
+    #   Default: 900  (15 minutes)
+    #   Maximum: 3600 (60 minutes)
+    sessionConfiguration:
+      idleTimeoutSeconds: 1800  # 30 minutes
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

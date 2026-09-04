@@ -452,7 +452,7 @@ async def handle_response(
 
     stream = ResponseEventStream(
         response_id=context.response_id,
-        model=getattr(request, "model", None),
+        request=request,
     )
 
     yield stream.emit_created()

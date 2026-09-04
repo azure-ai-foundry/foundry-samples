@@ -113,12 +113,18 @@ param enableContainerRegistry bool = true
 @description('Optional developer IP CIDR to allowlist for ACR push access (e.g., 203.0.113.0/26 or 10.0.0.0/16). When empty, public access remains disabled.')
 param developerIpCidr string = ''
 
-// Account-level capability host is auto-created by the platform when
-// `networkInjections.scenario='agent'` is set on a NEW account. Only one
-// capability host per account is allowed, so this flag must stay false in that
-// case. Set true only when the account has NO capability host: a BYO account
-// without one, or after `deleteCapHost.sh` for a redeploy.
-@description('Optional. Create the account-level capability host explicitly. Leave false for fresh deployments (platform auto-creates it via networkInjections). Set true only for a BYO account with no capability host, or to recreate after running deleteCapHost.sh.')
+// Account-level capability host is auto-created by the Cognitive Services
+// resource provider (~5s after the account PUT) when the account is created
+// with `networkInjections.scenario='agent'` — as this template always does via
+// modules-network-secured/ai-account-identity.bicep. The auto-created host is
+// named `{accountName}@aml_aiagentservice`. Only one account-level capability
+// host is allowed per account (keyed on ClientId), so PUTting a second one
+// (e.g. `caphostacct`) fails with HTTP 409 "cannot create a new Capability Host
+// ... for the same ClientId" (see issues #312 / #254 / #255 / #265). This flag
+// must therefore stay false for fresh deployments. Set true ONLY when the
+// account has NO capability host: a BYO account without one, or after
+// `deleteCapHost.sh` for a redeploy.
+@description('Optional. Create the account-level capability host explicitly. Leave false for fresh deployments (the platform auto-creates {account}@aml_aiagentservice via networkInjections.scenario=agent). Set true only for a BYO account with no capability host, or to recreate after running deleteCapHost.sh.')
 param createAccountCapabilityHost bool = false
 
 // Re-derive BYO account context at main.bicep level so we can scope the
@@ -219,11 +225,14 @@ var trimVnetName = trim(existingVnetName)
 // Accept either form: bare GUID or "/subscriptions/<guid>".
 // The full ARM path form previously broke the existing-zone cross-sub references
 // silently (the subscriptionId field needs the bare GUID).
-var normalizedDnsZonesSubscriptionId = empty(dnsZonesSubscriptionId)
+// Trim leading/trailing whitespace first so a value accidentally pasted with a
+// trailing space or newline still normalizes correctly (issue #632).
+var trimmedDnsZonesSubscriptionId = trim(dnsZonesSubscriptionId)
+var normalizedDnsZonesSubscriptionId = empty(trimmedDnsZonesSubscriptionId)
   ? ''
-  : (startsWith(toLower(dnsZonesSubscriptionId), '/subscriptions/')
-      ? split(dnsZonesSubscriptionId, '/')[2]
-      : dnsZonesSubscriptionId)
+  : (startsWith(toLower(trimmedDnsZonesSubscriptionId), '/subscriptions/')
+      ? trim(split(trimmedDnsZonesSubscriptionId, '/')[2])
+      : trimmedDnsZonesSubscriptionId)
 var resolvedDnsZonesSubscriptionId = empty(normalizedDnsZonesSubscriptionId) ? subscription().subscriptionId : normalizedDnsZonesSubscriptionId
 
 @description('The name of the project capability host to be created')
@@ -347,6 +356,7 @@ module privateEndpointAndDNS 'modules-network-secured/private-endpoint-and-dns.b
     name: '${uniqueSuffix}-private-endpoint'
     params: {
       aiAccountName: aiAccount.outputs.accountName    // AI Services to secure
+      location: location                               // Co-locate PEs with target resources (issue #657)
       aiSearchName: aiDependencies.outputs.aiSearchName       // AI Search to secure
       storageName: aiDependencies.outputs.azureStorageName        // Storage to secure
       cosmosDBName:aiDependencies.outputs.cosmosDBName
@@ -508,9 +518,12 @@ module aiSearchRoleAssignments 'modules-network-secured/ai-search-role-assignmen
 }
 
 // Account-level capability host (opt-in). See `createAccountCapabilityHost`
-// param notes — disabled by default because the platform creates it implicitly
-// for fresh accounts. Project caphost depends on this so ordering is correct
-// when the flag is true; when false, the dependsOn entry is a no-op in ARM.
+// param notes — disabled by default because the Cognitive Services resource
+// provider auto-creates `{accountName}@aml_aiagentservice` for fresh accounts
+// deployed with networkInjections.scenario='agent'. The project caphost binds
+// to that auto-created host. Project caphost depends on this so ordering is
+// correct when the flag is true; when false, the dependsOn entry is a no-op in
+// ARM. Enabling it on an account that already has a caphost returns HTTP 409.
 module addAccountCapabilityHost 'modules-network-secured/add-account-capability-host.bicep' = if (createAccountCapabilityHost) {
   name: 'account-capability-host-${uniqueSuffix}-deployment'
   params: {

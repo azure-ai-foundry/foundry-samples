@@ -6,9 +6,7 @@ using Microsoft.Agents.Builder;
 using Microsoft.Agents.Hosting.AspNetCore;
 using Microsoft.Agents.Storage;
 
-using Microsoft.ApplicationInsights.Extensibility;
 using System.Text;
-using Microsoft.Agents.A365.Observability.Runtime;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +28,19 @@ else
     Console.WriteLine("KeyVaultName not configured. Key Vault integration skipped.");
 }
 
+// Map the blueprint client id (already provided via FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID)
+// onto the ServiceConnection client id the Agent SDK expects.
+var blueprintClientId = Environment.GetEnvironmentVariable("FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID");
+if (!string.IsNullOrEmpty(blueprintClientId))
+{
+    builder.Configuration["Connections:ServiceConnection:Settings:ClientId"] = blueprintClientId;
+    Console.WriteLine("ServiceConnection ClientId set from FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID.");
+}
+else
+{
+    Console.WriteLine("FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID not set. ServiceConnection ClientId not configured.");
+}
+
 // Add controllers support
 builder.Services.AddControllers();
 
@@ -44,6 +55,11 @@ builder.AddAgent<A365AgentApplication>();
 // Uncomment this so you can get logs of activities.
 // builder.Services.AddSingleton<Microsoft.Agents.Builder.IMiddleware[]>([new TranscriptLoggerMiddleware(new FileTranscriptLogger())]);
 
+builder.Services.AddSingleton<AgentRequestCorrelationMiddleware>();
+builder.Services.AddSingleton<Microsoft.Agents.Builder.IMiddleware[]>(serviceProvider =>
+[
+    serviceProvider.GetRequiredService<AgentRequestCorrelationMiddleware>()
+]);
 builder.Services.AddSingleton<ResponsesApiAgentLogicServiceFactory>();
 
 // Register auth helper
@@ -55,36 +71,35 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddLogging();
 
-#region Setup A365
-
-
-AppContext.SetSwitch("Azure.Experimental.TraceGenAIMessageContent", true);
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
-
-if (Environment.GetEnvironmentVariable("EnableKairoTracing") == "true")
-{
-    builder.AddA365Tracing(config => { });
-}
-
-#endregion
-
 
 builder.Services.AddApplicationInsightsTelemetry(options =>
 {
-    Console.WriteLine("Setting Application Insights connection string...");
-    options.ConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
+    var connectionString =
+        builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] ??
+        builder.Configuration["ApplicationInsights:ConnectionString"];
+
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        options.ConnectionString = connectionString;
+    }
+
     options.EnableAdaptiveSampling = false; // Disable adaptive sampling to capture all traces
 });
 
 builder.Logging.AddApplicationInsights();
 
-
 var app = builder.Build();
 
-var telemetryConfig = app.Services.GetRequiredService<TelemetryConfiguration>();
-Console.WriteLine($"AI ConnectionString: {telemetryConfig.ConnectionString}");
-
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
+if (string.IsNullOrWhiteSpace(
+        builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] ??
+        builder.Configuration["ApplicationInsights:ConnectionString"]))
+{
+    logger.LogWarning(
+        "Application Insights is not configured. Set APPLICATIONINSIGHTS_CONNECTION_STRING to enable telemetry.");
+}
+
 logger.LogWarning("Application starting...");
 
 // ===================================
@@ -101,6 +116,8 @@ app.Use(next => context =>
 
 app.MapPost("/api/messages", async (HttpRequest request, HttpResponse response, IAgentHttpAdapter adapter, IAgent agent, CancellationToken cancellationToken) =>
 {
+    AgentRequestCorrelation.CaptureCurrentRequest(request);
+
     // Comment out this line to disable request logging
     // await request.LogRequestAsync();
 

@@ -7,8 +7,14 @@ echo "========================================"
 
 # ── Load azd env values ───────────────────────────────────────────────────────
 
-AUTH_TYPE=$(azd env get-value PLAYWRIGHT_AUTH_TYPE 2>/dev/null || echo "")
-PLAYWRIGHT_RESOURCE_ID=$(azd env get-value PLAYWRIGHT_SERVICE_RESOURCE_ID 2>/dev/null || echo "")
+_AZD_ENV_CACHE=$(azd env get-values 2>/dev/null || true)
+
+_azd_get() {
+    printf '%s' "$_AZD_ENV_CACHE" | grep "^${1}=" | head -1 | sed 's/^[^=]*="//' | sed 's/"$//'
+}
+
+AUTH_TYPE=$(_azd_get PLAYWRIGHT_AUTH_TYPE)
+PLAYWRIGHT_RESOURCE_ID=$(_azd_get PLAYWRIGHT_SERVICE_RESOURCE_ID)
 
 if [ -z "$PLAYWRIGHT_RESOURCE_ID" ] || [ -z "$AUTH_TYPE" ]; then
     echo "Necessary params not configured — skipping role assignment."
@@ -27,7 +33,7 @@ PRINCIPAL_TYPE="ServicePrincipal"
 
 if [ "$AUTH_TYPE" = "ProjectManagedIdentity" ]; then
     echo "Assigning role to Project Managed Identity..."
-    PROJECT_ID=$(azd env get-value AZURE_AI_PROJECT_ID 2>/dev/null || echo "")
+    PROJECT_ID=$(_azd_get AZURE_AI_PROJECT_ID)
     if [ -z "$PROJECT_ID" ]; then
         echo "AZURE_AI_PROJECT_ID not found — skipping role assignment."
         exit 0
@@ -36,7 +42,10 @@ if [ "$AUTH_TYPE" = "ProjectManagedIdentity" ]; then
 
 elif [ "$AUTH_TYPE" = "AgenticIdentityToken" ]; then
     echo "Assigning role to Agent Identity..."
-    PROJECT_ENDPOINT=$(azd env get-value AZURE_AI_PROJECT_ENDPOINT 2>/dev/null || azd env get-value FOUNDRY_PROJECT_ENDPOINT 2>/dev/null || echo "")
+    PROJECT_ENDPOINT=$(_azd_get AZURE_AI_PROJECT_ENDPOINT)
+    if [ -z "$PROJECT_ENDPOINT" ]; then
+        PROJECT_ENDPOINT=$(_azd_get FOUNDRY_PROJECT_ENDPOINT)
+    fi
     if [ -z "$PROJECT_ENDPOINT" ]; then
         echo "Could not determine project endpoint — skipping role assignment."
         exit 0

@@ -21,24 +21,38 @@ The agent is hosted using the [Agent Framework](https://github.com/microsoft/age
 ## Prerequisites
 
 - An Azure AI Foundry project with a deployed model (e.g., `gpt-5.4-mini`)
-- An Azure AI Search service ([create one](https://learn.microsoft.com/azure/search/search-create-service-portal))
-- **A pre-provisioned search index** with the schema and content described below
+- An Azure AI Search service ([create one](https://learn.microsoft.com/azure/search/search-create-service-portal)).
+  This sample uses an existing service; it does not declare the service in
+  `azure.yaml`.
 - Azure CLI logged in (`az login`)
 
 ### Required RBAC
 
-Your identity (or the Managed Identity running the container in production) needs:
+The deployed agent's Managed Identity needs:
 
 - **Azure AI User** on the Foundry project scope
 - **Search Index Data Reader** on the Azure AI Search service (the sample only reads from the index)
 
-## Provisioning the search index (one time)
+The identity running the postprovision hook or fallback script needs:
 
-The sample assumes the search index already exists and contains documents the agent can retrieve from. Provision it once via the Azure Portal, the [REST API](https://learn.microsoft.com/azure/search/search-how-to-create-search-index), or one of the snippets below.
+- **Search Service Contributor** on the Azure AI Search service
+- **Search Index Data Contributor** on the Azure AI Search service
 
-### Option A: Python script (recommended)
+## Provisioning the search index
 
-[`provision_index.py`](src/agent-framework-agent-azure-search-rag-responses/provision_index.py) creates the index (if it doesn't already exist) and seeds it with the three Contoso Outdoors documents using `DefaultAzureCredential`. Your identity needs the following roles on the **Azure AI Search service** scope:
+The sample includes a top-level `postprovision` hook in `azure.yaml`. When
+`AZURE_SEARCH_ENDPOINT` points to an existing Azure AI Search service, the hook
+runs [`provision_index.py`](src/agent-framework-agent-azure-search-rag-responses/provision_index.py)
+after `azd provision` and creates or seeds the `contoso-outdoors` index.
+The search service itself remains a prerequisite and must be created
+separately.
+
+### Manual Python script (fallback)
+
+Use the script directly for VS Code or other workflows that do not run the
+`azd` hook. It creates the index (if it doesn't already exist) and seeds it
+with the three Contoso Outdoors documents using `DefaultAzureCredential`. Your
+identity needs the following roles on the **Azure AI Search service** scope:
 
 - **Search Service Contributor** — to create the index
 - **Search Index Data Contributor** — to upload documents
@@ -146,11 +160,31 @@ Follow the prompts to configure your Foundry project and model deployment. If yo
 
 ### Provision Azure resources (if needed)
 
-If you don't already have a Foundry project and model deployment:
+The sample does not provision the Azure AI Search service. Create one first,
+then set its endpoint. The index name defaults to `contoso-outdoors`:
+
+```bash
+azd env set AZURE_SEARCH_ENDPOINT "https://<your-search>.search.windows.net"
+```
+
+To use a different index name, set it before provisioning:
+
+```bash
+azd env set AZURE_SEARCH_INDEX_NAME "<your-index-name>"
+```
+
+If you don't already have a Foundry project and model deployment, provision
+them:
 
 ```bash
 azd provision
 ```
+
+The registered `postprovision` hook creates or updates the search index during
+this command. If `AZURE_SEARCH_INDEX_NAME` is not set, it defaults to
+`contoso-outdoors`.
+
+Run `azd provision` first so the hook has created and seeded the index.
 
 ### Run the agent locally
 
@@ -179,20 +213,16 @@ azd ai agent invoke --local "How do I clean my tent?"
 
 Once tested locally, deploy to Microsoft Foundry:
 
-Make sure the search environment variables are set:
-
-```bash
-azd env set AZURE_SEARCH_ENDPOINT "https://<your-search>.search.windows.net"
-azd env set AZURE_SEARCH_INDEX_NAME "contoso-outdoors"
-```
-
 ```bash
 azd deploy
 ```
 
 For the full deployment guide, see [Deploy a hosted agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent).
 
-The deployed agent's Managed Identity needs **Search Index Data Reader** on the Azure AI Search service.
+The deployed agent's Managed Identity needs **Search Index Data Reader** on
+the Azure AI Search service. The identity running the postprovision hook needs
+**Search Service Contributor** and **Search Index Data Contributor** to create
+and seed the index.
 
 ### Invoke the deployed agent
 

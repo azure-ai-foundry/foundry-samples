@@ -4,14 +4,14 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.39.26.7824",
-      "templateHash": "11244185140317853332"
+      "version": "0.46.1.21595",
+      "templateHash": "7883696456086450703"
     }
   },
   "parameters": {
     "aiFoundryName": {
       "type": "string",
-      "defaultValue": "foundry-int-uai",
+      "defaultValue": "foundry-uai",
       "metadata": {
         "description": "That name is the name of our application. It has to be unique. Type a name followed by your resource group name. (<name>-<resourceGroupName>)"
       }
@@ -32,23 +32,78 @@
     },
     "userIdentityResourceGroupName": {
       "type": "string",
-      "defaultValue": "[resourceGroup().name]",
+      "defaultValue": "",
       "metadata": {
-        "description": "User Assigned Identity Resource Group Name"
+        "description": "Resource group containing an existing user-assigned managed identity. Leave empty to create the identity."
       }
     },
     "userAssignedIdentityName": {
       "type": "string",
-      "defaultValue": "foundry-tests-uai",
+      "defaultValue": "[format('{0}-uai', parameters('aiFoundryName'))]",
       "metadata": {
-        "description": "User Assigned Identity Name"
+        "description": "Name of the user-assigned managed identity."
+      }
+    },
+    "logAnalyticsWorkspaceName": {
+      "type": "string",
+      "defaultValue": "[take(format('{0}-law', parameters('aiFoundryName')), 63)]",
+      "metadata": {
+        "description": "Name of the Log Analytics workspace used by Application Insights."
+      }
+    },
+    "applicationInsightsName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-appi', parameters('aiFoundryName'))]",
+      "metadata": {
+        "description": "Name of the Application Insights component connected to the project."
+      }
+    },
+    "applicationInsightsConnectionName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-connection', parameters('applicationInsightsName'))]",
+      "metadata": {
+        "description": "Name of the Application Insights connection on the project."
+      }
+    },
+    "useProjectManagedIdentityForTraceIngestion": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Use the project managed identity for trace ingestion. This authentication mode is currently in preview."
+      }
+    },
+    "isApplicationInsightsConnectionSharedToAll": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Share the Application Insights connection with all project users."
+      }
+    },
+    "deployModel": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Deploy the GPT-4o model. No model is deployed by default."
       }
     }
   },
   "variables": {
-    "userAssignedIdentityId": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('{0}', parameters('userIdentityResourceGroupName'))), 'Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}', parameters('userAssignedIdentityName')))]"
+    "useExistingUserAssignedIdentity": "[not(empty(parameters('userIdentityResourceGroupName')))]",
+    "userAssignedIdentityId": "[if(variables('useExistingUserAssignedIdentity'), extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('userIdentityResourceGroupName')), 'Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName')))]",
+    "monitoringMetricsPublisherRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '3913510d-42f4-4e42-8a64-420c390055eb')]",
+    "applicationInsightsReaderRoleDefinitionIds": [
+      "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '73c42c96-874c-492b-b04d-ab87d138a893')]",
+      "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'dbc9c667-e97f-4491-aee6-90b9cf960190')]"
+    ]
   },
   "resources": [
+    {
+      "condition": "[not(variables('useExistingUserAssignedIdentity'))]",
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-07-31-preview",
+      "name": "[parameters('userAssignedIdentityName')]",
+      "location": "[parameters('location')]"
+    },
     {
       "type": "Microsoft.CognitiveServices/accounts",
       "apiVersion": "2025-06-01",
@@ -69,9 +124,13 @@
         "allowProjectManagement": true,
         "customSubDomainName": "[parameters('aiFoundryName')]",
         "disableLocalAuth": false
-      }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName'))]"
+      ]
     },
     {
+      "condition": "[parameters('deployModel')]",
       "type": "Microsoft.CognitiveServices/accounts/deployments",
       "apiVersion": "2024-10-01",
       "name": "[format('{0}/{1}', parameters('aiFoundryName'), 'gpt-4o')]",
@@ -103,7 +162,82 @@
       },
       "properties": {},
       "dependsOn": [
-        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryName'))]"
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[parameters('logAnalyticsWorkspaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[parameters('applicationInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled",
+        "DisableLocalAuth": "[parameters('useProjectManagedIdentityForTraceIngestion')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('useProjectManagedIdentityForTraceIngestion')]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))]",
+      "name": "[guid(variables('userAssignedIdentityId'), variables('monitoringMetricsPublisherRoleDefinitionId'), resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')))]",
+      "properties": {
+        "principalId": "[if(variables('useExistingUserAssignedIdentity'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('userIdentityResourceGroupName')), 'Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName')), '2023-07-31-preview').principalId, reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName')), '2023-07-31-preview').principalId)]",
+        "roleDefinitionId": "[variables('monitoringMetricsPublisherRoleDefinitionId')]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName'))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "applicationInsightsReaderRoleAssignments",
+        "count": "[length(variables('applicationInsightsReaderRoleDefinitionIds'))]"
+      },
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))]",
+      "name": "[guid(variables('userAssignedIdentityId'), variables('applicationInsightsReaderRoleDefinitionIds')[copyIndex()], resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')))]",
+      "properties": {
+        "principalId": "[if(variables('useExistingUserAssignedIdentity'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('userIdentityResourceGroupName')), 'Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName')), '2023-07-31-preview').principalId, reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName')), '2023-07-31-preview').principalId)]",
+        "roleDefinitionId": "[variables('applicationInsightsReaderRoleDefinitionIds')[copyIndex()]]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+      "apiVersion": "2025-09-01",
+      "name": "[format('{0}/{1}/{2}', parameters('aiFoundryName'), parameters('defaultProjectName'), parameters('applicationInsightsConnectionName'))]",
+      "properties": "[union(createObject('category', 'AppInsights', 'target', resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), 'authType', if(parameters('useProjectManagedIdentityForTraceIngestion'), 'ProjectManagedIdentity', 'ApiKey'), 'isSharedToAll', parameters('isApplicationInsightsConnectionSharedToAll'), 'metadata', createObject('ApiType', 'Azure', 'ResourceId', resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), 'ApplicationInsightsConnectionString', reference(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), '2020-02-02').ConnectionString)), if(parameters('useProjectManagedIdentityForTraceIngestion'), createObject(), createObject('credentials', createObject('key', reference(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), '2020-02-02').ConnectionString))))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryName'), parameters('defaultProjectName'))]"
       ]
     }
   ],
@@ -119,6 +253,26 @@
     "project": {
       "type": "string",
       "value": "[parameters('defaultProjectName')]"
+    },
+    "applicationInsightsId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))]"
+    },
+    "applicationInsightsAppId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), '2020-02-02').AppId]"
+    },
+    "deployedApplicationInsightsConnectionName": {
+      "type": "string",
+      "value": "[parameters('applicationInsightsConnectionName')]"
+    },
+    "applicationInsightsConnectionAuthType": {
+      "type": "string",
+      "value": "[if(parameters('useProjectManagedIdentityForTraceIngestion'), 'ProjectManagedIdentity', 'ApiKey')]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
     }
   }
 }

@@ -54,7 +54,7 @@ shuttle audio bytes and control events.
 | [azure.yaml](azure.yaml) | Hosted-agent runtime config (`invocations_ws`, 1 CPU / 2 Gi). |
 | [azure.yaml](azure.yaml) | `azd ai agent init` manifest. |
 | [Dockerfile](src/hello-world/Dockerfile) | python:3.12-slim, installs dependencies from `requirements.txt`. |
-| [requirements.txt](src/hello-world/requirements.txt) | Container/runtime deps — `azure-ai-agentserver-invocations>=1.0.0b4` + `azure-ai-voicelive[aiohttp]` + `azure-identity` + `python-dotenv`. |
+| [requirements.txt](src/hello-world/requirements.txt) | Container/runtime deps — `azure-ai-agentserver-invocations==1.1.0` + `azure-ai-voicelive[aiohttp]` + `azure-identity` + `python-dotenv`. |
 | [requirements-dev.txt](src/hello-world/requirements-dev.txt) | **Local-only** test/proxy deps (`websockets`) used by `e2e_local.py` and `chat_client/proxy.py`. Not installed into the container. |
 | [.env.example](src/hello-world/.env.example) | Required Voice Live env vars. |
 | [e2e_local.py](src/hello-world/e2e_local.py) | Headless E2E that streams a 1 kHz tone in and asserts audio + events come back. Supports `--foundry`/`--agent` to run against a deployed hosted agent. |

@@ -1,8 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
 requiredVersions:
+  azd: '>=1.27.1'
   extensions:
-    azure.ai.agents: '>=1.0.0-beta.4'
+    azure.ai.agents: '>=1.0.0-beta.9'
 name: claude-agent-sdk-invocations
 services:
   ai-project:
@@ -30,11 +31,9 @@ services:
     protocols:
       - protocol: invocations
         version: 2.0.0
-    environmentVariables:
-      - name: CLAUDE_CODE_USE_FOUNDRY
-        value: '1'
-      - name: ANTHROPIC_MODEL
-        value: claude-opus-4-7
+    env:
+      CLAUDE_CODE_USE_FOUNDRY: '1'
+      ANTHROPIC_MODEL: claude-opus-4-7
     container:
       resources:
         cpu: '0.5'

@@ -2,9 +2,8 @@
 
 """LangGraph multi-turn chat agent with local tools (Invocations protocol).
 
-Hosts a LangGraph agent built with `langchain.agents.create_agent` on
-Foundry over the Invocations protocol, using
-`langchain_azure_ai.agents.hosting.InvocationsHostServer`.
+Exports a LangGraph agent for the configuration-driven
+`langchain_azure_ai.agents.hosting.run` entrypoint.
 
 Conversation state is persisted server-side by a LangGraph MemorySaver
 checkpointer keyed by `agent_session_id` (wired by the host into
@@ -25,8 +24,6 @@ from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
-
-from langchain_azure_ai.agents.hosting import InvocationsHostServer
 
 load_dotenv()
 
@@ -69,18 +66,8 @@ def _build_chat_model() -> ChatOpenAI:
     )
 
 
-# ── Entrypoint ───────────────────────────────────────────────────────
-def main() -> None:
-
-    graph = create_agent(
-        _build_chat_model(),
-        tools=[get_current_time, calculator],
-        checkpointer=MemorySaver(),
-    )
-
-    port = int(os.environ.get("PORT", "8088"))
-    InvocationsHostServer(graph).run(port=port)
-
-
-if __name__ == "__main__":
-    main()
+graph = create_agent(
+    _build_chat_model(),
+    tools=[get_current_time, calculator],
+    checkpointer=MemorySaver(),
+)

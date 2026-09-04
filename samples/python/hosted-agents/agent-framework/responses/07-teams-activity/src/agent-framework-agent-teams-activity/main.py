@@ -1,7 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 import httpx
-import logging
 import os
 
 from agent_framework import Agent, MCPStreamableHTTPTool
@@ -13,47 +12,12 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-logger = logging.getLogger(__name__)
-
 
 def is_work_iq_enabled() -> bool:
     """Return whether Work IQ toolbox integration is enabled."""
     value = os.getenv("ENABLE_WORK_IQ", "true").strip().lower()
     return value not in {"0", "false", "no", "off"}
 
-
-class _ResilientResponsesHostServer(ResponsesHostServer):
-    """Workaround for an alpha bug in `agent_framework_foundry_hosting`.
-
-    The built-in `_handle_inner_agent` calls `await context.get_history()`
-    unconditionally on every request. When the platform issues the request
-    with `store=true` + a real `conversation.id` (as the foundry-extension
-    deploy path does), the history fetch can raise inside the SDK, which
-    bubbles up as a platform-level `server_error: An internal server error
-    occurred` with no usable diagnostic.
-
-    Until the SDK is patched upstream, we defensively wrap `get_history` on
-    the inbound context so a transient failure degrades to "no prior turns"
-    instead of failing the whole request.
-    """
-
-    async def _handle_inner_agent(self, request, context):  # type: ignore[override]
-        original_get_history = context.get_history
-
-        async def safe_get_history():
-            try:
-                return await original_get_history()
-            except Exception as ex:  # noqa: BLE001 - intentional broad catch
-                logger.warning(
-                    "context.get_history() failed (%s); proceeding with no prior history.",
-                    ex,
-                )
-                return []
-
-        # Replace the bound method on the instance for the duration of this request.
-        context.get_history = safe_get_history  # type: ignore[method-assign]
-        async for item in super()._handle_inner_agent(request, context):
-            yield item
 
 def resolve_toolbox_endpoint() -> str:
     """Resolve the toolbox MCP endpoint URL."""
@@ -115,7 +79,7 @@ def main():
         default_options={"store": False},
     )
 
-    server = _ResilientResponsesHostServer(agent)
+    server = ResponsesHostServer(agent)
     server.run()
 
 

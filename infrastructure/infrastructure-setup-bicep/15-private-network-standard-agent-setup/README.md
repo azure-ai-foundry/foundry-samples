@@ -81,6 +81,8 @@ Use the table below to choose the right infrastructure template for your scenari
    az provider register --namespace 'Microsoft.ContainerService'
    ```
 
+   > ⚠️ **`Microsoft.App` and `Microsoft.ContainerService` are mandatory for network injection.** When `networkInjections.scenario='agent'` is used, the capability host is created on the agent subnet's Azure Container Apps environment. If either provider is in `NotRegistered`, the failure surfaces **after** the Foundry account resource is already accepted — the account reaches `provisioningState: Failed` (error: *"Subscription … is not registered with the required resource providers … Microsoft.App and Microsoft.ContainerService"*) and must be cleaned up before retrying (see [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance)). Run the [preflight check](../deployment-tools/preflight/README.md) to catch this before any resource is created.
+
 1. Network administrator permissions (if operating in a restricted or enterprise environment)
 
 1. Sufficient quota for all resources required by this template in the target Azure region, including model deployment quota.
@@ -104,8 +106,18 @@ Use the table below to choose the right infrastructure template for your scenari
   
   > **Notes:** 
   - If you do not provide an existing virtual network, the template will create a new virtual network with the default address spaces and subnets described above. If you use an existing virtual network, make sure it already contains two subnets (Agent and Private Endpoint) before deploying the template.
-  - The account-level capability host is created implicitly by the platform via `networkInjections.scenario='agent'` on the Foundry account (see `modules-network-secured/ai-account-identity.bicep`). Only one capability host per account is allowed, so `main.bicep` does not declare a second one for fresh deployments. Set `createAccountCapabilityHost=true` only when the account has no capability host — BYO accounts without one, or after running `deleteCapHost.sh` (see [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance)).
+  - The account-level capability host (named `{accountName}@aml_aiagentservice`) is created implicitly by the Cognitive Services resource provider via `networkInjections.scenario='agent'` on the Foundry account (see `modules-network-secured/ai-account-identity.bicep`). Only one capability host per account is allowed, so `main.bicep` does not declare a second one for fresh deployments (doing so returns HTTP 409). Set `createAccountCapabilityHost=true` only when the account has no capability host — BYO accounts without one, or after running `deleteCapHost.sh` (see [Account Deletion Prerequisites and Cleanup Guidance](#account-deletion-prerequisites-and-cleanup-guidance)). **On a network-injected account, capability-host creation can take roughly 30–35 minutes** — this is expected; do not cancel the deployment assuming it has hung.
   - You must ensure the subnet is exclusively delegated to __Microsoft.App/environments__ and cannot be used by any other Azure resources.
+
+#### Agent subnet with UDR, NSG, or restricted egress
+
+The delegated agent subnet runs the agent compute on **Azure Container Apps** (that is what the `Microsoft.App/environments` delegation provisions), so it inherits Container Apps' networking rules **in addition to** Foundry's outbound requirements. If your subnet has a User-Defined Route (UDR), a Network Security Group (NSG), the *private subnet* setting (no default outbound), or deny-by-default policies, keep the following in mind — otherwise deployment can reach a `Running` state and then **fail without a clear error** because required platform traffic is blocked:
+
+- **UDR / Azure Firewall:** A default route (`0.0.0.0/0`) to a firewall force-tunnels the platform's required outbound traffic. You must allow the endpoints listed in [Firewall requirements for private virtual networks](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/deploy-hosted-agent-code#firewall-requirements-for-private-virtual-networks) (at minimum the `AzureActiveDirectory` service tag plus the documented FQDNs).
+- **NSG:** Supported. Deny-by-default is fine as long as the required platform flows are allowed — see [Azure Container Apps networking](https://learn.microsoft.com/en-us/azure/container-apps/networking).
+- **Private subnet (no default outbound access):** If enabled, you must provide an explicit egress path (NAT gateway, or UDR → firewall) **and** allow the required endpoints above; otherwise provisioning fails.
+- **Private Endpoint network policies:** These apply to the *private endpoint* subnet, which is separate from the delegated agent subnet — enabling them there does not affect agent injection.
+- **Subnet basics:** RFC 1918 range only (no CGNAT `100.64.0.0/10`, no public ranges), delegated exclusively to `Microsoft.App/environments`. See the [networking deep dive](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/agents-networking-deep-dive) for sizing and IP-allocation details.
 
 
 

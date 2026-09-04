@@ -7,9 +7,3 @@ environment: <user to add>
 compute: <user to add>
 resources:
   instance_count: 1
-  instance_type: <user to add>
-  properties:
-    AISuperComputer:
-      imageVersion: ""
-      slaTier: <user to add>
-      priority: <user to add>

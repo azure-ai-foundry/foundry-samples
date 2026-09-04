@@ -33,8 +33,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   properties: {
     customSubDomainName: accountName
     publicNetworkAccess: publicNetworkAccess
-    allowProjectManagement: 'true'
-    isAiFoundryType: 'true'
+    allowProjectManagement: true
   }
 }
 

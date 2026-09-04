@@ -1,0 +1,233 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.45.15.27210",
+      "templateHash": "14912800357309148163"
+    }
+  },
+  "parameters": {
+    "aiFoundryAccountName": {
+      "type": "string",
+      "defaultValue": "sample-foundry-account",
+      "metadata": {
+        "description": "Name of the EXISTING Foundry (Cognitive Services) account that already fronts an AI Gateway."
+      }
+    },
+    "projectName": {
+      "type": "string",
+      "defaultValue": "sample-project",
+      "metadata": {
+        "description": "Name of the NEW project to create under the account."
+      }
+    },
+    "apimResourceId": {
+      "type": "string",
+      "defaultValue": "/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/sample-rg/providers/Microsoft.ApiManagement/service/sample-apim",
+      "metadata": {
+        "description": "Full ARM resource ID of the APIM service that backs the account AI Gateway (the target of the account APIM resource link)."
+      }
+    },
+    "projectDisplayName": {
+      "type": "string",
+      "defaultValue": "[parameters('projectName')]",
+      "metadata": {
+        "description": "Display name for the new project. Defaults to projectName."
+      }
+    },
+    "projectDescription": {
+      "type": "string",
+      "defaultValue": "Project created with AI Gateway enabled by default.",
+      "metadata": {
+        "description": "Description for the new project."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for the new project. Defaults to the resource group location."
+      }
+    },
+    "sharedApiId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Id of the gateway shared API in APIM to associate the product with. The gateway exposes one shared API named after the account, so this defaults to the account name."
+      }
+    }
+  },
+  "variables": {
+    "apimSubscriptionId": "[split(parameters('apimResourceId'), '/')[2]]",
+    "apimResourceGroupName": "[split(parameters('apimResourceId'), '/')[4]]",
+    "apimServiceName": "[split(parameters('apimResourceId'), '/')[8]]",
+    "effectiveSharedApiId": "[if(empty(parameters('sharedApiId')), toLower(parameters('aiFoundryAccountName')), parameters('sharedApiId'))]",
+    "productName": "[toLower(format('{0}-{1}-ai-{2}', take(parameters('aiFoundryAccountName'), 24), take(parameters('projectName'), 24), uniqueString(subscription().id, resourceGroup().id, parameters('aiFoundryAccountName'), parameters('projectName'))))]",
+    "productScope": "[format('{0}/products/{1}', parameters('apimResourceId'), variables('productName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}', parameters('aiFoundryAccountName'), parameters('projectName'))]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "displayName": "[parameters('projectDisplayName')]",
+        "description": "[parameters('projectDescription')]"
+      },
+      "metadata": {
+        "description": "The newly created project under the existing Foundry account."
+      }
+    },
+    {
+      "type": "Microsoft.Resources/links",
+      "apiVersion": "2016-09-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryAccountName'), parameters('projectName'))]",
+      "name": "[format('ai-gateway-{0}', variables('productName'))]",
+      "properties": {
+        "targetId": "[variables('productScope')]",
+        "notes": "Enables the project on the account AI Gateway (project -> APIM product)."
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('apimSubscriptionId'), variables('apimResourceGroupName')), 'Microsoft.Resources/deployments', format('apim-gateway-artifacts-{0}', uniqueString(variables('productName'))))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryAccountName'), parameters('projectName'))]"
+      ],
+      "metadata": {
+        "description": "ARM resource link from the project to the per-project APIM product. Its presence marks the project as Enabled on the gateway."
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('apim-gateway-artifacts-{0}', uniqueString(variables('productName')))]",
+      "subscriptionId": "[variables('apimSubscriptionId')]",
+      "resourceGroup": "[variables('apimResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "apimServiceName": {
+            "value": "[variables('apimServiceName')]"
+          },
+          "productName": {
+            "value": "[variables('productName')]"
+          },
+          "sharedApiId": {
+            "value": "[variables('effectiveSharedApiId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.45.15.27210",
+              "templateHash": "12804189482156169266"
+            }
+          },
+          "parameters": {
+            "apimServiceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing APIM service backing the gateway."
+              }
+            },
+            "productName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the per-project APIM product to create."
+              }
+            },
+            "sharedApiId": {
+              "type": "string",
+              "metadata": {
+                "description": "Id of the gateway shared API to associate with the product (named after the Foundry account)."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ApiManagement/service/products",
+              "apiVersion": "2022-08-01",
+              "name": "[format('{0}/{1}', parameters('apimServiceName'), parameters('productName'))]",
+              "properties": {
+                "displayName": "[parameters('productName')]",
+                "subscriptionRequired": true,
+                "state": "published"
+              }
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/products/apis",
+              "apiVersion": "2022-08-01",
+              "name": "[format('{0}/{1}/{2}', parameters('apimServiceName'), parameters('productName'), parameters('sharedApiId'))]",
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/products', parameters('apimServiceName'), parameters('productName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/subscriptions",
+              "apiVersion": "2022-08-01",
+              "name": "[format('{0}/{1}', parameters('apimServiceName'), parameters('productName'))]",
+              "properties": {
+                "displayName": "[parameters('productName')]",
+                "scope": "[resourceId('Microsoft.ApiManagement/service/products', parameters('apimServiceName'), parameters('productName'))]",
+                "state": "active",
+                "allowTracing": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/products', parameters('apimServiceName'), parameters('productName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "productId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the created product."
+              },
+              "value": "[resourceId('Microsoft.ApiManagement/service/products', parameters('apimServiceName'), parameters('productName'))]"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "projectResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the newly created project."
+      },
+      "value": "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryAccountName'), parameters('projectName'))]"
+    },
+    "projectPrincipalId": {
+      "type": "string",
+      "metadata": {
+        "description": "System-assigned principal ID of the new project."
+      },
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryAccountName'), parameters('projectName')), '2025-04-01-preview', 'full').identity.principalId]"
+    },
+    "productName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the per-project APIM product created on the gateway."
+      },
+      "value": "[variables('productName')]"
+    },
+    "gatewayProductScope": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource-link target (the APIM product) that marks the project Enabled."
+      },
+      "value": "[variables('productScope')]"
+    }
+  }
+}

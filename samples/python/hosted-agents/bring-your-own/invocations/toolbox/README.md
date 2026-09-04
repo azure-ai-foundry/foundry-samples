@@ -12,6 +12,26 @@ Microsoft has no responsibility to you or others with respect to any of these sa
 
 A **Bring Your Own** hosted agent using the **Invocations protocol** with **Azure AI Foundry Toolbox MCP** integration in Python. It shows how to connect to a Foundry toolbox at startup, discover available tools via MCP, and let the model call them during conversation through an agentic tool-calling loop.
 
+## Creating a Foundry Toolbox
+
+To use your own tools, choose the tool type and authentication mode from the table below, then follow the linked guide to configure that tool in your toolbox.
+
+To run this sample as provided, create a toolbox named **`my-toolbox`** with **Web Search** and the public **Microsoft Learn MCP** server by following either the `azd` or VS Code steps below.
+
+### Toolbox tool types
+
+| Type | Variant | Description | Guide |
+|------|---------|-------------|-------|
+| **Built-in** | Web search, code interpreter, ... | Ready-to-use tools hosted by Foundry with no external MCP server to connect. | [Built-in tools guide](../../../SUPPORTED_TOOLBOX_SCENARIOS/tools/built-in-tools.md) |
+| **MCP** | Unauthenticated | Anonymous — you provide nothing. | [Setup guide](../../../SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-unauthenticated.md) |
+| **MCP** | Key-based | A shared static key you provide as a header (e.g. `Authorization: Bearer <token>`). | [Setup guide](../../../SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-key-auth.md) |
+| **MCP** | Microsoft Entra<br>(Agent Identity / Project Managed Identity) | • Accesses MCP as the **agent/project** itself.<br>• Need grant the agent/project's identity access on the MCP.<br>• No user sign-in or consent. | [Setup guide](../../../SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-microsoft-entra.md) |
+| **MCP** | OAuth Identity Passthrough | • Accesses MCP as the signed-in **user**.<br>• Need register the OAuth app.<br>• User consents on first use. | [Setup guide](../../../SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-oauth-custom.md) |
+| **MCP - Foundry Catalog** | OAuth Identity Passthrough<br>(Managed) | • Accesses MCP as the signed-in **user**.<br>• No OAuth app to set up — Foundry uses its own.<br>• User consents on first use.<br>• Only some catalog MCP support it. | [Setup guide](../../../SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-oauth-managed.md) |
+| **MCP - Foundry Catalog** | OAuth Identity Passthrough<br>(User Entra Token) | • Accesses MCP as the signed-in **user**.<br>• No OAuth app to set up — Foundry uses its own.<br>• No user consent needed.<br>• Only some catalog MCP support it. | [Setup guide](../../../SUPPORTED_TOOLBOX_SCENARIOS/tools/mcp-user-entra-token.md) |
+| **OpenAPI** | External REST API | Any REST API with an OpenAPI 3.x spec. | [Setup guide](../../../SUPPORTED_TOOLBOX_SCENARIOS/tools/openapi.md) |
+| **A2A** | Remote agent (Agent-to-Agent) | Call another remote agent. | [Setup guide](../../../SUPPORTED_TOOLBOX_SCENARIOS/tools/a2a.md) |
+
 This sample combines:
 - The [`azure-ai-agentserver-invocations`](https://pypi.org/project/azure-ai-agentserver-invocations/) SDK for the Invocations protocol
 - The [Foundry SDK (`azure-ai-projects`)](https://pypi.org/project/azure-ai-projects/) for model access via the Responses API
@@ -44,7 +64,7 @@ The hosted agent can be developed and deployed to Microsoft Foundry using the [A
 Before running this sample, ensure you have:
 
 1. **Azure Developer CLI (`azd`)**
-   - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.25 or later) and the unified Foundry CLI extension bundle: `azd ext install microsoft.foundry` (if you previously installed `azure.ai.agents` or `azure.ai.toolboxes`, run `azd ext uninstall <name>` first).
+   - [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (1.27.1 or later) and the unified Foundry CLI extension bundle: `azd ext install microsoft.foundry` (if you previously installed `azure.ai.agents` or `azure.ai.toolboxes`, run `azd ext uninstall <name>` first).
    - Authenticated: `azd auth login`
 
 2. **Azure CLI**
@@ -61,13 +81,15 @@ Before running this sample, ensure you have:
 > [!TIP]
 > If you use GitHub Copilot for Azure to scaffold a hosted agent that consumes this toolbox, the following skill references describe the same endpoint contract (env var, headers, MCP protocol, citation patterns, and troubleshooting) that the agent must implement:
 >
-> - [Toolbox reference](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/toolbox-reference.md) — endpoint format, MCP protocol, OAuth consent handling, citation patterns, and troubleshooting.
-> - [Use toolbox in a hosted agent](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugin/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — endpoint resolution, env-var contract, payload shape, code integration patterns, and tracing.
+> - [Foundry Toolbox — Concept, API Shape & Schema](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugins/azure-skills/skills/microsoft-foundry/foundry-agent/toolbox/toolbox.md) — toolbox creation and lifecycle, supported tool and authentication types, composition rules, versioning, MCP endpoint formats, testing, and troubleshooting.
+> - [Use a Toolbox from Your Agent Code](https://github.com/microsoft/GitHub-Copilot-for-Azure/blob/main/plugins/azure-skills/skills/microsoft-foundry/foundry-agent/create/references/use-toolbox-in-hosted-agent.md) — framework-specific integration paths, `TOOLBOX_ENDPOINT`, local and deployed validation, BYO MCP authentication, OAuth consent, approvals, citations, and troubleshooting.
 
-The agent reads the toolbox's MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable. The sample bundles a [`toolbox.yaml`](src/toolbox-python-invocations/toolbox.yaml) that defines `web_search` plus the public Microsoft Learn MCP server (no authentication). Create the toolbox once from that file:
+To use a tool type that is not included in this sample, follow its setup guide in the [Toolbox tool types](#toolbox-tool-types) table above and update the bundled [`toolbox.yaml`](src/toolbox-python-invocations/toolbox.yaml).
+
+To run this sample as provided, create `my-toolbox` from the bundled configuration. The agent reads its MCP endpoint from the `TOOLBOX_ENDPOINT` environment variable:
 
 ```bash
-azd ai toolbox create my-toolbox --from-file ./toolbox.yaml
+azd ai toolbox create my-toolbox --from-file ./src/toolbox-python-invocations/toolbox.yaml
 ```
 
 The first version becomes the default automatically. Manage with `azd ai toolbox list`, `azd ai toolbox show my-toolbox`, `azd ai toolbox version list my-toolbox`, and `azd ai toolbox delete my-toolbox --force`.
@@ -124,14 +146,26 @@ The agent starts on `http://localhost:8088`.
 - Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** to create a virtual environment in the workspace (or **Python: Select Interpreter** to use an existing one).
 - Install dependencies in the virtual environment:
 
-  ```bash
-  # use uv to accelerate
-  pip install uv
-  uv pip install -r requirements.txt
+   ```bash
+   # use uv to accelerate
+   pip install uv
+   uv pip install -r requirements.txt
 
-  # or pure pip
-  pip install -r requirements.txt
-  ```
+   # or pure pip
+   pip install -r requirements.txt
+   ```
+
+**Create the toolbox**
+
+The toolbox must exist in your Foundry project before you run the agent. This sample expects a toolbox named **`my-toolbox`**. Create it with the VS Code Foundry Toolkit extension:
+
+1. In the **Foundry Toolkit** view (signed in), open **Tool Catalog** → **Catalog** tab → **Toolboxes** → **Create Your Toolbox**.
+
+    Or, if you're reading this README in VS Code, directly click [[Create in VS Code]](vscode://ms-windows-ai-studio.windows-ai-studio/open_tools).
+2. In the **Included** panel, click **+ Add ▾** → **Add tools**. Add **Web Search**, then add Microsoft Learn MCP server in the catalog. To use different tools, follow the tool's **Guide** in the [Toolbox tool types](#toolbox-tool-types) table above.
+3. Follow the configuration dialog to add each tool.
+4. Back on **Build a Custom Toolbox**, name the toolbox **`my-toolbox`**, then click **Publish**.
+5. Copy the published versioned MCP endpoint into `TOOLBOX_ENDPOINT` in the sample's `.env` file.
 
 **Run and debug the agent**
 
@@ -227,35 +261,6 @@ For the full deployment guide, see [Azure AI Foundry hosted agents](https://aka.
    - Click **Deploy**. Fields are validated inline, and the extension handles the build/upload, agent version creation, and RBAC role assignment.
 5. After deployment, invoke the agent in the Agent Playground and stream live logs from the **Logs** tab.
 
----
-
-## Supported Scenarios
-
-The sample toolbox can be configured for any of these 14 scenarios. For each scenario, create a `azure.yaml` file (see examples below) and pass it to `azd ai agent init -m <manifest-file>`.
-
-<details>
-<summary><strong>View all 14 supported scenarios</strong></summary>
-
-Refer to [`samples/python/toolbox/azd/README.md`](../../../../toolbox/azd/README.md#supported-scenarios) for complete inline documentation of all scenarios including:
-
-1. **Web Search** — Bing web search (no auth required)
-2. **File Search** — Vector store RAG search
-3. **Code Interpreter** — Python code execution
-4. **MCP Key-Auth (GitHub)** — GitHub MCP with PAT
-5. **MCP No-Auth** — Public MCP servers
-6. **MCP OAuth (Managed)** — Foundry-managed OAuth
-7. **MCP OAuth (Custom)** — Bring-your-own OAuth app
-8. **MCP Agent Identity** — Entra ID agent identity
-9. **Azure AI Search** — Search index queries
-10. **A2A (Agent-to-Agent)** — Remote agent delegation
-11. **Bing Custom Search** — Scoped web search
-12. **OpenAPI Key-Auth** — REST API integration
-13. **MCP OAuth (Entra Passthrough)** — User identity delegation
-14. **Multi-Tool Toolbox** — Web search + GitHub MCP combined
-
-Each scenario includes a complete `azure.yaml` example with parameter definitions and resource configurations.
-
-</details>
 ## Troubleshooting
 
 ### Images built on Apple Silicon or other ARM64 machines do not work on our service

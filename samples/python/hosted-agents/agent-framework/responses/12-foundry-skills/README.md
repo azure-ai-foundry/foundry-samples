@@ -1,6 +1,6 @@
 # What this sample demonstrates
 
-An [Agent Framework](https://github.com/microsoft/agent-framework) agent that loads its behavioral guidelines from [**Foundry Skills**](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/skills?view=foundry&pivots=python) at startup, hosted using the **Responses protocol**. Skills are authored once as `SKILL.md` files, uploaded to your Foundry project through `AIProjectClient.beta.skills`, and downloaded by the agent on boot so updates ship without code changes.
+An [Agent Framework](https://github.com/microsoft/agent-framework) agent that loads its behavioral guidelines from [**Foundry Skills**](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/skills?view=foundry&pivots=python) at startup, hosted using the **Responses protocol**. Skills are authored once as `SKILL.md` files, declared as `azure.ai.skill` services in `azure.yaml`, and downloaded by the agent on boot so updates ship without code changes.
 
 ## How It Works
 
@@ -17,7 +17,27 @@ Each `SKILL.md` includes a unique `*-CANARY-*` token that the model is asked to 
 
 > The `name` and `description` values in the YAML front matter must be **unquoted** — quoting them causes the Skills REST API to return HTTP 500 on import.
 
-### Uploading skills with `AIProjectClient`
+### Provisioning skills with `azure.yaml`
+
+The `azure.yaml` manifest declares each bundled skill as an
+`azure.ai.skill` service. The skill service archives the corresponding
+directory, including its `SKILL.md`, and creates or updates the skill when you
+run `azd deploy` or `azd up`:
+
+```yaml
+services:
+  support-style:
+    host: azure.ai.skill
+    uses:
+      - ai-project
+    archive: src/agent-framework-agent-foundry-skills-responses/skills/support-style
+```
+
+The agent lists both skill services in its `uses` collection, so `azd` deploys
+the skills before the agent. `azd provision` creates the project and model
+deployment, but does not apply the skill service.
+
+### Manual provisioning fallback with `AIProjectClient`
 
 [`provision_skills.py`](src/agent-framework-agent-foundry-skills-responses/provision_skills.py) walks `skills/*/SKILL.md`, packages each file as an in-memory ZIP (with `SKILL.md` at the archive root), and imports it through [`AIProjectClient.beta.skills.create_from_package`](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/skills?view=foundry&pivots=python#option-2-import-from-a-skillmd-zip). The client is constructed with `allow_preview=True` (Skills is a preview feature) and authenticates with `DefaultAzureCredential`. Existing skills are deleted first via `beta.skills.delete` so the script is safe to re-run after editing a `SKILL.md`, and `beta.skills.list` is called at the end to verify each skill round-trips.
 
@@ -45,9 +65,10 @@ The agent is hosted using the [Agent Framework](https://github.com/microsoft/age
 
 Your identity (or the Managed Identity running the container in production) needs **Azure AI User** on the Foundry project scope. This single role covers both authoring skills with `provision_skills.py` and downloading them from `main.py`.
 
-## Provisioning the skills (one time)
+## Manual skill provisioning (without `azd deploy`)
 
-From this directory, with the venv activated and `az login` done:
+Use the script when you are running the agent from VS Code or are not using
+the declarative `azure.yaml` deployment:
 
 ```bash
 export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
@@ -79,7 +100,12 @@ Re-running the script after editing a `SKILL.md` re-imports the skill, replacing
 
 Follow the instructions in the [Running the Agent Host Locally](../../README.md#running-the-agent-host-locally) section of the README in the parent directory to run the agent host.
 
-In addition to the standard environment variables, this sample requires:
+When using `azd ai agent run`, run `azd deploy` or `azd up` once first so the
+declared skills exist in the Foundry project. Otherwise, use the manual
+provisioning script above.
+
+The manifest supplies this default for `azd ai agent run`. For direct
+`python main.py` runs, set:
 
 ```bash
 export SKILL_NAMES="support-style,escalation-policy"
@@ -155,14 +181,14 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 
 To host the agent on Foundry, follow the instructions in the [Deploying the Agent to Foundry](../../README.md#deploying-the-agent-to-foundry) section of the README in the parent directory.
 
-When deploying, make sure `SKILL_NAMES` is set in your `azd` environment so it gets injected into the hosted container per [`azure.yaml`](azure.yaml):
+The `azure.yaml` manifest defaults `SKILL_NAMES` to
+`support-style,escalation-policy`, so no extra environment setting is needed
+for the bundled skills. `azd deploy` creates the declared skills before it
+deploys the agent.
 
-```bash
-azd env set SKILL_NAMES "support-style,escalation-policy"
-```
+The deployed agent's Managed Identity needs **Azure AI User** on the Foundry
+project to download skills at startup. The manual
+`provision_skills.py` step is only required when you do not use the
+declarative skill services.
 
-If it is not set, running `azd ai agent init -m <azure.yaml>` will prompt you to enter it interactively.
-
-The deployed agent's Managed Identity needs **Azure AI User** on the Foundry project to download skills at startup. Make sure you have run `provision_skills.py` against the same Foundry project before deploying — otherwise the agent will fail to start with HTTP 404 on the skill download.
-
-> The `skills/` source folder is **not** deployed to Foundry — only the downloaded skills are used at runtime. The `provision_skills.py` step is required to upload the skills to Foundry before the agent can download them.
+> The `skills/` source folder is **not** deployed to Foundry — only the downloaded skills are used at runtime. The declared skill services upload the skills before the agent can download them.

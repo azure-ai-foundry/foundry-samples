@@ -1,8 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
 requiredVersions:
+  azd: '>=1.27.1'
   extensions:
-    azure.ai.agents: '>=1.0.0-beta.4'
+    azure.ai.agents: '>=1.0.0-beta.9'
 name: pipecat-ws-webrtc
 services:
   ai-project:
@@ -29,25 +30,16 @@ services:
     protocols:
       - protocol: invocations_ws
         version: 2.0.0
-    environmentVariables:
-      - name: AZURE_SPEECH_API_KEY
-        value: ${AZURE_SPEECH_API_KEY}
-      - name: AZURE_SPEECH_REGION
-        value: ${AZURE_SPEECH_REGION}
-      - name: AZURE_FOUNDRY_API_KEY
-        value: ${AZURE_FOUNDRY_API_KEY}
-      - name: AZURE_OPENAI_ENDPOINT
-        value: ${AZURE_OPENAI_ENDPOINT}
-      - name: AZURE_LLM_MODEL
-        value: ${AZURE_LLM_MODEL}
-      - name: WEBRTC_TURN_URL
-        value: ${WEBRTC_TURN_URL}
-      - name: WEBRTC_TURN_STUN_URL
-        value: ${WEBRTC_TURN_STUN_URL}
-      - name: WEBRTC_TURN_USERNAME
-        value: ${WEBRTC_TURN_USERNAME}
-      - name: WEBRTC_TURN_CREDENTIAL
-        value: ${WEBRTC_TURN_CREDENTIAL}
+    env:
+      AZURE_SPEECH_API_KEY: ${AZURE_SPEECH_API_KEY}
+      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION}
+      AZURE_FOUNDRY_API_KEY: ${AZURE_FOUNDRY_API_KEY}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT}
+      AZURE_LLM_MODEL: ${AZURE_LLM_MODEL}
+      WEBRTC_TURN_URL: ${WEBRTC_TURN_URL}
+      WEBRTC_TURN_STUN_URL: ${WEBRTC_TURN_STUN_URL}
+      WEBRTC_TURN_USERNAME: ${WEBRTC_TURN_USERNAME}
+      WEBRTC_TURN_CREDENTIAL: ${WEBRTC_TURN_CREDENTIAL}
     container:
       resources:
         cpu: '2'

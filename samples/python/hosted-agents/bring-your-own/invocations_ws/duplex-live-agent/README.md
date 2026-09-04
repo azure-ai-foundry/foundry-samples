@@ -68,7 +68,7 @@ A sample for building real-time voice agents that maintain two parallel tracks s
 | [azure.yaml](azure.yaml) | Hosted-agent runtime config (`invocations_ws`, 1 CPU / 1 Gi). |
 | [azure.yaml](azure.yaml) | `azd ai agent init` manifest. |
 | [Dockerfile](src/duplex-live-agent/Dockerfile) | python:3.12-slim, installs dependencies from `requirements.txt`. |
-| [requirements.txt](src/duplex-live-agent/requirements.txt) | Pins `azure-ai-agentserver-invocations>=1.0.0b4` + `azure-ai-voicelive[aiohttp]` + `azure-identity` + `python-dotenv`. |
+| [requirements.txt](src/duplex-live-agent/requirements.txt) | Pins `azure-ai-agentserver-invocations==1.1.0` + `azure-ai-voicelive[aiohttp]` + `azure-identity` + `python-dotenv`. |
 | [.env.example](src/duplex-live-agent/.env.example) | Required Voice Live env vars. |
 | [e2e_local.py](src/duplex-live-agent/e2e_local.py) | Headless E2E that streams a 1 kHz tone in and asserts audio + events come back. |
 

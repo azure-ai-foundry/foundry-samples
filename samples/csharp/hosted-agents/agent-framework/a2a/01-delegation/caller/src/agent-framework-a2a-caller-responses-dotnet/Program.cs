@@ -45,7 +45,8 @@ var toolboxName = Environment.GetEnvironmentVariable("TOOLBOX_NAME")
 // at request time (see AddFoundryToolboxes below). For the `a2a_preview` tool this means
 // proxying calls to the executor's A2A endpoint through the `RemoteA2A` connection that
 // backs the toolbox.
-AIAgent agent = new AIProjectClient(projectEndpoint, new DefaultAzureCredential())
+var credential = new DefaultAzureCredential();
+AIAgent agent = new AIProjectClient(projectEndpoint, credential)
     .AsAIAgent(
         model: deployment,
         instructions: """
@@ -65,7 +66,7 @@ builder.Services.AddFoundryResponses(agent);
 // managed MCP proxy (derived from FOUNDRY_PROJECT_ENDPOINT), discovers its tools, and
 // injects them into every request. Omitting a version resolves the toolbox's current
 // default version.
-builder.Services.AddFoundryToolboxes(toolboxName);
+builder.Services.AddFoundryToolboxes(credential, toolboxName);
 
 builder.RegisterProtocol("responses", endpoints => endpoints.MapFoundryResponses());
 

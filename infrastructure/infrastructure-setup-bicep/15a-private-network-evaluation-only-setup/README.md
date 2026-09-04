@@ -1,5 +1,5 @@
 ---
-description: This set of templates demonstrates how to set up a network-secured Microsoft Foundry environment for evaluation scenarios without Cosmos DB, AI Search, or project capability host.
+description: This set of templates demonstrates how to set up a network-secured Microsoft Foundry environment for evaluation and data-generation scenarios without Cosmos DB or AI Search.
 page_type: sample
 products:
 - azure
@@ -18,24 +18,25 @@ languages:
 
 > **IMPORTANT**
 > 
-> This template is a simplified version of the [standard agent setup](../15-private-network-standard-agent-setup/) designed for **evaluation scenarios only**. It does **not** deploy Cosmos DB, AI Search, or a project capability host. If you need full agent capabilities (thread storage, vector search, stateful agents), use the standard agent setup instead.
+> This template is a simplified version of the [standard agent setup](../15-private-network-standard-agent-setup/) designed for **evaluation and data-generation scenarios**. It does **not** deploy Cosmos DB or AI Search. It deploys workspace-based Application Insights (with private ingestion) for evaluation/agent tracing and an optional project capability host (Agents kind, no BYO connections) for data-generation. If you need full agent capabilities (thread storage in Cosmos DB, vector search in AI Search, stateful agents), use the standard agent setup instead.
 
 ---
 ## Overview
-This infrastructure-as-code (IaC) solution deploys a **minimal** network-secured Microsoft Foundry environment with private networking and role-based access control (RBAC), intended for evaluation and testing purposes.
+This infrastructure-as-code (IaC) solution deploys a **minimal** network-secured Microsoft Foundry environment with private networking and role-based access control (RBAC), intended for evaluation, testing, and data-generation purposes.
 
 Unlike the full standard agent setup, this template:
 - **Does NOT** create an Azure Cosmos DB account (no thread/conversation storage)
 - **Does NOT** create an Azure AI Search resource (no vector stores)
-- **Does NOT** create a project capability host (no stateful agent support)
 
 What it **does** deploy:
 - Azure AI Services account with a model deployment
 - An AI Foundry project with a storage connection
 - An Azure Storage account (or uses an existing one)
+- Workspace-based Application Insights (Log Analytics + component) connected to the account for evaluation/agent tracing, with private ingestion via an Azure Monitor Private Link Scope
+- An optional project capability host (`deployCapabilityHost`, enabled by default; Agents kind, no BYO connections) for data-generation workloads that use the hosted-agent runtime
 - A VNet with private endpoints for AI Services and Storage
 - Private DNS zones for secure name resolution
-- RBAC role assignments for the project on the storage account
+- RBAC role assignments for the project on the storage account and on Application Insights
 
 ---
 
@@ -53,7 +54,7 @@ Use the table below to choose the right infrastructure template for your scenari
 
 | Template | Agent Type | Networking | Identity | Key Use Case |
 |----------|-----------|------------|----------|-------------|
-| [**15a** (this template)](../15a-private-network-evaluation-only-setup/) | Evaluation only | BYO VNet + Private Endpoints | System Assigned MI | Minimal setup for evaluation — no Cosmos DB, AI Search, or capability host |
+| [**15a** (this template)](../15a-private-network-evaluation-only-setup/) | Evaluation + data generation | BYO VNet + Private Endpoints | System Assigned MI | Minimal setup for evaluation/datagen — App Insights + project capability host (no BYO connections); no Cosmos DB or AI Search |
 | [**15**](../15-private-network-standard-agent-setup/) | Standard (BYO resources) | BYO VNet + Private Endpoints | System Assigned MI | E2E network isolation with full agent capabilities |
 | [**19**](../19-private-network-agent-tools/) | Standard (BYO resources) | BYO VNet + Private Endpoints | System Assigned MI | Same as 15 **plus** tools behind VNet (MCP, OpenAPI, Functions, A2A) |
 | [**17**](../17-private-network-standard-user-assigned-identity-agent-setup/) | Standard (BYO resources) | BYO VNet + Private Endpoints | **User Assigned MI** | Same as 15 but with user-managed identity |
@@ -124,7 +125,7 @@ Use the table below to choose the right infrastructure template for your scenari
 1. The delegated agent subnet must be exclusively used by a single Foundry account. It cannot be shared across accounts.
 2. The Foundry resource and the virtual network must be in the same Azure region.
 3. For the virtual network IP range, you may use any Private Class A, B or C IP range. Private Class A IP address ranges (10.x.x.x) are only supported in the following regions: **Australia East, Brazil South, Canada East, East US, East US 2, France Central, Germany West Central, Italy North, Japan East, South Africa North, South Central US, South India, Spain Central, Sweden Central, UAE North, UK South, West US, West US 3.** Use Class B (172.16.x.x) or C (192.168.x.x) ranges for other regions. You may not use any other IP range that overlaps to the list above or uses public IP ranges. 
-4. This template does **not** deploy Cosmos DB, AI Search, or a project capability host. Stateful agents are not supported. Use [template 15](../15-private-network-standard-agent-setup/) for full agent capabilities.
+4. This template does **not** deploy Cosmos DB or AI Search. The project capability host it creates has **no BYO connections**, so stateful agents that need thread storage (Cosmos DB) or vector search (AI Search) are not supported. Use [template 15](../15-private-network-standard-agent-setup/) for full agent capabilities.
 5. There is no upgrade path from this evaluation template to the full standard agent setup. A redeployment with template 15 is required.
 
 ### Template Customization

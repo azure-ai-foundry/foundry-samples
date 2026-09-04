@@ -1,8 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
 requiredVersions:
+  azd: '>=1.27.1'
   extensions:
-    azure.ai.agents: '>=1.0.0-beta.4'
+    azure.ai.agents: '>=1.0.0-beta.9'
 name: duplex-live-agent
 services:
   ai-project:
@@ -31,15 +32,11 @@ services:
     protocols:
       - protocol: invocations_ws
         version: 2.0.0
-    environmentVariables:
-      - name: AZURE_VOICELIVE_MODEL
-        value: ${AZURE_VOICELIVE_MODEL}
-      - name: AZURE_VOICELIVE_VOICE
-        value: ${AZURE_VOICELIVE_VOICE}
-      - name: AZURE_TASK_MODEL
-        value: ${AZURE_TASK_MODEL}
-      - name: GITHUB_TOKEN
-        value: ${GITHUB_TOKEN}
+    env:
+      AZURE_VOICELIVE_MODEL: ${AZURE_VOICELIVE_MODEL}
+      AZURE_VOICELIVE_VOICE: ${AZURE_VOICELIVE_VOICE}
+      AZURE_TASK_MODEL: ${AZURE_TASK_MODEL}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
     container:
       resources:
         cpu: '1'

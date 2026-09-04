@@ -5,11 +5,76 @@ Conventions for AI agents creating or editing samples under
 tree, so this applies to Python hosted-agent samples. Treat these as shared
 conventions and a starting point — adapt to what each sample actually needs.
 
+## Starting a new sample
+
+Copy both shared templates into the new sample:
+
+1. Copy [`README-template.md`](./README-template.md) to `README.md`.
+2. Copy [`AGENTS-template.md`](./AGENTS-template.md) to `AGENTS.md`.
+3. Replace the placeholders, update paths and commands, and remove sections or
+   bullets that do not apply.
+
+The Foundry Toolkit generates `.vscode/launch.json` and `.vscode/tasks.json` in
+the scaffolded workspace to support the **F5** flow. Do not commit those generated
+files to the sample.
+
+Match deployment guidance to the sample's `azure.yaml`: direct code deployment
+uses `codeConfiguration` and does not require a Dockerfile; Dockerfile guidance
+applies only when the sample uses container deployment through `docker.path`.
+
+## Python dependency policy
+
+Follow [`DEPENDENCY_POLICY.md`](./DEPENDENCY_POLICY.md) whenever you create a
+Python Hosted Agent runtime or change its dependencies.
+
+- Commit `requirements.txt` in each executable runtime project referenced by
+  `services.<name>.project` in `azure.yaml`.
+- Treat `requirements.txt` as the portable consumer artifact. It must pin the
+  complete direct and transitive runtime dependency graph.
+- You may use pip-tools, uv, Poetry, PDM, Pipenv, or another resolver, but export
+  its resolution to `requirements.txt` and commit the export.
+- Preserve required extras, prereleases, and environment markers. Do not leave
+  bare names, version ranges, wildcard pins, editable/local paths, or mutable
+  source references in the consumer artifact.
+- When `pyproject.toml`, a native lockfile, or another dependency input changes,
+  regenerate and commit `requirements.txt` in the same change.
+- Do not update dependency versions during unrelated work. Existing legacy
+  samples are grandfathered until a dependency input changes.
+- Before finishing a dependency change, run the checker documented in
+  `DEPENDENCY_POLICY.md`, including `--resolve` when network access is available.
+
+A sample whose purpose is to demonstrate a particular package manager may keep
+that tool as its primary authoring workflow, but it still exports the portable
+`requirements.txt` unless a narrow, documented exception applies.
+
+## Cloud E2E contract for new samples
+
+Every new Python hosted-agent sample must add a private `test-spec.yml` with a
+responsible Microsoft owner alias, supported experiences, deterministic turns,
+and assertions for its defining behavior. Legacy payload/default support is for
+migration and is not sufficient for a new sample.
+
+Read and follow the authoritative [hosted-agent cloud E2E test-spec schema and
+onboarding checklist](../../../internal/tools/samples-hosted-agents/README.md).
+Run both the documented `validate` and protocol-aware `plan` commands before
+submitting changes.
+
+## Runtime logging
+
+Use the standard `logging` module for diagnostics emitted by a running hosted
+agent. Prefer `logger.info()`, `logger.warning()`, and `logger.exception()` over
+`print()` when output must be observable while the long-running process remains
+alive; Python stdout may remain buffered in hosted containers.
+
+Use `print()` only when stdout is intentionally part of a CLI, provisioning
+script, local test utility, or tool-result contract. If stdout is required from a
+long-running process, flush it explicitly. E2E log assertions must target a
+deliberate sample-owned log event, not mutable framework or dependency wording.
+
 ## README conventions
 
 Most samples follow the shared template,
-[`README-template.md`](./README-template.md): a good default is to copy it and
-fill in the `{{placeholders}}`. It keeps a familiar section flow:
+[`README-template.md`](./README-template.md). It keeps a familiar section flow:
 
 1. What this sample demonstrates
 2. How it works — plus any sample-specific background (e.g. "Environment
@@ -32,6 +97,8 @@ fill in the `{{placeholders}}`. It keeps a familiar section flow:
   forms such as `azd ext install azure.ai.agents`).
 - Prefer self-contained READMEs over deferring run/deploy steps to a parent
   README or hiding steps inside collapsible `<details>` blocks.
+- Keep Toolkit-generated `.vscode` launch/task files out of the sample; document
+  that the Toolkit creates them in the scaffolded workspace.
 
 ## When a sample legitimately differs
 
@@ -46,6 +113,3 @@ force it:
 
 Use the template for structure and shared vocabulary, and keep whatever
 sample-specific sections a reader needs.
-
-> The per-sample `AGENTS.md` (hosted-agent overview, `azd` lifecycle, Microsoft
-> Foundry Skill) still applies; this file only adds README conventions.

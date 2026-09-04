@@ -7,6 +7,8 @@ param modelSkuName string
 param modelCapacity int
 param agentSubnetId string
 param networkInjection string = 'true'
+@description('Optional caller CIDR for authenticated project SDK access. Leave empty for private-only access.')
+param developerIpCidr string = ''
 
 #disable-next-line BCP036
 resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
@@ -25,10 +27,14 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
     networkAcls: {
       defaultAction: 'Deny'
       virtualNetworkRules: []
-      ipRules: []
+      ipRules: empty(developerIpCidr) ? [] : [
+        {
+          value: endsWith(developerIpCidr, '/32') ? split(developerIpCidr, '/')[0] : developerIpCidr
+        }
+      ]
       bypass:'AzureServices'
     }
-    publicNetworkAccess: 'Disabled'
+    publicNetworkAccess: empty(developerIpCidr) ? 'Disabled' : 'Enabled'
     networkInjections:((networkInjection == 'true') ? [
       {
         scenario: 'agent'

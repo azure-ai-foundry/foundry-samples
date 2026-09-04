@@ -41,10 +41,7 @@ from pipecat.turns.user_stop import TurnAnalyzerUserTurnStopStrategy
 from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
 from pipecat.serializers.protobuf import ProtobufFrameSerializer
 from pipecat.services.azure.llm import AzureLLMService
-from pipecat.services.azure.stt import AzureSTTService
-from pipecat.services.openai.stt import OpenAIRealtimeSTTService
 from azure_tts_text_streaming import AzureTTSTextStreamingService
-from pipecat.services.azure.tts import AzureTTSService
 
 try:
     from websockets.asyncio.client import connect as websocket_connect

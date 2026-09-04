@@ -1,8 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
 requiredVersions:
+  azd: '>=1.27.1'
   extensions:
-    azure.ai.agents: '>=1.0.0-beta.4'
+    azure.ai.agents: '>=1.0.0-beta.9'
 name: livekit-server
 services:
   ai-project:
@@ -30,25 +31,16 @@ services:
     protocols:
       - protocol: invocations_ws
         version: 2.0.0
-    environmentVariables:
-      - name: AZURE_SPEECH_API_KEY
-        value: ${AZURE_SPEECH_API_KEY}
-      - name: AZURE_SPEECH_REGION
-        value: ${AZURE_SPEECH_REGION}
-      - name: AZURE_FOUNDRY_API_KEY
-        value: ${AZURE_FOUNDRY_API_KEY}
-      - name: AZURE_OPENAI_ENDPOINT
-        value: ${AZURE_OPENAI_ENDPOINT}
-      - name: AZURE_OPENAI_API_VERSION
-        value: ${AZURE_OPENAI_API_VERSION}
-      - name: AZURE_LLM_MODEL
-        value: ${AZURE_LLM_MODEL}
-      - name: LIVEKIT_URL
-        value: ${LIVEKIT_URL}
-      - name: LIVEKIT_API_KEY
-        value: ${LIVEKIT_API_KEY}
-      - name: LIVEKIT_API_SECRET
-        value: ${LIVEKIT_API_SECRET}
+    env:
+      AZURE_SPEECH_API_KEY: ${AZURE_SPEECH_API_KEY}
+      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION}
+      AZURE_FOUNDRY_API_KEY: ${AZURE_FOUNDRY_API_KEY}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT}
+      AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION}
+      AZURE_LLM_MODEL: ${AZURE_LLM_MODEL}
+      LIVEKIT_URL: ${LIVEKIT_URL}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
     container:
       resources:
         cpu: '2'

@@ -36,7 +36,8 @@ var toolboxName = Environment.GetEnvironmentVariable("TOOLBOX_NAME")
 // Fetch the toolbox's tools from Foundry. Omitting the version resolves the toolbox's
 // current default version. The returned AITools are passed directly to the agent as
 // server-side tools — Foundry will execute them on the agent's behalf.
-var projectClient = new AIProjectClient(projectEndpoint, new DefaultAzureCredential());
+var credential = new DefaultAzureCredential();
+var projectClient = new AIProjectClient(projectEndpoint, credential);
 
 AIAgent agent = projectClient
     .AsAIAgent(
@@ -54,7 +55,7 @@ builder.RegisterProtocol("responses", endpoints => endpoints.MapFoundryResponses
 // The toolset name must match a toolset registered in your Foundry project.
 // When FOUNDRY_AGENT_TOOLSET_ENDPOINT is absent (e.g., in local development without Foundry
 // infrastructure), startup succeeds without error and no toolbox tools are loaded.
-builder.Services.AddFoundryToolboxes(toolboxName);
+builder.Services.AddFoundryToolboxes(credential, toolboxName);
 
 var app = builder.Build();
 

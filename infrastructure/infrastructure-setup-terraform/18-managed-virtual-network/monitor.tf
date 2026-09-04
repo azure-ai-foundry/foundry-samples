@@ -1,26 +1,30 @@
 # Azure Monitor Private Link Scope (AMPLS) for Application Insights telemetry
 # This enables hosted agents in the managed VNet to export telemetry to App Insights
 
-# Log Analytics Workspace
+# Log Analytics Workspace with private-only ingestion and query access
 resource "azurerm_log_analytics_workspace" "main" {
-  count               = var.enable_networking ? 1 : 0
-  name                = "law-${local.resource_suffix}"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  sku                 = "PerGB2018"
-  retention_in_days   = 30
+  count                      = var.enable_networking ? 1 : 0
+  name                       = "law-${local.resource_suffix}"
+  location                   = azurerm_resource_group.main.location
+  resource_group_name        = azurerm_resource_group.main.name
+  sku                        = "PerGB2018"
+  retention_in_days          = 30
+  internet_ingestion_enabled = false
+  internet_query_enabled     = false
 
   tags = var.tags
 }
 
-# Application Insights
+# Application Insights with private-only ingestion and query access
 resource "azurerm_application_insights" "main" {
-  count               = var.enable_networking ? 1 : 0
-  name                = "appi-${local.resource_suffix}"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  workspace_id        = azurerm_log_analytics_workspace.main[0].id
-  application_type    = "web"
+  count                      = var.enable_networking ? 1 : 0
+  name                       = "appi-${local.resource_suffix}"
+  location                   = azurerm_resource_group.main.location
+  resource_group_name        = azurerm_resource_group.main.name
+  workspace_id               = azurerm_log_analytics_workspace.main[0].id
+  application_type           = "web"
+  internet_ingestion_enabled = false
+  internet_query_enabled     = false
 
   tags = var.tags
 }

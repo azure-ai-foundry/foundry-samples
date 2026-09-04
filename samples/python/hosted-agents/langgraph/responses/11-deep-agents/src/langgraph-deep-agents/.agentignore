@@ -1,0 +1,20 @@
+# Files excluded from direct code deployment packaging (gitignore syntax).
+
+# Secrets and local configuration
+.env
+.env.*
+.azure/
+.git/
+.vscode/
+
+# Python
+__pycache__/
+.venv/
+venv/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/

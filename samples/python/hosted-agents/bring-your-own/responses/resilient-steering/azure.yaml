@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: resilient-steering
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  resilient-steering:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Bring Your Own
+        - Long-Running
+        - Resilient Tasks
+        - Steering
+        - Python
+    project: src/resilient-steering
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: resilient-steering
+    displayName: Resilient Steering (Responses)
+    description: A crash-resilient, steerable long-running agent built with azure-ai-agentserver-responses. Uses resilient_background and steerable_conversations so background responses survive process crashes and clients can supersede an in-flight turn; shows how cancellation, shutdown, steering, and crash recovery compose. The LLM is simulated so it runs with no credentials.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

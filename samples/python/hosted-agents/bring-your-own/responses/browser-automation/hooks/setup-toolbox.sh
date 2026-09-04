@@ -6,16 +6,26 @@ set -e
 # Called by postprovision.sh after connection setup.
 # Always creates a new version to pick up any connection changes, then publishes it.
 
+# Load all env values once and look up by key.
+_AZD_ENV_CACHE=$(azd env get-values 2>/dev/null || true)
+
+_azd_get() {
+    printf '%s' "$_AZD_ENV_CACHE" | grep "^${1}=" | head -1 | sed 's/^[^=]*="//' | sed 's/"$//'
+}
+
 echo ""
 echo "Creating browser-automation-tools toolbox..."
 
-PROJECT_ENDPOINT=$(azd env get-value AZURE_AI_PROJECT_ENDPOINT 2>/dev/null || azd env get-value FOUNDRY_PROJECT_ENDPOINT 2>/dev/null || echo "")
+PROJECT_ENDPOINT=$(_azd_get AZURE_AI_PROJECT_ENDPOINT)
+if [ -z "$PROJECT_ENDPOINT" ]; then
+    PROJECT_ENDPOINT=$(_azd_get FOUNDRY_PROJECT_ENDPOINT)
+fi
 if [ -z "$PROJECT_ENDPOINT" ]; then
     echo "Error: Could not determine project endpoint." >&2
     exit 1
 fi
 
-PROJECT_ID=$(azd env get-value AZURE_AI_PROJECT_ID 2>/dev/null || echo "")
+PROJECT_ID=$(_azd_get AZURE_AI_PROJECT_ID)
 if [ -z "$PROJECT_ID" ]; then
     echo "Error: Could not determine project ID. Set AZURE_AI_PROJECT_ID." >&2
     exit 1

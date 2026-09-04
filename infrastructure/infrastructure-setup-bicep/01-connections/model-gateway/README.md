@@ -56,6 +56,17 @@ az deployment group create \
   --parameters apiKey=<your-api-key>
 ```
 
+### Foundry Anthropic ModelGateway Connection
+```bash
+# 1. Edit samples/parameters-foundryanthropic.json with your resource IDs
+# 2. Deploy with your API key
+az deployment group create \
+  --resource-group <your-resource-group> \
+  --template-file connection-modelgateway.bicep \
+  --parameters @samples/parameters-foundryanthropic.json \
+  --parameters apiKey=<your-api-key>
+```
+
 
 ### Dynamic Discovery ModelGateway Connection
 ```bash
@@ -101,6 +112,39 @@ az deployment group create \
   --parameters clientSecret=<your-client-secret>
 ```
 
+## After deployment — create an agent that uses the model
+
+A `ModelGateway` connection is the gateway-category connection behind three golden-path
+variants: a model in **another Foundry / Azure OpenAI account** (variant 2 — point
+`targetUrl` at that account's inference endpoint), a **third-party model provider**
+(variant 3, e.g. OpenAI), and your own **bring-your-own-gateway (BYOG)** (variant 4). Once
+the connection exists, an agent references the model as `<connectionName>/<modelName>`.
+
+> [!IMPORTANT]
+> BYOM `<connection>/<model>` resolution works **only** for gateway-category connections
+> (`ModelGateway` here, or `ApiManagement`). A plain `AzureOpenAI` / `CognitiveService`
+> connection is **not** resolvable by a prompt agent and fails with `Connection '<name>' not
+> found` — use this `ModelGateway` connection (not `connection-azure-openai.bicep` /
+> `connection-foundry.bicep`) to BYOM a model from another account.
+
+> [!IMPORTANT]
+> A BYOM model — whether it comes from another account, a 3P provider, or your own gateway —
+> works **only** with a *prompt agent* invoked through the **Responses API**. The classic
+> Assistants API (`create_agent` + threads + runs) cannot resolve `<connection>/<model>` and
+> fails with `invalid_engine_error: Failed to resolve model info`.
+
+The connection-agnostic script at
+[`../public-byom-apim/samples/create-agent.py`](../public-byom-apim/samples/create-agent.py)
+works here too — point it at your project and pass this connection's model:
+
+```bash
+pip install "azure-ai-projects>=2.0.0" azure-identity
+python ../public-byom-apim/samples/create-agent.py \
+  --endpoint https://<account>.services.ai.azure.com/api/projects/<project> \
+  --model    <connectionName>/<modelName> \
+  --prompt   "Say hello in five words."
+```
+
 ## Validation Features
 
 The template includes built-in validation:
@@ -112,6 +156,7 @@ The template includes built-in validation:
 
 - `samples/parameters-openai.json`: For OpenAI connections with Bearer token authentication
 - `samples/parameters-foundryopenai.json`: For Foundry AzureOpenAI connection
+- `samples/parameters-foundryanthropic.json`: For Foundry Anthropic connection
 - `samples/parameters-dynamic.json`: For dynamic discovery connections with API key authentication
 - `samples/parameters-static.json`: For static model list connections with placeholder models
 - `samples/parameters-custom-auth-config.json`: For custom authentication and headers configuration

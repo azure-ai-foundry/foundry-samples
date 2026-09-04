@@ -15,7 +15,7 @@ Pick the tool that matches your workflow — both deploy the same sample image t
 
 #### Deploy with the Azure Developer CLI (`azd`)
 
-> **Prerequisites:** Install the Azure Developer CLI with the Foundry AI extension. See [Set up azd for hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd) if you haven't already.
+> **Prerequisites:** Install Azure Developer CLI (`azd`) 1.27.1 or later with the Foundry AI extension. Manifests that set service environment variables use the `env:` map and require `azure.ai.agents` 1.0.0-beta.9 or later; their `requiredVersions` blocks enforce these minimums. See [Set up azd for hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd) if you haven't already.
 
 ```bash
 mkdir my-agent && cd my-agent
@@ -123,6 +123,9 @@ The platform manages conversation history, streaming lifecycle, and background e
 9. **[Downstream Azure services](./agent-framework/responses/09-downstream-azure/)** — Call Azure Blob Storage and Service Bus from the agent using its per-agent Microsoft Entra identity (no connection strings).
 10. **[A2A Delegation](./agent-framework/a2a/01-delegation/)** — Two-agent walkthrough: a hosted Responses **caller** delegates to a hosted Responses **executor** that is exposed as an A2A endpoint via Foundry's incoming A2A feature, wired together through a Foundry Toolbox `a2a_preview` tool over a `RemoteA2A` connection.
 11. **[Content safety guardrail](./agent-framework/responses/16-content-safety-guardrail/)** — Attach a Responsible AI content safety guardrail to a hosted agent so the platform screens prompts and responses against your safety policy.
+12. **[Harness Research](./agent-framework/responses/19-harness-research/)** — Build a long-running research assistant with plans, todos, web search, compaction, and autonomous execute-mode loops.
+13. **[Harness Data Processing](./agent-framework/responses/20-harness-data-processing/)** — Analyze bundled data with file tools and complete protected writes through structured approvals.
+14. **[Harness scaling capabilities](./agent-framework/responses/21-harness-scaling-capabilities/)** — Combine file skills, a confined shell, CodeAct, and concurrent background research in one multi-turn personal-finance harness agent.
 
 ### Invocations protocol
 
@@ -178,6 +181,7 @@ Already built an agent with CrewAI or your own code? The protocol SDKs (`azure-a
 | Sample                                                             | What it shows                                                                                                                |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | **[Hello World](bring-your-own/responses/hello-world/)**           | Minimal agent — calls a Foundry model via the Responses API and returns the reply. The simplest possible BYO starting point. |
+| **[uv + pyproject](bring-your-own/responses/uv-pyproject/)**       | Existing-code initialization and remote code deployment with `pyproject.toml`, `uv.lock`, and system TLS certificates.      |
 | **[LangGraph Chat](bring-your-own/responses/langgraph-chat/)**     | LangGraph conversational agent hosted on Foundry with multi-turn history via the Responses protocol.                         |
 | **[Notetaking Agent](bring-your-own/responses/notetaking-agent/)** | Agent that takes and retrieves notes using a custom tool.                                                                    |
 | **[Session Multiplexing](bring-your-own/responses/session-multiplexing/)** | Demonstrates multiple callers sharing one `agent_session_id` while `previous_response_id` history stays scoped by platform user context. |
@@ -198,6 +202,12 @@ Already built an agent with CrewAI or your own code? The protocol SDKs (`azure-a
 | **[GitHub Copilot](bring-your-own/invocations/github-copilot/)**       | Agent that integrates with GitHub Copilot as the AI backbone.                                               |
 | **[Human-in-the-Loop](bring-your-own/invocations/human-in-the-loop/)** | Long-running agent that pauses for human approval before continuing.                                        |
 | **[Event Grid Trigger](bring-your-own/invocations/event-grid-trigger/)** | Event-driven agent: Azure Storage → Event Grid → hosted agent (direct delivery, authenticated by the system topic's system-assigned managed identity); agent summarizes the new blob and writes the summary to a sibling Storage container. |
+
+## Python dependencies
+
+Each new or dependency-updated Python Hosted Agent runtime commits a fully resolved `requirements.txt` as its portable consumer artifact. Consumers can install it with standard pip, while sample authors remain free to use pip-tools, uv, Poetry, PDM, Pipenv, or another resolver to generate the file.
+
+See the [Python Hosted Agent dependency policy](DEPENDENCY_POLICY.md) for pinning rules, authoring-tool examples, validation commands, ratchet behavior, and exceptions.
 
 ## Deploy any sample
 
@@ -284,7 +294,7 @@ Here is a hosted agent sample with Invocations protocol that is compatible with 
 
 - **Azure subscription** with access to Microsoft Foundry
 - **One of the following deploy tools:**
-  - **Azure Developer CLI (`azd`)** — [install](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd), or
+  - **Azure Developer CLI (`azd`) 1.27.1 or later** — [install](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd), or
   - **Foundry Toolkit VS Code Extension** — [install](https://learn.microsoft.com/en-us/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=vscode)
 - **Python 3.12+**
 

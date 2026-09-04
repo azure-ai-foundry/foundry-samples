@@ -22,7 +22,8 @@ caller (hosted agent)
 01-delegation/
 ├── caller/         # Concierge hosted agent that delegates over A2A
 └── executor/       # Math-expert hosted agent (gets exposed as A2A)
-    └── scripts/    # setup-a2a.{sh,ps1} — enables incoming A2A on the executor
+    └── src/agent-framework-a2a-executor-responses-dotnet/scripts/
+        └── setup-a2a.{sh,ps1}    # Enables incoming A2A on the executor
 ```
 
 ## Prerequisites
@@ -30,7 +31,7 @@ caller (hosted agent)
 - Standard hosted-agent prerequisites: a Foundry project, a model deployment, `azd` with the AI agent extension, and `az login`.
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later.
 - Azure CLI signed in as a principal with the **Foundry User** role (or higher) on the Foundry project.
-- **Bash** (Linux/macOS/WSL) **or** **PowerShell** (Windows/macOS/Linux) to run [`executor/scripts/setup-a2a`](executor/scripts/).
+- **Bash** (Linux/macOS/WSL) **or** **PowerShell** (Windows/macOS/Linux) to run [`setup-a2a`](executor/src/agent-framework-a2a-executor-responses-dotnet/scripts/).
 
 ## Walkthrough
 
@@ -39,7 +40,7 @@ The two agents are set up in separate `azd` projects. Four steps:
 | # | What | Where |
 |---|---|---|
 | 1 | Deploy the **executor** | `hosted-agent-a2a-executor-dotnet/` |
-| 2 | Run `setup-a2a` to enable incoming A2A on the executor (PATCH only) | `executor/scripts/setup-a2a.{sh,ps1}` |
+| 2 | Run `setup-a2a` to enable incoming A2A on the executor (PATCH only) | `src/agent-framework-a2a-executor-responses-dotnet/scripts/setup-a2a.{sh,ps1}` |
 | 3 | Deploy the **caller** — `azd provision` creates the `RemoteA2A` connection + `a2a_preview` toolbox from the manifest | `hosted-agent-a2a-caller-dotnet/` |
 | 4 | Invoke the caller and watch it delegate | `azd ai agent invoke` |
 
@@ -61,7 +62,7 @@ Default agent name: `agent-framework-a2a-executor-responses-dotnet` (from the ma
 ### 2. Enable incoming A2A on the executor
 
 ```bash
-./executor/scripts/setup-a2a.sh
+./src/agent-framework-a2a-executor-responses-dotnet/scripts/setup-a2a.sh
 ```
 
 This PATCHes the executor to publish its `agent_card` and add `a2a` to `agent_endpoint.protocols`. After that, the agent answers both Responses and A2A requests at the same endpoint. The PATCH is the only step that has to happen out-of-band — `agent_card` and multi-protocol endpoints aren't AgentSchema concepts, so the manifest can't express them yet.
@@ -107,5 +108,4 @@ The executor still answers Responses requests directly — `azd ai agent invoke 
 - [Enable incoming A2A on a Foundry agent](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/enable-agent-to-agent-endpoint) — covers the executor PATCH and the underlying REST contract for the connection.
 - [Curate intent-based toolbox in Foundry](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/toolbox?pivots=rest-api) — Toolbox REST API.
 - [Connect to an A2A agent endpoint](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/agent-to-agent) — caller side.
-- [Supported toolbox tools](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/toolbox/SUPPORTED_TOOLBOX_TOOLS.md#a2a-tool-preview) — `a2a_preview` parameters.
-- [Supported toolbox scenarios](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS.md) — scenario #10 is the canonical A2A manifest shape used by this sample.
+- [A2A toolbox scenario guide](../../../../../python/hosted-agents/SUPPORTED_TOOLBOX_SCENARIOS/tools/a2a.md) — workflow based on the Python A2A delegation sample.

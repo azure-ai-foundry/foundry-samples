@@ -7,9 +7,10 @@ Model Router is a deployable AI chat model in Azure AI Foundry that **automatica
 ## Examples
 
 | Folder | API | Auth | Description |
-|--------|-----|------|-------------|
-| [`chat-completions/`](chat-completions/) | Chat Completions | API Key | Basic single-prompt chat completion via `AzureOpenAI` client |
-| [`foundry-responses-sdk/`](foundry-responses-sdk/) | Foundry SDK | Entra ID | Uses `AIProjectClient` → `get_openai_client()` → Responses API |
+| ------ | --- | ---- | ----------- |
+| [`chat-completions/`](./model-router-chat-completions.py) | Chat Completions | API Key | Basic single-prompt chat completion via `AzureOpenAI` client |
+| [`model-router-chat-completions-observability.py`](./model-router-chat-completions-observability.py) | Chat Completions | API Key | Displays the selected model, routing mode, attempts, latency, and status for each routing decision |
+| [`foundry-responses-sdk/`](./model-router-foundry-responses.py) | Foundry SDK | Entra ID | Uses `AIProjectClient` → `get_openai_client()` → Responses API |
 
 ## Prerequisites
 
@@ -59,11 +60,58 @@ Model Router is a deployable AI chat model in Azure AI Foundry that **automatica
 python model-router-chat-completions.py
 ```
 
+### Chat Completions Observability
+
+```bash
+python model-router-chat-completions-observability.py
+```
+
+#### Model Selection Details
+
+This sample reads `response.model_selection_details`. The code inside the `<response_observability_extract>` tags parses that response fragment to print the routing mode, routing latency, and each model attempt.
+
+The following JSON shows the `model_selection_details` fragment parsed by that code when the router falls back from one model to another:
+
+```json
+{
+   "model_selection_details": {
+      "model_router_details": {
+         "mode": "balanced",
+         "routing_trace": [
+            {
+               "latency_ms": 19,
+               "attempts": [
+                  {
+                     "model": "example-model-a",
+                     "result": {
+                        "status": 404,
+                        "error": {
+                           "code": "NotFound",
+                           "message": "The request failed."
+                        }
+                     }
+                  },
+                  {
+                     "model": "example-model-b",
+                     "result": {
+                        "status": 200
+                     }
+                  }
+               ]
+            }
+         ]
+      }
+   }
+}
+```
+
+This payload is illustrative. The selected models, number of attempts, errors, latency, and preview response schema can vary by request and service version.
+
 ### Foundry Responses SDK (Entra ID)
 
 ```bash
 az login
-python model-router-foundry-responses-sdk.py
+python model-router-foundry-responses.py
 ```
 
 ## What to Expect

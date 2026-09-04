@@ -32,7 +32,6 @@ from aiohttp.web_middlewares import middleware as web_middleware
 from microsoft_agents.activity import Activity, load_configuration_from_env
 from microsoft_agents.authentication.msal import MsalConnectionManager
 from microsoft_agents.hosting.aiohttp import (
-    CloudAdapter,
     jwt_authorization_middleware,
     start_agent_process,
 )
@@ -52,6 +51,9 @@ from microsoft_agents_a365.notifications.agent_notification import (
     AgentNotificationActivity,
     ChannelId,
 )
+from opentelemetry import propagate, trace
+from opentelemetry.sdk.trace import SpanProcessor
+from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from .agent_interface import AgentInterface, check_agent_inheritance
 from .email_channel_compat import (
@@ -59,7 +61,10 @@ from .email_channel_compat import (
     is_email_notification,
     is_wpx_comment_activity,
 )
-from .token_cache import cache_agentic_token, get_cached_agentic_token
+from .request_correlation import (
+    AgentRequestCorrelationMiddleware,
+    CorrelatingCloudAdapter,
+)
 
 
 def is_wpx_comment_notification(notification_activity: AgentNotificationActivity) -> bool:
@@ -94,9 +99,6 @@ ms_agents_logger = logging.getLogger("microsoft_agents")
 ms_agents_logger.addHandler(logging.StreamHandler())
 ms_agents_logger.setLevel(logging.INFO)
 
-observability_logger = logging.getLogger("microsoft_agents_a365.observability")
-observability_logger.setLevel(logging.ERROR)
-
 logger = logging.getLogger(__name__)
 logger.info("📝 Logging configured at level %s (from LOG_LEVEL env)", _LOG_LEVEL_NAME)
 
@@ -104,6 +106,17 @@ logger.info("📝 Logging configured at level %s (from LOG_LEVEL env)", _LOG_LEV
 # ---------------------------------------------------------------------------
 # Key Vault + Application Insights bootstrap (matches Program.cs)
 # ---------------------------------------------------------------------------
+
+
+class _FoundryProjectIdSpanProcessor(SpanProcessor):
+    def __init__(self, project_resource_id: str) -> None:
+        self._project_resource_id = project_resource_id
+
+    def on_start(self, span, parent_context=None) -> None:
+        span.set_attribute(
+            "microsoft.foundry.project.id",
+            self._project_resource_id,
+        )
 
 
 def _configure_key_vault() -> None:
@@ -134,18 +147,64 @@ def _configure_application_insights() -> None:
         or os.getenv("ApplicationInsights__ConnectionString")
     )
     if not conn:
+        logger.warning(
+            "Application Insights is not configured. "
+            "Set APPLICATIONINSIGHTS_CONNECTION_STRING to enable telemetry."
+        )
         return
-    print(f"AI ConnectionString: {conn}")
-    try:
-        from azure.monitor.opentelemetry import configure_azure_monitor
 
-        configure_azure_monitor(connection_string=conn)
-    except Exception as ex:
-        logger.warning("Failed to configure Application Insights: %s", ex)
+    try:
+        from azure.ai.projects.telemetry import AIProjectInstrumentor
+        from azure.monitor.opentelemetry import configure_azure_monitor
+        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+        os.environ.setdefault("AZURE_EXPERIMENTAL_ENABLE_GENAI_TRACING", "true")
+        os.environ.setdefault(
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "true"
+        )
+        project_resource_id = os.getenv("FOUNDRY_PROJECT_ARM_ID")
+        if not project_resource_id:
+            logger.warning(
+                "FOUNDRY_PROJECT_ARM_ID is not set; spans will not include "
+                "microsoft.foundry.project.id."
+            )
+        span_processors = (
+            [_FoundryProjectIdSpanProcessor(project_resource_id)]
+            if project_resource_id
+            else []
+        )
+        configure_azure_monitor(
+            connection_string=conn,
+            sampling_ratio=1.0,
+            span_processors=span_processors,
+        )
+        AIProjectInstrumentor().instrument()
+        HTTPXClientInstrumentor().instrument()
+        logger.info("Application Insights and Foundry GenAI telemetry configured.")
+    except Exception:
+        logger.exception("Failed to configure Application Insights telemetry.")
+
+
+def _configure_blueprint_client_id() -> None:
+    blueprint_client_id = os.getenv("FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID")
+    if blueprint_client_id:
+        os.environ[
+            "CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTID"
+        ] = blueprint_client_id
+        print(
+            "ServiceConnection ClientId set from "
+            "FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID."
+        )
+    else:
+        print(
+            "FOUNDRY_AGENT_BLUEPRINT_CLIENT_ID not set. "
+            "ServiceConnection ClientId not configured."
+        )
 
 
 _configure_key_vault()
 _configure_application_insights()
+_configure_blueprint_client_id()
 
 
 agents_sdk_config = load_configuration_from_env(environ)
@@ -163,19 +222,6 @@ def create_and_run_host(agent_class: type[AgentInterface], *agent_args, **agent_
         raise TypeError(
             f"Agent class {agent_class.__name__} must inherit from AgentInterface"
         )
-
-    try:
-        from microsoft.opentelemetry import use_microsoft_opentelemetry
-
-        use_microsoft_opentelemetry(
-            enable_a365=True,
-            enable_azure_monitor=False,
-            a365_token_resolver=lambda agent_id, tenant_id: (
-                get_cached_agentic_token(tenant_id, agent_id) or ""
-            ),
-        )
-    except Exception as ex:
-        logger.warning("Microsoft OpenTelemetry distro not initialized: %s", ex)
 
     host = GenericAgentHost(agent_class, *agent_args, **agent_kwargs)
     auth_config = host.create_auth_configuration()
@@ -217,7 +263,10 @@ class GenericAgentHost:
 
         self.storage = MemoryStorage()
         self.connection_manager = MsalConnectionManager(**agents_sdk_config)
-        self.adapter = CloudAdapter(connection_manager=self.connection_manager)
+        self.adapter = CorrelatingCloudAdapter(
+            connection_manager=self.connection_manager
+        )
+        self.adapter.use(AgentRequestCorrelationMiddleware())
         self.authorization = Authorization(
             self.storage, self.connection_manager, **agents_sdk_config
         )
@@ -255,35 +304,6 @@ class GenericAgentHost:
         self._setup_handlers()
         logger.info("✅ Notification handlers registered successfully")
 
-    # ------------------------------------------------------------------
-    # Observability
-    # ------------------------------------------------------------------
-
-    async def _setup_observability_token(
-        self, context: TurnContext, tenant_id: str, agent_id: str
-    ) -> None:
-        if not self.auth_handler_name:
-            logger.debug("Skipping observability token exchange (no auth handler)")
-            return
-        try:
-            from microsoft_agents_a365.runtime.environment_utils import (
-                get_observability_authentication_scope,
-            )
-
-            exaau_token = await self.agent_app.auth.exchange_token(
-                context,
-                scopes=get_observability_authentication_scope(),
-                auth_handler_id=self.auth_handler_name,
-            )
-            cache_agentic_token(tenant_id, agent_id, exaau_token.token)
-            logger.info(
-                "✅ Token exchange successful (tenant_id=%s, agent_id=%s)",
-                tenant_id,
-                agent_id,
-            )
-        except Exception as ex:
-            logger.warning("⚠️ Failed to cache observability token: %s", ex)
-
     async def _validate_agent_and_setup_context(self, context: TurnContext):
         recipient = context.activity.recipient
         tenant_id = getattr(recipient, "tenant_id", "") or ""
@@ -296,7 +316,6 @@ class GenericAgentHost:
                 await context.send_activity("❌ Sorry, the agent is not available.")
             return None
 
-        await self._setup_observability_token(context, tenant_id, agent_id)
         return tenant_id, agent_id
 
     # ------------------------------------------------------------------
@@ -343,58 +362,52 @@ class GenericAgentHost:
                 result = await self._validate_agent_and_setup_context(context)
                 if result is None:
                     return
-                tenant_id, agent_id = result
 
-                from microsoft_agents_a365.observability.core.middleware.baggage_builder import (
-                    BaggageBuilder,
-                )
+                user_message = context.activity.text or ""
+                if not user_message.strip() or user_message.strip() == "/help":
+                    return
 
-                with BaggageBuilder().tenant_id(tenant_id).agent_id(agent_id).build():
-                    user_message = context.activity.text or ""
-                    if not user_message.strip() or user_message.strip() == "/help":
-                        return
+                logger.info("📨 %s", user_message)
 
-                    logger.info("📨 %s", user_message)
+                if is_email_activity(context.activity):
+                    await self.agent_instance.process_user_message(
+                        user_message,
+                        self.agent_app.auth,
+                        self.auth_handler_name,
+                        context,
+                    )
+                    return
 
-                    if is_email_activity(context.activity):
-                        await self.agent_instance.process_user_message(
-                            user_message,
-                            self.agent_app.auth,
-                            self.auth_handler_name,
-                            context,
-                        )
-                        return
+                # Multi-message pattern: immediate ack, typing indicator loop,
+                # then the final LLM response. Mirrors the C# StreamingResponse
+                # flow (QueueInformativeUpdateAsync + QueueTextChunk).
+                if not is_wpx_comment_activity(context.activity):
+                    await context.send_activity("Working on your request...")
+                await context.send_activity(Activity(type="typing"))
 
-                    # Multi-message pattern: immediate ack, typing indicator loop,
-                    # then the final LLM response. Mirrors the C# StreamingResponse
-                    # flow (QueueInformativeUpdateAsync + QueueTextChunk).
-                    if not is_wpx_comment_activity(context.activity):
-                        await context.send_activity("Working on your request...")
-                    await context.send_activity(Activity(type="typing"))
-
-                    async def _typing_loop() -> None:
-                        try:
-                            while True:
-                                await asyncio.sleep(4)
-                                await context.send_activity(Activity(type="typing"))
-                        except asyncio.CancelledError:
-                            pass
-
-                    typing_task = asyncio.create_task(_typing_loop())
+                async def _typing_loop() -> None:
                     try:
-                        response = await self.agent_instance.process_user_message(
-                            user_message,
-                            self.agent_app.auth,
-                            self.auth_handler_name,
-                            context,
-                        )
-                        await context.send_activity(response)
-                    finally:
-                        typing_task.cancel()
-                        try:
-                            await typing_task
-                        except asyncio.CancelledError:
-                            pass
+                        while True:
+                            await asyncio.sleep(4)
+                            await context.send_activity(Activity(type="typing"))
+                    except asyncio.CancelledError:
+                        pass
+
+                typing_task = asyncio.create_task(_typing_loop())
+                try:
+                    response = await self.agent_instance.process_user_message(
+                        user_message,
+                        self.agent_app.auth,
+                        self.auth_handler_name,
+                        context,
+                    )
+                    await context.send_activity(response)
+                finally:
+                    typing_task.cancel()
+                    try:
+                        await typing_task
+                    except asyncio.CancelledError:
+                        pass
 
             except Exception as ex:
                 logger.exception("Error processing message")
@@ -420,44 +433,38 @@ class GenericAgentHost:
                 result = await self._validate_agent_and_setup_context(context)
                 if result is None:
                     return
-                tenant_id, agent_id = result
 
-                from microsoft_agents_a365.observability.core.middleware.baggage_builder import (
-                    BaggageBuilder,
+                logger.info("📬 %s", notification_activity.notification_type)
+
+                if not hasattr(
+                    self.agent_instance, "handle_agent_notification_activity"
+                ):
+                    logger.warning("⚠️ Agent doesn't support notifications")
+                    await context.send_activity(
+                        "This agent doesn't support notification handling yet."
+                    )
+                    return
+
+                is_email = is_email_notification(notification_activity)
+
+                response = await self.agent_instance.handle_agent_notification_activity(
+                    notification_activity,
+                    self.agent_app.auth,
+                    self.auth_handler_name,
+                    context,
                 )
 
-                with BaggageBuilder().tenant_id(tenant_id).agent_id(agent_id).build():
-                    logger.info("📬 %s", notification_activity.notification_type)
-
-                    if not hasattr(
-                        self.agent_instance, "handle_agent_notification_activity"
-                    ):
-                        logger.warning("⚠️ Agent doesn't support notifications")
-                        await context.send_activity(
-                            "This agent doesn't support notification handling yet."
-                        )
-                        return
-
-                    is_email = is_email_notification(notification_activity)
-
-                    response = await self.agent_instance.handle_agent_notification_activity(
-                        notification_activity,
-                        self.agent_app.auth,
-                        self.auth_handler_name,
-                        context,
+                if is_email:
+                    response_activity = EmailResponse.create_email_response_activity(
+                        response
                     )
+                    await context.send_activity(response_activity)
+                    return
 
-                    if is_email:
-                        response_activity = EmailResponse.create_email_response_activity(
-                            response
-                        )
-                        await context.send_activity(response_activity)
-                        return
+                if not response:
+                    return
 
-                    if not response:
-                        return
-
-                    await context.send_activity(response)
+                await context.send_activity(response)
             except Exception as ex:
                 logger.exception("Notification error")
                 await context.send_activity(
@@ -505,10 +512,7 @@ class GenericAgentHost:
                 scopes=["5a807f24-c9de-44ee-a3a7-329e88a00ffc/.default"],
             )
 
-        if environ.get("BEARER_TOKEN"):
-            logger.info("🔑 Anonymous dev mode")
-        else:
-            logger.warning("⚠️ No auth env vars; running anonymous")
+        logger.warning("⚠️ No auth env vars; running anonymous")
         return None
 
     # ------------------------------------------------------------------
@@ -519,25 +523,49 @@ class GenericAgentHost:
         self, auth_configuration: AgentAuthConfiguration | None = None
     ) -> None:
         async def entry_point(req: Request) -> Response:
-            try:
-                body_bytes = await req.read()
-                try:
-                    body_repr = body_bytes.decode("utf-8")
-                except UnicodeDecodeError:
-                    body_repr = repr(body_bytes)
-                logger.info(
-                    "📥 /api/messages request | method=%s | content-type=%s | size=%d bytes | body=%s",
-                    req.method,
-                    req.headers.get("Content-Type", ""),
-                    len(body_bytes),
-                    body_repr,
-                )
-            except Exception as ex:
-                logger.warning("Failed to log incoming request body: %s", ex)
+            tracer = trace.get_tracer(__name__)
+            parent_context = propagate.extract(req.headers)
 
-            return await start_agent_process(
-                req, req.app["agent_app"], req.app["adapter"]
-            )
+            with tracer.start_as_current_span(
+                "POST /api/messages",
+                context=parent_context,
+                kind=SpanKind.SERVER,
+                attributes={
+                    "http.request.method": req.method,
+                    "http.route": "/api/messages",
+                    "url.scheme": req.scheme,
+                    "server.address": req.host,
+                },
+            ) as request_span:
+                try:
+                    body_bytes = await req.read()
+                    try:
+                        body_repr = body_bytes.decode("utf-8")
+                    except UnicodeDecodeError:
+                        body_repr = repr(body_bytes)
+                    logger.info(
+                        "📥 /api/messages request | method=%s | content-type=%s | size=%d bytes | body=%s",
+                        req.method,
+                        req.headers.get("Content-Type", ""),
+                        len(body_bytes),
+                        body_repr,
+                    )
+                except Exception as ex:
+                    logger.warning("Failed to log incoming request body: %s", ex)
+
+                try:
+                    response = await start_agent_process(
+                        req, req.app["agent_app"], req.app["adapter"]
+                    )
+                except Exception as ex:
+                    request_span.set_status(Status(StatusCode.ERROR, str(ex)))
+                    raise
+
+                status_code = response.status if response is not None else 202
+                request_span.set_attribute("http.response.status_code", status_code)
+                if status_code >= 500:
+                    request_span.set_status(Status(StatusCode.ERROR))
+                return response
 
         async def root(_req: Request) -> Response:
             return Response(text="Hello World from HelloWorldA365Agent!")

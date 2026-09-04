@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.4'
+name: resilient-streaming
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  resilient-streaming:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - Bring Your Own
+        - Long-Running
+        - Resilient Tasks
+        - Streaming
+        - Reconnect
+        - Python
+    project: src/resilient-streaming
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: resilient-streaming
+    displayName: Resilient Streaming (Responses)
+    description: A crash-resilient, resumable-streaming agent built with azure-ai-agentserver-responses. It streams a multi-stage response and checkpoints after each stage (stream.checkpoint() + context.persisted_response), so a client that disconnects or a container that crashes reconnects and continues from the last completed stage with no gap, no duplicated content, and no regeneration of finished stages. The stages are simulated so it runs with no credentials.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

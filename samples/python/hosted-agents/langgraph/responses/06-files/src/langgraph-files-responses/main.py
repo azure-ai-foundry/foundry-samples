@@ -2,9 +2,8 @@
 
 """LangGraph agent with local file tools and a code interpreter (Responses).
 
-Hosts a LangGraph agent built with `langchain.agents.create_agent` on
-Foundry over the Responses protocol, using
-`langchain_azure_ai.agents.hosting.ResponsesHostServer`. The
+Exports a LangGraph agent for the configuration-driven
+`langchain_azure_ai.agents.hosting.run` entrypoint. The
 agent has three local filesystem tools and the `code_interpreter` tool
 loaded from a Foundry Toolbox via
 `langchain_azure_ai.tools.AzureAIProjectToolbox`.
@@ -18,7 +17,7 @@ anything.
 
 from __future__ import annotations
 
-import asyncio
+import logging
 import os
 from typing import Annotated
 
@@ -29,10 +28,12 @@ from langchain.agents import create_agent
 from langchain_core.tools import BaseTool, tool
 from langchain_openai import ChatOpenAI
 
-from langchain_azure_ai.agents.hosting import ResponsesHostServer
 from langchain_azure_ai.tools import AzureAIProjectToolbox
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 _AZURE_AI_SCOPE = "https://ai.azure.com/.default"
 
@@ -98,24 +99,21 @@ def _build_chat_model() -> ChatOpenAI:
 async def _load_toolbox_tools() -> list[BaseTool]:
     toolbox = AzureAIProjectToolbox(toolbox_name=os.environ["TOOLBOX_NAME"])
     tools = await toolbox.get_tools()
-    print(f"Loaded {len(tools)} tool(s) from Foundry Toolbox '{toolbox.toolbox_name}':")
+    logger.info(
+        "Loaded %d tool(s) from Foundry Toolbox '%s':",
+        len(tools),
+        toolbox.toolbox_name,
+    )
     for t in tools:
-        print(f"  - {t.name}")
+        logger.info("Loaded toolbox tool: %s", t.name)
     return tools
 
 
-# ── Entrypoint ───────────────────────────────────────────────────────
-def main() -> None:
-    toolbox_tools = asyncio.run(_load_toolbox_tools())
-    graph = create_agent(
+async def create_graph():
+    """Create the graph after loading the configured Foundry Toolbox."""
+    toolbox_tools = await _load_toolbox_tools()
+    return create_agent(
         _build_chat_model(),
         tools=[get_cwd, list_files, read_file, *toolbox_tools],
         system_prompt=_INSTRUCTIONS,
     )
-
-    port = int(os.environ.get("PORT", "8088"))
-    ResponsesHostServer(graph).run(port=port)
-
-
-if __name__ == "__main__":
-    main()

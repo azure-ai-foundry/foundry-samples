@@ -38,12 +38,17 @@ path (`azd` or the VS Code Foundry Toolkit) is listed under its option below.
 
 ### Prerequisites
 
-1. **Azure Developer CLI (`azd`)** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+1. **Azure Developer CLI (`azd`) 1.27.1 or later** — [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
 2. Install the Foundry extension:
 
    ```bash
    azd ext install microsoft.foundry
    ```
+
+   If the manifest defines service environment variables, use the `env:` map
+   rather than the legacy `environmentVariables` list. This requires `azd`
+   1.27.1+ and `azure.ai.agents` 1.0.0-beta.9+; declare both in
+   `requiredVersions`.
 
 3. Authenticate:
 
@@ -108,11 +113,12 @@ azd ai agent invoke "{{prompt}}"
 
 1. **VS Code** with the **[Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio)** extension installed.
 2. For debugging Python in VS Code, install the **[Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)** extension pack.
+3. **Azure CLI** — [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), then run `az login` in the VS Code integrated terminal.
 
 ### Set up the Python virtual environment
 
 - Open the Command Palette (`Ctrl+Shift+P`) and run **Python: Create Environment...** to create a virtual environment in the workspace (or **Python: Select Interpreter** to use an existing one).
-- Install dependencies in the virtual environment:
+- Install the complete, resolved dependency graph from the committed `requirements.txt`. It is the sample's portable consumer artifact; when authoring or updating a sample, see the [Python Hosted Agent dependency policy](https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/DEPENDENCY_POLICY.md).
 
   ```bash
   # use uv to accelerate
@@ -135,7 +141,7 @@ Press **F5** to start the agent. The agent starts and the **Agent Inspector** op
 
 ### Deploy to Foundry
 
-1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `agent.yaml` to auto-populate settings.
+1. Open the Command Palette (`Ctrl+Shift+P`) and run **Foundry Toolkit: Deploy Hosted Agent**. The extension opens a **Deploy Hosted Agent** wizard and reads `azure.yaml` to identify the service source folder and auto-populate settings.
 2. If prompted, complete **Foundry Project Setup** to select subscription and project.
 3. On the **Basics** tab, choose deployment method (**Code** or **Container**) and confirm the agent name.
 4. On **Review + Deploy**, confirm runtime details, pick **CPU and Memory** size, and click **Deploy**.

@@ -1,0 +1,1017 @@
+# Copyright (c) Microsoft. All rights reserved.
+
+"""Resilient plan-approve-execute agent (invocations protocol).
+
+A **long-running, crash-resilient** human-in-the-loop agent built on the
+resilient ``@multi_turn_task`` primitive from
+``azure.ai.agentserver.core.tasks``. Unlike a quick "generate a proposal and
+approve it" flow, this agent does real, long-running autonomous work and gates
+the *dangerous* parts on a human:
+
+1. **Plan** — given a goal, the agent uses Azure OpenAI to decompose it into an
+   ordered plan and flags which steps are **irreversible**. It then *suspends*,
+   presenting the plan for human approval.
+2. **Approve the plan** — the human approves (or edits, or rejects). The agent
+   begins executing the plan step by step, **checkpointing after every step** so
+   a crash resumes from the next unfinished step instead of restarting.
+3. **Confirm each irreversible step** — before any irreversible action the agent
+   *suspends again* for an explicit human confirmation, then performs that action
+   **exactly once** (an at-most-once watermark survives crashes so a restart can
+   never double-execute it).
+
+State machine::
+
+    [plan] ─► AWAITING_PLAN_APPROVAL ─► (approve/edit) ─► EXECUTING ─┐
+                    │                                                 │
+                    └─► (reject) ─► REJECTED          ┌──────────────┘
+                                                      ▼
+                             AWAITING_ACTION_APPROVAL ─► (approve_action) ─► EXECUTING
+                                                      └─► (reject_action) ─► RESOLVED (stopped)
+                                                      ...
+                                              (all steps done) ─► RESOLVED (completed)
+
+Why the resilient primitive (vs. hand-rolled task recovery): the
+``@multi_turn_task`` framework persists the chain's input and, after a container
+restart / OOM kill / redeploy, **re-invokes the same turn with the same input**
+(``ctx.entry_mode == "recovered"``). Application checkpoints live in a
+``FoundryStateStore``. The long ``EXECUTING`` phase — the part most likely to be
+interrupted — resumes from its last checkpoint. See the
+`Resilient Task Developer Guide
+<https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/agentserver/azure-ai-agentserver-core/docs/tasks-guide.md>`__.
+
+Because execution is long-running, every POST returns ``202`` immediately with an
+``invocation_id``; poll ``GET /invocations/{invocation_id}`` for the current
+status and output. This is the resilient long-running contract (a disconnecting
+client never loses in-flight work), in contrast to a synchronous request/response
+agent.
+
+Required environment variables:
+    FOUNDRY_PROJECT_ENDPOINT: Foundry project endpoint (auto-injected when hosted;
+        set locally, or use ``azd ai agent run``). If unset, the agent runs in an
+        **offline demo mode** with deterministic stand-ins for the model calls, so
+        you can exercise the resilient control flow without any credentials.
+    AZURE_AI_MODEL_DEPLOYMENT_NAME: Model deployment name (e.g. gpt-5.4-mini).
+
+Usage::
+
+    python main.py
+
+    # 1) Submit a goal — the agent plans, then suspends for approval.
+    curl -X POST "http://localhost:8088/invocations?agent_session_id=job-1" \\
+        -H "Content-Type: application/json" \\
+        -d '{"action": "plan", "goal": "Prepare the Q3 release"}'
+    # -> 202 {"invocation_id": "<i1>", "status": "running"}
+
+    # 2) Poll until the plan is ready.
+    curl "http://localhost:8088/invocations/<i1>?agent_session_id=job-1"
+    # -> {"status": "awaiting_plan_approval", "output": {"plan": [...]}}
+
+    # 3) Approve the plan — the agent starts executing (long-running).
+    curl -X POST "http://localhost:8088/invocations?agent_session_id=job-1" \\
+        -H "Content-Type: application/json" \\
+        -d '{"action": "approve_plan", "approver": "sam"}'
+
+    # 4) Poll — execution pauses at the first irreversible step.
+    curl "http://localhost:8088/invocations/<i2>?agent_session_id=job-1"
+    # -> {"status": "awaiting_action_approval", "output": {"next_step": {...}}}
+
+    # 5) Confirm the irreversible step — it runs exactly once.
+    curl -X POST "http://localhost:8088/invocations?agent_session_id=job-1" \\
+        -H "Content-Type: application/json" \\
+        -d '{"action": "approve_action", "approver": "sam", "gate": {"invocation_id": "<i2>", "step_index": 3, "token": "<token-from-poll>"}}'
+    # ... repeat 4-5 for each irreversible step, until status == "resolved".
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hmac
+import json
+import logging
+import os
+import uuid
+from datetime import datetime, timezone
+from typing import Any
+
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+
+from azure.ai.agentserver.core.storage import FoundryStateStore
+from azure.ai.agentserver.core.tasks import (
+    TaskConflictError,
+    TaskContext,
+    multi_turn_task,
+    set_resilient_tasks_enabled,
+)
+from azure.ai.agentserver.core.tasks._manager import get_task_manager
+from azure.ai.agentserver.invocations import InvocationAgentServerHost
+
+logger = logging.getLogger("resilient-approval-gate")
+
+if not os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
+    logger.warning(
+        "APPLICATIONINSIGHTS_CONNECTION_STRING not set — traces will not be sent to "
+        "Application Insights. It is auto-injected in hosted Foundry containers."
+    )
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+FOUNDRY_PROJECT_ENDPOINT = os.environ.get("FOUNDRY_PROJECT_ENDPOINT")
+AZURE_AI_MODEL_DEPLOYMENT_NAME = os.environ.get("AZURE_AI_MODEL_DEPLOYMENT_NAME")
+
+# Offline demo mode: with no Foundry endpoint we substitute deterministic
+# stand-ins for the model so the resilient control flow runs with no credentials.
+OFFLINE_MODE = not FOUNDRY_PROJECT_ENDPOINT
+if OFFLINE_MODE:
+    logger.warning(
+        "FOUNDRY_PROJECT_ENDPOINT not set — running in OFFLINE demo mode with "
+        "deterministic stand-ins for the model. Set FOUNDRY_PROJECT_ENDPOINT and "
+        "AZURE_AI_MODEL_DEPLOYMENT_NAME (or use 'azd ai agent run') for real planning."
+    )
+
+# Per-step execution work simulated as a cooldown, so EXECUTING is genuinely
+# long-running and the crash-recovery / at-most-once paths are meaningful.
+STEP_DURATION_SEC = float(os.environ.get("STEP_DURATION_SEC", "5"))
+
+_openai_client: Any = None
+
+
+def _get_client() -> Any:
+    """Lazily construct the Foundry OpenAI client (kept out of import time)."""
+
+    global _openai_client  # pylint: disable=global-statement
+    if _openai_client is not None:
+        return _openai_client
+    from azure.ai.projects import AIProjectClient  # pylint: disable=import-outside-toplevel
+    from azure.identity import DefaultAzureCredential  # pylint: disable=import-outside-toplevel
+
+    project = AIProjectClient(
+        endpoint=FOUNDRY_PROJECT_ENDPOINT,
+        credential=DefaultAzureCredential(),
+    )
+    _openai_client = project.get_openai_client()
+    return _openai_client
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+# ---------------------------------------------------------------------------
+# OpenAPI 3.0 spec — served at GET /invocations/docs/openapi.json
+# ---------------------------------------------------------------------------
+OPENAPI_SPEC: dict[str, Any] = {
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Resilient Approval-Gate Agent",
+        "version": "1.0.0",
+        "description": (
+            "A long-running, crash-resilient agent that plans a goal, gates the "
+            "plan on human approval, executes it step by step, and gates each "
+            "irreversible step on a second human confirmation."
+        ),
+    },
+    "paths": {
+        "/invocations": {
+            "post": {
+                "summary": "Submit a goal or respond to a pending gate",
+                "parameters": [
+                    {
+                        "name": "agent_session_id",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string"},
+                    }
+                ],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "action": {
+                                        "type": "string",
+                                        "enum": [
+                                            "plan",
+                                            "approve_plan",
+                                            "edit_plan",
+                                            "reject",
+                                            "approve_action",
+                                            "reject_action",
+                                        ],
+                                    },
+                                    "goal": {"type": "string"},
+                                    "plan": {"type": "array", "items": {"type": "object"}},
+                                    "approver": {"type": "string"},
+                                    "reason": {"type": "string"},
+                                    "gate": {
+                                        "type": "object",
+                                        "required": [
+                                            "invocation_id",
+                                            "step_index",
+                                            "token",
+                                        ],
+                                        "properties": {
+                                            "invocation_id": {"type": "string"},
+                                            "step_index": {"type": "integer"},
+                                            "token": {"type": "string"},
+                                        },
+                                    },
+                                },
+                                "required": ["action"],
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "202": {"description": "Accepted; poll the invocation for status."},
+                    "409": {"description": "The chain is busy executing; retry shortly."},
+                },
+            }
+        },
+        "/invocations/{invocation_id}": {
+            "get": {
+                "summary": "Poll the status/output of an invocation",
+                "parameters": [
+                    {
+                        "name": "invocation_id",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "agent_session_id",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string"},
+                    },
+                ],
+                "responses": {
+                    "200": {"description": "Current status and output."},
+                    "404": {"description": "Invocation not found."},
+                },
+            }
+        },
+        "/invocations/{invocation_id}/cancel": {
+            "post": {
+                "summary": "Cancel the job (deletes the resilient chain)",
+                "parameters": [
+                    {
+                        "name": "invocation_id",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "agent_session_id",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string"},
+                    },
+                ],
+                "responses": {"200": {"description": "Cancellation result."}},
+            }
+        },
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Model helpers (with deterministic offline fallback)
+# ---------------------------------------------------------------------------
+_PLANNER_PROMPT = (
+    "You are a planning assistant for an autonomous agent. Given a goal, produce "
+    "an ordered plan of 3-6 concrete steps. Mark a step irreversible only if it "
+    "has an external, hard-to-undo effect (publishing, sending, provisioning, "
+    "deleting, tagging a release). Return ONLY a JSON array of objects with keys "
+    '"action" (string) and "irreversible" (boolean). No prose.'
+)
+
+
+async def _call_llm(instructions: str, user_input: str) -> str:
+    """Call the Foundry Responses API (sync client) off the event loop."""
+
+    client = _get_client()
+    loop = asyncio.get_running_loop()
+    response = await loop.run_in_executor(
+        None,
+        lambda: client.responses.create(
+            model=AZURE_AI_MODEL_DEPLOYMENT_NAME,
+            instructions=instructions,
+            input=user_input,
+        ),
+    )
+    for item in response.output:
+        if item.type == "message":
+            for part in item.content:
+                if part.type == "output_text":
+                    return part.text
+    return ""
+
+
+def _offline_plan(goal: str) -> list[dict[str, Any]]:
+    """Deterministic stand-in plan so the sample runs with no credentials."""
+
+    return [
+        {"action": f"Gather inputs and context for: {goal}", "irreversible": False},
+        {"action": "Draft the changes and validate them locally", "irreversible": False},
+        {"action": "Run checks and summarize the results", "irreversible": False},
+        {"action": "Publish / apply the result (external effect)", "irreversible": True},
+    ]
+
+
+async def _generate_plan(goal: str) -> list[dict[str, Any]]:
+    """Produce an ordered, irreversibility-tagged plan for the goal."""
+
+    if OFFLINE_MODE:
+        return _offline_plan(goal)
+
+    raw = await _call_llm(_PLANNER_PROMPT, f"Goal: {goal}")
+    try:
+        text = raw.strip()
+        if text.startswith("```"):
+            text = text.split("```", 2)[1].removeprefix("json").strip()
+        parsed = json.loads(text)
+        steps = [
+            {"action": str(s["action"]), "irreversible": bool(s.get("irreversible", False))}
+            for s in parsed
+            if isinstance(s, dict) and s.get("action")
+        ]
+        if steps:
+            return steps
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        logger.warning("Planner returned unparseable output; falling back to a default plan.")
+    return _offline_plan(goal)
+
+
+async def _execute_step(step: dict[str, Any], ctx: TaskContext[dict]) -> str:
+    """Perform one plan step. Replace the body with real tool calls.
+
+    Simulated as cooldown work that stays responsive to shutdown so an evicted
+    container can defer the turn for recovery.
+    """
+
+    await _sleep_or_defer(ctx, STEP_DURATION_SEC)
+    return f"done: {step['action']}"
+
+
+def _job_store_name(task_id: str) -> str:
+    return f"invocations/resilient-approval-gate/{task_id}"
+
+
+async def _get_job_store(task_id: str) -> FoundryStateStore:
+    return await FoundryStateStore.get_or_create(
+        _job_store_name(task_id),
+        description="State for the resilient approval-gate invocation sample",
+    )
+
+
+async def _save_job(
+    store: FoundryStateStore,
+    job: dict[str, Any],
+) -> None:
+    await store.set_item("state", job)
+
+
+def _pending_gate(job: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the current gate when its persisted shape is valid."""
+
+    value = job.get("pending_gate")
+    if not isinstance(value, dict):
+        return None
+    invocation_id = value.get("invocation_id")
+    step_index = value.get("step_index")
+    token = value.get("token")
+    if (
+        not isinstance(invocation_id, str)
+        or not isinstance(step_index, int)
+        or isinstance(step_index, bool)
+        or step_index < 0
+        or not isinstance(token, str)
+        or not invocation_id
+        or not token
+    ):
+        return None
+    return {
+        "invocation_id": invocation_id,
+        "step_index": step_index,
+        "token": token,
+    }
+
+
+def _gate_matches(job: dict[str, Any], data: dict[str, Any]) -> bool:
+    """Check that a decision belongs to the currently pending gate."""
+
+    expected = _pending_gate(job)
+    submitted = data.get("gate")
+    if expected is None or not isinstance(submitted, dict):
+        return False
+    if set(submitted) != {"invocation_id", "step_index", "token"}:
+        return False
+    submitted_step = submitted.get("step_index")
+    submitted_token = submitted.get("token")
+    if (
+        submitted.get("invocation_id") != expected["invocation_id"]
+        or submitted_step != expected["step_index"]
+        or not isinstance(submitted_step, int)
+        or isinstance(submitted_step, bool)
+        or not isinstance(submitted_token, str)
+    ):
+        return False
+    return hmac.compare_digest(submitted_token, expected["token"])
+
+
+def _gate_output(
+    job: dict[str, Any],
+    gate: dict[str, Any],
+) -> dict[str, Any]:
+    """Build the response that asks for a decision on one step."""
+
+    index = gate["step_index"]
+    plan = job.get("plan", [])
+    step = plan[index] if isinstance(plan, list) and 0 <= index < len(plan) else {}
+    return {
+        "status": "awaiting_action_approval",
+        "next_step": {"index": index, **step},
+        "completed_steps": job.get("completed_steps", 0),
+        "results": job.get("results", []),
+        "gate": gate,
+        "note": "POST the returned gate with approve_action or reject_action.",
+    }
+
+
+def _failure_details(exc: Exception) -> dict[str, str]:
+    """Return a bounded, serializable error payload."""
+
+    return {
+        "type": type(exc).__name__,
+        "message": str(exc)[:2000],
+    }
+
+
+async def _mark_failed(
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    invocation_id: str,
+    exc: Exception,
+) -> None:
+    """Persist a terminal failure for the invocation."""
+
+    error = _failure_details(exc)
+    job["invocation_id"] = invocation_id
+    job["failed_invocation_id"] = invocation_id
+    job["phase"] = "failed"
+    job["status"] = "failed"
+    job["output"] = {"status": "failed", "error": error}
+    await _save_job(store, job)
+
+
+# ---------------------------------------------------------------------------
+# Resilient chain — one @multi_turn_task per job (task_id == job session).
+# ---------------------------------------------------------------------------
+@multi_turn_task(name="approval_workflow")
+async def approval_workflow(ctx: TaskContext[dict]) -> dict[str, Any]:
+    """One resilient chain per job. Each POST runs this from the top.
+
+    A task-scoped ``FoundryStateStore`` item holds the per-invocation result the
+    HTTP ``GET`` handler polls and the cross-turn job state that must survive
+    both the human wait and any crash.
+    """
+
+    data = ctx.input
+    invocation_id: str = data.get("invocation_id", ctx.input_id)
+    action = str(data.get("action", "plan")).lower()
+    store = await _get_job_store(ctx.task_id)
+    async with store:
+        item = await store.get_item("state")
+        job = (
+            dict(item.value)
+            if item is not None and isinstance(item.value, dict)
+            else {}
+        )
+        try:
+            if job.get("phase") == "failed" and (
+                ctx.entry_mode == "recovered"
+                or job.get("failed_invocation_id") == invocation_id
+            ):
+                job["invocation_id"] = invocation_id
+                output = job.get("output")
+                if not isinstance(output, dict):
+                    output = {
+                        "status": "failed",
+                        "message": "The previous turn failed.",
+                    }
+                await _save_job(store, job)
+                return output
+
+            job["invocation_id"] = invocation_id
+            job["status"] = "running"
+            await _save_job(store, job)
+
+            if ctx.entry_mode == "recovered":
+                logger.warning(
+                    "Recovered job %s mid-turn (phase=%s)",
+                    ctx.task_id,
+                    job.get("phase"),
+                )
+
+            if action == "plan":
+                return await _do_plan(ctx, store, job, data)
+            if action in ("approve_plan", "edit_plan"):
+                return await _begin_execution(ctx, store, job, data)
+            if action == "approve_action":
+                return await _resume_execution(
+                    ctx,
+                    store,
+                    job,
+                    data,
+                    approved=True,
+                )
+            if action == "reject_action":
+                return await _resume_execution(
+                    ctx,
+                    store,
+                    job,
+                    data,
+                    approved=False,
+                )
+            if action == "reject":
+                job["phase"] = "resolved"
+                await _save_job(store, job)
+                return await _complete(
+                    store,
+                    job,
+                    {
+                        "status": "rejected",
+                        "note": "Plan rejected by human.",
+                    },
+                )
+
+            return await _complete(
+                store,
+                job,
+                {
+                    "status": "error",
+                    "message": f"Unknown action: {action}",
+                },
+            )
+        except Exception as exc:
+            try:
+                await _mark_failed(store, job, invocation_id, exc)
+            except Exception:  # pylint: disable=broad-except
+                logger.exception("Could not persist approval-gate failure.")
+            raise
+
+
+async def _do_plan(
+    ctx: TaskContext[dict],
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    data: dict[str, Any],
+) -> dict[str, Any]:
+    """Turn 1: generate the plan, then suspend for human approval."""
+
+    if job.get("phase") in ("executing", "awaiting_action_approval"):
+        return await _complete(
+            store,
+            job,
+            {
+                "status": job.get("phase"),
+                "note": "Job already in progress.",
+                "plan": job.get("plan"),
+            },
+        )
+
+    goal = str(data.get("goal", "")).strip()
+    if not goal:
+        return await _complete(
+            store,
+            job,
+            {
+                "status": "error",
+                "message": "goal is required for action=plan.",
+            },
+        )
+
+    plan = await _generate_plan(goal)
+    job["goal"] = goal
+    job["plan"] = plan
+    job["results"] = []
+    job["completed_steps"] = 0
+    job["step_outcomes"] = {}
+    job["step_tokens"] = {}
+    job.pop("pending_gate", None)
+    job.pop("pending_step_index", None)
+    job.pop("confirmed_step", None)
+    job.pop("failed_invocation_id", None)
+    job["phase"] = "awaiting_plan_approval"
+    await _save_job(store, job)
+
+    return await _complete(
+        store,
+        job,
+        {
+            "status": "awaiting_plan_approval",
+            "goal": goal,
+            "plan": plan,
+            "note": "Review the plan. POST action=approve_plan (or edit_plan / reject).",
+        },
+    )
+
+
+async def _begin_execution(
+    ctx: TaskContext[dict],
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    data: dict[str, Any],
+) -> dict[str, Any]:
+    """Turn 2: accept (or replace) the plan and run the execution loop."""
+
+    if job.get("phase") == "awaiting_action_approval":
+        gate = _pending_gate(job)
+        if gate is not None:
+            return await _complete(store, job, _gate_output(job, gate))
+        return await _complete(
+            store,
+            job,
+            {
+                "status": "error",
+                "message": "The pending approval gate is invalid.",
+            },
+        )
+
+    if job.get("phase") not in ("awaiting_plan_approval", None):
+        if job.get("phase") == "executing":
+            return await _run_execution(ctx, store, job)
+        return await _complete(
+            store,
+            job,
+            {
+                "status": "error",
+                "message": "No plan awaiting approval.",
+            },
+        )
+
+    if str(data.get("action")).lower() == "edit_plan":
+        edited = data.get("plan")
+        if isinstance(edited, list) and edited:
+            job["plan"] = [
+                {"action": str(s["action"]), "irreversible": bool(s.get("irreversible", False))}
+                for s in edited
+                if isinstance(s, dict) and s.get("action")
+            ]
+
+    job["approver"] = data.get("approver", "unknown")
+    job["phase"] = "executing"
+    await _save_job(store, job)
+    return await _run_execution(ctx, store, job)
+
+
+async def _resume_execution(
+    ctx: TaskContext[dict],
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    data: dict[str, Any],
+    *,
+    approved: bool,
+) -> dict[str, Any]:
+    """Later turns: apply the human's decision on the pending irreversible step."""
+
+    gate = _pending_gate(job)
+    if gate is None:
+        return await _complete(
+            store,
+            job,
+            {
+                "status": "error",
+                "message": "The pending approval gate is invalid.",
+            },
+        )
+
+    phase = job.get("phase")
+    if phase == "executing":
+        if (
+            approved
+            and job.get("confirmed_step") == gate["step_index"]
+            and _gate_matches(job, data)
+        ):
+            return await _run_execution(ctx, store, job)
+        return await _complete(
+            store,
+            job,
+            {
+                "status": "error",
+                "message": "This approval gate is no longer pending.",
+            },
+        )
+
+    if phase != "awaiting_action_approval":
+        return await _complete(
+            store,
+            job,
+            {
+                "status": "error",
+                "message": "No action awaiting confirmation.",
+            },
+        )
+
+    if not _gate_matches(job, data):
+        return await _complete(
+            store,
+            job,
+            {
+                "status": "error",
+                "message": "The approval does not match the pending gate.",
+            },
+        )
+
+    if not approved:
+        job["phase"] = "resolved"
+        job.pop("pending_gate", None)
+        job.pop("pending_step_index", None)
+        await _save_job(store, job)
+        return await _complete(
+            store,
+            job,
+            {
+                "status": "resolved",
+                "outcome": "stopped",
+                "note": "Irreversible step rejected; execution halted.",
+                "results": job.get("results", []),
+                "completed_steps": job.get("completed_steps", 0),
+            },
+        )
+
+    # Mark the gate confirmed, then continue execution.
+    job["confirmed_step"] = gate["step_index"]
+    job["phase"] = "executing"
+    await _save_job(store, job)
+    return await _run_execution(ctx, store, job)
+
+
+async def _run_execution(
+    ctx: TaskContext[dict],
+    store: FoundryStateStore,
+    job: dict[str, Any],
+) -> dict[str, Any]:
+    """The long-running loop. Resumes from the checkpoint on recovery."""
+
+    plan: list[dict[str, Any]] = job.get("plan", [])
+    results: list[dict[str, Any]] = job.get("results", [])
+    completed: int = int(job.get("completed_steps", 0) or 0)
+
+    for idx in range(completed, len(plan)):
+        step = plan[idx]
+
+        # Gate: an irreversible step needs an explicit confirmation turn, unless
+        # this index was already confirmed in durable state.
+        if step.get("irreversible") and job.get("confirmed_step") != idx:
+            gate = _pending_gate(job)
+            if gate is None or gate["step_index"] != idx:
+                originating_id = job.get("invocation_id")
+                if not isinstance(originating_id, str) or not originating_id:
+                    raise RuntimeError("Cannot create an approval gate without an invocation id.")
+                gate = {
+                    "invocation_id": originating_id,
+                    "step_index": idx,
+                    "token": uuid.uuid4().hex,
+                }
+                job["pending_gate"] = gate
+            job["phase"] = "awaiting_action_approval"
+            await _save_job(store, job)
+            return await _complete(store, job, _gate_output(job, gate))
+
+        outcome = await _execute_step_once(
+            ctx,
+            store,
+            job,
+            idx,
+            step,
+        )
+        results.append({"index": idx, "action": step["action"], "outcome": outcome, "at": _now_iso()})
+        job["results"] = results
+
+        # Watermark: a crash after this flush resumes at idx+1, never re-running idx.
+        completed = idx + 1
+        job["completed_steps"] = completed
+        job.pop("confirmed_step", None)
+        job.pop("pending_gate", None)
+        job.pop("pending_step_index", None)
+        await _save_job(store, job)
+
+    job["phase"] = "resolved"
+    await _save_job(store, job)
+    return await _complete(
+        store,
+        job,
+        {
+            "status": "resolved",
+            "outcome": "completed",
+            "goal": job.get("goal"),
+            "results": results,
+            "summary": f"Completed {completed}/{len(plan)} steps.",
+        },
+    )
+
+
+async def _execute_step_once(
+    ctx: TaskContext[dict],
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    idx: int,
+    step: dict[str, Any],
+) -> str:
+    """Execute a step **at most once** across crashes (§6.2 of the tasks guide).
+
+    For irreversible steps we reserve an idempotency token and flush it BEFORE
+    the side effect, so a recovered run reuses the same token and a completed
+    step is never repeated.
+    """
+
+    done: dict[str, Any] = job.get("step_outcomes", {})
+    key = str(idx)
+    if key in done:
+        return done[key]
+
+    if step.get("irreversible"):
+        tokens: dict[str, Any] = job.get("step_tokens", {})
+        if key not in tokens:
+            tokens[key] = uuid.uuid4().hex
+            job["step_tokens"] = tokens
+            await _save_job(store, job)
+        # Real impl: pass tokens[key] as an idempotency_key to the external API.
+        logger.info("Executing irreversible step %d with token %s", idx, tokens[key])
+
+    outcome = await _execute_step(step, ctx)
+
+    done[key] = outcome
+    job["step_outcomes"] = done
+    await _save_job(store, job)
+    return outcome
+
+
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
+async def _complete(
+    store: FoundryStateStore,
+    job: dict[str, Any],
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    """Publish the per-invocation result for polling, then return."""
+
+    job["status"] = "completed"
+    job["output"] = result
+    await _save_job(store, job)
+    return result
+
+
+async def _sleep_or_defer(ctx: TaskContext[dict], seconds: float) -> None:
+    """Cooldown that stays responsive to container shutdown.
+
+    If the container is going down mid-work, hand the turn back to the next
+    lifetime via ``exit_for_recovery`` instead of being force-killed.
+    """
+
+    try:
+        await asyncio.wait_for(ctx.shutdown.wait(), timeout=seconds)
+    except asyncio.TimeoutError:
+        return
+    await ctx.exit_for_recovery()
+
+
+# ---------------------------------------------------------------------------
+# Server + HTTP handlers
+# ---------------------------------------------------------------------------
+# Enable resilient-task startup recovery.
+set_resilient_tasks_enabled(True)
+app = InvocationAgentServerHost(openapi_spec=OPENAPI_SPEC)
+
+# In-memory convenience index so GET works with just an invocation_id while the
+# process is alive. The authoritative, crash-surviving state is the task store;
+# this map is only a lookup shortcut (GET also accepts ?agent_session_id=).
+_inv_to_task: dict[str, str] = {}
+
+
+def _task_id(session_id: str) -> str:
+    return f"job-{session_id}"
+
+
+def _resolve_task_id(request: Request, invocation_id: str) -> str | None:
+    """Locate the job's task_id for a GET/cancel.
+
+    On these routes the framework does not populate ``request.state.session_id``,
+    so we resolve the job from (in priority order) the in-memory invocation index,
+    an explicit ``?agent_session_id=`` query param, or the platform-provided
+    session id when hosted.
+    """
+
+    if invocation_id in _inv_to_task:
+        return _inv_to_task[invocation_id]
+    session_id = request.query_params.get("agent_session_id") or getattr(
+        request.state, "session_id", ""
+    )
+    return _task_id(session_id) if session_id else None
+
+
+@app.invoke_handler
+async def handle_invoke(request: Request) -> Response:
+    """Start or resume the resilient chain for this job; return 202 immediately."""
+
+    try:
+        data = await request.json()
+        if not isinstance(data, dict):
+            raise ValueError
+    except Exception:  # pylint: disable=broad-except
+        return JSONResponse({"error": "Body must be a JSON object with an 'action'."}, status_code=400)
+
+    session_id: str = request.state.session_id
+    invocation_id: str = request.state.invocation_id
+    task_id = _task_id(session_id)
+    data["invocation_id"] = invocation_id
+    # Persist identity so recovery can access the state store.
+    data["call_id"] = getattr(request.state, "call_id", None)
+
+    try:
+        await approval_workflow.start(task_id=task_id, input=data)
+    except TaskConflictError:
+        # The chain is mid-execution (in-flight, non-steerable). The caller
+        # should wait for the current gate before posting the next decision.
+        return JSONResponse(
+            {"error": "Job is executing; wait for the next gate before posting again."},
+            status_code=409,
+        )
+
+    _inv_to_task[invocation_id] = task_id
+    return JSONResponse(
+        {"session_id": session_id, "invocation_id": invocation_id, "status": "running"},
+        status_code=202,
+    )
+
+
+async def _read_job_metadata(task_id: str) -> dict[str, Any] | None:
+    """Read the application-owned state the handler publishes for polling."""
+
+    manager = get_task_manager()
+    info = await manager.provider.get(task_id)
+    if info is None:
+        return None
+    store = await _get_job_store(task_id)
+    async with store:
+        item = await store.get_item("state")
+    return (
+        dict(item.value)
+        if item is not None and isinstance(item.value, dict)
+        else {}
+    )
+
+
+@app.get_invocation_handler
+async def poll_invocation(request: Request) -> Response:
+    """Poll a specific invocation's status/output from the resilient store."""
+
+    invocation_id: str = request.state.invocation_id
+    task_id = _resolve_task_id(request, invocation_id)
+    if not task_id:
+        return JSONResponse(
+            {"error": "Provide ?agent_session_id=<id> to locate the job."},
+            status_code=404,
+        )
+
+    meta = await _read_job_metadata(task_id)
+    if meta is None:
+        return JSONResponse({"error": "Job not found."}, status_code=404)
+    if meta.get("invocation_id") != invocation_id:
+        return JSONResponse(
+            {"error": "This invocation is not the most recent for the job.", "current": meta.get("status")},
+            status_code=404,
+        )
+
+    return JSONResponse(
+        {"invocation_id": invocation_id, "status": meta.get("status"), "output": meta.get("output")}
+    )
+
+
+@app.cancel_invocation_handler
+async def cancel_invocation(request: Request) -> Response:
+    """Cancel the whole job — deletes the resilient chain (idempotent)."""
+
+    invocation_id: str = request.state.invocation_id
+    task_id = _resolve_task_id(request, invocation_id)
+    if not task_id:
+        return JSONResponse({"error": "Provide ?agent_session_id=<id> to locate the job."}, status_code=404)
+
+    await approval_workflow.delete(task_id)
+    store = await _get_job_store(task_id)
+    async with store:
+        await store.delete()
+    return JSONResponse({"invocation_id": invocation_id, "status": "cancelled"})
+
+
+def main() -> None:
+    app.run()
+
+
+if __name__ == "__main__":
+    main()

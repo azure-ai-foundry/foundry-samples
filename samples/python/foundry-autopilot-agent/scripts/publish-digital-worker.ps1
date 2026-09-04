@@ -1,55 +1,57 @@
-#!/usr/bin/env pwsh
 param(
     [Parameter(Mandatory = $true)]
-    [string]$AgentGuid
+    [string]$BlueprintClientId
 )
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "Starting post-provision script..."
 
-# AZURE_LOCATION is a default azd environment variable
-Write-Host "Resources were deployed to: location $env:LOCATION blueprintId $env:AGENT_IDENTITY_BLUEPRINT_ID subscriptionId $env:SUBSCRIPTION_ID agentName $env:AGENT_NAME agentVersion $env:AGENT_VERSION"
+Write-Host "Resources were deployed to: location $env:LOCATION subscriptionId $env:SUBSCRIPTION_ID agentName $env:AGENT_NAME"
+
+$AzureAIProjectEndpoint = $env:AZURE_AI_PROJECT_ENDPOINT
+$AgentName = $env:AGENT_NAME
+
+$agentPublishUrl = "$($AzureAIProjectEndpoint)/agents/$($AgentName)/microsoft365/publish?api-version=2025-11-15-preview"
 
 # Construct JSON body based on Microsoft365PublishRequest
 $body = @{
-    agentGuid           = $AgentGuid
-    botId               = $env:AGENT_IDENTITY_BLUEPRINT_ID
-    publishAsDigitalWorker = $true
-    appPublishScope     = "Tenant"
-    subscriptionId      = $env:SUBSCRIPTION_ID
-    agentName           = $env:AGENT_NAME
-    appVersion          = "1.0.0"
-    shortDescription    = "Foundry A365 Agent deployed via Azure Developer CLI"
-    fullDescription     = "A Foundry A365 agent example that demonstrates integration with Microsoft 365 and Azure Cognitive Services."
-    developerName       = "Azure Developer"
-    developerWebsiteUrl = "https://azure.microsoft.com"
-    privacyUrl          = "https://privacy.microsoft.com"
-    termsOfUseUrl       = "https://www.microsoft.com/legal/terms-of-use"
-    useAgenticUserTemplate = $true
-    agenticUserTemplate = @{
-            Id                         = "digitalWorkerTemplate"
-            File                       = "agenticUserTemplateManifest.json"
-            SchemaVersion              = "0.1.0-preview"
-            AgentIdentityBlueprintId   = $env:AGENT_IDENTITY_BLUEPRINT_ID
-            CommunicationProtocol      = "activityProtocol"
-    }
+    agentDisplayName            = $env:AGENT_NAME
+    publishAsAutopilot          = $true
+    publishScope                = "Tenant"
+    appVersion                  = "1.0.0"
+    canRespondWithoutMention    = $true
+    shortDescription            = "Foundry A365 Agent deployed via Azure Developer CLI"
+    fullDescription             = "A Foundry A365 agent example that demonstrates integration with Microsoft 365 and Azure Cognitive Services."
+    developerName               = "Azure Developer"
+    developerWebsiteUrl         = "https://azure.microsoft.com"
+    privacyUrl                  = "https://privacy.microsoft.com"
+    termsOfUseUrl               = "https://www.microsoft.com/legal/terms-of-use"
+    optionalPermissionScopes    = @(
+        @{
+            resourceAppId              = "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+            scopes                     = @("McpServers.Word.All", "McpServers.Mail.All", "McpServers.OneDriveSharepoint.All", "McpServers.Teams.All", "McpServers.Excel.All", "McpServers.Calendar.All")
+        }
+        @{
+            resourceAppId              = "2a72489c-aab2-4b65-b93a-a91edccf33b8"
+            scopes                     = @("Ado.Mcp.Tools")
+        }
+    )
 }
 
 $jsonBody = $body | ConvertTo-Json -Depth 10
 
-$aiAzureToken = az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv
+$aiAzureToken = az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv --tenant $env:TENANT_ID
 
 
-Write-Host "Sending Microsoft 365 publish request to example.com..."
+Write-Host "Sending Microsoft 365 publish request to $agentPublishUrl..."
 Write-Host "JSON Body:"
 Write-Host $jsonBody
 
-$workspaceName = "$($env:ACCOUNT_NAME)@$($env:PROJECT_NAME)@AML"
 # Send POST request
 
 try{
-    $response = Invoke-RestMethod -Uri "https://$($env:LOCATION).api.azureml.ms/agent-asset/v2.0/subscriptions/$($env:SUBSCRIPTION_ID)/resourceGroups/$($env:AZURE_RESOURCE_GROUP)/providers/Microsoft.MachineLearningServices/workspaces/$($workspaceName)/microsoft365/publish" `
+    $response = Invoke-RestMethod -Uri $agentPublishUrl `
     -Method Post `
     -Headers @{
         "Content-Type" = "application/json"

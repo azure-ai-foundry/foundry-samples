@@ -2,9 +2,8 @@
 
 """LangGraph multi-agent workflow (Responses protocol).
 
-Hosts a custom LangGraph ``StateGraph`` on Foundry over the Responses
-protocol, using
-`langchain_azure_ai.agents.hosting.ResponsesHostServer`. The
+Exports a custom LangGraph ``StateGraph`` for the configuration-driven
+`langchain_azure_ai.agents.hosting.run` entrypoint. The
 graph chains three specialized LLM nodes — a slogan writer, a legal
 reviewer, and a formatter — that each see only the previous agent's
 output (equivalent to Agent Framework's ``context_mode="last_agent"``).
@@ -27,8 +26,6 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
-
-from langchain_azure_ai.agents.hosting import ResponsesHostServer
 
 load_dotenv()
 
@@ -111,13 +108,6 @@ def _build_graph(model: ChatOpenAI):
     return builder.compile()
 
 
-# ── Entrypoint ───────────────────────────────────────────────────────
-def main() -> None:
-    graph = _build_graph(_build_chat_model())
-
-    port = int(os.environ.get("PORT", "8088"))
-    ResponsesHostServer(graph).run(port=port)
-
-
-if __name__ == "__main__":
-    main()
+def create_graph():
+    """Create the workflow graph loaded by the hosting entrypoint."""
+    return _build_graph(_build_chat_model())
